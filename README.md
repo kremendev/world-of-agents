@@ -35,6 +35,7 @@ src/
   assets/    pixel art as text: one string per row, '.' is transparent
   office/    the roster, tasks and workstations
   office/hall/  the Forge Hall: room layout, prop placements, drawing, and the text on top
+  page/      the page around the hall: task bar, task board, agent panel
   test/      test setup
 ```
 

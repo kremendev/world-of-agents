@@ -1,9 +1,12 @@
 :root {
   --bg: #17130f;
-  --panel: #1d1813;
+  --panel: #241d17;
   --line: #3a2f25;
   --text: #f3e9d8;
+  --muted: #b9a990;
   --ember-text: #ffb27a;
+  --primary: #f08a3c;
+  --focus: #ffd27a;
   --pixel-font: 'Pixelify Sans Variable', ui-monospace, Consolas, monospace;
 
   color-scheme: dark;
@@ -28,10 +31,34 @@ body {
   gap: 20px;
 }
 
+/* Desktop first: brand, run info and controls on one row; they wrap onto more rows on narrow screens. */
 .app-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+
+.brand {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.run-info {
+  flex: 1 1 320px;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  font-size: 14px;
+}
+
+.run-task {
+  max-width: 40ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 h1 {
@@ -57,7 +84,8 @@ h1 {
 }
 
 .run-controls button {
-  padding: 2px 12px;
+  min-height: 44px;
+  padding: 0 16px;
   border: 2px solid #1a1410;
   background: #4a2a12;
   color: var(--ember-text);
@@ -70,8 +98,9 @@ h1 {
   background: #5e3618;
 }
 
-.run-controls button:focus-visible {
-  outline: 2px solid var(--ember-text);
+.run-controls button:focus-visible,
+.task-bar :focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -247,4 +276,251 @@ h1 {
   display: block;
   height: 100%;
   background: #c0302a;
+}
+
+/* ---- Agent buttons over the hall: --x/--y are the agent's feet, --w/--h its size, all in art px. ---- */
+
+.agent-button {
+  position: absolute;
+  left: calc(var(--u) * var(--x) * 1px);
+  top: calc(var(--u) * (var(--y) - var(--h) / 2) * 1px);
+  width: max(44px, calc(var(--u) * var(--w) * 1px));
+  height: max(44px, calc(var(--u) * var(--h) * 1px));
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.agent-button[aria-pressed='true'] {
+  outline: 2px dashed var(--primary);
+  outline-offset: 2px;
+}
+
+.agent-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* ---- The page around the hall ---- */
+
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--pixel-font);
+  font-weight: 600;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+h3 {
+  font-size: 15px;
+}
+
+p {
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.panel {
+  box-sizing: border-box;
+  padding: 16px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+
+.panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  display: inline-block;
+  padding: 2px 8px;
+  border: 1px solid #15100c;
+  font-family: var(--pixel-font);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Task bar */
+
+.task-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-label {
+  font-family: var(--pixel-font);
+  font-size: 15px;
+}
+
+.task-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-row input {
+  flex: 1 1 280px;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  border: 2px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.task-row input::placeholder {
+  color: var(--muted);
+}
+
+.primary {
+  min-height: 44px;
+  padding: 0 24px;
+  border: 0;
+  background: var(--primary);
+  color: var(--bg);
+  font-family: var(--pixel-font);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.note {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Task board (about 1/3) and agent panel (about 2/3), stacked on narrow screens. */
+
+.lower {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .lower {
+    grid-template-columns: 1fr;
+  }
+}
+
+.board-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.board-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.status-chip {
+  width: 96px;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.agent-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.agent-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.sprite-tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 120px;
+  height: 120px;
+  border: 2px solid #15100c;
+  background: #15100c;
+}
+
+.sprite-preview {
+  display: block;
+}
+
+.agent-intro {
+  flex: 1 1 240px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+  font-size: 14px;
+}
+
+.details dt {
+  color: var(--muted);
+}
+
+.details dd {
+  margin: 0;
+}
+
+.waiting-note {
+  padding: 8px 12px;
+  border-left: 3px solid #eadcc4;
+  background: #3a342c;
+  color: #eadcc4;
+  font-size: 14px;
+}
+
+.activity {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+/* Read by screen readers, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

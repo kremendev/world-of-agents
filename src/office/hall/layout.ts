@@ -20,6 +20,9 @@ export const DOORWAY = { x: 308, y: 244, w: 56, h: 54 } as const satisfies Rect;
 /** The furnace in the great hall: it glows brighter the more agents are working. */
 export const FURNACE = { x: 214, y: 8, w: 80, h: 56 } as const satisfies Rect;
 
+/** The furnace mouth, inside its dark frame: the part whose colour shows how busy the hall is. */
+export const FURNACE_MOUTH = { x: 236, y: 33, w: 36, h: 23 } as const satisfies Rect;
+
 /** The wall dashboard in the Lead/PM room. */
 export const DASHBOARD = { x: 52, y: 14, w: 108, h: 47 } as const satisfies Rect;
 

@@ -3,7 +3,10 @@ import type { OfficeEvent } from '../events/schema';
 import {
   INITIAL_OFFICE,
   MAX_MESSAGES,
+  MAX_LOG,
   MAX_TASKS,
+  doneCount,
+  logFor,
   officeReducer,
   workingCount,
   type OfficeState,
@@ -123,5 +126,69 @@ describe('workingCount', () => {
       { type: 'state', agent: 'reviewer', state: 'waiting', at: 0 },
     ]);
     expect(workingCount(busy)).toBe(3);
+  });
+});
+
+describe('activity log', () => {
+  const say = (
+    from: 'lead' | 'designer' | 'backend',
+    to: 'lead' | 'backend' | 'you',
+    text: string,
+  ): OfficeEvent => ({
+    type: 'message',
+    from,
+    to,
+    text,
+    at: 0,
+  });
+
+  it('records every state change and message, oldest first', () => {
+    const next = apply([
+      { type: 'state', agent: 'backend', state: 'writing', taskId: 'api', at: 5 },
+      say('lead', 'backend', 'How is it going?'),
+      { type: 'tokens', agent: 'lead', input: 1, output: 1, at: 6 },
+      task('api'),
+    ]);
+    expect(next.log).toEqual([
+      { kind: 'state', agent: 'backend', state: 'writing', taskId: 'api', at: 5 },
+      { kind: 'message', from: 'lead', to: 'backend', text: 'How is it going?', at: 0 },
+    ]);
+  });
+
+  it(`keeps only the newest ${MAX_LOG} entries`, () => {
+    const next = apply(Array.from({ length: MAX_LOG + 3 }, (_, i) => message(`m${i}`)));
+    expect(next.log).toHaveLength(MAX_LOG);
+    expect(next.log[0]).toMatchObject({ text: 'm3' });
+  });
+
+  it('gives each agent only its own events, newest first: its state changes and messages it sent or got', () => {
+    const next = apply([
+      { type: 'state', agent: 'backend', state: 'reading', at: 0 },
+      { type: 'state', agent: 'designer', state: 'writing', at: 1 },
+      say('designer', 'lead', 'Not for the backend'),
+      say('lead', 'backend', 'For the backend'),
+      say('backend', 'you', 'From the backend'),
+      { type: 'state', agent: 'backend', state: 'writing', at: 2 },
+    ]);
+    expect(logFor(next, 'backend').map((e) => (e.kind === 'state' ? e.state : e.text))).toEqual([
+      'writing',
+      'From the backend',
+      'For the backend',
+      'reading',
+    ]);
+    expect(logFor(INITIAL_OFFICE, 'backend')).toEqual([]);
+  });
+
+  it('never reorders the log it reads from', () => {
+    const next = apply([message('a'), message('b')]);
+    logFor(next, 'lead');
+    expect(next.log.map((e) => (e.kind === 'message' ? e.text : ''))).toEqual(['a', 'b']);
+  });
+});
+
+describe('doneCount', () => {
+  it('counts the tasks that are done', () => {
+    expect(doneCount(INITIAL_OFFICE)).toBe(0);
+    expect(doneCount(apply([task('a', 'done'), task('b'), task('c', 'done')]))).toBe(2);
   });
 });

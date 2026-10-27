@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
+import type { AgentId } from './events/schema';
 import { HallView } from './office/hall/HallView';
+import { agentById } from './office/roster';
+import { AgentPanel } from './page/AgentPanel';
+import { DEFAULT_TASK } from './page/task';
+import { TaskBar } from './page/TaskBar';
+import { TaskBoard } from './page/TaskBoard';
 import { DEMO_RUN } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
-import { INITIAL_OFFICE, officeReducer } from './state/office';
+import { INITIAL_OFFICE, doneCount, officeReducer } from './state/office';
 
 type RunStatus = 'playing' | 'paused' | 'ended';
 
@@ -11,6 +17,8 @@ export default function App() {
   const [status, setStatus] = useState<RunStatus>('playing');
   // Goes up on every restart; the hall puts everyone back at their rest spots when it changes.
   const [run, setRun] = useState(0);
+  const [task, setTask] = useState(DEFAULT_TASK);
+  const [selected, setSelected] = useState<AgentId>('lead');
   const player = useRef<Player | null>(null);
 
   useEffect(() => {
@@ -33,12 +41,32 @@ export default function App() {
     setStatus(next);
     if (player.current) action(player.current);
   };
+  const restart = control('playing', (p) => p.restart());
+
+  // v1 sends nothing anywhere: the typed task only labels the run, and the scripted run starts over.
+  const send = (text: string) => {
+    setTask(text);
+    restart();
+  };
+
+  const toYou = [...office.messages].reverse().find((m) => m.to === 'you');
 
   return (
     <main className="app">
       <header className="app-header">
-        <h1>World of Agents</h1>
-        <span className="badge">Forge Hall · v1</span>
+        <div className="brand">
+          <h1>World of Agents</h1>
+          <span className="badge">Forge Hall · v1</span>
+        </div>
+        <div className="run-info">
+          <span className="run-task" title={task}>
+            Run: {task}
+          </span>
+          <span>
+            Tasks done: {doneCount(office)} of {office.tasks.length}
+          </span>
+          <span>Tokens: 0</span>
+        </div>
         <div className="run-controls" role="group" aria-label="Demo run">
           <button type="button" onClick={control('playing', (p) => p.play())} disabled={status !== 'paused'}>
             Play
@@ -46,15 +74,27 @@ export default function App() {
           <button type="button" onClick={control('paused', (p) => p.pause())} disabled={status !== 'playing'}>
             Pause
           </button>
-          <button type="button" onClick={control('playing', (p) => p.restart())}>
+          <button type="button" onClick={restart}>
             Restart
           </button>
         </div>
       </header>
 
       <section aria-label="Forge Hall office" className="scene-scroll">
-        <HallView office={office} run={run} />
+        <HallView office={office} run={run} selected={selected} onSelect={setSelected} />
       </section>
+
+      <TaskBar onSend={send} />
+
+      <div className="lower">
+        <TaskBoard office={office} />
+        <AgentPanel office={office} agent={selected} />
+      </div>
+
+      {/* The bubbles are hidden from screen readers; this reads out what the agents tell you. */}
+      <div className="sr-only" aria-live="polite">
+        {toYou ? `${agentById(toYou.from).name}: ${toYou.text}` : ''}
+      </div>
     </main>
   );
 }

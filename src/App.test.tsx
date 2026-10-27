@@ -94,7 +94,7 @@ describe('App', () => {
 
   it('plays the demo run: the dashboard and furnace follow it', () => {
     const app = renderApp();
-    expect(screen.getByText('No tasks yet')).toBeInTheDocument();
+    expect(screen.getAllByText('No tasks yet')).toHaveLength(2); // the hall dashboard and the task board
     expect(screen.getByText('Furnace · cold')).toBeInTheDocument();
     expect(app.tiles()).toEqual([]);
 
@@ -182,7 +182,7 @@ describe('App', () => {
     fireEvent.click(app.button('Restart'));
     act(() => vi.advanceTimersByTime(16)); // one animation frame
     for (const id of AGENT_IDS) expect(app.feet(id), id).toEqual(xy(REST_SPOTS[id]));
-    expect(screen.getByText('No tasks yet')).toBeInTheDocument();
+    expect(screen.getAllByText('No tasks yet')).toHaveLength(2);
     expect(app.button('Pause')).toBeEnabled();
   });
 
@@ -205,5 +205,107 @@ describe('App', () => {
     } finally {
       media.mockRestore();
     }
+  });
+
+  it('shows the run in the header: task, tasks done and tokens', () => {
+    const app = renderApp();
+    expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
+    expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
+    expect(screen.getByText('Tokens: 0')).toBeInTheDocument();
+    app.at(stepStart(4) + 2500);
+    expect(screen.getByText('Tasks done: 1 of 5')).toBeInTheDocument();
+  });
+
+  describe('task bar', () => {
+    const input = () => screen.getByRole('textbox', { name: 'Task for the Lead/PM' });
+    const send = (text: string) => {
+      fireEvent.change(input(), { target: { value: text } });
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    };
+
+    it('trims the task, shows it as the run, clears the field and restarts the run', () => {
+      const app = renderApp();
+      app.at(stepStart(6));
+      send('  Build a forum  ');
+      act(() => vi.advanceTimersByTime(16)); // one animation frame
+      expect(screen.getByText('Run: Build a forum')).toBeInTheDocument();
+      expect(input()).toHaveValue('');
+      expect(screen.getAllByText('No tasks yet')).toHaveLength(2);
+      for (const id of AGENT_IDS) expect(app.feet(id), id).toEqual(xy(REST_SPOTS[id]));
+    });
+
+    it('ignores empty input: no new run, no restart', () => {
+      const app = renderApp();
+      app.at(stepStart(3) + 1000);
+      send('   ');
+      expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
+      expect(app.tiles()).toHaveLength(5);
+    });
+
+    it('caps the task at 500 characters: maxLength, plus a check behind it', () => {
+      renderApp();
+      expect(input()).toHaveAttribute('maxLength', '500');
+      send('x'.repeat(600)); // fireEvent skips maxLength, like a script would
+      expect(screen.getByText(`Run: ${'x'.repeat(500)}`)).toBeInTheDocument();
+    });
+
+    it('shows the task as plain text, never as HTML', () => {
+      const { container } = renderApp();
+      send('<img src=x onerror="alert(1)">');
+      expect(container.querySelector('img')).toBeNull();
+      expect(screen.getByText('Run: <img src=x onerror="alert(1)">')).toBeInTheDocument();
+    });
+  });
+
+  describe('agent selection', () => {
+    const agentButton = (name: RegExp) => screen.getByRole('button', { name });
+    const panelHeading = () =>
+      screen.getByRole('heading', { level: 2, name: /Lead\/PM|Designer|dev|Reviewer/ });
+
+    it('starts with the Lead/PM selected and shown in the panel', () => {
+      renderApp();
+      expect(agentButton(/^Lead\/PM, Goblin/)).toHaveAttribute('aria-pressed', 'true');
+      expect(panelHeading()).toHaveTextContent('Lead/PM');
+    });
+
+    it('shows the clicked agent in the panel', () => {
+      renderApp();
+      fireEvent.click(agentButton(/^Backend dev, Orc/));
+      expect(panelHeading()).toHaveTextContent('Backend dev');
+      expect(agentButton(/^Backend dev, Orc/)).toHaveAttribute('aria-pressed', 'true');
+      expect(agentButton(/^Lead\/PM, Goblin/)).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('uses real buttons that keyboard and screen-reader users can reach', () => {
+      renderApp();
+      const designer = agentButton(/^Designer, Elf, Idle\. Show details$/);
+      expect(designer.tagName).toBe('BUTTON');
+      expect(designer.tabIndex).toBe(0);
+      designer.focus();
+      expect(designer).toHaveFocus();
+    });
+
+    it("lists only the selected agent's activity", () => {
+      const app = renderApp();
+      app.at(stepStart(5) + 1500);
+      fireEvent.click(agentButton(/^Backend dev, Orc/));
+      const items = screen.getAllByRole('listitem').map((li) => li.textContent);
+      expect(items).toContain('To Lead/PM: Routes are up. Hammering out the rest.');
+      expect(items).not.toContain('To Frontend dev: Screens are on your desk.');
+      expect(items).not.toContain('From Designer: Screens are on your desk.');
+    });
+  });
+
+  it('announces what the agents tell you in a polite live region', () => {
+    const app = renderApp();
+    const live = app.container.querySelector('[aria-live="polite"]')!;
+    expect(live).toHaveTextContent('');
+    app.at(stepStart(2) + 100);
+    expect(live).toHaveTextContent('Lead/PM: On it: Create a dashboard. Planning the work first.');
+    // Agents talking to each other ("Screens are on your desk.") are not announced.
+    app.at(stepStart(5) + 500);
+    expect(live).toHaveTextContent('Lead/PM: On it: Create a dashboard. Planning the work first.');
+    app.at(stepStart(10));
+    expect(live).toHaveTextContent('Lead/PM: Your dashboard is ready: 5 of 5 tasks done, review passed.');
   });
 });

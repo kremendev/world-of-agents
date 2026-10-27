@@ -125,9 +125,8 @@ function furnace(ctx: CanvasRenderingContext2D): void {
   for (let y = inner.y + 7; y < inner.y + inner.h; y += 8) ctx.fillRect(inner.x, y, inner.w, 1);
   for (let x = inner.x + 15; x < inner.x + inner.w; x += 16) ctx.fillRect(x, inner.y, 1, inner.h);
   rect(ctx, { x: inner.x, y: inner.y, w: inner.w, h: 3 }, '#5e1414');
-  // The mouth, cold for now: the event script will make it glow.
+  // The mouth's frame. The mouth itself (FURNACE_MOUTH) is drawn live by furnaceDrawables(): it shows how busy we are.
   rect(ctx, { x: 234, y: 31, w: 40, h: 27 }, C.edge);
-  rect(ctx, { x: 236, y: 33, w: 36, h: 23 }, '#5a2a10');
 }
 
 /** Wall between two top rooms, with a door gap from y 186 to 219. */

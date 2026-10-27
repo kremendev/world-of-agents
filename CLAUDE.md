@@ -33,12 +33,16 @@ src/state/        office.ts: OfficeState, INITIAL_OFFICE, the pure officeReducer
 src/script/       demoRun.ts (the 9-step run as timed events), player.ts (play/pause/restart on a timer)
 src/pixel/        sprite format, crisp scaling (scale.ts), baking and drawing (draw.ts)
 src/assets/       pixel art as text: characters.ts, workstation.ts, hall.ts (generated from the design)
-src/office/       roster.ts (agents), stations.ts (workstation builder), tasks.ts (tile colours and letters)
+src/office/       roster.ts (agents: race, look, v2 model and tools), stations.ts (workstation builder),
+                  tasks.ts (tile and status chip colours), states.ts (state bubble and chip colours, words)
 src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces.ts, draw.ts,
                   HallView.tsx (canvas + animation loop), HallLabels.tsx (HTML text and bubbles over it)
                   walk.ts: spots, doors, route(), positionAt(), from the v1 design. Ask before moving a spot.
                   smalltalk.ts: rest-room lines (our flavour text, not agent output)
                   destination.ts: destinationFor(agent, office), walkers.ts: walk queue, talk.ts: bubbles
+src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap), TaskBoard,
+                  AgentPanel (details and activity of the selected agent)
+docs/             step briefs from the v1 design (step3-brief.md)
 ```
 
 ## How the hall is drawn
@@ -61,9 +65,16 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
 - **Walking**: `destinationFor()` turns state + `taskId` into a spot; `walkers.ts` walks `route()` there and
   never reroutes mid-walk (it finishes, then goes to the newest destination). Reduced motion: no hop, bob or
   shake, and agents jump straight to their destination.
+- **Lights**: every halo and every prop marked `flicker` (sconces, candelabras, braziers, the fireplace fire)
+  steps its opacity 1 → 0.9 → 0.8 over 1.1 s (`flickerAlpha()`), each with its own phase (`lightPhase()`).
+  The scenery is built once per loop; lights read the loop's `now` when drawn. Reduced motion: no flicker.
+- **Furnace**: the mouth (`FURNACE_MOUTH`) and its glow are drawn live by `furnaceDrawables(workingCount)`,
+  not baked into the furnace surface. The glow flickers like any halo; the mouth colour never does
+  (it is the busy indicator, so it keeps changing with reduced motion too).
 - **Text** (room plaques, name plates, dashboard, furnace label, "You" sign, state and speech bubbles, "!!")
   is HTML in `HallLabels.tsx`, positioned in art px times `--u` (CSS px per art px), so it stays sharp.
-  The labels re-render only when an agent's tag changes, not every frame.
+  The labels re-render only when an agent's tag changes, not every frame. That text is `aria-hidden`;
+  the agent `<button>`s over each sprite are not (they select the agent shown in the agent panel).
 - `placements.ts` and `assets/hall.ts` were generated from the v1 design. Hand-edit them now; there is no
   generator in this repo.
 
@@ -104,6 +115,10 @@ Do not change the look without asking. New ideas go into a later version.
 - The Anthropic API key (v2) lives only in the back-end's `.env`, which git ignores. Never in a `VITE_`
   variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads.
+- The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2
+  it goes to the Lead/PM, which makes it a **prompt-injection surface**: send it as clearly marked user
+  data, never splice it into the system prompt, and rely on least privilege, not on the prompt, to limit
+  what a hijacked agent can do. Agent output that echoes it is still untrusted text.
 - Flag any security issue you notice and explain the risk, even if it is outside the current task.
 
 ## Testing notes
@@ -117,6 +132,8 @@ Do not change the look without asking. New ideas go into a later version.
   `requestAnimationFrame`, so timer tests need nothing extra. Wrap timer advances in `act()` when React is
   rendering, and advance in small slices (App.test uses 50 ms): React only renders when an `act()` ends, so
   one big jump lands every event at once and the hall sees them late.
+- `fireEvent` does not turn Enter/Space into a click. Agent selection tests check the controls are real
+  `<button>`s (browsers give them Enter/Space); keyboard use was checked in real Chrome for step 3.
 - jsdom has no `matchMedia`: `setup.ts` stubs it as "no match". To test reduced motion, `vi.spyOn` it and
   restore that one spy. Don't call `vi.restoreAllMocks()`: it also undoes setup.ts's canvas mock.
 - If Vitest crashes with "Cannot read properties of undefined (reading 'config')" on `describe`, check the
@@ -137,8 +154,14 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    before the next step. Walking hops 1px every 150 ms, a seated orc writing jitters and shakes its keyboard
    with "!!", and busy agents bob. State bubbles over every agent (none while the state is `walking`),
    message speech bubbles for 4 s (80 chars, plain text), and rest-room small talk every 3 s.
+3. Lights and the page (docs/step3-brief.md). The furnace mouth goes `#5a2a10` / `#f08a3c` / `#ffb15a`
+   with 0 / 1 / 2+ working, with a glow that grows up to 4; candles, braziers, the fire and every halo
+   flicker (off with reduced motion). Under the hall: the task bar (Send trims, ignores empty, caps at 500,
+   labels the run and restarts it; v1 sends nothing anywhere), the task board, and the agent panel for the
+   agent picked with the buttons over the sprites (Lead/PM by default): race, look, state, task, v2
+   model and tools, waiting note, and its own activity newest first. The reducer keeps a `log` of state
+   changes and messages (200 max) for that. An `aria-live` region reads out messages sent to you.
 
-Next, in order:
+Next:
 
-3. Animation loop: furnace glow, candle/fire flicker, task bar input, agent panel, task board.
 4. v2: back-end on the Claude Agent SDK sending the same events over Server-Sent Events.

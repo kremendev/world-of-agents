@@ -4,6 +4,7 @@ import { drawSprite } from '../../pixel/draw';
 import { spriteSize } from '../../pixel/sprite';
 import type { Agent } from '../roster';
 import type { Station } from '../stations';
+import { FURNACE_MOUTH } from './layout';
 import { HALOS, PROPS, type Halo } from './placements';
 import { surfaces, type Drawable } from './surfaces';
 import type { Point } from './walk';
@@ -11,31 +12,119 @@ import type { Point } from './walk';
 /** Floors, the back wall and rugs (z <= FLOOR_Z) never change, so HallView draws them once into a cache. */
 export const FLOOR_Z = 1;
 
-function drawHalo(ctx: CanvasRenderingContext2D, h: Halo): void {
+/** Warm light fading out from the centre. `inner` and `outer` are "r, g, b" for the centre and the falloff. */
+function drawHalo(
+  ctx: CanvasRenderingContext2D,
+  h: Halo,
+  inner = '255, 160, 80',
+  outer = '255, 120, 50',
+): void {
   const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.radius);
-  g.addColorStop(0, `rgba(255, 160, 80, ${h.strength})`);
-  g.addColorStop(0.45, `rgba(255, 120, 50, ${(h.strength / 3).toFixed(3)})`);
-  g.addColorStop(0.7, 'rgba(255, 120, 50, 0)');
+  g.addColorStop(0, `rgba(${inner}, ${h.strength})`);
+  g.addColorStop(0.45, `rgba(${outer}, ${(h.strength / 3).toFixed(3)})`);
+  g.addColorStop(0.7, `rgba(${outer}, 0)`);
   ctx.fillStyle = g;
   ctx.fillRect(h.x - h.radius, h.y - h.radius, h.radius * 2, h.radius * 2);
 }
 
 const byZ = (a: Drawable, b: Drawable) => a.z - b.z;
 
+/** One flicker cycle: opacity steps 1 → 0.9 → 0.8, then starts again. */
+const FLICKER_MS = 1100;
+const FLICKER_STEPS = 3;
+
+/** Opacity of a light at `now`. `phase` offsets it so lights don't pulse in sync. Reduced motion: always 1. */
+export function flickerAlpha(now: number, phase: number, reducedMotion: boolean): number {
+  if (reducedMotion) return 1;
+  const t = (((now + phase) % FLICKER_MS) + FLICKER_MS) % FLICKER_MS;
+  const step = Math.floor(t / (FLICKER_MS / FLICKER_STEPS));
+  return 1 - (0.2 * step) / (FLICKER_STEPS - 1);
+}
+
+/** Spreads the i-th light's phase over the cycle by the golden ratio, so neighbours rarely match. */
+export const lightPhase = (i: number) => Math.floor(((i * 0.618034) % 1) * FLICKER_MS);
+
+/** Runs `draw` at opacity `alpha`, then puts the opacity back to 1. */
+function dimmed(ctx: CanvasRenderingContext2D, alpha: number, draw: () => void): void {
+  ctx.globalAlpha = alpha;
+  draw();
+  ctx.globalAlpha = 1;
+}
+
 /**
  * Everything in the hall that never moves, sorted back to front. Sorting is stable, so things with the
  * same z keep the order they were listed in: surfaces, then halos, then props.
+ * Lights (every halo, and props marked `flicker`) ask `lightAlpha(phase)` for their opacity on each draw.
  */
-export function sceneryDrawables(): Drawable[] {
+export function sceneryDrawables(lightAlpha: (phase: number) => number = () => 1): Drawable[] {
+  let lights = 0;
   const items: Drawable[] = [
     ...surfaces(),
-    ...HALOS.map((h) => ({ z: h.z, draw: (ctx: CanvasRenderingContext2D) => drawHalo(ctx, h) })),
-    ...PROPS.map((p) => ({
-      z: p.z,
-      draw: (ctx: CanvasRenderingContext2D) => drawSprite(ctx, p.sprite, p.x, p.y),
-    })),
+    ...HALOS.map((h) => {
+      const phase = lightPhase(lights++);
+      return {
+        z: h.z,
+        draw: (ctx: CanvasRenderingContext2D) => dimmed(ctx, lightAlpha(phase), () => drawHalo(ctx, h)),
+      };
+    }),
+    ...PROPS.map((p) => {
+      if (!p.flicker)
+        return { z: p.z, draw: (ctx: CanvasRenderingContext2D) => drawSprite(ctx, p.sprite, p.x, p.y) };
+      const phase = lightPhase(lights++);
+      return {
+        z: p.z,
+        draw: (ctx: CanvasRenderingContext2D) =>
+          dimmed(ctx, lightAlpha(phase), () => drawSprite(ctx, p.sprite, p.x, p.y)),
+      };
+    }),
   ];
   return items.sort(byZ);
+}
+
+/** How the furnace mouth looks with `working` agents busy: its fill, and the glow around it (none when cold). */
+export function furnaceLook(working: number): {
+  fill: string;
+  glow: { radius: number; strength: number } | null;
+} {
+  if (working <= 0) return { fill: '#5a2a10', glow: null };
+  const n = Math.min(working, 4);
+  return {
+    fill: working === 1 ? '#f08a3c' : '#ffb15a',
+    glow: { radius: 7 + 6 * n, strength: 0.3 + 0.15 * n },
+  };
+}
+
+/** The furnace glow's flicker phase: the one after every scenery light's, so it gets its own. */
+const FURNACE_PHASE = lightPhase(HALOS.length + PROPS.filter((p) => p.flicker).length);
+
+/**
+ * The furnace mouth and its glow, drawn just above the furnace body (z 65.5), glow under the mouth.
+ * The glow flickers like every other halo (`lightAlpha`). The mouth's colour never does: it is
+ * information, not decoration.
+ */
+export function furnaceDrawables(
+  working: number,
+  lightAlpha: (phase: number) => number = () => 1,
+): Drawable[] {
+  const { fill, glow } = furnaceLook(working);
+  const m = FURNACE_MOUTH;
+  const items: Drawable[] = [];
+  if (glow) {
+    const halo: Halo = { x: m.x + m.w / 2, y: m.y + m.h / 2, z: 65.52, ...glow };
+    items.push({
+      z: halo.z,
+      draw: (ctx) =>
+        dimmed(ctx, lightAlpha(FURNACE_PHASE), () => drawHalo(ctx, halo, '240, 138, 60', '240, 138, 60')),
+    });
+  }
+  items.push({
+    z: 65.54,
+    draw: (ctx) => {
+      ctx.fillStyle = fill;
+      ctx.fillRect(m.x, m.y, m.w, m.h);
+    },
+  });
+  return items;
 }
 
 /**

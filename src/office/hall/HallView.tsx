@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import type { AgentId } from '../../events/schema';
 import { pixelScale } from '../../pixel/scale';
 import { spriteSize } from '../../pixel/sprite';
-import type { Message, OfficeState } from '../../state/office';
+import { workingCount, type Message, type OfficeState } from '../../state/office';
 import { ROSTER } from '../roster';
 import { SEATS, destinationFor } from './destination';
 import {
@@ -11,6 +11,8 @@ import {
   agentDrawable,
   bakeFloor,
   drawHall,
+  flickerAlpha,
+  furnaceDrawables,
   motion,
   sceneryDrawables,
   stationDrawables,
@@ -40,13 +42,23 @@ const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
 /**
  * The Forge Hall: one canvas redrawn every animation frame, with HTML text on top.
  * `run` changes on Restart, which puts every agent back at its rest spot at once.
+ * Each agent has a button over it; `selected` is the one the agent panel shows.
  */
-export function HallView({ office, run }: { office: OfficeState; run: number }) {
+export function HallView({
+  office,
+  run,
+  selected,
+  onSelect,
+}: {
+  office: OfficeState;
+  run: number;
+  selected: AgentId;
+  onSelect: (id: AgentId) => void;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(currentDpr);
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion);
   const stations = useMemo(() => hallStations(), []);
-  const scenery = useMemo(() => sceneryDrawables(), []);
   // Memoised: the frame loop restarts whenever `scale` changes, so it must only change with the screen.
   const scale = useMemo(() => pixelScale(HALL.width, HALL.height, TARGET_SCALE, dpr), [dpr]);
   const cssPerArtPixel = scale.cssWidth / HALL.width;
@@ -91,6 +103,10 @@ export function HallView({ office, run }: { office: OfficeState; run: number }) 
     const ctx = canvasRef.current?.getContext('2d') ?? null;
     const per = scale.devicePixelsPerArtPixel;
     const { canvasWidth, canvasHeight } = scale;
+    let now = performance.now();
+    // Lights read `now` when they are drawn, so they flicker without rebuilding the scenery every frame.
+    const lightAlpha = (phase: number) => flickerAlpha(now, phase, reducedMotion);
+    const scenery = sceneryDrawables(lightAlpha);
     const floor = ctx
       ? bakeFloor(
           scenery.filter((d) => d.z <= FLOOR_Z),
@@ -104,9 +120,10 @@ export function HallView({ office, run }: { office: OfficeState; run: number }) 
     let shownTags = '';
 
     const frame = () => {
-      const now = performance.now();
-      const { agents } = officeRef.current;
-      const drawables = [...above];
+      now = performance.now();
+      const latest = officeRef.current;
+      const { agents } = latest;
+      const drawables = [...above, ...furnaceDrawables(workingCount(latest), lightAlpha)];
       const keyboardDx: Partial<Record<AgentId, number>> = {};
       const idleInRest: AgentId[] = [];
       const next: AgentTag[] = [];
@@ -126,7 +143,7 @@ export function HallView({ office, run }: { office: OfficeState; run: number }) 
           id: agent.id,
           x: point.x,
           y: point.y,
-          height: spriteSize(agent.sprite).height,
+          ...spriteSize(agent.sprite),
           state,
           smashing: activity === 'smashing',
           speech: null,
@@ -160,7 +177,7 @@ export function HallView({ office, run }: { office: OfficeState; run: number }) 
 
     frame();
     return () => cancelAnimationFrame(frameId);
-  }, [scale, scenery, stations, reducedMotion]);
+  }, [scale, stations, reducedMotion]);
 
   return (
     <div className="hall" style={{ width: `${scale.cssWidth}px`, height: `${scale.cssHeight}px` }}>
@@ -172,7 +189,14 @@ export function HallView({ office, run }: { office: OfficeState; run: number }) 
         role="img"
         aria-label="The Forge Hall: the Lead/PM room with the dashboard, the great hall with the furnace, the rest room, and the dev room with the library nook, where the Lead/PM, Designer, Frontend dev, Backend dev and Reviewer work."
       />
-      <HallLabels u={cssPerArtPixel} stations={stations} office={office} agents={tags} />
+      <HallLabels
+        u={cssPerArtPixel}
+        stations={stations}
+        office={office}
+        agents={tags}
+        selected={selected}
+        onSelect={onSelect}
+      />
     </div>
   );
 }
