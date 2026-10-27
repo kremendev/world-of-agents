@@ -1,0 +1,250 @@
+:root {
+  --bg: #17130f;
+  --panel: #1d1813;
+  --line: #3a2f25;
+  --text: #f3e9d8;
+  --ember-text: #ffb27a;
+  --pixel-font: 'Pixelify Sans Variable', ui-monospace, Consolas, monospace;
+
+  color-scheme: dark;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.app {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--pixel-font);
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.badge {
+  padding: 2px 10px;
+  border: 2px solid #1a1410;
+  background: #4a2a12;
+  color: var(--ember-text);
+  font-family: var(--pixel-font);
+  font-size: 13px;
+}
+
+.run-controls {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.run-controls button {
+  padding: 2px 12px;
+  border: 2px solid #1a1410;
+  background: #4a2a12;
+  color: var(--ember-text);
+  font-family: var(--pixel-font);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.run-controls button:hover:not(:disabled) {
+  background: #5e3618;
+}
+
+.run-controls button:focus-visible {
+  outline: 2px solid var(--ember-text);
+  outline-offset: 2px;
+}
+
+.run-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* The hall keeps its pixel size; narrower windows scroll it sideways instead of blurring it. */
+.scene-scroll {
+  overflow-x: auto;
+  border: 2px solid var(--line);
+  background: var(--panel);
+}
+
+.hall {
+  position: relative;
+  margin: 0 auto;
+}
+
+.hall canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+/* ---- Text on top of the hall. --u is CSS px per art pixel; --x/--y/--w/--h are art pixels. ---- */
+
+.hall-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  font-family: var(--pixel-font);
+  font-size: calc(var(--u) * 6.5px);
+  line-height: 1.25;
+}
+
+.hall-row {
+  position: absolute;
+  left: calc(var(--u) * var(--x) * 1px);
+  top: calc(var(--u) * var(--y) * 1px);
+  width: calc(var(--u) * var(--w) * 1px);
+  display: flex;
+  justify-content: center;
+}
+
+.plaque {
+  padding: 0 calc(var(--u) * 5px);
+  background: #5a3420;
+  border: calc(var(--u) * 1px) solid #15100c;
+  color: #efe2bf;
+  white-space: nowrap;
+}
+
+.nameplate {
+  padding: calc(var(--u) * 0.5px) calc(var(--u) * 5px);
+  background: #17130f;
+  border: calc(var(--u) * 1px) solid var(--line);
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.furnace-label {
+  color: var(--text);
+  font-size: calc(var(--u) * 6px);
+}
+
+.you-sign {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  background: #efe2bf;
+  border: calc(var(--u) * 1px) solid #15100c;
+  color: #15100c;
+  font-size: calc(var(--u) * 6px);
+}
+
+.dashboard {
+  position: absolute;
+  left: calc(var(--u) * var(--x) * 1px);
+  top: calc(var(--u) * var(--y) * 1px);
+  width: calc(var(--u) * var(--w) * 1px);
+  height: calc(var(--u) * var(--h) * 1px);
+  box-sizing: border-box;
+  padding: calc(var(--u) * 2.5px) calc(var(--u) * 4px);
+  background: #1a0808;
+  border: calc(var(--u) * 2px) solid #15100c;
+  box-shadow: inset 0 0 0 calc(var(--u) * 1px) #5e1414;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 2px);
+  font-size: calc(var(--u) * 6px);
+  color: #efe2bf;
+}
+
+.dashboard-head {
+  display: flex;
+  justify-content: space-between;
+}
+
+.dashboard-title {
+  color: #ff9a7a;
+}
+
+.dashboard-tiles {
+  display: flex;
+  gap: calc(var(--u) * 3px);
+  /* Keeps the progress bar in place before the first task arrives. */
+  min-height: calc(var(--u) * 16px);
+}
+
+.dashboard-tile {
+  width: calc(var(--u) * 16px);
+  height: calc(var(--u) * 16px);
+  box-sizing: border-box;
+  border: calc(var(--u) * 1px) solid #15100c;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #15100c;
+}
+
+/* Bubbles over each agent. --x/--y are the agent's feet and --h its height, so they sit just above its head. */
+.agent-tag {
+  position: absolute;
+  left: calc(var(--u) * var(--x) * 1px);
+  top: calc(var(--u) * (var(--y) - var(--h) - 2) * 1px);
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--u) * 2px);
+}
+
+.state-bubble {
+  padding: 0 calc(var(--u) * 3px);
+  border: calc(var(--u) * 1px) solid #15100c;
+  font-size: calc(var(--u) * 5.5px);
+  white-space: nowrap;
+}
+
+.smash {
+  margin-left: calc(var(--u) * 2px);
+  color: #ffe066;
+  font-weight: 700;
+}
+
+.speech {
+  width: max-content;
+  max-width: calc(var(--u) * 96px);
+  box-sizing: border-box;
+  padding: calc(var(--u) * 1px) calc(var(--u) * 4px);
+  background: #efe2bf;
+  border: calc(var(--u) * 1px) solid #15100c;
+  color: #15100c;
+  font-size: calc(var(--u) * 5.5px);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.dashboard-more {
+  background: #2a2624;
+  color: #efe2bf;
+}
+
+.dashboard-bar {
+  height: calc(var(--u) * 4px);
+  box-sizing: border-box;
+  background: #2a2624;
+  border: calc(var(--u) * 1px) solid #15100c;
+}
+
+.dashboard-bar > span {
+  display: block;
+  height: 100%;
+  background: #c0302a;
+}

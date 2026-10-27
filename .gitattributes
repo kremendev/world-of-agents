@@ -1,0 +1,2 @@
+# Prettier expects LF. Without this, core.autocrlf on Windows checks files out as CRLF and `npm run check` fails.
+* text=auto eol=lf
