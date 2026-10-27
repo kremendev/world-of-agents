@@ -1,4 +1,4 @@
-# Agent Office
+# World of Agents
 
 A pixel-art office where five AI agents (Lead/PM, Designer, Frontend dev, Backend dev, Reviewer) sit at
 desks in the Forge Hall and visibly work on the task you give them. Version 1 plays a scripted run with no AI

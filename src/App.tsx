@@ -37,7 +37,7 @@ export default function App() {
   return (
     <main className="app">
       <header className="app-header">
-        <h1>Agent Office</h1>
+        <h1>World of Agents</h1>
         <span className="badge">Forge Hall · v1</span>
         <div className="run-controls" role="group" aria-label="Demo run">
           <button type="button" onClick={control('playing', (p) => p.play())} disabled={status !== 'paused'}>

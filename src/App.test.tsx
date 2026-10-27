@@ -72,7 +72,7 @@ afterEach(() => {
 describe('App', () => {
   it('shows the Forge Hall with its rooms, the whole team and the run controls', () => {
     render(<App />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Agent Office' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'World of Agents' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /The Forge Hall/ })).toBeInTheDocument();
 
     for (const room of ['Lead/PM room', 'Great hall', 'Rest room', 'Dev room']) {

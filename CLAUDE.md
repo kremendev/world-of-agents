@@ -1,4 +1,4 @@
-# Agent Office
+# World of Agents
 
 A pixel-art web app where five AI agents work in a fantasy guild hall, the Forge Hall. You give a task
 ("Create a dashboard"); the Lead/PM splits it, the agents walk to their desks and visibly work, the Reviewer
