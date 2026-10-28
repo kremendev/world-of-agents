@@ -2,8 +2,9 @@
 
 A pixel-art web app where five AI agents work in a fantasy guild hall, the Forge Hall. You give a task
 ("Create a dashboard"); the Lead/PM splits it, the agents walk to their desks and visibly work, the Reviewer
-checks the result. v1 plays a scripted run with no AI calls; v2 connects real Claude agents through a back-end
-that sends the same events. Single user, runs locally, portfolio project.
+checks the result. v1 plays a scripted run with no AI calls; v2 watches real Claude Code runs: the plugin's
+hooks report what each agent does to a hall server on 127.0.0.1, which sends the page the same events.
+Single user, runs locally, portfolio project.
 
 ## Commands
 
@@ -116,10 +117,11 @@ Do not change the look without asking. New ideas go into a later version.
   plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
   secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads.
-- The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2
-  it goes to the Lead/PM, which makes it a **prompt-injection surface**: send it as clearly marked user
-  data, never splice it into the system prompt, and rely on least privilege, not on the prompt, to limit
-  what a hijacked agent can do. Agent output that echoes it is still untrusted text.
+- The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2's
+  Live mode the task bar is disabled: the task is typed in Claude Code, and the page never sends anything to
+  an agent. The prompt-injection surface is what agents read (files, tool output), not the page: their
+  prompts treat it as data, and least privilege, not the prompt, limits what a hijacked agent can do. The
+  prompt and agent text that reach the hall are still untrusted text.
 - Flag any security issue you notice and explain the risk, even if it is outside the current task.
 
 ## Testing notes
