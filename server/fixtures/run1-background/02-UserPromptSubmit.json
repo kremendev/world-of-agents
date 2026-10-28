@@ -1,0 +1,11 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "a0360910-24cf-4cfe-a785-95c7889e1fd4",
+  "permission_mode": "acceptEdits",
+  "agent_type": "world-of-agents:lead",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "Make a tiny hello page: a style.css with a dark theme (designer), and a server.js using node:http that serves index.html and style.css (backend). Keep each file under 30 lines. Then have the reviewer check it."
+}

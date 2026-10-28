@@ -1,0 +1,40 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "975428a4-9fdb-4400-8a4b-63987d0208c2",
+  "permission_mode": "acceptEdits",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Review hello page",
+    "prompt": "<redacted>",
+    "subagent_type": "world-of-agents:reviewer",
+    "run_in_background": false
+  },
+  "tool_response": {
+    "status": "completed",
+    "prompt": "<redacted>",
+    "agentId": "a23bd4a78eda41bd5",
+    "agentType": "world-of-agents:reviewer",
+    "toolsUsed": "<redacted>",
+    "harnessNoteCount": 1,
+    "harnessTailCount": 0,
+    "harnessSectionHash": "<redacted>",
+    "content": "<redacted>",
+    "resolvedModel": "claude-sonnet-5-5",
+    "totalDurationMs": 10771,
+    "totalTokens": 9097,
+    "totalToolUseCount": 3,
+    "usage": "<redacted>",
+    "toolStats": "<redacted>",
+    "canContinueAgent": false
+  },
+  "tool_use_id": "toolu_01XECGbvM14yGsYRrsrNsgM5",
+  "duration_ms": 10772
+}

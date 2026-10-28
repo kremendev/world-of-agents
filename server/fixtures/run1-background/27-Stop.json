@@ -1,0 +1,17 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "975428a4-9fdb-4400-8a4b-63987d0208c2",
+  "permission_mode": "acceptEdits",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "The hello page is built: style.css has a dark theme, there's an index.html, and server.js uses node:http to serve those two files on `PORT` or 3000. The designer made index.html as well, because the server needs a page to serve.\n- **Server:** it only serves `/`, `/index.html` and `/style.css`, so nothing else on disk can be reached. Any other path gets a 404, and a failed file read gets a 500.\n- **Reviewer:** no bugs, no security issues, and every file is under 30 lines (27, 15 and 27). Two optional extras: return 405 for methods other than GET, and add an `X-Content-Type-Options` header.\n- **Not run:** the backend agent wasn't allowed to use Bash, so no one has run server.js or `node --check`. The reviewer found no syntax errors by reading it, and it needs Node 16.9 or later.\n- **Left:** run `node server.js` and open htt<path> to confirm the page loads with its styles.",
+  "background_tasks": [],
+  "session_crons": []
+}

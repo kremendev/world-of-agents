@@ -1,0 +1,25 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "ce0209c5-98f8-4159-8a4e-71f860a37e67",
+  "permission_mode": "acceptEdits",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "The backend agent finished server.js but couldn't syntax-check it because its Bash access was denied. I'll have the reviewer read it closely. Still waiting on the designer.",
+  "background_tasks": [
+    {
+      "id": "afcc4e7953aac3c28",
+      "type": "subagent",
+      "status": "running",
+      "description": "Dark theme hello page",
+      "agent_type": "world-of-agents:designer"
+    }
+  ],
+  "session_crons": []
+}

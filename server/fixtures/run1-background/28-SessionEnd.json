@@ -1,0 +1,10 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "975428a4-9fdb-4400-8a4b-63987d0208c2",
+  "agent_type": "world-of-agents:lead",
+  "hook_event_name": "SessionEnd",
+  "reason": "other"
+}

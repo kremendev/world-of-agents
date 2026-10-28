@@ -1,0 +1,21 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "a0360910-24cf-4cfe-a785-95c7889e1fd4",
+  "permission_mode": "acceptEdits",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Dark theme hello page",
+    "prompt": "<redacted>",
+    "subagent_type": "world-of-agents:designer",
+    "run_in_background": true
+  },
+  "tool_use_id": "toolu_01L6DjuviN7TYDpTab5zrZLs"
+}

@@ -1,0 +1,34 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000001",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "a0360910-24cf-4cfe-a785-95c7889e1fd4",
+  "permission_mode": "acceptEdits",
+  "agent_id": "aa4e749e181be82c3",
+  "agent_type": "world-of-agents:backend",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "I created `server.js` (26 lines), but I couldn't syntax-check it. The Bash tool was denied, so `node --check server.js` never ran. I didn't try another way to run it. Someone with Bash access should run that check.\n\n- **Routes:** a fixed whitelist maps `/` and `/index.html` to `index.html` (`text/html; charset=utf-8`) and `/style.css` to `style.css` (`text/css; charset=utf-8`). Paths are never built from the URL, so traversal isn't possible.\n- **Other behavior:**\n  - The query string and fragment are stripped before matching.\n  - Any other path or method returns 404.\n  - A failed file read returns 500.\n  - It listens on `process.env.PORT` or 3000 and logs the URL.\n- **Files:** `<path>`. I didn't touch `index.html` or `style.css`.",
+  "background_tasks": [
+    {
+      "id": "afcc4e7953aac3c28",
+      "type": "subagent",
+      "status": "running",
+      "description": "Dark theme hello page",
+      "agent_type": "world-of-agents:designer"
+    },
+    {
+      "id": "aa4e749e181be82c3",
+      "type": "subagent",
+      "status": "running",
+      "description": "node:http static server",
+      "agent_type": "world-of-agents:backend"
+    }
+  ],
+  "session_crons": []
+}
