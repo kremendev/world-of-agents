@@ -48,7 +48,11 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
                   fixtures/: run 1's hooks, redacted
-docs/             step briefs from the v1 design (step3-brief.md)
+plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, agents/ (the five agents' prompts
+                  and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs (allowlists and
+                  scrubs each payload, then posts it to the hall with the token; send.test.ts)
+docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run table and security
+                  controls), v2-hooks.md (real hook payload fields and what send.mjs forwards)
 ```
 
 ## How the hall is drawn
@@ -177,6 +181,7 @@ Next:
    Server-Sent Events. Milestone 1 (plugin and payload capture) is done; real payload fields are in
    docs/v2-hooks.md. Milestone 2 (the hall server, `server/`) is done: `npm run hall` builds the page and
    serves it with the API on 127.0.0.1:4319. The token in ~/.world-of-agents/token is new at every start and
-   deleted on Ctrl+C. The hall follows the last session to start new, cleared or resumed. Milestone 3 (Live
-   mode in the page) is next; it also takes the "Session ended" signal (SessionEnd sends no event yet) and
-   the roster drift between roster.ts and the plugin's agent files.
+   deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
+   that only a new, cleared or resumed session switches it. A card goes Done only when its task completes,
+   never at SubagentStop. Milestone 3 (Live mode in the page) is next; it also takes the "Session ended"
+   signal (SessionEnd sends no event yet) and the roster drift between roster.ts and the plugin's agent files.

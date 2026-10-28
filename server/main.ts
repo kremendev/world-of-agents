@@ -12,8 +12,8 @@ try {
   // Written only once the port is ours, so a second hall that can't start never replaces the running one's token.
   const file = writeToken(token);
   // The token goes with the hall. With no token file send.mjs posts nothing, so while the hall is down no hook
-  // text goes to whatever else might be listening on the port.
-  for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  // text goes to whatever else might be listening on the port. SIGHUP: the terminal closed (on Windows too).
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
     process.on(signal, () => {
       rmSync(file, { force: true });
       process.exit(0);

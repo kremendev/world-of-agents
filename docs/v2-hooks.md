@@ -146,7 +146,7 @@ got through):
 - Free text: `prompt` (120 characters), `last_assistant_message` (200) and the Agent call's `description`
   (120). The Backend dev's last message quoted the full path of the file it wrote, so free text is scrubbed
   before it is capped:
-  - the home folder becomes `~` in every spelling: `C:Users<name>`, `C:/Users/<name>`,
+  - the home folder becomes `~` in every spelling: `C:\Users\<name>`, `C:/Users/<name>`,
     `/c/Users/<name>`, any case, whole folder names only;
   - key-shaped strings become `[redacted]`: `sk-ant-…`, `ghp_` / `gho_` / `ghu_` / `ghs_` / `ghr_…`,
     `github_pat_…`, `AKIA` + 16 characters, and `-----BEGIN … -----` blocks (to the END line, or to the

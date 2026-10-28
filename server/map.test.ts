@@ -72,7 +72,7 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
     expect(after(3)).toEqual([{ type: 'state', agent: 'lead', state: 'reading', at: 2 }]);
   });
 
-  it('PreToolUse Agent from the Lead: a new card, owner from subagent_type, title from description', () => {
+  it('PreToolUse Agent from the Lead: a new card (owner from subagent_type, title from description), and the Lead thinks', () => {
     expect(after(4)).toEqual([
       {
         type: 'task',
@@ -82,9 +82,16 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
         status: 'todo',
         at: 3,
       },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 3 },
     ]);
-    expect(after(7)).toMatchObject([{ taskId: card(7), title: 'node:http static server', owner: 'backend' }]);
-    expect(after(20)).toMatchObject([{ taskId: card(20), title: 'Review hello page', owner: 'reviewer' }]);
+    expect(after(7)).toMatchObject([
+      { taskId: card(7), title: 'node:http static server', owner: 'backend' },
+      { agent: 'lead', state: 'thinking' },
+    ]);
+    expect(after(20)).toMatchObject([
+      { taskId: card(20), title: 'Review hello page', owner: 'reviewer' },
+      { agent: 'lead', state: 'thinking' },
+    ]);
   });
 
   it('SubagentStart: the oldest open card of its type goes in progress, and the agent thinks', () => {
@@ -145,7 +152,7 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
     ]);
   });
 
-  it('SubagentStop: its last message to the Lead, its card done, the agent done', () => {
+  it('SubagentStop: its last message to the Lead and the agent done; the card waits for its task to complete', () => {
     expect(after(15)).toMatchObject([
       {
         type: 'message',
@@ -153,31 +160,53 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
         to: 'lead',
         text: expect.stringMatching(/^I created `server\.js`/),
       },
-      { type: 'task', taskId: card(7), status: 'done' },
       { type: 'state', agent: 'backend', state: 'done', taskId: card(7) },
     ]);
+    expect(after(15)).toHaveLength(2);
     expect(after(18)).toMatchObject([
       { from: 'designer' },
-      { taskId: card(4), status: 'done' },
-      { agent: 'designer', state: 'done' },
+      { agent: 'designer', state: 'done', taskId: card(4) },
     ]);
+    expect(after(18)).toHaveLength(2);
     expect(after(25)).toMatchObject([
       { from: 'reviewer' },
-      { taskId: card(20), status: 'done' },
-      { agent: 'reviewer', state: 'done' },
+      { agent: 'reviewer', state: 'done', taskId: card(20) },
     ]);
+    expect(after(25)).toHaveLength(2);
   });
 
-  it('<task-notification>: the Lead thinks again, the task stays done, and the run is never reset', () => {
-    expect(after(16)).toEqual([{ type: 'state', agent: 'lead', state: 'thinking', at: 15 }]);
-    expect(after(19)).toEqual([{ type: 'state', agent: 'lead', state: 'thinking', at: 18 }]);
+  it('<task-notification> completed: its card done, the Lead thinks again, and the run is never reset', () => {
+    expect(after(16)).toEqual([
+      {
+        type: 'task',
+        taskId: card(7),
+        title: 'node:http static server',
+        owner: 'backend',
+        status: 'done',
+        at: 15,
+      },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 15 },
+    ]);
+    expect(after(19)).toMatchObject([
+      { type: 'task', taskId: card(4), status: 'done' },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 18 },
+    ]);
     const later = run.steps.slice(2).flatMap((s) => s.events);
     expect(later.filter((e) => e.type === 'reset' || e.type === 'run')).toEqual([]);
   });
 
-  it('PostToolUse completed: the card is done, but only once', () => {
+  it('PostToolUse completed (the foreground Reviewer): its card done', () => {
     expect(hookOf(26).tool_response?.status).toBe('completed');
-    expect(after(26)).toEqual([]); // SubagentStop (25) already ended it
+    expect(after(26)).toEqual([
+      {
+        type: 'task',
+        taskId: card(20),
+        title: 'Review hello page',
+        owner: 'reviewer',
+        status: 'done',
+        at: 25,
+      },
+    ]);
   });
 
   it("Stop with nothing running: the Lead's report to you, and everyone rests", () => {
@@ -280,8 +309,32 @@ describe('mapHook rules', () => {
     expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'done' }]);
   });
 
+  it('a failed subagent, SubagentStop first and then a failed <task-notification>: its message, then the error, and the card never goes Done', () => {
+    const { steps, events } = play([
+      start,
+      handOut('t1', 'backend', 'Server'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      returned('t1', 'b1', 'async_launched'),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Gave up.' }),
+      byLead('UserPromptSubmit', {
+        task_notification: { task_id: 'b1', tool_use_id: 't1', status: 'failed' },
+      }),
+    ]);
+    expect(steps[4]!.events).toEqual([
+      { type: 'message', from: 'backend', to: 'lead', text: 'Gave up.', at: 4 },
+      { type: 'state', agent: 'backend', state: 'done', taskId: 't1', at: 4 },
+    ]);
+    expect(steps[5]!.events).toEqual([
+      { type: 'state', agent: 'backend', state: 'error', taskId: 't1', at: 5 },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 5 },
+    ]);
+    const office = events.reduce(officeReducer, INITIAL_OFFICE);
+    expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'in-progress' }]);
+    expect(office.agents.backend).toMatchObject({ state: 'error', taskId: 't1' });
+  });
+
   it.each(['failed', 'killed'])(
-    '<task-notification> %s: the agent shows the error, the card stays, and a later stop or start changes nothing',
+    '<task-notification> %s first: the agent shows the error, a later SubagentStop still reports and ends it, a later start changes nothing',
     (status) => {
       const { steps, events } = play([
         start,
@@ -296,29 +349,28 @@ describe('mapHook rules', () => {
         { type: 'state', agent: 'backend', state: 'error', taskId: 't1', at: 4 },
         { type: 'state', agent: 'lead', state: 'thinking', at: 4 },
       ]);
-      expect(steps[5]!.events).toEqual([]);
+      expect(steps[5]!.events).toEqual([
+        { type: 'message', from: 'backend', to: 'lead', text: 'Gave up.', at: 5 },
+        { type: 'state', agent: 'backend', state: 'done', taskId: 't1', at: 5 },
+      ]);
       expect(steps[6]!.events).toEqual([]);
       const office = events.reduce(officeReducer, INITIAL_OFFICE);
       expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'in-progress' }]);
-      expect(office.agents.backend).toMatchObject({ state: 'error', taskId: 't1' });
     },
   );
 
-  it('<task-notification> failed after its SubagentStop: the agent shows the error, the card stays done', () => {
-    const { steps, events } = play([
+  it("SubagentStop after the Lead's last Stop (the run already counts as stopped): still its message and done", () => {
+    const { steps } = play([
       start,
-      handOut('t1', 'backend', 'Server'),
-      bySub('SubagentStart', 'backend', 'b1'),
-      bySub('SubagentStop', 'backend', 'b1'),
-      byLead('UserPromptSubmit', {
-        task_notification: { task_id: 'b1', tool_use_id: 't1', status: 'failed' },
-      }),
+      handOut('t1', 'designer'),
+      bySub('SubagentStart', 'designer', 'd1'),
+      byLead('Stop'), // nothing in background_tasks: every run counts as stopped
+      bySub('SubagentStop', 'designer', 'd1', { last_assistant_message: 'Colours done.' }),
     ]);
     expect(steps[4]!.events).toEqual([
-      { type: 'state', agent: 'backend', state: 'error', taskId: 't1', at: 4 },
-      { type: 'state', agent: 'lead', state: 'thinking', at: 4 },
+      { type: 'message', from: 'designer', to: 'lead', text: 'Colours done.', at: 4 },
+      { type: 'state', agent: 'designer', state: 'done', taskId: 't1', at: 4 },
     ]);
-    expect(events.reduce(officeReducer, INITIAL_OFFICE).tasks).toMatchObject([{ id: 't1', status: 'done' }]);
   });
 
   it('a Stop whose last message is missing or blank sends no message', () => {
@@ -353,8 +405,7 @@ describe('mapHook rules', () => {
     ]);
     expect(steps[2]!.events).toMatchObject([
       { type: 'message' },
-      { type: 'task', taskId: 't1', status: 'done' },
-      { type: 'state', agent: 'frontend', state: 'done' },
+      { type: 'state', agent: 'frontend', state: 'done', taskId: 't1' },
     ]);
     expect(steps[3]!.events).toEqual([]);
     expect(steps[4]!.events).toEqual([]);
@@ -389,13 +440,12 @@ describe('mapHook rules', () => {
     expect(steps[5]!.events).toEqual([
       { type: 'state', agent: 'backend', state: 'writing', taskId: 't1', copies: 2, at: 5 },
     ]);
-    // The first copy stops: its card is done, but the agent stays busy with the other one.
+    // The first copy stops: the agent stays busy with the other one.
     expect(steps[6]!.events).toMatchObject([
       { type: 'message', text: 'First half done.' },
-      { type: 'task', taskId: 't1', status: 'done' },
       { type: 'state', agent: 'backend', state: 'thinking', taskId: 't2' },
     ]);
-    expect(steps[6]!.events[2]).not.toHaveProperty('copies');
+    expect(steps[6]!.events[1]).not.toHaveProperty('copies');
     expect(steps[7]!.events.at(-1)).toMatchObject({
       type: 'state',
       agent: 'backend',
@@ -413,15 +463,14 @@ describe('mapHook rules', () => {
       returned('tA', 'X', 'async_launched'), // tA is really X's...
       returned('tB', 'Y', 'async_launched'), // ...so Y works tB
       bySub('SubagentStart', 'designer', 'X'),
-      bySub('SubagentStop', 'designer', 'Y'),
+      bySub('PreToolUse', 'designer', 'Y', { tool_name: 'Write' }),
     ]);
     expect(steps[3]!.events[1]).toMatchObject({ state: 'thinking', taskId: 'tA' });
     expect(steps[4]!.events).toEqual([]);
     expect(steps[5]!.events).toEqual([]);
     expect(steps[6]!.events[1]).toMatchObject({ state: 'thinking', taskId: 'tA', copies: 2 });
-    expect(steps[7]!.events).toMatchObject([
-      { type: 'task', taskId: 'tB', status: 'done' },
-      { type: 'state', agent: 'designer', state: 'thinking', taskId: 'tA' },
+    expect(steps[7]!.events).toEqual([
+      { type: 'state', agent: 'designer', state: 'writing', taskId: 'tB', copies: 2, at: 7 },
     ]);
   });
 
@@ -445,19 +494,21 @@ describe('mapHook rules', () => {
     }
   });
 
-  it('gives no card to an Agent call for an agent that is not ours, or with an id that cannot be a task id', () => {
+  it('gives no card to an Agent call for an agent that is not ours, or with an id that cannot be a task id: the Lead only thinks', () => {
     const { steps, state } = play([
       start,
       handOut('t1', 'Explore'),
       handOut('t2', 'lead'),
       handOut('../t3', 'backend'),
     ]);
-    expect(steps.slice(1).flatMap((s) => s.events)).toEqual([]);
+    expect(steps.slice(1).flatMap((s) => s.events)).toEqual(
+      [1, 2, 3].map((at) => ({ type: 'state', agent: 'lead', state: 'thinking', at })),
+    );
     expect(state.cards).toEqual([]);
   });
 });
 
-describe('mapHook sessions: the hall follows the last one to start new, cleared or resumed', () => {
+describe('mapHook sessions: the hall follows the first one it hears from, until another starts new, cleared or resumed', () => {
   const other = (input: HookInput): HookInput => ({ ...input, session_id: 'session-2' });
 
   it.each(['startup', 'clear', 'resume'])(
@@ -478,21 +529,52 @@ describe('mapHook sessions: the hall follows the last one to start new, cleared 
         { type: 'run', text: 'Next task' },
         { type: 'state', agent: 'lead', state: 'thinking' },
       ]);
-      expect(steps[6]!.events).toMatchObject([{ type: 'task', taskId: 't2', owner: 'designer' }]);
+      expect(steps[6]!.events).toMatchObject([
+        { type: 'task', taskId: 't2', owner: 'designer' },
+        { type: 'state', agent: 'lead', state: 'thinking' },
+      ]);
       expect(state).toMatchObject({ session: 'session-2', runs: {} });
       expect(state.cards.map((c) => c.taskId)).toEqual(['t2']);
     },
   );
 
-  it('ignores every hook until a session starts', () => {
-    const { events, state } = play([
+  it('a hall with no session yet (started after Claude Code) adopts the first one it hears from', () => {
+    const { steps, state } = play([
       byLead('UserPromptSubmit', { prompt: 'Build a server' }),
+      other(handOut('t2', 'designer')),
       handOut('t1', 'backend'),
-      bySub('SubagentStart', 'backend', 'b1'),
-      byLead('Stop'),
     ]);
-    expect(events).toEqual([]);
-    expect(state).toEqual(INITIAL_MAP);
+    expect(steps[0]!.events).toMatchObject([
+      { type: 'run', text: 'Build a server' },
+      { type: 'state', agent: 'lead', state: 'thinking' },
+    ]);
+    expect(steps[1]!.events).toEqual([]);
+    expect(steps[2]!.events).toMatchObject([{ type: 'task', taskId: 't1' }, { agent: 'lead' }]);
+    expect(state.session).toBe(S);
+    // A compaction start is a hook like any other: adopted, and nothing to reset.
+    const compacted = mapHook(INITIAL_MAP, other(byLead('SessionStart', { source: 'compact' })), 0);
+    expect(compacted).toEqual({ state: { ...INITIAL_MAP, session: 'session-2' }, events: [] });
+  });
+
+  it('a session adopted that way is switched only by a new, cleared or resumed one', () => {
+    const { steps, state } = play([
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }), // adopted mid-run
+      other(byLead('UserPromptSubmit', { prompt: 'Elsewhere' })),
+      other(byLead('SessionStart', { source: 'compact' })),
+      other(byLead('SessionStart', { source: 'resume' })),
+      other(byLead('UserPromptSubmit', { prompt: 'Next task' })),
+      byLead('UserPromptSubmit', { prompt: 'The old window' }),
+    ]);
+    expect(steps[0]!.events).toMatchObject([
+      { type: 'state', agent: 'backend', state: 'thinking' },
+      { type: 'state', agent: 'backend', state: 'writing' },
+    ]);
+    expect(steps[1]!.events).toEqual([]);
+    expect(steps[2]!.events).toEqual([]);
+    expect(steps[3]!.events).toEqual([{ type: 'reset', at: 3 }]);
+    expect(steps[4]!.events).toMatchObject([{ type: 'run', text: 'Next task' }, { agent: 'lead' }]);
+    expect(steps[5]!.events).toEqual([]);
+    expect(state.session).toBe('session-2');
   });
 
   it('ignores hooks from another session, its compaction, and a start with an unknown source or no id', () => {

@@ -11,7 +11,10 @@ export type Card = { taskId: string; owner: AgentId; title: string; agentId?: st
 export type Run = { agent: AgentId; taskId?: string; state: AgentState; stopped: boolean };
 
 export type MapState = {
-  /** The session the hall follows: the last one to start new, cleared or resumed. Null until one does. */
+  /**
+   * The session the hall follows: the first one it hears from, until another starts new, cleared or resumed.
+   * Null until it hears from one.
+   */
   session: string | null;
   /** Oldest first: a subagent that starts is matched to the oldest open card of its type. */
   cards: readonly Card[];
@@ -27,7 +30,7 @@ const nothing = (state: MapState): Step => ({ state, events: [] });
 const PREFIX = 'world-of-agents:';
 const READING: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob']);
 const WRITING: ReadonlySet<string> = new Set(['Edit', 'Write', 'Bash']);
-/** The SessionStart sources that make a session the one the hall follows. `compact` is not one of them. */
+/** The SessionStart sources that switch the hall to that session and reset the run. Not `compact`. */
 const TAKES_OVER: ReadonlySet<string> = new Set(['startup', 'clear', 'resume']);
 
 /** `world-of-agents:<name>` to one of our five ids. Anything else (built-in agents, other plugins) is not ours. */
@@ -56,11 +59,18 @@ export function mapHook(state: MapState, input: HookInput, at: number): Step {
 }
 
 function route(state: MapState, input: HookInput, agent: AgentId, at: number): Step {
-  if (input.hook_event_name === 'SessionStart') return sessionStart(state, input, at);
-  // One session at a time: hooks from another Claude Code window, or from a session that started before the
-  // hall was listening, don't mix into this run.
-  if (!state.session || input.session_id !== state.session) return nothing(state);
+  const session = input.session_id;
+  if (input.hook_event_name === 'SessionStart' && session && TAKES_OVER.has(input.source ?? ''))
+    return takeOver(session, at);
+  // One session at a time: hooks from another Claude Code window don't mix into this run. A hall with no
+  // session yet (it started after Claude Code) follows the first one it hears from.
+  const followed = state.session ?? session;
+  if (!followed || session !== followed) return nothing(state);
+  return dispatch(state.session ? state : { ...state, session: followed }, input, agent, at);
+}
 
+/** One hook from the session the hall follows. */
+function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number): Step {
   // The Lead's own events carry no agent_id; every event inside a subagent does.
   const sub = input.agent_id && agent !== 'lead' ? input.agent_id : null;
   const byLead = !input.agent_id && agent === 'lead';
@@ -70,10 +80,10 @@ function route(state: MapState, input: HookInput, agent: AgentId, at: number): S
     case 'PreToolUse':
       if (sub) return toolUsed(state, sub, agent, input.tool_name, at);
       if (!byLead) return nothing(state);
-      // The Lead reads the project too; its Agent calls hand out tasks.
-      return READING.has(input.tool_name ?? '')
-        ? { state, events: [lead('reading', at)] }
-        : handOut(state, input, at);
+      // The Lead reads the project too. Handing out a task is thinking again.
+      if (READING.has(input.tool_name ?? '')) return { state, events: [lead('reading', at)] };
+      if (input.tool_name !== 'Agent') return nothing(state);
+      return handOut(state, input, at);
     case 'SubagentStart':
       return sub && !state.runs[sub] ? startRun(state, sub, agent, at) : nothing(state);
     case 'Notification':
@@ -87,7 +97,7 @@ function route(state: MapState, input: HookInput, agent: AgentId, at: number): S
     case 'StopFailure':
       return byLead ? { state, events: [lead('error', at)] } : nothing(state);
     default:
-      return nothing(state); // SessionEnd, and any event Claude Code adds later
+      return nothing(state); // SessionStart from compaction, SessionEnd, and any event Claude Code adds later
   }
 }
 
@@ -122,12 +132,10 @@ function shown(state: MapState, id: string, at: number): OfficeEvent {
 
 /**
  * A new, cleared or resumed session takes the hall over and resets the run, so restarting Claude Code needs
- * no hall restart. Compaction starts the current session again mid-run: same run, nothing to reset. Any
- * other start (compaction in another window, a source we don't know) changes nothing.
+ * no hall restart. Compaction starts the current session again mid-run: same run, nothing to reset.
  */
-function sessionStart(state: MapState, input: HookInput, at: number): Step {
-  if (!input.session_id || !TAKES_OVER.has(input.source ?? '')) return nothing(state);
-  return { state: { ...INITIAL_MAP, session: input.session_id }, events: [{ type: 'reset', at }] };
+function takeOver(session: string, at: number): Step {
+  return { state: { ...INITIAL_MAP, session }, events: [{ type: 'reset', at }] };
 }
 
 function prompted(state: MapState, input: HookInput, at: number): Step {
@@ -147,12 +155,13 @@ function prompted(state: MapState, input: HookInput, at: number): Step {
   return { state, events: [...(text ? [{ type: 'run' as const, text, at }] : []), lead('thinking', at)] };
 }
 
-/** The Lead hands out a task with the Agent tool: a new card for the agent that owns it. */
+/** The Lead hands out a task with the Agent tool: a new card for the agent that owns it, and the Lead thinks. */
 function handOut(state: MapState, input: HookInput, at: number): Step {
+  const thinking = { state, events: [lead('thinking', at)] };
   const taskId = input.tool_use_id;
   const owner = agentOf(input.tool_input?.subagent_type);
-  if (input.tool_name !== 'Agent' || !taskId || !owner || owner === 'lead') return nothing(state);
-  if (state.cards.some((c) => c.taskId === taskId)) return nothing(state);
+  if (!taskId || !owner || owner === 'lead') return thinking;
+  if (state.cards.some((c) => c.taskId === taskId)) return thinking;
   const card: Card = {
     taskId,
     owner,
@@ -161,8 +170,8 @@ function handOut(state: MapState, input: HookInput, at: number): Step {
   };
   const event = taskEvent(card, 'todo', at);
   // A tool_use_id that can't be a task id (odd characters, too long) gets no card at all.
-  if (!parseEvent(event).ok) return nothing(state);
-  return { state: { ...state, cards: [...state.cards, card] }, events: [event] };
+  if (!parseEvent(event).ok) return thinking;
+  return { state: { ...state, cards: [...state.cards, card] }, events: [event, ...thinking.events] };
 }
 
 /**
@@ -208,19 +217,18 @@ function notified(state: MapState, input: HookInput, agent: AgentId, sub: string
     : { state, events: [{ type: 'state', agent, state: 'needs-you', at }] };
 }
 
+/**
+ * A subagent run ends: its last message to the Lead, and the agent is done, even when the run already counts
+ * as stopped. It never moves a card: SubagentStop can't tell a finished run from a failed one, so a card is
+ * done only when its task completes (finish()).
+ */
 function stopRun(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
-  if (state.runs[id]?.stopped) return nothing(state);
-  // A stop whose start never arrived still ends that agent's card.
+  // A stop whose start never arrived still links its run to a card, and a late start is then ignored.
   const linked = state.runs[id] ? state : linkRun(state, id, agent).state;
   const run: Run = { ...linked.runs[id]!, stopped: true };
-  let next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
+  const next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
   const events: OfficeEvent[] = [];
   if (text?.trim()) events.push({ type: 'message', from: agent, to: 'lead', text, at });
-  if (run.taskId) {
-    const ended = finish(next, run.taskId, at);
-    next = ended.state;
-    events.push(...ended.events);
-  }
   // Another copy still running keeps the agent busy; the last one to stop sends it to rest.
   const other = running(next, agent).at(-1);
   events.push(
@@ -231,7 +239,10 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
   return { state: next, events };
 }
 
-/** Marks a card done, once: a task can end at its SubagentStop, its <task-notification> or its PostToolUse. */
+/**
+ * Marks a card done, once. Only a completed task does it: a completed <task-notification> (background) or a
+ * PostToolUse with status "completed" (foreground).
+ */
 function finish(state: MapState, taskId: string, at: number): Step {
   const card = state.cards.find((c) => c.taskId === taskId);
   if (!card || card.done) return nothing(state);
@@ -244,7 +255,7 @@ function finish(state: MapState, taskId: string, at: number): Step {
 
 /**
  * A task that ended any way but "completed": its agent shows the error, and its card stays where it is. Its
- * run counts as stopped, so a SubagentStop or SubagentStart that lands later can't move the card on.
+ * run counts as stopped, so a start or a tool call that lands later can't put the agent back to work.
  */
 function failed(state: MapState, taskId: string, at: number): Step {
   const card = state.cards.find((c) => c.taskId === taskId);

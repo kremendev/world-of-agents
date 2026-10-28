@@ -278,11 +278,12 @@ describe('GET /api/events', () => {
   });
 
   it('replays the run so far to a page that connects later, starting at its reset', async () => {
-    for (const hook of run1.slice(0, 4)) await post(hook.body); // reset, run, Lead thinking, Lead reading, a card
+    // reset, run, Lead thinking, Lead reading, a card, Lead thinking
+    for (const hook of run1.slice(0, 4)) await post(hook.body);
     const page = await subscribe();
-    await until(() => page.events.length === 5);
+    await until(() => page.events.length === 6);
     page.close();
-    expect(page.events.map((e) => e.type)).toEqual(['reset', 'run', 'state', 'state', 'task']);
+    expect(page.events.map((e) => e.type)).toEqual(['reset', 'run', 'state', 'state', 'task', 'state']);
 
     await post(first); // the session starts again: the old run is not replayed
     const next = await subscribe();
@@ -310,7 +311,7 @@ describe('a new Claude Code session', () => {
     const restarted = { ...first, session_id: B, source: 'startup' };
     for (const hook of run1.slice(0, 10)) await post(hook.body); // run 1, cut off mid-run
     const page = await subscribe();
-    const before = 11; // what run 1's first ten hooks send
+    const before = 13; // what run 1's first ten hooks send
     await until(() => page.events.length === before);
 
     for (const body of [
