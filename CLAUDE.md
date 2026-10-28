@@ -43,6 +43,11 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
                   destination.ts: destinationFor(agent, office), walkers.ts: walk queue, talk.ts: bubbles
 src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap), TaskBoard,
                   AgentPanel (details and activity of the selected agent)
+server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
+                  /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
+                  (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
+                  OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
+                  fixtures/: run 1's hooks, redacted
 docs/             step briefs from the v1 design (step3-brief.md)
 ```
 
@@ -170,4 +175,8 @@ Next:
 4. v2 (docs/v2-brief.md): observer mode, no Agent SDK and no API key. A Claude Code plugin (`plugin/`: the
    five agents and hooks) reports to a hall server on 127.0.0.1, which sends the same events to the page over
    Server-Sent Events. Milestone 1 (plugin and payload capture) is done; real payload fields are in
-   docs/v2-hooks.md.
+   docs/v2-hooks.md. Milestone 2 (the hall server, `server/`) is done: `npm run hall` builds the page and
+   serves it with the API on 127.0.0.1:4319. The token in ~/.world-of-agents/token is new at every start and
+   deleted on Ctrl+C. The hall follows the last session to start new, cleared or resumed. Milestone 3 (Live
+   mode in the page) is next; it also takes the "Session ended" signal (SessionEnd sends no event yet) and
+   the roster drift between roster.ts and the plugin's agent files.

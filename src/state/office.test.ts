@@ -100,6 +100,16 @@ describe('officeReducer', () => {
     );
   });
 
+  it('starts from a clean office on a reset (v2: a new session)', () => {
+    const busy = apply([task('a'), { type: 'message', from: 'lead', to: 'you', text: 'Hi', at: 1 }]);
+    expect(officeReducer(busy, { type: 'reset', at: 2 })).toEqual(INITIAL_OFFICE);
+  });
+
+  it('leaves the office as it is for the run text (the header shows it)', () => {
+    const before = apply([task('a')]);
+    expect(officeReducer(before, { type: 'run', text: 'Make a page', at: 0 })).toBe(before);
+  });
+
   it('never changes the state it is given', () => {
     const before = apply([task('a'), message('hi')]);
     const snapshot = structuredClone(before);

@@ -9,10 +9,26 @@ describe('parseEvent', () => {
       { type: 'task', taskId: 'api-1', title: 'Board and item API', owner: 'backend', status: 'todo', at: 0 },
       { type: 'message', from: 'lead', to: 'you', text: 'Report ready', at: 5 },
       { type: 'tokens', agent: 'lead', input: 1200, output: 300, at: 6 },
+      { type: 'state', agent: 'backend', state: 'writing', taskId: 'api-1', copies: 2, at: 7 },
+      { type: 'reset', at: 8 },
+      { type: 'run', text: 'Make a tiny hello page', at: 9 },
     ];
     for (const event of events) {
       expect(parseEvent(event)).toEqual({ ok: true, event });
     }
+  });
+
+  it(`takes copies from 2 to ${LIMITS.agentCopies}, whole numbers only (one copy sends none)`, () => {
+    const copies = (n: number) =>
+      parseEvent({ type: 'state', agent: 'backend', state: 'writing', copies: n, at: 0 });
+    expect(copies(LIMITS.agentCopies).ok).toBe(true);
+    for (const n of [1, 0, LIMITS.agentCopies + 1, 2.5]) expect(copies(n).ok, String(n)).toBe(false);
+  });
+
+  it('rejects an empty or oversized run text, and a reset with anything else in it', () => {
+    expect(parseEvent({ type: 'run', text: '', at: 0 }).ok).toBe(false);
+    expect(parseEvent({ type: 'run', text: 'x'.repeat(LIMITS.titleLength + 1), at: 0 }).ok).toBe(false);
+    expect(parseEvent({ type: 'reset', at: 0, tasks: [] }).ok).toBe(false);
   });
 
   it('rejects an unknown agent', () => {

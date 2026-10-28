@@ -70,6 +70,11 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
     case 'tokens':
       // Real token counts come with v2; until then the header and the agent panel show 0.
       return state;
+    case 'reset':
+      return INITIAL_OFFICE;
+    case 'run':
+      // The run's text is the header's, not the office's (Live mode, milestone 3).
+      return state;
   }
 }
 

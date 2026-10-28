@@ -26,6 +26,7 @@ export const LIMITS = {
   titleLength: 200,
   messageLength: 4000,
   tokensPerEvent: 10_000_000,
+  agentCopies: 20,
 } as const;
 
 const agentId = z.enum(AGENT_IDS);
@@ -45,6 +46,8 @@ const stateEvent = z.strictObject({
   agent: agentId,
   state: agentState,
   taskId: taskId.optional(),
+  /** How many copies of this agent are running, when more than one (v2: the Lead can start two at once). */
+  copies: z.number().int().min(2).max(LIMITS.agentCopies).optional(),
   at: timestamp,
 });
 
@@ -73,11 +76,26 @@ const tokensEvent = z.strictObject({
   at: timestamp,
 });
 
+/** v2: a new session started. Everything from the run before goes. */
+const resetEvent = z.strictObject({
+  type: z.literal('reset'),
+  at: timestamp,
+});
+
+/** v2: the task you typed in Claude Code (its first 120 characters), for the header. */
+const runEvent = z.strictObject({
+  type: z.literal('run'),
+  text: z.string().min(1).max(LIMITS.titleLength),
+  at: timestamp,
+});
+
 export const officeEventSchema = z.discriminatedUnion('type', [
   stateEvent,
   taskEvent,
   messageEvent,
   tokensEvent,
+  resetEvent,
+  runEvent,
 ]);
 
 export type AgentId = z.infer<typeof agentId>;
