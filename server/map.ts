@@ -219,8 +219,8 @@ function notified(state: MapState, input: HookInput, agent: AgentId, sub: string
 
 /**
  * A subagent run ends: its last message to the Lead, and the agent is done, even when the run already counts
- * as stopped. It never moves a card: SubagentStop can't tell a finished run from a failed one, so a card is
- * done only when its task completes (finish()).
+ * as stopped. A run whose task already failed keeps its agent in error. It never moves a card: SubagentStop
+ * can't tell a finished run from a failed one, so a card is done only when its task completes (finish()).
  */
 function stopRun(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
   // A stop whose start never arrived still links its run to a card, and a late start is then ignored.
@@ -229,6 +229,8 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
   const next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
   const events: OfficeEvent[] = [];
   if (text?.trim()) events.push({ type: 'message', from: agent, to: 'lead', text, at });
+  // Only failed() gives a run the error state: a failed subagent stays failed.
+  if (run.state === 'error') return { state: next, events };
   // Another copy still running keeps the agent busy; the last one to stop sends it to rest.
   const other = running(next, agent).at(-1);
   events.push(

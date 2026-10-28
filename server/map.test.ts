@@ -309,7 +309,7 @@ describe('mapHook rules', () => {
     expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'done' }]);
   });
 
-  it('a failed subagent, SubagentStop first and then a failed <task-notification>: its message, then the error, and the card never goes Done', () => {
+  it('a failed subagent, SubagentStop first and then a failed <task-notification>: message delivered, agent in error, card not Done', () => {
     const { steps, events } = play([
       start,
       handOut('t1', 'backend', 'Server'),
@@ -329,12 +329,13 @@ describe('mapHook rules', () => {
       { type: 'state', agent: 'lead', state: 'thinking', at: 5 },
     ]);
     const office = events.reduce(officeReducer, INITIAL_OFFICE);
-    expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'in-progress' }]);
+    expect(office.messages).toMatchObject([{ from: 'backend', to: 'lead', text: 'Gave up.' }]);
     expect(office.agents.backend).toMatchObject({ state: 'error', taskId: 't1' });
+    expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'in-progress' }]);
   });
 
   it.each(['failed', 'killed'])(
-    '<task-notification> %s first: the agent shows the error, a later SubagentStop still reports and ends it, a later start changes nothing',
+    'a failed subagent, <task-notification> %s first and then SubagentStop: message delivered, agent still in error, card not Done',
     (status) => {
       const { steps, events } = play([
         start,
@@ -349,12 +350,14 @@ describe('mapHook rules', () => {
         { type: 'state', agent: 'backend', state: 'error', taskId: 't1', at: 4 },
         { type: 'state', agent: 'lead', state: 'thinking', at: 4 },
       ]);
+      // The stop still reports, but sends no state: the agent stays in error. A later start changes nothing.
       expect(steps[5]!.events).toEqual([
         { type: 'message', from: 'backend', to: 'lead', text: 'Gave up.', at: 5 },
-        { type: 'state', agent: 'backend', state: 'done', taskId: 't1', at: 5 },
       ]);
       expect(steps[6]!.events).toEqual([]);
       const office = events.reduce(officeReducer, INITIAL_OFFICE);
+      expect(office.messages).toMatchObject([{ from: 'backend', to: 'lead', text: 'Gave up.' }]);
+      expect(office.agents.backend).toMatchObject({ state: 'error', taskId: 't1' });
       expect(office.tasks).toEqual([{ id: 't1', title: 'Server', owner: 'backend', status: 'in-progress' }]);
     },
   );
