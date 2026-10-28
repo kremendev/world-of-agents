@@ -1,15 +1,18 @@
 # v2 hook payloads: what Claude Code really sends
 
-Recorded on 28 Oct 2026 with Claude Code 2.1.312 on Windows 11 (native, Git Bash), Node 26.12.1.
+Recorded on 28 Oct 2026 with Claude Code 2.1.312 on Windows 11 (native, Git Bash). Two runs, each redacted
+into `server/fixtures/` in the order its payloads arrived. The raw capture folders were deleted afterwards.
 
-One run in a scratch git repo: `claude -p "<task>" --plugin-dir <repo>/plugin --agent world-of-agents:lead
---permission-mode acceptEdits` with `WOA_CAPTURE=1`. The Lead sent the Designer and the Backend dev in the
-background, then the Reviewer in the foreground. 28 payloads, redacted into `server/fixtures/run1-background/`
-in the order they arrived. The raw capture folder was deleted afterwards.
+**Run 1** (`run1-background/`, 28 payloads, Node 26.12.1), in a scratch git repo: `claude -p "<task>" --plugin-dir
+<repo>/plugin --agent world-of-agents:lead --permission-mode acceptEdits` with `WOA_CAPTURE=1`. The Lead sent
+the Designer and the Backend dev in the background, then the Reviewer in the foreground. `-p` mode was used
+because that session couldn't drive an interactive terminal. `-p` shows no approval prompts, so `Notification`
+did not fire, and nothing failed, so `StopFailure` did not fire either.
 
-`-p` mode was used because this session can't drive an interactive terminal. `-p` shows no approval prompts,
-so `Notification` did not fire, and nothing failed, so `StopFailure` did not fire either. Both still need a
-capture from an interactive run (see Still to capture).
+**Run 2** (`run2-interactive/`, 24 payloads): an interactive session with the plugin and
+`--agent world-of-agents:lead`, with `WOA_CAPTURE=1`. The Lead sent the Backend dev (it wrote `server.js` and
+ran `node --check` in Bash), then the Reviewer. The whole session ran in `auto` permission mode, so it brought
+no `Notification` either, but background results came back in a new form: see What run 2 changed.
 
 ## Fields on every event
 
@@ -22,8 +25,8 @@ capture from an interactive run (see Still to capture).
 | `cwd`             | all                                                                | Full local path. Never forwarded.                                   |
 | `scratchpad_dir`  | all                                                                | Full local path. Never forwarded.                                   |
 | `prompt_id`       | all but `SessionStart`                                             | UUID per user turn; a background task notification starts a new one |
-| `permission_mode` | all but `SessionStart`, `SubagentStart`, `SessionEnd`              | `"acceptEdits"` in this run                                         |
-| `effort`          | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`                | `{ "level": "medium" }`                                             |
+| `permission_mode` | all but `SessionStart`, `SubagentStart`, `SessionEnd`              | `"acceptEdits"` in run 1, `"auto"` in run 2                         |
+| `effort`          | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`                | `{ "level": "medium" }`; the Lead's were `"xhigh"` in run 2         |
 | `agent_id`        | `SubagentStart`, `SubagentStop`, and every event inside a subagent | e.g. `"afcc4e7953aac3c28"`. The Lead's own events have none.        |
 
 So: **no `agent_id` means the Lead**. Inside a subagent, `agent_type` is the subagent's
@@ -33,7 +36,8 @@ So: **no `agent_id` means the Lead**. Inside a subagent, `agent_type` is the sub
 
 ### `SessionStart`
 
-`source`: `"startup"` (docs list `startup`, `resume`, `clear`, `compact`, `fork`).
+`source`: `"startup"` (docs list `startup`, `resume`, `clear`, `compact`, `fork`). Run 2's (interactive) also
+has `model`: `"claude-opus-5-5"`, the Lead's model. Run 1's (`-p`) has none.
 
 ### `UserPromptSubmit`
 
@@ -53,6 +57,22 @@ Lead with a `<task-notification>` as if the user typed it.
 </task-notification>
 ```
 
+**In run 2 there was no `<task-notification>`.** Each background result came as an `<agent-message>`
+hand-back, again as a `UserPromptSubmit`:
+
+```text
+<agent-message from="a99a671337edc9498">       = the subagent's agent_id
+[Subagent hand-back] The text below is the final report of a subagent this session delegated to. …
+The report follows:
+  …                                            the subagent's whole final report, every line indented
+</agent-message>
+```
+
+It has no `<status>` and no tool-use id, only `from`. The report held the full contents of `server.js` and the
+Bash command the dev ran; the fixtures keep the frame and redact the report. Run 2 used the same Claude Code
+version as run 1, so the change comes from how it ran: interactive instead of `-p`, or `auto` instead of
+`acceptEdits`. Which of the two is not known.
+
 ### `PreToolUse`
 
 `tool_name`, `tool_input`, `tool_use_id`. `tool_input` per tool:
@@ -65,8 +85,9 @@ Lead with a `<task-notification>` as if the user typed it.
 | `Write`        | `file_path`, `content`                                        |
 | `Bash`         | `command` (and `description` when given)                      |
 
-`subagent_type` is the full name: `"world-of-agents:designer"`. The Lead chose
-`run_in_background: true` for the two devs and `false` for the Reviewer.
+`subagent_type` is the full name: `"world-of-agents:designer"`. In run 1 the Lead chose
+`run_in_background: true` for the two devs and `false` for the Reviewer. In run 2 neither Agent call had
+`run_in_background`, and both came back `async_launched`, the Reviewer's too.
 
 ### `SubagentStart`
 
@@ -86,7 +107,8 @@ on `run_in_background`:
 `tool_response.agentId` is the link between the Agent call (`tool_use_id`) and the subagent (`agent_id`).
 `resolvedModel` was `"claude-sonnet-5-5"` for all three subagents.
 
-**The Lead's model is in no hook payload.** Hooks carry `effort` but not the main thread's model. The session
+**In run 1 the Lead's model is in no hook payload** (run 2's `SessionStart` has it, see above, but `send.mjs`
+doesn't forward it). Hooks carry `effort` but not the main thread's model. The session
 transcript has it: in run 1's transcript every Lead reply (10 of 10) has `message.model`
 `"claude-opus-5-5"`, and each subagent transcript (`subagents/agent-<agent_id>.jsonl`) has
 `"claude-sonnet-5-5"`. The `-p` stream's `system` `init` message also said `model: "claude-opus-5-5"`.
@@ -98,6 +120,13 @@ transcript has it: in run 1's transcript every Lead reply (10 of 10) has `messag
 path), `stop_hook_active`, `background_tasks`, `session_crons`. In `background_tasks` the stopping agent
 itself is still listed as `"running"`, so don't read it here.
 
+In run 2 the two real subagents' `SubagentStop` had **no `last_assistant_message`**: their report came in the
+hand-back instead. Run 2 also has three `SubagentStop`s with the Lead's `agent_type` and an `agent_id` that
+never started (rows 10, 17 and 23). Rows 17 and 23 carry a short `last_assistant_message` that reads like a
+suggested next prompt for you ("run it and curl localhost:3000 to verify"), so they look like Claude Code's
+prompt suggestions running as a side agent; that is a guess from the text. The hall already ignores them: a
+`SubagentStop` with the Lead's type is not one of our subagents.
+
 ### `Stop`
 
 `last_assistant_message`, `stop_hook_active`, `session_crons`, and `background_tasks`: the Lead's
@@ -107,14 +136,16 @@ after the first task notification (1 running), and once at the real end (`[]`).
 
 ### `SessionEnd`
 
-`reason`: `"other"` when `-p` exits.
+`reason`: `"other"` when `-p` exits, `"prompt_input_exit"` when you quit an interactive session (run 2).
 
 ### `Notification`, `StopFailure`
 
-Not captured yet. The interactive run for `Notification` left no capture on this PC (no
-`~/.world-of-agents/capture/` folder, and no new Claude Code session in `~/.claude/projects/`), so
-**whether `permission_prompt` names the waiting subagent is still unknown**. `server/fixtures/run2-interactive/`
-does not exist yet. See Still to capture.
+Still not captured. Run 2 was meant to fill in `Notification`, but the whole session ran in `auto` permission
+mode (`permission_mode` on every payload). `auto` approved the Backend dev's Bash without asking, so no
+`permission_prompt` fired. No `idle_prompt` either: the session ended 62 s after the Lead's last turn. So
+**whether `permission_prompt` names the waiting subagent is still unknown**. `server/map.ts` handles both: with
+an `agent_id` that subagent needs you, without one the Lead does. Nothing failed, so there was no
+`StopFailure`. See Still to capture.
 
 ## What changes in the run table
 
@@ -136,10 +167,25 @@ The payloads win over the brief. `docs/v2-brief.md` has been corrected to match.
    card with the same `subagent_type` that has no agent yet; when `PostToolUse` brings `tool_response.agentId`,
    that link wins. Background and foreground calls both send `agentId`.
 
+## What run 2 changed (not in the code or the run table yet)
+
+Fed through `allowlist()`, the hook schema and `mapHook()` as they are now, run 2 replaces the header's run
+text with `<agent-message from="…` twice, and ends with both cards In progress while everyone is idle.
+
+1. **The hand-back is not recognised.** `send.mjs` only detects `<task-notification>`, so it forwards a
+   hand-back's first 120 characters as a user `prompt`. Those are Claude Code's frame only (the report starts
+   after about 490 characters), so no report text leaks, but the hall takes it for a new task.
+2. **A hand-back has no status**, so "only `completed` means Done" can't be applied to it. How a hand-back
+   ends its card is still to decide. `from` gives the `agent_id`, which `PostToolUse` already linked to the card.
+3. **The subagent's report moved** from `SubagentStop.last_assistant_message` into the hand-back, so the
+   message to the Lead is gone in this mode.
+4. **Agent calls ran in the background without asking for it**, so a foreground `PostToolUse` `completed` may
+   be rare in interactive runs.
+
 ## What `send.mjs` forwards
 
-Only these fields go to the hall server, checked against all 28 payloads (no path, file content or command
-got through):
+Only these fields go to the hall server, checked against all 52 payloads of both runs (no path, file content
+or command got through):
 
 - `hook_event_name`, `session_id`, `agent_id`, `agent_type`, `tool_name`, `tool_use_id`,
   `notification_type`, `source`, `reason`
@@ -174,24 +220,27 @@ world-of-agents:designer, world-of-agents:frontend, world-of-agents:reviewer`, a
 
 ## Tests
 
-`plugin/hooks/send.test.ts` runs every fixture through `allowlist()` after putting the dangerous values back
+`plugin/hooks/send.test.ts` runs every fixture of both runs through `allowlist()` after putting the dangerous values back
 (each `<redacted>` becomes a unique sentinel, each placeholder path a real one under a test home folder) and
 checks that no sentinel, home folder spelling or path field comes out. It also pins the
 `<task-notification>` detection on run 1's fixtures and covers the home-folder and key scrubbing.
 
 ## Still to capture
 
-One short interactive run, to fill in `Notification` (`permission_prompt`, `idle_prompt`) and to see
-whether it names the subagent that is waiting:
+One more short interactive run, to fill in `Notification` (`permission_prompt`, `idle_prompt`) and to see
+whether it names the subagent that is waiting. Run 2 ran in `auto` mode, which approves Bash without asking,
+so start this one in the default mode explicitly:
 
 ```bash
 cd <a scratch git repo>
-WOA_CAPTURE=1 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead
+WOA_CAPTURE=1 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default
 ```
 
 Ask for a task that needs Bash in a subagent (for example "have the backend dev add server.js and run
-`node --check` on it"), approve or deny the prompt, wait a minute at the end for `idle_prompt`, then quit.
-`StopFailure` needs an API error, so it may stay uncaptured; it is mapped from the docs.
+`node --check` on it"). If Bash runs without asking you, the session is not in the default mode: stop and check
+the mode (Shift+Tab cycles it). Approve or deny the prompt, then wait two minutes at the end for
+`idle_prompt` before you quit (run 2 quit after 62 s and got none). `StopFailure` needs an API error, so it may
+stay uncaptured; it is mapped from the docs.
 
 Check `ls ~/.world-of-agents/capture` before quitting: if it is empty, the plugin's hooks didn't run (check
 `/hooks` in that session) or `WOA_CAPTURE=1` wasn't set in that shell.

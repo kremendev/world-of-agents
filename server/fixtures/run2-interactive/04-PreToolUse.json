@@ -1,0 +1,20 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000002",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "67b8254d-2e27-439b-8bbe-6db0566e7946",
+  "permission_mode": "auto",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Create hello-world server.js",
+    "prompt": "<redacted>",
+    "subagent_type": "world-of-agents:backend"
+  },
+  "tool_use_id": "toolu_0186RJ5eCimRCnW4muXpKLfK"
+}

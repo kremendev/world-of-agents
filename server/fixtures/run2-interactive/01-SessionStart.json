@@ -1,0 +1,10 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000002",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "agent_type": "world-of-agents:lead",
+  "hook_event_name": "SessionStart",
+  "source": "startup",
+  "model": "claude-opus-5-5"
+}

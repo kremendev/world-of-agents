@@ -88,9 +88,10 @@ describe('<task-notification> detection', () => {
   });
 
   it('finds both notifications in run 1 and leaves the real user prompt alone', () => {
-    const kinds = prompts.map((f) => (allowlist(f.payload, HOME).task_notification ? 'notice' : 'user'));
+    const run1 = prompts.filter((f) => f.name.startsWith('run1-background'));
+    const kinds = run1.map((f) => (allowlist(f.payload, HOME).task_notification ? 'notice' : 'user'));
     expect(kinds).toEqual(['user', 'notice', 'notice']);
-    expect(allowlist(prompts[0]!.payload, HOME).prompt).toMatch(/^Make a tiny hello page/);
+    expect(allowlist(run1[0]!.payload, HOME).prompt).toMatch(/^Make a tiny hello page/);
   });
 
   it('only counts a prompt that starts with the tag', () => {
