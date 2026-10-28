@@ -12,15 +12,12 @@ export type PlayerHandlers = {
 export type Player = {
   play: () => void;
   pause: () => void;
-  restart: () => void;
+  /** Starts the run over. Given a script, plays that one from now on (through parseEvent() as well). */
+  restart: (script?: readonly unknown[]) => void;
 };
 
-/**
- * Plays a script of events on a timer; each event's `at` is milliseconds from the start of the run.
- * The script is typed `unknown[]` on purpose: every entry goes through parseEvent() before it is played,
- * the same gate v2's live events will pass. Entries that fail are dropped (and logged in dev).
- */
-export function createPlayer(script: readonly unknown[], handlers: PlayerHandlers): Player {
+/** The entries that pass parseEvent(). Entries that fail are dropped (and logged in dev). */
+function load(script: readonly unknown[]): OfficeEvent[] {
   const events: OfficeEvent[] = [];
   for (const entry of script) {
     const result = parseEvent(entry);
@@ -28,6 +25,16 @@ export function createPlayer(script: readonly unknown[], handlers: PlayerHandler
     // Only the schema's error, never the entry itself: its text is untrusted.
     else if (import.meta.env.DEV) console.warn(`Dropped a script entry: ${result.error}`);
   }
+  return events;
+}
+
+/**
+ * Plays a script of events on a timer; each event's `at` is milliseconds from the start of the run.
+ * The script is typed `unknown[]` on purpose: every entry goes through parseEvent() before it is played,
+ * the same gate v2's live events will pass. Entries that fail are dropped (and logged in dev).
+ */
+export function createPlayer(script: readonly unknown[], handlers: PlayerHandlers): Player {
+  let events = load(script);
 
   let next = 0; // index of the next event to send
   let playedMs = 0; // run time played before the current play()
@@ -66,8 +73,9 @@ export function createPlayer(script: readonly unknown[], handlers: PlayerHandler
     clearTimeout(timer);
   }
 
-  function restart(): void {
+  function restart(newScript?: readonly unknown[]): void {
     pause();
+    if (newScript) events = load(newScript);
     next = 0;
     playedMs = 0;
     handlers.onRestart();

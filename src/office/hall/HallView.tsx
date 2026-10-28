@@ -123,7 +123,7 @@ export function HallView({
       now = performance.now();
       const latest = officeRef.current;
       const { agents } = latest;
-      const drawables = [...above, ...furnaceDrawables(workingCount(latest), lightAlpha)];
+      const drawables = [...above, ...furnaceDrawables(workingCount(latest), per, lightAlpha)];
       const keyboardDx: Partial<Record<AgentId, number>> = {};
       const idleInRest: AgentId[] = [];
       const next: AgentTag[] = [];

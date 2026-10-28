@@ -1,6 +1,3 @@
-/** The task the demo run starts with, before anyone sends their own. */
-export const DEFAULT_TASK = 'Create a dashboard';
-
 /** The longest task text the task bar accepts, in characters. */
 export const MAX_TASK_CHARS = 500;
 

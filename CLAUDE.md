@@ -78,8 +78,11 @@ docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, ru
 - **Lights**: every halo and every prop marked `flicker` (sconces, candelabras, braziers, the fireplace fire)
   steps its opacity 1 → 0.9 → 0.8 over 1.1 s (`flickerAlpha()`), each with its own phase (`lightPhase()`).
   The scenery is built once per loop; lights read the loop's `now` when drawn. Reduced motion: no flicker.
-- **Furnace**: the mouth (`FURNACE_MOUTH`) and its glow are drawn live by `furnaceDrawables(workingCount)`,
-  not baked into the furnace surface. The glow flickers like any halo; the mouth colour never does
+- **Furnace**: the mouth (`FURNACE_MOUTH`) and its glow are drawn live by
+  `furnaceDrawables(working, per, lightAlpha)`, not baked into the furnace surface. The glow is the design's
+  CSS box-shadow, measured from the mouth's edge: a solid spread of 1 + 2n art px, then a fade of 7 + 6n
+  (n = working agents, max 4). It uses `shadowBlur`, which ignores the canvas transform, so blur and offset
+  are in device px (`per` per art px). The glow flickers like any halo; the mouth colour never does
   (it is the busy indicator, so it keeps changing with reduced motion too).
 - **Text** (room plaques, name plates, dashboard, furnace label, "You" sign, state and speech bubbles, "!!")
   is HTML in `HallLabels.tsx`, positioned in art px times `--u` (CSS px per art px), so it stays sharp.
@@ -169,7 +172,8 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
 3. Lights and the page (docs/step3-brief.md). The furnace mouth goes `#5a2a10` / `#f08a3c` / `#ffb15a`
    with 0 / 1 / 2+ working, with a glow that grows up to 4; candles, braziers, the fire and every halo
    flicker (off with reduced motion). Under the hall: the task bar (Send trims, ignores empty, caps at 500,
-   labels the run and restarts it; v1 sends nothing anywhere), the task board, and the agent panel for the
+   labels the run and restarts it, and the Lead's first line quotes it: `On it: <task>. Planning the work first.`;
+   v1 sends nothing anywhere), the task board, and the agent panel for the
    agent picked with the buttons over the sprites (Lead/PM by default): race, look, state, task, v2
    model and tools, waiting note, and its own activity newest first. The reducer keeps a `log` of state
    changes and messages (200 max) for that. An `aria-live` region reads out messages sent to you.

@@ -21,15 +21,24 @@ import { HALOS, PROPS } from './placements';
 const agent = (id: string) => ROSTER.find((a) => a.id === id)!;
 const ACTIVITIES: Activity[] = ['walking', 'smashing', 'busy', 'still'];
 
-/** A 2D context that records every fillRect with the fill style and opacity in force at the time. */
+/** A 2D context that records every fillRect with the fill style, opacity and shadow in force at the time. */
 function recordingContext() {
-  const fills: { style: unknown; alpha: number; rect: number[] }[] = [];
+  const fills: {
+    style: unknown;
+    alpha: number;
+    rect: number[];
+    shadow: { color: string; blur: number; offsetX: number };
+  }[] = [];
   const ctx = {
     fillStyle: '' as unknown,
     globalAlpha: 1,
+    shadowColor: 'rgba(0, 0, 0, 0)',
+    shadowBlur: 0,
+    shadowOffsetX: 0,
     imageSmoothingEnabled: false,
     fillRect(...rect: number[]) {
-      fills.push({ style: this.fillStyle, alpha: this.globalAlpha, rect });
+      const shadow = { color: this.shadowColor, blur: this.shadowBlur, offsetX: this.shadowOffsetX };
+      fills.push({ style: this.fillStyle, alpha: this.globalAlpha, rect, shadow });
     },
     createRadialGradient: () => ({ addColorStop() {} }),
     drawImage() {},
@@ -42,7 +51,7 @@ const mouthRect = [FURNACE_MOUTH.x, FURNACE_MOUTH.y, FURNACE_MOUTH.w, FURNACE_MO
 /** The colour the furnace mouth is painted with `working` agents busy. */
 function mouthColour(working: number): unknown {
   const { ctx, fills } = recordingContext();
-  for (const d of furnaceDrawables(working)) d.draw(ctx);
+  for (const d of furnaceDrawables(working, 2)) d.draw(ctx);
   return fills.find((f) => f.rect.join() === mouthRect.join())?.style;
 }
 
@@ -122,15 +131,33 @@ describe('furnace', () => {
   it('glows wider and stronger with each worker, up to four', () => {
     expect(furnaceLook(0).glow).toBeNull();
     const glows = [1, 2, 3, 4, 5].map((n) => furnaceLook(n).glow!);
-    expect(glows.map((g) => g.radius)).toEqual([13, 19, 25, 31, 31]);
+    expect(glows.map((g) => g.spread)).toEqual([3, 5, 7, 9, 9]);
+    expect(glows.map((g) => g.blur)).toEqual([13, 19, 25, 31, 31]);
     glows.forEach((g, i) => expect(g.strength).toBeCloseTo(0.3 + 0.15 * Math.min(i + 1, 4)));
   });
 
   it('draws the glow just under the mouth, both above the furnace body', () => {
-    const [glow, mouth] = furnaceDrawables(2);
+    const [glow, mouth] = furnaceDrawables(2, 2);
     expect(65.5).toBeLessThan(glow!.z);
     expect(glow!.z).toBeLessThan(mouth!.z);
-    expect(furnaceDrawables(0)).toHaveLength(1);
+    expect(furnaceDrawables(0, 2)).toHaveLength(1);
+  });
+
+  it('draws the glow like a CSS box-shadow from the mouth’s edge, in device pixels', () => {
+    const per = 3;
+    const { ctx, fills } = recordingContext();
+    for (const d of furnaceDrawables(2, per)) d.draw(ctx);
+    const [box] = fills; // the glow draws first, the mouth over it
+    const [x, y, w, h] = box!.rect as [number, number, number, number];
+    const m = FURNACE_MOUTH;
+
+    // The box itself is off the canvas; its shadow lands on the mouth grown by the spread (5 at n = 2).
+    expect(x + w).toBeLessThan(0);
+    expect([x + box!.shadow.offsetX / per, y, w, h]).toEqual([m.x - 5, m.y - 5, m.w + 10, m.h + 10]);
+    expect(box!.shadow.blur).toBe(19 * per);
+    expect(box!.shadow.color).toBe('rgba(240, 138, 60, 0.60)');
+    // And no shadow left behind for whatever draws next.
+    expect([ctx.shadowBlur, ctx.shadowOffsetX, ctx.shadowColor]).toEqual([0, 0, 'rgba(0, 0, 0, 0)']);
   });
 });
 
@@ -166,7 +193,7 @@ describe('flicker', () => {
 
   it('flickers the furnace glow, never the mouth colour', () => {
     const { ctx, fills } = recordingContext();
-    for (const d of furnaceDrawables(3, () => 0.8)) d.draw(ctx);
+    for (const d of furnaceDrawables(3, 2, () => 0.8)) d.draw(ctx);
     const mouth = fills.find((f) => f.rect.join() === mouthRect.join());
     expect(fills.filter((f) => f !== mouth).map((f) => f.alpha)).toEqual([0.8]);
     expect(mouth?.alpha).toBe(1);

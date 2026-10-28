@@ -108,6 +108,26 @@ describe('player', () => {
     expect(onEnd).toHaveBeenCalledTimes(2);
   });
 
+  it('restart(script) plays the new script from its start, through parseEvent() too; restart() replays it', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { player, onEvent, onRestart } = setup();
+    player.play();
+    vi.advanceTimersByTime(1500);
+    onEvent.mockClear();
+
+    const said: OfficeEvent = { type: 'message', from: 'lead', to: 'you', text: 'New run', at: 0 };
+    player.restart([said, { ...said, from: 'intern', at: 500 }, idle(2000)]);
+    vi.advanceTimersByTime(5000);
+    expect(onRestart).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(onEvent.mock.calls.map(([event]) => event)).toEqual([said, idle(2000)]);
+
+    onEvent.mockClear();
+    player.restart();
+    vi.advanceTimersByTime(5000);
+    expect(onEvent.mock.calls.map(([event]) => event)).toEqual([said, idle(2000)]);
+  });
+
   it('checks every entry with parseEvent(), drops the bad ones and warns without echoing them', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { player, sentAt } = setup([

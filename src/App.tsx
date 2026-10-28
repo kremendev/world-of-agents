@@ -3,10 +3,9 @@ import type { AgentId } from './events/schema';
 import { HallView } from './office/hall/HallView';
 import { agentById } from './office/roster';
 import { AgentPanel } from './page/AgentPanel';
-import { DEFAULT_TASK } from './page/task';
 import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
-import { DEMO_RUN } from './script/demoRun';
+import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer } from './state/office';
 
@@ -17,7 +16,7 @@ export default function App() {
   const [status, setStatus] = useState<RunStatus>('playing');
   // Goes up on every restart; the hall puts everyone back at their rest spots when it changes.
   const [run, setRun] = useState(0);
-  const [task, setTask] = useState(DEFAULT_TASK);
+  const [task, setTask] = useState(DEMO_TASK);
   const [selected, setSelected] = useState<AgentId>('lead');
   const player = useRef<Player | null>(null);
 
@@ -43,10 +42,11 @@ export default function App() {
   };
   const restart = control('playing', (p) => p.restart());
 
-  // v1 sends nothing anywhere: the typed task only labels the run, and the scripted run starts over.
+  // v1 sends nothing anywhere: the typed task labels the run and goes into the Lead's first line,
+  // and the scripted run starts over with it (Restart then replays that run).
   const send = (text: string) => {
     setTask(text);
-    restart();
+    control('playing', (p) => p.restart(demoRun(text)))();
   };
 
   const toYou = [...office.messages].reverse().find((m) => m.to === 'you');

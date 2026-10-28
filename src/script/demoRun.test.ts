@@ -2,12 +2,34 @@ import { describe, expect, it } from 'vitest';
 import { AGENT_IDS, parseEvent } from '../events/schema';
 import { destinationFor } from '../office/hall/destination';
 import { restingWalkers, sendTo, step, walkerAt } from '../office/hall/walkers';
+import { MAX_TASK_CHARS } from '../page/task';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
-import { DEMO_RUN, STEP_MS } from './demoRun';
+import { DEMO_RUN, DEMO_TASK, STEP_MS, demoRun } from './demoRun';
 
 describe('demo run', () => {
   it('passes parseEvent() unchanged, event by event', () => {
     for (const event of DEMO_RUN) expect(parseEvent(event)).toEqual({ ok: true, event });
+  });
+
+  it("quotes your task in the Lead's first line, and changes nothing else", () => {
+    expect(DEMO_RUN).toEqual(demoRun(DEMO_TASK));
+    const mine = demoRun('Build a forum');
+    expect(mine).toHaveLength(DEMO_RUN.length);
+    const changed = mine.filter((e, i) => JSON.stringify(e) !== JSON.stringify(DEMO_RUN[i]));
+    expect(changed).toEqual([
+      {
+        type: 'message',
+        from: 'lead',
+        to: 'you',
+        text: 'On it: Build a forum. Planning the work first.',
+        at: STEP_MS,
+      },
+    ]);
+  });
+
+  it('still passes parseEvent() with the longest task the task bar lets through, even all emoji', () => {
+    const longest = '🔥'.repeat(MAX_TASK_CHARS); // 1000 UTF-16 units, which is what Zod counts
+    for (const event of demoRun(longest)) expect(parseEvent(event)).toEqual({ ok: true, event });
   });
 
   it('never sends "walking": the hall works out walks itself', () => {

@@ -12,17 +12,11 @@ import type { Point } from './walk';
 /** Floors, the back wall and rugs (z <= FLOOR_Z) never change, so HallView draws them once into a cache. */
 export const FLOOR_Z = 1;
 
-/** Warm light fading out from the centre. `inner` and `outer` are "r, g, b" for the centre and the falloff. */
-function drawHalo(
-  ctx: CanvasRenderingContext2D,
-  h: Halo,
-  inner = '255, 160, 80',
-  outer = '255, 120, 50',
-): void {
+function drawHalo(ctx: CanvasRenderingContext2D, h: Halo): void {
   const g = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.radius);
-  g.addColorStop(0, `rgba(${inner}, ${h.strength})`);
-  g.addColorStop(0.45, `rgba(${outer}, ${(h.strength / 3).toFixed(3)})`);
-  g.addColorStop(0.7, `rgba(${outer}, 0)`);
+  g.addColorStop(0, `rgba(255, 160, 80, ${h.strength})`);
+  g.addColorStop(0.45, `rgba(255, 120, 50, ${(h.strength / 3).toFixed(3)})`);
+  g.addColorStop(0.7, 'rgba(255, 120, 50, 0)');
   ctx.fillStyle = g;
   ctx.fillRect(h.x - h.radius, h.y - h.radius, h.radius * 2, h.radius * 2);
 }
@@ -82,39 +76,62 @@ export function sceneryDrawables(lightAlpha: (phase: number) => number = () => 1
 }
 
 /** How the furnace mouth looks with `working` agents busy: its fill, and the glow around it (none when cold). */
-export function furnaceLook(working: number): {
-  fill: string;
-  glow: { radius: number; strength: number } | null;
-} {
+type FurnaceGlow = { spread: number; blur: number; strength: number };
+
+/**
+ * How the furnace mouth looks with `working` agents busy: its fill, and the glow around it (none when cold).
+ * The glow is measured from the mouth's edge, like the design's CSS box-shadow: a solid `spread`, then a
+ * fade of `blur` (art px), both growing up to four workers.
+ */
+export function furnaceLook(working: number): { fill: string; glow: FurnaceGlow | null } {
   if (working <= 0) return { fill: '#5a2a10', glow: null };
   const n = Math.min(working, 4);
   return {
     fill: working === 1 ? '#f08a3c' : '#ffb15a',
-    glow: { radius: 7 + 6 * n, strength: 0.3 + 0.15 * n },
+    glow: { spread: 1 + 2 * n, blur: 7 + 6 * n, strength: 0.3 + 0.15 * n },
   };
 }
 
 /** The furnace glow's flicker phase: the one after every scenery light's, so it gets its own. */
 const FURNACE_PHASE = lightPhase(HALOS.length + PROPS.filter((p) => p.flicker).length);
 
+/** How far left the glow's box is drawn (art px): off the canvas, so only its shadow shows. */
+const OFFSTAGE = 1000;
+
+/**
+ * The glow as `box-shadow: 0 0 <blur> <spread>` on the mouth: the mouth grown by `spread` on every side,
+ * blurred over `blur`. Only the shadow is drawn: the box sits OFFSTAGE and its shadow is shifted back.
+ * Shadows ignore the canvas transform, so their blur and offset are in device pixels (`per` per art px).
+ */
+function drawGlow(ctx: CanvasRenderingContext2D, { spread, blur, strength }: FurnaceGlow, per: number): void {
+  const m = FURNACE_MOUTH;
+  ctx.shadowColor = `rgba(240, 138, 60, ${strength.toFixed(2)})`;
+  ctx.shadowBlur = blur * per;
+  ctx.shadowOffsetX = OFFSTAGE * per;
+  ctx.fillStyle = '#000';
+  ctx.fillRect(m.x - spread - OFFSTAGE, m.y - spread, m.w + 2 * spread, m.h + 2 * spread);
+  ctx.shadowColor = 'rgba(0, 0, 0, 0)';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+}
+
 /**
  * The furnace mouth and its glow, drawn just above the furnace body (z 65.5), glow under the mouth.
- * The glow flickers like every other halo (`lightAlpha`). The mouth's colour never does: it is
- * information, not decoration.
+ * `per` is device pixels per art pixel. The glow flickers like every halo (`lightAlpha`). The mouth's
+ * colour never does: it is information, not decoration.
  */
 export function furnaceDrawables(
   working: number,
+  per: number,
   lightAlpha: (phase: number) => number = () => 1,
 ): Drawable[] {
   const { fill, glow } = furnaceLook(working);
   const m = FURNACE_MOUTH;
   const items: Drawable[] = [];
   if (glow) {
-    const halo: Halo = { x: m.x + m.w / 2, y: m.y + m.h / 2, z: 65.52, ...glow };
     items.push({
-      z: halo.z,
-      draw: (ctx) =>
-        dimmed(ctx, lightAlpha(FURNACE_PHASE), () => drawHalo(ctx, halo, '240, 138, 60', '240, 138, 60')),
+      z: 65.52,
+      draw: (ctx) => dimmed(ctx, lightAlpha(FURNACE_PHASE), () => drawGlow(ctx, glow, per)),
     });
   }
   items.push({

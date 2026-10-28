@@ -249,11 +249,26 @@ describe('App', () => {
       expect(screen.getByText(`Run: ${'x'.repeat(500)}`)).toBeInTheDocument();
     });
 
-    it('shows the task as plain text, never as HTML', () => {
-      const { container } = renderApp();
-      send('<img src=x onerror="alert(1)">');
-      expect(container.querySelector('img')).toBeNull();
-      expect(screen.getByText('Run: <img src=x onerror="alert(1)">')).toBeInTheDocument();
+    it("puts the task in the Lead's first line, and Restart replays that run", () => {
+      const app = renderApp();
+      app.at(stepStart(6));
+      send('Build a forum'); // the run starts over here
+      app.at(stepStart(6) + STEP_MS + 100);
+      expect(app.speech('lead')).toBe('On it: Build a forum. Planning the work first.');
+      fireEvent.click(app.button('Restart'));
+      app.at(stepStart(6) + 2 * STEP_MS + 200);
+      expect(app.speech('lead')).toBe('On it: Build a forum. Planning the work first.');
+    });
+
+    it("shows the task as plain text, never as HTML: header, the Lead's line and the live region", () => {
+      const app = renderApp();
+      const payload = '<img src=x onerror="alert(1)">';
+      send(payload);
+      app.at(stepStart(2) + 100);
+      expect(app.container.querySelector('img')).toBeNull();
+      expect(screen.getByText(`Run: ${payload}`)).toBeInTheDocument();
+      expect(app.speech('lead')).toBe(`On it: ${payload}. Planning the work first.`);
+      expect(screen.getByText(`Lead/PM: On it: ${payload}. Planning the work first.`)).toBeInTheDocument();
     });
   });
 
