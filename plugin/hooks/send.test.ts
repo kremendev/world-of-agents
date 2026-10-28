@@ -93,6 +93,62 @@ describe('<task-notification> detection', () => {
     expect(kinds).toEqual(['user', 'notice', 'notice']);
     expect(allowlist(run1[0]!.payload, HOME).prompt).toMatch(/^Make a tiny hello page/);
   });
+});
+
+describe('Claude Code frames never reach the hall as text', () => {
+  const run2 = (n: number) =>
+    fixtures.find(
+      (f) => f.name.startsWith('run2-interactive') && f.name.endsWith(`${n}-UserPromptSubmit.json`),
+    )!.payload;
+  const prompted = (prompt: string) => allowlist({ ...run2(2), prompt }, HOME);
+
+  it("turns run 2's hand-backs into `from` only: no prompt, and none of the report", () => {
+    for (const [n, from] of [
+      [12, 'a99a671337edc9498'],
+      [20, 'a97f9a9679cf77d92'],
+    ] as const) {
+      const sent = allowlist(poison(run2(n)) as Payload, HOME);
+      expect(sent.agent_message).toEqual({ from });
+      expect(sent.prompt).toBeUndefined();
+      expect(sent.task_notification).toBeUndefined();
+      expect(strings(sent)).not.toMatch(/SENTINEL_|hand-back|report/i);
+    }
+  });
+
+  it("keeps run 2's real prompt, and a tag that is not at the very start", () => {
+    expect(allowlist(run2(2), HOME).prompt).toMatch(/^ {3}Ask the backend dev/);
+    const quoted = prompted('please read <task-notification><status>failed</status>');
+    expect(quoted.prompt).toMatch(/^please read/);
+    expect(quoted.task_notification).toBeUndefined();
+    expect(prompted('<3 thanks').prompt).toBe('<3 thanks');
+  });
+
+  it.each([
+    [
+      "run 2's hand-back with its frame renamed",
+      (p: string) => p.replace('<agent-message', '<subagent-report'),
+    ],
+    [
+      "run 2's hand-back with a from that is not an id",
+      (p: string) => p.replace(/from="[^"]+"/, 'from="../x y"'),
+    ],
+    ['a slash command frame', () => '<command-message>init is analyzing</command-message>'],
+    ['markup typed at the start', () => '<img src=x onerror=alert(1)>'],
+  ])('forwards no text at all for a prompt that starts with a tag: %s', (_, make) => {
+    const sent = prompted(make(String(run2(12).prompt)));
+    expect(sent).not.toHaveProperty('prompt');
+    expect(sent).not.toHaveProperty('agent_message');
+    expect(sent).not.toHaveProperty('task_notification');
+    expect(sent).toMatchObject({ hook_event_name: 'UserPromptSubmit', agent_type: 'world-of-agents:lead' });
+  });
+
+  it('forwards only id-shaped values from a <task-notification>', () => {
+    const sent = prompted(
+      '<task-notification>\n<task-id>a1 b2</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<status>completed</status>',
+    );
+    expect(sent.task_notification).toEqual({ tool_use_id: 'toolu_1', status: 'completed' });
+    expect(sent.prompt).toBeUndefined();
+  });
 
   it('only counts a prompt that starts with the tag', () => {
     const sent = allowlist({ prompt: 'Please explain <task-notification><task-id>x</task-id>' }, HOME);

@@ -22,6 +22,7 @@ export const hookInputSchema = z.object({
   task_notification: z
     .object({ task_id: id.optional(), tool_use_id: id.optional(), status: word.optional() })
     .optional(),
+  agent_message: z.object({ from: id }).optional(),
   last_assistant_message: z.string().max(200).optional(),
   tool_input: z
     .object({

@@ -73,6 +73,12 @@ Bash command the dev ran; the fixtures keep the frame and redact the report. Run
 version as run 1, so the change comes from how it ran: interactive instead of `-p`, or `auto` instead of
 `acceptEdits`. Which of the two is not known.
 
+**Only `prompt` tells a frame from your own prompt.** Your prompts (run 1 row 2, run 2 row 2) and the frames
+(run 1 rows 16 and 19, run 2 rows 12 and 20) have the same keys, the same `permission_mode` and `agent_type`,
+and each starts a new `prompt_id` the way your turns do. The only pattern is order: each frame came right after
+its subagent's `SubagentStop` (1 to 4 ms later in run 2), which is timing, not a field. So `send.mjs` matches
+the exact start of the text.
+
 ### `PreToolUse`
 
 `tool_name`, `tool_input`, `tool_use_id`. `tool_input` per tool:
@@ -157,8 +163,7 @@ The payloads win over the brief. `docs/v2-brief.md` has been corrected to match.
    `world-of-agents:<name>`.
 2. **`PostToolUse` `Agent` is not always "task done".** It means done only when
    `tool_response.status` is `"completed"`. For `"async_launched"` it means "started in the background"; the
-   task is done when that `agent_id`'s `SubagentStop` arrives, or the `<task-notification>` for its
-   `tool_use_id` with `<status>completed</status>`.
+   task is done when that `agent_id`'s `SubagentStop` arrives (see What run 2 changed).
 3. **A `<task-notification>` prompt is not the user.** It must not replace the run text or reset anything.
    The Lead reads a result: Lead `thinking`.
 4. **`Stop` with running `background_tasks` is not the end.** The Lead is `waiting` on its team. Lead `done`
@@ -167,18 +172,20 @@ The payloads win over the brief. `docs/v2-brief.md` has been corrected to match.
    card with the same `subagent_type` that has no agent yet; when `PostToolUse` brings `tool_response.agentId`,
    that link wins. Background and foreground calls both send `agentId`.
 
-## What run 2 changed (not in the code or the run table yet)
+## What run 2 changed
 
-Fed through `allowlist()`, the hook schema and `mapHook()` as they are now, run 2 replaces the header's run
-text with `<agent-message from="…` twice, and ends with both cards In progress while everyone is idle.
+Before this was handled, run 2 fed through `allowlist()` and `mapHook()` replaced the header's run text with
+`<agent-message from="…` twice and ended with both cards In progress while everyone was idle. Now:
 
-1. **The hand-back is not recognised.** `send.mjs` only detects `<task-notification>`, so it forwards a
-   hand-back's first 120 characters as a user `prompt`. Those are Claude Code's frame only (the report starts
-   after about 490 characters), so no report text leaks, but the hall takes it for a new task.
-2. **A hand-back has no status**, so "only `completed` means Done" can't be applied to it. How a hand-back
-   ends its card is still to decide. `from` gives the `agent_id`, which `PostToolUse` already linked to the card.
-3. **The subagent's report moved** from `SubagentStop.last_assistant_message` into the hand-back, so the
-   message to the Lead is gone in this mode.
+1. **Frames never reach the hall as text.** `send.mjs` recognises `<task-notification>` and
+   `<agent-message from="` by their exact start and forwards only ids, status and `from`. Any other prompt that
+   starts with a tag forwards no text at all, so a frame Claude Code changes or adds can't leak its contents
+   (the hand-backs held file contents) and can't replace the run text.
+2. **Cards end at `SubagentStop`**, which both kinds of run send. Frame text changed between two runs of the
+   same version, so it never decides Done. A `<task-notification>` status other than `completed` reopens the
+   card and puts its agent in `error`; a hand-back has no status, so it changes no card.
+3. **The subagent's report moved** from `SubagentStop.last_assistant_message` into the hand-back, which the
+   hall never reads. A `SubagentStop` without a last message says "Report sent to the Lead".
 4. **Agent calls ran in the background without asking for it**, so a foreground `PostToolUse` `completed` may
    be rare in interactive runs.
 
@@ -200,7 +207,10 @@ or command got through):
 - For `Agent` only: `tool_input.subagent_type`, `tool_input.run_in_background`, `tool_response.status` and
   `tool_response.agentId`.
 - `background_tasks` as `{ id, type, status, agent_type }` (at most 20).
-- For a `<task-notification>` prompt: `task_notification: { task_id, tool_use_id, status }` and no `prompt`.
+- For a prompt that starts with `<task-notification>`: `task_notification: { task_id, tool_use_id, status }`
+  and no `prompt`. For one that starts with `<agent-message from="…">`: `agent_message: { from }` and no
+  `prompt`. Ids, status and `from` must be id-shaped (letters, digits, `_`, `-`, up to 100), so no free text
+  rides along. Any other prompt that starts with `<` and a tag name: no `prompt` at all.
 
 ## Other checks in milestone 1
 
@@ -223,13 +233,15 @@ world-of-agents:designer, world-of-agents:frontend, world-of-agents:reviewer`, a
 `plugin/hooks/send.test.ts` runs every fixture of both runs through `allowlist()` after putting the dangerous values back
 (each `<redacted>` becomes a unique sentinel, each placeholder path a real one under a test home folder) and
 checks that no sentinel, home folder spelling or path field comes out. It also pins the
-`<task-notification>` detection on run 1's fixtures and covers the home-folder and key scrubbing.
+`<task-notification>` detection on run 1's fixtures, the hand-back detection and the tag safety net on run 2's,
+and covers the home-folder and key scrubbing. `server/map.test.ts` plays both runs through `allowlist()` and
+`mapHook()`.
 
 ## Still to capture
 
 One more short interactive run, to fill in `Notification` (`permission_prompt`, `idle_prompt`) and to see
 whether it names the subagent that is waiting. Run 2 ran in `auto` mode, which approves Bash without asking,
-so start this one in the default mode explicitly:
+so start this one in the default mode explicitly (2.1.312 lists it as `manual` and still accepts `default`):
 
 ```bash
 cd <a scratch git repo>

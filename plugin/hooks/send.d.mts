@@ -12,6 +12,7 @@ export type Forwarded = {
   reason?: string;
   prompt?: string;
   task_notification?: { task_id?: string; tool_use_id?: string; status?: string };
+  agent_message?: { from: string };
   last_assistant_message?: string;
   tool_input?: { description?: string; subagent_type?: string; run_in_background?: boolean };
   tool_response?: { status?: string; agentId?: string };

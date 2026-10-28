@@ -28,6 +28,8 @@ type Step = { state: MapState; events: OfficeEvent[] };
 const nothing = (state: MapState): Step => ({ state, events: [] });
 
 const PREFIX = 'world-of-agents:';
+/** What a subagent says to the Lead when its SubagentStop carries no last message (interactive sessions). */
+const REPORT_SENT = 'Report sent to the Lead';
 const READING: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob']);
 const WRITING: ReadonlySet<string> = new Set(['Edit', 'Write', 'Bash']);
 /** The SessionStart sources that switch the hall to that session and reset the run. Not `compact`. */
@@ -141,16 +143,14 @@ function takeOver(session: string, at: number): Step {
 function prompted(state: MapState, input: HookInput, at: number): Step {
   const notice = input.task_notification;
   if (notice) {
-    // A background subagent ended, and Claude Code tells the Lead as if you had typed it. It is not a new
-    // run. Only "completed" means the task is done.
+    // A background subagent ended (-p), and Claude Code tells the Lead as if you had typed it. It is not a
+    // new run, and it doesn't end the card (its SubagentStop does). Any status but "completed" reopens it.
     const id = notice.tool_use_id;
-    const ended = !id
-      ? nothing(state)
-      : notice.status === 'completed'
-        ? finish(state, id, at)
-        : failed(state, id, at);
-    return { state: ended.state, events: [...ended.events, lead('thinking', at)] };
+    const failure = id && notice.status !== 'completed' ? failed(state, id, at) : nothing(state);
+    return { state: failure.state, events: [...failure.events, lead('thinking', at)] };
   }
+  // A hand-back (agent_message) or any other prompt that starts with a tag comes with no text: the Lead reads
+  // a result, and the header keeps its run text.
   const text = input.prompt?.trim();
   return { state, events: [...(text ? [{ type: 'run' as const, text, at }] : []), lead('thinking', at)] };
 }
@@ -218,19 +218,27 @@ function notified(state: MapState, input: HookInput, agent: AgentId, sub: string
 }
 
 /**
- * A subagent run ends: its last message to the Lead, and the agent is done, even when the run already counts
- * as stopped. A run whose task already failed keeps its agent in error. It never moves a card: SubagentStop
- * can't tell a finished run from a failed one, so a card is done only when its task completes (finish()).
+ * A subagent run ends: its last message to the Lead, its card Done and the agent done, even when the run
+ * already counts as stopped. Both -p and interactive sessions send SubagentStop, so it is what ends a card.
+ * Interactive sessions send no last message (the report comes in a hand-back the hall never sees), so the
+ * message then only says it was sent. A run whose task already failed keeps its agent in error and its card
+ * open.
  */
 function stopRun(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
   // A stop whose start never arrived still links its run to a card, and a late start is then ignored.
   const linked = state.runs[id] ? state : linkRun(state, id, agent).state;
   const run: Run = { ...linked.runs[id]!, stopped: true };
-  const next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
-  const events: OfficeEvent[] = [];
-  if (text?.trim()) events.push({ type: 'message', from: agent, to: 'lead', text, at });
+  let next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
+  const events: OfficeEvent[] = [
+    { type: 'message', from: agent, to: 'lead', text: text?.trim() ? text : REPORT_SENT, at },
+  ];
   // Only failed() gives a run the error state: a failed subagent stays failed.
   if (run.state === 'error') return { state: next, events };
+  if (run.taskId) {
+    const ended = finish(next, run.taskId, at);
+    next = ended.state;
+    events.push(...ended.events);
+  }
   // Another copy still running keeps the agent busy; the last one to stop sends it to rest.
   const other = running(next, agent).at(-1);
   events.push(
@@ -242,8 +250,8 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
 }
 
 /**
- * Marks a card done, once. Only a completed task does it: a completed <task-notification> (background) or a
- * PostToolUse with status "completed" (foreground).
+ * Marks a card done, once: at its agent's SubagentStop, or at a foreground PostToolUse with status
+ * "completed" (which arrives after that stop, so it changes nothing then).
  */
 function finish(state: MapState, taskId: string, at: number): Step {
   const card = state.cards.find((c) => c.taskId === taskId);
@@ -256,17 +264,26 @@ function finish(state: MapState, taskId: string, at: number): Step {
 }
 
 /**
- * A task that ended any way but "completed": its agent shows the error, and its card stays where it is. Its
- * run counts as stopped, so a start or a tool call that lands later can't put the agent back to work.
+ * A task that ended any way but "completed": its card goes back to In progress if its SubagentStop already
+ * closed it, and its agent shows the error. Its run counts as stopped with that error, so a SubagentStop that
+ * lands later keeps both, and a late start or tool call can't put the agent back to work.
  */
 function failed(state: MapState, taskId: string, at: number): Step {
   const card = state.cards.find((c) => c.taskId === taskId);
   if (!card) return nothing(state);
+  const open = { ...card, done: false };
   const id = card.agentId;
   const run: Run = { agent: card.owner, taskId, state: 'error', stopped: true };
   return {
-    state: id ? { ...state, runs: { ...state.runs, [id]: run } } : state,
-    events: [{ type: 'state', agent: card.owner, state: 'error', taskId, at }],
+    state: {
+      ...state,
+      cards: state.cards.map((c) => (c === card ? open : c)),
+      runs: id ? { ...state.runs, [id]: run } : state.runs,
+    },
+    events: [
+      ...(card.done ? [taskEvent(open, 'in-progress', at)] : []),
+      { type: 'state', agent: card.owner, state: 'error', taskId, at },
+    ],
   };
 }
 

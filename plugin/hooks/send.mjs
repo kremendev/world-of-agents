@@ -62,11 +62,19 @@ export function text(v, max, home = homedir()) {
 
 const bool = (v) => (typeof v === 'boolean' ? v : undefined);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
-const tag = (prompt, name) => prompt.match(new RegExp(`<${name}>([^<]{1,100})</${name}>`))?.[1];
+/** An id or status inside a Claude Code frame: id-shaped only, so no free text can ride along. */
+const tag = (prompt, name) => prompt.match(new RegExp(`<${name}>([\\w-]{1,100})</${name}>`))?.[1];
 
 /**
- * A background subagent finishing re-prompts the Lead with a `<task-notification>` as if the user typed it.
- * Only its ids and status go on: its <result> is the subagent's full output and <output-file> is a path.
+ * A prompt that starts with a tag is a Claude Code frame, not you typing: its text never goes on, and the
+ * hall keeps the run text it has. The two frames we know send their ids instead (docs/v2-hooks.md).
+ */
+const STARTS_WITH_TAG = /^<[A-Za-z][\w-]*/;
+
+/**
+ * A background subagent finishing re-prompts the Lead with a `<task-notification>` as if the user typed it
+ * (in `-p` runs). Only its ids and status go on: its <result> is the subagent's full output and
+ * <output-file> is a path.
  */
 function taskNotification(prompt) {
   if (typeof prompt !== 'string' || !prompt.startsWith('<task-notification>')) return undefined;
@@ -77,9 +85,19 @@ function taskNotification(prompt) {
   };
 }
 
+/**
+ * In an interactive session the result comes back as an `<agent-message from="<agent_id>">` hand-back
+ * instead. Only `from` goes on: the report inside held file contents and a command in run 2.
+ */
+function agentMessage(prompt) {
+  const from =
+    typeof prompt === 'string' ? prompt.match(/^<agent-message from="([\w-]{1,100})">/)?.[1] : undefined;
+  return from ? { from } : undefined;
+}
+
 /** The fields the hall needs, and nothing else: never file contents, commands, paths or transcripts. */
 export function allowlist(p, home = homedir()) {
-  const notification = taskNotification(p.prompt);
+  const framed = typeof p.prompt === 'string' && STARTS_WITH_TAG.test(p.prompt);
   const out = {
     hook_event_name: str(p.hook_event_name, 40),
     session_id: str(p.session_id, 100),
@@ -90,8 +108,9 @@ export function allowlist(p, home = homedir()) {
     notification_type: str(p.notification_type, 40),
     source: str(p.source, 40),
     reason: str(p.reason, 40),
-    prompt: notification ? undefined : text(p.prompt, 120, home),
-    task_notification: notification,
+    prompt: framed ? undefined : text(p.prompt, 120, home),
+    task_notification: taskNotification(p.prompt),
+    agent_message: agentMessage(p.prompt),
     last_assistant_message: text(p.last_assistant_message, 200, home),
   };
   if (p.tool_name === AGENT_TOOL) {
