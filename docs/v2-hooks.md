@@ -11,8 +11,9 @@ did not fire, and nothing failed, so `StopFailure` did not fire either.
 
 **Run 2** (`run2-interactive/`, 24 payloads): an interactive session with the plugin and
 `--agent world-of-agents:lead`, with `WOA_CAPTURE=1`. The Lead sent the Backend dev (it wrote `server.js` and
-ran `node --check` in Bash), then the Reviewer. The whole session ran in `auto` permission mode, so it brought
-no `Notification` either, but background results came back in a new form: see What run 2 changed.
+ran `node --check` in Bash), then the Reviewer. The whole session ran in `auto` permission mode (Claude Code's
+built-in start mode for interactive sessions, see `Notification`), so it brought no `Notification` either, but
+background results came back in a new form: see What run 2 changed.
 
 ## Fields on every event
 
@@ -148,8 +149,15 @@ after the first task notification (1 running), and once at the real end (`[]`).
 
 Still not captured. Run 2 was meant to fill in `Notification`, but the whole session ran in `auto` permission
 mode (`permission_mode` on every payload). `auto` approved the Backend dev's Bash without asking, so no
-`permission_prompt` fired. No `idle_prompt` either: the session ended 62 s after the Lead's last turn. So
-**whether `permission_prompt` names the waiting subagent is still unknown**. `server/map.ts` handles both: with
+`permission_prompt` fired. No `idle_prompt` either: the session ended 62 s after the Lead's last turn.
+
+Why `auto`: since Claude Code 2.1.283, `auto` is the built-in start mode for interactive terminal and VS Code
+sessions, and since 2.1.302 `claude -p` with no mode set starts in `default` (shown as Manual), not `auto`
+([permission modes](https://code.claude.com/docs/en/permission-modes)). No settings file on this PC sets a mode
+(user, project, managed and VS Code settings were checked), so run 2 got the interactive default. Run 1 was `-p`
+with `--permission-mode acceptEdits`, which is why the two runs differ.
+
+So **whether `permission_prompt` names the waiting subagent is still unknown**. `server/map.ts` handles both: with
 an `agent_id` that subagent needs you, without one the Lead does. Nothing failed, so there was no
 `StopFailure`. See Still to capture.
 
@@ -240,8 +248,9 @@ and covers the home-folder and key scrubbing. `server/map.test.ts` plays both ru
 ## Still to capture
 
 One more short interactive run, to fill in `Notification` (`permission_prompt`, `idle_prompt`) and to see
-whether it names the subagent that is waiting. Run 2 ran in `auto` mode, which approves Bash without asking,
-so start this one in the default mode explicitly (2.1.312 lists it as `manual` and still accepts `default`):
+whether it names the subagent that is waiting. An interactive session starts in `auto`, which approves Bash
+without asking, so start this one in `default` explicitly. `default` is the config value (what hooks report
+in `permission_mode`); Claude Code shows it as Manual and also accepts `manual`:
 
 ```bash
 cd <a scratch git repo>

@@ -185,7 +185,7 @@ Five milestones, one per session. Claude Code: stop after each one for Dima's re
    - Everything under UI changes, plus the reducer rules for out-of-order events and agent copies.
    - Done when tests cover: Demo and Live switching, offline and reconnect, a stop that arrives before its start, the x2 chip, the needs-you banner, the disabled task bar, and an `<img onerror>` message rendering as text.
 4. **Launcher and docs.**
-   - `bin/woa` for Git Bash: sets `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`, then runs `claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default "$@"`. Always `--permission-mode default`: run 2 started in `auto`, which approved every tool call without asking, so you never saw a prompt and no `Notification` fired. Claude Code 2.1.312 lists this mode as `manual` and still accepts `default`.
+   - `bin/woa` for Git Bash: sets `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1`, then runs `claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default "$@"`. Always `--permission-mode default`: since Claude Code 2.1.283 an interactive session starts in `auto`, which approved every tool call in run 2 without asking, so you never saw a prompt and no `Notification` fired (`docs/v2-hooks.md`). `default` is the config value; Claude Code shows it as Manual.
    - README: requirements (Claude Code with Max or higher, the Node version, Git Bash), setup, and the security notes. CLAUDE.md updated for v2.
    - The roster test against the agent files, and a GitHub Pages workflow for the demo build.
    - Done when a fresh clone works by following the README alone.
