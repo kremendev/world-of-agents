@@ -10,7 +10,8 @@ dist-ssr
 coverage
 *.tsbuildinfo
 
-# Secrets: the Anthropic API key (v2) lives in .env and must never be committed
+# Secrets: v2 uses no API key (observer mode: the plugin's hooks and Claude Code's own login).
+# .env stays ignored so a stray secret can never be committed.
 .env
 .env.*
 !.env.example

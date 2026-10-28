@@ -1,6 +1,7 @@
 # World of Agents — v2 Brief
 
-28 Oct 2026 · Dima. Source of truth: the "World of Agents — v2 Brief" doc. This file is a copy for Claude Code.
+28 Oct 2026 · Dima. **This file is the source of truth for implementation.** The "World of Agents — v2 Brief"
+doc in Claude is the overview and where decisions are made; when a decision changes there, it is copied here.
 
 v2 turns the hall into a live view of real Claude Code runs on your projects. You start Claude Code in a project with the World of Agents plugin: the Lead/PM is the main thread, the other four are its subagents, and hooks report what each one does to a small server on your PC that feeds the hall.
 

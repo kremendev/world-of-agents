@@ -22,11 +22,47 @@ const AGENT_TOOL = 'Agent';
 const MAX_BACKGROUND_TASKS = 20;
 
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : undefined);
-/** Free text (the prompt, an agent's last message) can quote local paths: the home folder becomes `~`. */
-const text = (v, max) => (typeof v === 'string' ? v.split(homedir()).join('~').slice(0, max) : undefined);
+
+const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * The home folder in every spelling an agent or Git Bash may write it: `C:\Users\dima`, `C:/Users/dima`
+ * and `/c/Users/dima`, any case (Windows paths ignore it). Matches only whole folder names, so
+ * `C:\Users\dimaX` is left alone.
+ */
+export function homePattern(home) {
+  const drive = home.match(/^([A-Za-z]):[\\/](.*)$/);
+  const forms = drive
+    ? [`${drive[1]}:\\`, `${drive[1]}:/`, `/${drive[1]}/`].map(
+        (root) => escapeRegExp(root) + drive[2].split(/[\\/]/).map(escapeRegExp).join('[\\\\/]'),
+      )
+    : [escapeRegExp(home)];
+  return new RegExp(`(?:${forms.join('|')})(?![\\w.-])`, drive ? 'gi' : 'g');
+}
+
+/** Common secret formats an agent may echo: Anthropic, GitHub and AWS keys, and PEM blocks. */
+const SECRETS = [
+  /-----BEGIN [A-Z ]*-----[\s\S]*?(?:-----END [A-Z ]*-----|$)/g,
+  /sk-ant-[\w-]+/g,
+  /github_pat_\w+/g,
+  /gh[pousr]_[A-Za-z0-9]+/g,
+  /AKIA[0-9A-Z]{16}/g,
+];
+
+/**
+ * Free text (the prompt, an agent's last message, an Agent call's description): the home folder becomes
+ * `~` and key-shaped strings become `[redacted]`. Scrubbed before the cap, so a cut can't leave half a key.
+ */
+export function text(v, max, home = homedir()) {
+  if (typeof v !== 'string') return undefined;
+  let out = v.replace(homePattern(home), '~');
+  for (const secret of SECRETS) out = out.replace(secret, '[redacted]');
+  return out.slice(0, max);
+}
+
 const bool = (v) => (typeof v === 'boolean' ? v : undefined);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
-const tag = (text, name) => text.match(new RegExp(`<${name}>([^<]{1,100})</${name}>`))?.[1];
+const tag = (prompt, name) => prompt.match(new RegExp(`<${name}>([^<]{1,100})</${name}>`))?.[1];
 
 /**
  * A background subagent finishing re-prompts the Lead with a `<task-notification>` as if the user typed it.
@@ -42,7 +78,7 @@ function taskNotification(prompt) {
 }
 
 /** The fields the hall needs, and nothing else: never file contents, commands, paths or transcripts. */
-export function allowlist(p) {
+export function allowlist(p, home = homedir()) {
   const notification = taskNotification(p.prompt);
   const out = {
     hook_event_name: str(p.hook_event_name, 40),
@@ -54,14 +90,14 @@ export function allowlist(p) {
     notification_type: str(p.notification_type, 40),
     source: str(p.source, 40),
     reason: str(p.reason, 40),
-    prompt: notification ? undefined : text(p.prompt, 120),
+    prompt: notification ? undefined : text(p.prompt, 120, home),
     task_notification: notification,
-    last_assistant_message: text(p.last_assistant_message, 200),
+    last_assistant_message: text(p.last_assistant_message, 200, home),
   };
   if (p.tool_name === AGENT_TOOL) {
     const input = obj(p.tool_input);
     out.tool_input = {
-      description: str(input.description, 120),
+      description: text(input.description, 120, home),
       subagent_type: str(input.subagent_type, 100),
       run_in_background: bool(input.run_in_background),
     };

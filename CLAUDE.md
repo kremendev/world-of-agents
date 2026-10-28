@@ -112,8 +112,9 @@ Do not change the look without asking. New ideas go into a later version.
 
 - Agent output is untrusted text. Render it as React text. ESLint blocks `dangerouslySetInnerHTML`.
 - Every event goes through `parseEvent()` before it touches state. Strict objects, enums, length limits.
-- The Anthropic API key (v2) lives only in the back-end's `.env`, which git ignores. Never in a `VITE_`
-  variable: Vite bundles those into the browser.
+- v2 has no API key and no Agent SDK: it is observer mode. Claude Code runs on the user's own login, and the
+  plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
+  secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads.
 - The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2
   it goes to the Lead/PM, which makes it a **prompt-injection surface**: send it as clearly marked user
@@ -164,4 +165,7 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
 
 Next:
 
-4. v2: back-end on the Claude Agent SDK sending the same events over Server-Sent Events.
+4. v2 (docs/v2-brief.md): observer mode, no Agent SDK and no API key. A Claude Code plugin (`plugin/`: the
+   five agents and hooks) reports to a hall server on 127.0.0.1, which sends the same events to the page over
+   Server-Sent Events. Milestone 1 (plugin and payload capture) is done; real payload fields are in
+   docs/v2-hooks.md.
