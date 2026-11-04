@@ -110,9 +110,9 @@ the text.
 Only `agent_id` and `agent_type` (plus the common fields). **No `tool_use_id`**, so it does not say which
 Agent call started it. It arrived right after its `PreToolUse` `Agent` and before the matching `PostToolUse`.
 
-**Still open:** in run 3 those two hooks fired in the same millisecond (rows 4 and 5). Each hook is its own
-process, so they can reach the hall in either order. If `SubagentStart` lands first, `map.ts` has no card to give
-it: the card stays Todo until its `SubagentStop`, and the agent shows no card until its next tool call.
+**Either can land first.** In run 3 those two hooks fired in the same millisecond (rows 4 and 5), and each hook is
+its own process. If `SubagentStart` gets to the hall first, the card goes straight to In progress when it is
+created, and the agent shows it. Both orders end the same.
 
 ### `PostToolUse` (tool `Agent`)
 
@@ -160,6 +160,14 @@ after the first task notification (1 running), and once at the real end (`[]`).
 ### `SessionEnd`
 
 `reason`: `"other"` when `-p` exits, `"prompt_input_exit"` when you quit an interactive session (runs 2 and 3).
+
+### `PermissionRequest`
+
+**Hooked, not captured yet.** The docs say it runs "when Claude Code is about to ask you for permission to use a
+tool", so it needs no 6 s wait, and it holds `tool_name`, `tool_input` and `permission_suggestions`. Their example
+has no `agent_id`, so whether it names the waiting subagent is unknown. `map.ts` treats it like `permission_prompt`:
+an `agent_id` wins, otherwise the same guess as below. This is the hook whose reply can allow or deny a tool call,
+so like every other hook it is `async`, and `send.mjs` prints nothing and drops any reply. See Still to capture.
 
 ### `Notification`
 
@@ -249,6 +257,8 @@ Before this was handled, run 2 fed through `allowlist()` and `mapHook()` replace
    its state. See `Notification`.
 2. **Interactive does not mean hand-backs.** `<task-notification>`s and `SubagentStop.last_assistant_message`
    came back in an interactive session, so neither is tied to `-p`.
+3. **An Agent call and its `SubagentStart` can race.** They fired in the same millisecond. A card created or linked
+   for a run that is already going now goes straight to In progress, so it can't sit at Todo while the dev works.
 
 ## What `send.mjs` forwards
 
@@ -273,6 +283,8 @@ or command got through):
   and no `prompt`. For one that starts with `<agent-message from="…">`: `agent_message: { from }` and no
   `prompt`. Ids, status and `from` must be id-shaped (letters, digits, `_`, `-`, up to 100), so no free text
   rides along. Any other prompt that starts with `<` and a tag name: no `prompt` at all.
+- For a `PermissionRequest`: only `hook_event_name`, the ids, `agent_type` and `tool_name`. Never `tool_input`,
+  which is the very command or file waiting for your approval, not even for the `Agent` tool.
 
 ## Other checks in milestone 1
 
@@ -301,20 +313,32 @@ covers the home-folder and key scrubbing. `server/map.test.ts` plays all three r
 
 ## Still to capture
 
-**`idle_prompt`.** One short session is enough. Start it in `default` as run 3 was; an interactive session
-otherwise starts in `auto`. `default` is the config value (what hooks report in `permission_mode`); Claude Code
-shows it as Manual and also accepts `manual`:
+**`PermissionRequest` and `idle_prompt`, in one run.** Start it in `default` as run 3 was; an interactive session
+otherwise starts in `auto`, which approves without asking. `default` is the config value (what hooks report in
+`permission_mode`); Claude Code shows it as Manual and also accepts `manual`. Use a repo with this `hooks.json`:
 
 ```bash
 cd <a scratch git repo>
 WOA_CAPTURE=1 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default
 ```
 
-Ask for something small that needs no subagent, since a background agent still running suppresses it. When the
-Lead has answered, **don't type anything for two minutes**, then quit. Run 3 quit after 15 s and run 2 after 62 s.
+1. Ask for run 3's task: "Ask the backend dev to create server.js with a tiny hello-world HTTP server, then run
+   node --check server.js on it."
+2. At the first approval prompt, **type nothing for 10 s**, then approve, so `permission_prompt` fires as well.
+   Each keystroke defers it. Answer any later prompt at once.
+3. Wait for the Lead's final report, with no subagent still running: a background agent suppresses `idle_prompt`.
+   Then **type nothing for two minutes**. Run 3 quit after 15 s and run 2 after 62 s.
+4. Before quitting, run `ls ~/.world-of-agents/capture` in another terminal. It should list at least one
+   `*-PermissionRequest.json` and two `*-Notification.json`. If it is empty, the plugin's hooks didn't run (check
+   `/hooks` in that session) or `WOA_CAPTURE=1` wasn't set in that shell.
 
-Check `ls ~/.world-of-agents/capture` before quitting: if it is empty, the plugin's hooks didn't run (check
-`/hooks` in that session) or `WOA_CAPTURE=1` wasn't set in that shell.
+The capture has to answer:
+
+- Does `PermissionRequest` carry the waiting subagent's `agent_id` and `agent_type`? If it does, it replaces the
+  last-writer guess, and the later `permission_prompt` should stop guessing over it.
+- Does it land after that tool's `PreToolUse`? Each hook is its own process. If `PreToolUse` lands second, its
+  `writing` overwrites the flag until the `permission_prompt` 6 s later.
+- What does `idle_prompt` carry, and does the Lead's `needs-you` from it clear when you type?
 
 **`StopFailure`, and a `<task-notification>` other than `completed`.** These need an API error or a failed or
 killed subagent, so they may stay uncaptured. Both are mapped from the docs and hand-built tests. Whether a

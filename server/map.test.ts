@@ -371,6 +371,161 @@ describe('mapHook on run 3 (`default` mode: a real permission_prompt)', () => {
   });
 });
 
+describe('mapHook when an Agent call and its SubagentStart race (the same millisecond in run 3)', () => {
+  const hooks = run3.map((hook) => hookOf(hook.n, run3));
+  const swapped = [...hooks];
+  [swapped[3], swapped[4]] = [swapped[4]!, swapped[3]!];
+  const inOrder = play(hooks);
+  const raced = play(swapped);
+  const card = hookOf(4, run3).tool_use_id!;
+  const backendCard = (events: readonly OfficeEvent[]) =>
+    events.filter((e) => e.type === 'task' && e.taskId === card).map((e) => e.type === 'task' && e.status);
+
+  it('the Agent call first: Todo, then In progress when the subagent starts, and PostToolUse adds nothing', () => {
+    expect(inOrder.steps[3]!.events).toMatchObject([
+      { type: 'task', taskId: card, status: 'todo' },
+      { type: 'state', agent: 'lead', state: 'thinking' },
+    ]);
+    expect(inOrder.steps[4]!.events).toMatchObject([
+      { type: 'task', taskId: card, status: 'in-progress' },
+      { type: 'state', agent: 'backend', state: 'thinking', taskId: card },
+    ]);
+    expect(inOrder.steps[5]!.events).toEqual([]);
+    expect(backendCard(inOrder.events)).toEqual(['todo', 'in-progress', 'done']);
+  });
+
+  it('the subagent first: the card goes straight to In progress, the agent shows it, and PostToolUse adds nothing', () => {
+    expect(raced.steps[3]!.events).toEqual([{ type: 'state', agent: 'backend', state: 'thinking', at: 3 }]);
+    expect(raced.steps[4]!.events).toEqual([
+      {
+        type: 'task',
+        taskId: card,
+        title: 'Create hello-world server.js',
+        owner: 'backend',
+        status: 'in-progress',
+        at: 4,
+      },
+      { type: 'state', agent: 'backend', state: 'thinking', taskId: card, at: 4 },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 4 },
+    ]);
+    expect(raced.steps[5]!.events).toEqual([]);
+    expect(backendCard(raced.events)).toEqual(['in-progress', 'done']);
+  });
+
+  it('both orders end in the same office', () => {
+    const office = (events: readonly OfficeEvent[]) => events.reduce(officeReducer, INITIAL_OFFICE);
+    expect(office(raced.events).tasks).toEqual(office(inOrder.events).tasks);
+    expect(office(raced.events).agents).toEqual(office(inOrder.events).agents);
+    expect(office(raced.events).tasks.map((t) => t.status)).toEqual(['done', 'done']);
+  });
+
+  it('a card for another agent does not go to a run that is waiting for its own', () => {
+    const { steps, state } = play([
+      start,
+      bySub('SubagentStart', 'backend', 'b1'),
+      handOut('t1', 'frontend'),
+    ]);
+    expect(steps[2]!.events).toMatchObject([
+      { type: 'task', taskId: 't1', status: 'todo' },
+      { agent: 'lead' },
+    ]);
+    expect(state.runs.b1!.taskId).toBeUndefined();
+  });
+
+  it('a run that already has a card keeps it: a second card waits for its own run', () => {
+    const { steps } = play([
+      start,
+      handOut('t1', 'backend'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      handOut('t2', 'backend'),
+      bySub('SubagentStart', 'backend', 'b2'),
+    ]);
+    expect(steps[3]!.events).toMatchObject([
+      { type: 'task', taskId: 't2', status: 'todo' },
+      { agent: 'lead' },
+    ]);
+    expect(steps[4]!.events).toMatchObject([
+      { type: 'task', taskId: 't2', status: 'in-progress' },
+      { type: 'state', agent: 'backend', taskId: 't2', copies: 2 },
+    ]);
+  });
+
+  it('a run that has stopped gets no card, created or linked: it is not running', () => {
+    const { steps } = play([
+      start,
+      bySub('SubagentStart', 'backend', 'b1'),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      handOut('t1', 'backend'),
+      returned('t1', 'b1', 'async_launched'),
+    ]);
+    expect(steps[3]!.events).toMatchObject([
+      { type: 'task', taskId: 't1', status: 'todo' },
+      { agent: 'lead' },
+    ]);
+    expect(steps[4]!.events).toEqual([]);
+  });
+
+  it("two runs waiting: the oldest gets the card, and the Agent call's own word moves it", () => {
+    const { steps, state } = play([
+      start,
+      bySub('SubagentStart', 'backend', 'b1'),
+      bySub('SubagentStart', 'backend', 'b2'),
+      handOut('t1', 'backend', 'Server'),
+      returned('t1', 'b2', 'async_launched'),
+    ]);
+    expect(steps[3]!.events[1]).toMatchObject({ state: 'thinking', taskId: 't1', copies: 2 });
+    expect(steps[4]!.events).toEqual([
+      { type: 'task', taskId: 't1', title: 'Server', owner: 'backend', status: 'in-progress', at: 4 },
+      { type: 'state', agent: 'backend', state: 'thinking', taskId: 't1', copies: 2, at: 4 },
+    ]);
+    expect(state.runs.b1!.taskId).toBeUndefined();
+    expect(state.runs.b2!.taskId).toBe('t1');
+  });
+});
+
+describe('mapHook on PermissionRequest (not captured yet: hand-built from the docs, mapped like permission_prompt)', () => {
+  const asks = (more: Partial<HookInput> = {}) => byLead('PermissionRequest', { tool_name: 'Bash', ...more });
+
+  it('an agent_id wins: that subagent needs you, even if another one wrote last', () => {
+    const { steps } = play([
+      start,
+      handOut('t1', 'backend'),
+      handOut('t2', 'frontend'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      bySub('SubagentStart', 'frontend', 'f1'),
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      bySub('PermissionRequest', 'backend', 'b1', { tool_name: 'Bash' }),
+    ]);
+    expect(steps[6]!.events).toEqual([
+      { type: 'state', agent: 'backend', state: 'needs-you', taskId: 't1', at: 6 },
+    ]);
+  });
+
+  it('with no agent_id: the running subagent that wrote last, and the Lead keeps its state', () => {
+    const { steps } = play([
+      start,
+      handOut('t1', 'backend'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      asks(),
+    ]);
+    expect(steps[4]!.events).toEqual([
+      { type: 'state', agent: 'backend', state: 'needs-you', taskId: 't1', at: 4 },
+    ]);
+  });
+
+  it('with no agent_id and nobody writing: the Lead', () => {
+    const { steps } = play([start, asks({ tool_name: 'Read' })]);
+    expect(steps[1]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 1 }]);
+  });
+
+  it('is ignored from another session, and from an agent type that is not ours', () => {
+    const { steps } = play([start, asks({ session_id: 'session-2' }), asks({ agent_type: 'Explore' })]);
+    expect(steps[1]!.events).toEqual([]);
+    expect(steps[2]!.events).toEqual([]);
+  });
+});
+
 describe('mapHook on a permission_prompt, which names nobody: the running subagent that wrote last', () => {
   const prompt = byLead('Notification', { notification_type: 'permission_prompt' });
   const needsYou = (agent: string, taskId: string, at: number) => ({
@@ -690,7 +845,11 @@ describe('mapHook rules', () => {
     ]);
     expect(steps[3]!.events[1]).toMatchObject({ state: 'thinking', taskId: 'tA' });
     expect(steps[4]!.events).toEqual([]);
-    expect(steps[5]!.events).toEqual([]);
+    // Y is already running, so the card it really works goes In progress and the agent shows it.
+    expect(steps[5]!.events).toEqual([
+      { type: 'task', taskId: 'tB', title: 'Fonts', owner: 'designer', status: 'in-progress', at: 5 },
+      { type: 'state', agent: 'designer', state: 'thinking', taskId: 'tB', at: 5 },
+    ]);
     expect(steps[6]!.events[1]).toMatchObject({ state: 'thinking', taskId: 'tA', copies: 2 });
     expect(steps[7]!.events).toEqual([
       { type: 'state', agent: 'designer', state: 'writing', taskId: 'tB', copies: 2, at: 7 },

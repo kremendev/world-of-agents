@@ -60,6 +60,7 @@ export function text(v, max, home = homedir()) {
   return out.slice(0, max);
 }
 
+const withoutUndefined = (v) => JSON.parse(JSON.stringify(v));
 const bool = (v) => (typeof v === 'boolean' ? v : undefined);
 const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? v : {});
 /** An id or status inside a Claude Code frame: id-shaped only, so no free text can ride along. */
@@ -97,14 +98,19 @@ function agentMessage(prompt) {
 
 /** The fields the hall needs, and nothing else: never file contents, commands, paths or transcripts. */
 export function allowlist(p, home = homedir()) {
-  const framed = typeof p.prompt === 'string' && STARTS_WITH_TAG.test(p.prompt);
-  const out = {
+  const who = {
     hook_event_name: str(p.hook_event_name, 40),
     session_id: str(p.session_id, 100),
     agent_id: str(p.agent_id, 100),
     agent_type: str(p.agent_type, 100),
     tool_name: str(p.tool_name, 100),
     tool_use_id: str(p.tool_use_id, 100),
+  };
+  // Who is asking and for which tool, nothing more: its tool_input is the very command or file waiting for you.
+  if (p.hook_event_name === 'PermissionRequest') return withoutUndefined(who);
+  const framed = typeof p.prompt === 'string' && STARTS_WITH_TAG.test(p.prompt);
+  const out = {
+    ...who,
     notification_type: str(p.notification_type, 40),
     source: str(p.source, 40),
     reason: str(p.reason, 40),
@@ -133,7 +139,7 @@ export function allowlist(p, home = homedir()) {
       agent_type: str(obj(t).agent_type, 100),
     }));
   }
-  return JSON.parse(JSON.stringify(out)); // drops the undefined fields
+  return withoutUndefined(out);
 }
 
 async function readStdin() {

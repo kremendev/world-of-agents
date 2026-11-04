@@ -189,7 +189,8 @@ Next:
    that only a new, cleared or resumed session switches it. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
    with a tag) never reach the hall as text. A `permission_prompt` doesn't say who is waiting, so the running
-   subagent that last used Edit, Write or Bash is flagged. Fixtures: run 1 (`-p`), run 2 (interactive, `auto`)
-   and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is next; it also takes the "Session
-   ended" signal (SessionEnd sends no event yet) and the roster drift between roster.ts and the plugin's agent
-   files.
+   subagent that last used Edit, Write or Bash is flagged. `PermissionRequest` is hooked and mapped the same way
+   (an `agent_id` wins), but not captured yet; docs/v2-hooks.md says how. Fixtures: run 1 (`-p`), run 2
+   (interactive, `auto`) and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is next; it also
+   takes the "Session ended" signal (SessionEnd sends no event yet) and the roster drift between roster.ts and the
+   plugin's agent files.

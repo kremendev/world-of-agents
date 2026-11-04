@@ -101,6 +101,64 @@ describe('<task-notification> detection', () => {
   });
 });
 
+describe('PermissionRequest (not captured yet: the shape is the docs example)', () => {
+  const request = (more: Payload = {}): Payload => ({
+    session_id: 's1',
+    transcript_path: `${HOME}\\.claude\\projects\\demo\\s1.jsonl`,
+    cwd: `${HOME}\\projects\\demo`,
+    permission_mode: 'default',
+    hook_event_name: 'PermissionRequest',
+    agent_type: 'world-of-agents:backend',
+    tool_name: 'Bash',
+    tool_input: { command: 'SENTINEL_command', description: 'SENTINEL_description' },
+    permission_suggestions: [
+      {
+        type: 'addRules',
+        rules: [{ toolName: 'Bash', ruleContent: 'SENTINEL_rule' }],
+        behavior: 'allow',
+        destination: 'localSettings',
+      },
+    ],
+    ...more,
+  });
+
+  it('forwards only the event name, the ids, the agent type and the tool name', () => {
+    expect(allowlist(request({ agent_id: 'a1', tool_use_id: 'toolu_1' }), HOME)).toEqual({
+      hook_event_name: 'PermissionRequest',
+      session_id: 's1',
+      agent_id: 'a1',
+      agent_type: 'world-of-agents:backend',
+      tool_name: 'Bash',
+      tool_use_id: 'toolu_1',
+    });
+  });
+
+  it('never forwards tool_input, not even for the Agent tool, whose input other events do forward', () => {
+    const agentCall = {
+      tool_name: 'Agent',
+      tool_input: { description: 'SENTINEL_description', subagent_type: 'world-of-agents:backend' },
+      tool_response: { status: 'SENTINEL_status', agentId: 'SENTINEL_agent' },
+    };
+    const sent = allowlist(request(agentCall), HOME);
+    expect(sent).not.toHaveProperty('tool_input');
+    expect(sent).not.toHaveProperty('tool_response');
+    expect(strings(sent)).not.toMatch(/SENTINEL_/);
+  });
+
+  it('forwards no free text, should a later version add it to this event', () => {
+    const sent = allowlist(
+      request({
+        prompt: 'SENTINEL_prompt',
+        last_assistant_message: 'SENTINEL_message',
+        message: 'SENTINEL_note',
+      }),
+      HOME,
+    );
+    expect(strings(sent)).not.toMatch(/SENTINEL_/);
+    expect(Object.keys(sent).sort()).toEqual(['agent_type', 'hook_event_name', 'session_id', 'tool_name']);
+  });
+});
+
 describe('Notification', () => {
   it("forwards run 3's permission_prompt as its type only, never its message", () => {
     const notice = fixtures.find((f) => f.name.endsWith('11-Notification.json'))!;

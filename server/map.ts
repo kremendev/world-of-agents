@@ -92,6 +92,8 @@ function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number)
       return sub && !state.runs[sub] ? startRun(state, sub, agent, at) : nothing(state);
     case 'Notification':
       return notified(state, input, agent, sub, at);
+    case 'PermissionRequest':
+      return waiting(state, agent, sub, at); // not captured yet (docs/v2-hooks.md)
     case 'SubagentStop':
       return sub ? stopRun(state, sub, agent, input.last_assistant_message, at) : nothing(state);
     case 'PostToolUse':
@@ -173,7 +175,16 @@ function handOut(state: MapState, input: HookInput, at: number): Step {
   const event = taskEvent(card, 'todo', at);
   // A tool_use_id that can't be a task id (odd characters, too long) gets no card at all.
   if (!parseEvent(event).ok) return thinking;
-  return { state: { ...state, cards: [...state.cards, card] }, events: [event, ...thinking.events] };
+  const withCard = { ...state, cards: [...state.cards, card] };
+  // The Agent call and its SubagentStart can fire in the same millisecond, and each hook is its own process,
+  // so the subagent can get here first. PostToolUse corrects the match if another run of that agent is the one.
+  const started = running(state, owner).find(([, run]) => !run.taskId)?.[0];
+  if (!started) return { state: withCard, events: [event, ...thinking.events] };
+  const linked = link(withCard, taskId, started);
+  return {
+    state: linked,
+    events: [taskEvent(card, 'in-progress', at), shown(linked, started, at), ...thinking.events],
+  };
 }
 
 /**
@@ -218,17 +229,21 @@ function toolUsed(state: MapState, id: string, agent: AgentId, tool: string | un
  * and no agent_id (docs/v2-hooks.md, run 3). Edit, Write and Bash are the tools that ask, and each one's
  * PreToolUse comes just before its prompt, so the waiting agent is the running subagent that used one last, or
  * the Lead if there is none. With two subagents writing at once this can name the wrong one. An agent_id wins
- * if Claude Code ever sends one. No hook says when you answer: the flag clears at that agent's next event.
+ * if a hook sends one, as a PermissionRequest may (not captured yet). No hook says when you answer: the flag
+ * clears at that agent's next event.
  */
-function notified(state: MapState, input: HookInput, agent: AgentId, sub: string | null, at: number): Step {
-  if (input.notification_type === 'idle_prompt') return { state, events: [lead('needs-you', at)] };
-  if (input.notification_type !== 'permission_prompt') return nothing(state);
+function waiting(state: MapState, agent: AgentId, sub: string | null, at: number): Step {
   if (sub) return act(state, sub, agent, 'needs-you', at);
   const writer = state.lastWriter;
   const run = writer ? state.runs[writer] : undefined;
   return writer && run && !run.stopped
     ? act(state, writer, run.agent, 'needs-you', at)
     : { state, events: [lead('needs-you', at)] };
+}
+
+function notified(state: MapState, input: HookInput, agent: AgentId, sub: string | null, at: number): Step {
+  if (input.notification_type === 'idle_prompt') return { state, events: [lead('needs-you', at)] };
+  return input.notification_type === 'permission_prompt' ? waiting(state, agent, sub, at) : nothing(state);
 }
 
 /**
@@ -302,12 +317,19 @@ function failed(state: MapState, taskId: string, at: number): Step {
 
 function agentReturned(state: MapState, input: HookInput, at: number): Step {
   const taskId = input.tool_use_id;
-  if (input.tool_name !== 'Agent' || !taskId || !state.cards.some((c) => c.taskId === taskId))
-    return nothing(state);
+  const card = state.cards.find((c) => c.taskId === taskId);
+  if (input.tool_name !== 'Agent' || !taskId || !card) return nothing(state);
   const agentId = input.tool_response?.agentId;
   const linked = agentId ? link(state, taskId, agentId) : state;
-  // A background call comes back at once with "async_launched": that only links the card to its run.
-  return input.tool_response?.status === 'completed' ? finish(linked, taskId, at) : nothing(linked);
+  // A run already going that only now gets this card: the card goes In progress and the agent shows it.
+  const run = agentId ? linked.runs[agentId] : undefined;
+  const started =
+    agentId && run && !run.stopped && !card.done && card.agentId !== agentId
+      ? [taskEvent(card, 'in-progress', at), shown(linked, agentId, at)]
+      : [];
+  // A background call comes back at once with "async_launched": beyond that, it only links the card to its run.
+  const ended = input.tool_response?.status === 'completed' ? finish(linked, taskId, at) : nothing(linked);
+  return { state: ended.state, events: [...started, ...ended.events] };
 }
 
 /** The Agent call's own word on which run works its card. It beats linkRun's oldest-open-card guess. */
