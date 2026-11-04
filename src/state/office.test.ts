@@ -92,13 +92,6 @@ describe('officeReducer', () => {
     });
   });
 
-  it('leaves the state as it is for token events (nothing shows them yet)', () => {
-    const before = apply([task('a')]);
-    expect(officeReducer(before, { type: 'tokens', agent: 'lead', input: 10, output: 5, at: 0 })).toBe(
-      before,
-    );
-  });
-
   it('starts from a clean office on a reset (v2: a new session)', () => {
     const busy = apply([task('a'), { type: 'message', from: 'lead', to: 'you', text: 'Hi', at: 1 }]);
     expect(officeReducer(busy, { type: 'reset', at: 2 })).toEqual(INITIAL_OFFICE);
@@ -174,7 +167,6 @@ describe('activity log', () => {
     const next = apply([
       { type: 'state', agent: 'backend', state: 'writing', taskId: 'api', at: 5 },
       say('lead', 'backend', 'How is it going?'),
-      { type: 'tokens', agent: 'lead', input: 1, output: 1, at: 6 },
       task('api'),
     ]);
     expect(next.log).toEqual([

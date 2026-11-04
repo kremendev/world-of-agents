@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
+import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { HallView } from './office/hall/HallView';
 import { useStage } from './office/hall/useStage';
@@ -15,11 +16,17 @@ import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './st
 
 type RunStatus = 'playing' | 'paused' | 'ended';
 
+/** The hosted demo (VITE_LIVE=false) has no hall to find, so it says where to go next. The last word is the link. */
+const HOSTED_STATUS =
+  'Demo · scripted run with no AI calls. To watch your own Claude Code sessions (Max or higher), see the';
+const REPO_URL = 'https://github.com/kremendev/world-of-agents';
+
 /** The mode badge and what the status line says. No badge while the health check is out: a second at most. */
 function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
   if (demo) {
-    const status =
-      hall.status !== 'no-hall'
+    const status = !liveEnabled()
+      ? `${HOSTED_STATUS} README`
+      : hall.status !== 'no-hall'
         ? 'Demo · the hall keeps watching Claude Code'
         : hall.hallFound
           ? 'Demo · the hall is running'
@@ -112,6 +119,7 @@ export default function App() {
 
   const office = demo ? demoOffice : hall.office;
   const live = !demo;
+  const hosted = !liveEnabled();
   const mode = modeOf(hall, demo, office);
   // From the real run even during a demo: Claude Code is still waiting for you.
   const waiting = hall.status === 'no-hall' ? [] : whoIsWaiting(hall.office);
@@ -178,8 +186,22 @@ export default function App() {
         )}
       </header>
 
-      <p className={waiting.length > 0 ? 'status-line needs-you' : 'status-line'} title={status}>
-        {status}
+      <p
+        className={
+          waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'
+        }
+        title={status}
+      >
+        {hosted ? (
+          <>
+            {HOSTED_STATUS}{' '}
+            <a href={REPO_URL} rel="noreferrer">
+              README
+            </a>
+          </>
+        ) : (
+          status
+        )}
       </p>
 
       <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
@@ -194,10 +216,11 @@ export default function App() {
             room={stage.fit}
           />
         </section>
-        <ActivityFeed office={office} agent={feedAgent} onShowEveryone={() => setFeedAgent(null)} />
+        <div className="side">
+          {demo && <TaskBar onSend={send} />}
+          <ActivityFeed office={office} agent={feedAgent} onShowEveryone={() => setFeedAgent(null)} />
+        </div>
       </div>
-
-      {demo && <TaskBar onSend={send} />}
 
       <div className="lower">
         <TaskBoard office={office} />

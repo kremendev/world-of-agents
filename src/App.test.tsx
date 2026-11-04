@@ -37,10 +37,11 @@ function renderApp() {
     /**
      * Moves the clock to `ms` after the run started, running timers and animation frames on the way.
      * In 50 ms slices: React only renders when an act() ends, and the hall must see each event as it lands.
+     * A test that only looks at where a moment ends up can pass a bigger slice, and render far less.
      */
-    at: (ms: number) => {
-      for (let left = start + ms - performance.now(); left > 0; left -= 50) {
-        act(() => vi.advanceTimersByTime(Math.min(50, left)));
+    at: (ms: number, slice = 50) => {
+      for (let left = start + ms - performance.now(); left > 0; left -= slice) {
+        act(() => vi.advanceTimersByTime(Math.min(slice, left)));
       }
     },
     feet: (id: AgentId): Point => {
@@ -102,7 +103,7 @@ describe('App', () => {
     expect(app.tiles()).toEqual([]);
 
     // Step 4: plan done; Designer writing, Backend reading at its desk, the Lead checking in.
-    app.at(stepStart(4) + 2500);
+    app.at(stepStart(4) + 2500, 1000);
     expect(screen.getByText('1/5 done')).toBeInTheDocument();
     expect(app.bar()).toBe('20%');
     expect(screen.getByText('Furnace · 3 working')).toBeInTheDocument();
@@ -114,7 +115,7 @@ describe('App', () => {
       ['R', rgb(STATUS_COLOR.todo)],
     ]);
 
-    app.at(stepStart(10));
+    app.at(stepStart(10), 1000);
     expect(screen.getByText('5/5 done')).toBeInTheDocument();
     expect(app.bar()).toBe('100%');
     expect(screen.getByText('Furnace · cold')).toBeInTheDocument();

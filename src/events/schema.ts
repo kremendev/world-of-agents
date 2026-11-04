@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+// Zod's speed-up probes for `new Function`. The page's Content-Security-Policy forbids that and reports even a caught
+// attempt, so it stays off. Has to run before the first parse.
+z.config({ jitless: true });
+
 /**
  * The event contract from the v1 spec. v1 plays a fake script of these events;
  * v2 receives the same events from the back-end over Server-Sent Events.
@@ -25,7 +29,6 @@ export const LIMITS = {
   idLength: 64,
   titleLength: 200,
   messageLength: 4000,
-  tokensPerEvent: 10_000_000,
   agentCopies: 20,
 } as const;
 
@@ -38,7 +41,6 @@ const taskId = z
   .max(LIMITS.idLength)
   .regex(/^[A-Za-z0-9_-]+$/, 'letters, digits, _ and - only');
 const timestamp = z.number().int().nonnegative();
-const tokenCount = z.number().int().nonnegative().max(LIMITS.tokensPerEvent);
 
 // strictObject rejects unknown keys, so nothing unexpected sneaks into app state.
 const stateEvent = z.strictObject({
@@ -65,14 +67,6 @@ const messageEvent = z.strictObject({
   from: agentId,
   to: z.union([agentId, z.literal('you')]),
   text: z.string().min(1).max(LIMITS.messageLength),
-  at: timestamp,
-});
-
-const tokensEvent = z.strictObject({
-  type: z.literal('tokens'),
-  agent: agentId,
-  input: tokenCount,
-  output: tokenCount,
   at: timestamp,
 });
 
@@ -105,7 +99,6 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   stateEvent,
   taskEvent,
   messageEvent,
-  tokensEvent,
   resetEvent,
   runEvent,
   sessionEndEvent,

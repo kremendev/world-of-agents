@@ -247,6 +247,31 @@ describe('every route', () => {
     }
   });
 
+  it('sends the security headers on every response, even a refusal', async () => {
+    const page = await subscribe();
+    const replies = {
+      page: await call({ path: '/' }),
+      script: await call({ path: '/assets/app.js' }),
+      missing: await call({ path: '/nothing.js' }),
+      health: await call({ path: '/api/health' }),
+      stream: page,
+      hook: await post(first),
+      noToken: await post(first, { Authorization: 'Bearer wrong' }),
+      withOrigin: await post(first, { Origin: 'https://evil.example' }),
+      wrongHost: await call({ path: '/', host: 'evil.example' }),
+      wrongMethod: await call({ method: 'DELETE', path: '/api/health' }),
+    };
+    page.close();
+    for (const [name, reply] of Object.entries(replies)) {
+      // Written out here, not imported: a change to the policy has to be made on purpose, in both places.
+      expect(reply.headers['content-security-policy'], name).toBe(
+        "default-src 'self'; connect-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      );
+      expect(reply.headers['x-content-type-options'], name).toBe('nosniff');
+      expect(reply.headers['referrer-policy'], name).toBe('no-referrer');
+    }
+  });
+
   it('listens on 127.0.0.1 only', () => {
     expect(hall.server.address()).toMatchObject({ address: '127.0.0.1', family: 'IPv4' });
   });

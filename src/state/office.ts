@@ -78,9 +78,6 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
         log: logged(state, { kind: 'message', ...message }),
       };
     }
-    case 'tokens':
-      // Hooks report no token counts, and the page shows none.
-      return state;
     case 'reset':
       return INITIAL_OFFICE;
     case 'run':

@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { extname, resolve, sep } from 'node:path';
 import type { OfficeEvent } from '../src/events/schema';
+import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
 import { INITIAL_MAP, mapHook } from './map';
 
@@ -15,8 +16,13 @@ export const MAX_BODY = 64 * 1024;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
 
-/** Every response: never cached, never sniffed into another type. No CORS headers, ever. */
-const BASE_HEADERS = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' };
+/** Every response: never cached, never sniffed into another type, no referrer. No CORS headers, ever. */
+const BASE_HEADERS = {
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'no-referrer',
+  'Content-Security-Policy': HALL_CSP,
+};
 
 /** The kinds of file the built page is made of. Anything else in dist/ is not served. */
 const PAGE_TYPES: Record<string, string> = {

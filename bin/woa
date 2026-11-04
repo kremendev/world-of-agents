@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Starts Claude Code in the current folder with the World of Agents team. Extra arguments go on to claude.
+# Always --permission-mode default: an interactive session would otherwise start in auto, which never asks you.
+set -euo pipefail
+
+if ! command -v claude >/dev/null 2>&1; then
+  {
+    echo "woa: the claude command is not on your PATH."
+    echo "Install Claude Code, open a new terminal and try again:"
+    echo "  macOS, Linux, WSL:   curl -fsSL https://claude.ai/install.sh | bash"
+    echo "  Windows PowerShell:  irm https://claude.ai/install.ps1 | iex"
+    echo "Docs: https://code.claude.com/docs/en/quickstart"
+  } >&2
+  exit 1
+fi
+
+repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+
+# A second lock: subagents have no Agent tool, and this stops them starting helpers anyway.
+export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1
+
+# Raw payloads hold file contents and commands, so normal use never saves them, even if your shell has this set.
+# To capture, use plain claude: see "Still to capture" in docs/v2-hooks.md.
+unset WOA_CAPTURE
+
+exec claude --plugin-dir "$repo/plugin" --agent world-of-agents:lead --permission-mode default "$@"

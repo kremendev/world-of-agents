@@ -13,6 +13,8 @@ npm run dev      # http://localhost:5173 (localhost only, never --host)
 npm run check    # typecheck + lint + prettier check + tests: run before saying anything is done
 npm test         # vitest run
 npm run format   # prettier --write .
+npm run hall     # builds the page, then serves it and the API on http://127.0.0.1:4319
+bin/woa          # Claude Code in the current folder, with the plugin and the Lead. bin/woa --version starts no session
 ```
 
 The owner works on Windows in Git Bash. Give commands that work there.
@@ -42,7 +44,8 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
                   smalltalk.ts: rest-room lines (our flavour text, not agent output)
                   destination.ts: destinationFor(agent, office), walkers.ts: walk queue, talk.ts: bubbles
                   useStage.ts: the room the hall has, settle.ts: which labels stay when they would overlap
-src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap; Demo only), TaskBoard,
+src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap; Demo only, top of the
+                  right-hand column), TaskBoard,
                   AgentPanel (details of the selected agent), ActivityFeed + feed.ts (the team's activity, to the
                   right of the hall: skips state events that change nothing), AgentText (agent text: `code` and **bold** as elements, the rest plain text)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
@@ -52,12 +55,17 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
-                  fixtures/: the recorded runs' hooks, redacted
+                  csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
+                  quiet-logger.ts: hides the dev proxy's "no hall" error. fixtures/: the recorded runs' hooks, redacted
 plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, agents/ (the five agents' prompts
                   and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs (allowlists and
                   scrubs each payload, then posts it to the hall with the token; send.test.ts)
+bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
+                  with a fake claude
+.github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
 docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run table and security
-                  controls), v2-hooks.md (real hook payload fields and what send.mjs forwards)
+                  controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
+                  screenshot and GIF, from a replay of run 3's redacted fixtures)
 ```
 
 ## How the hall is drawn
@@ -101,6 +109,7 @@ docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, ru
   Its minimum sizes are in rem, so it grows with browser zoom while the hall doesn't. `settleLabels()` then hides what
   would overlap, by rank: needs-you and error, other working states, speech, furnace label and "You" sign, name plates,
   idle bubbles, room plaques. The dashboard is fixed; under `--u` limits it drops its title, tiles, then count.
+  `.hall` has `overflow: clip`, because a label hidden past its edge still counts for the page's scroll width.
   The labels re-render only when an agent's tag changes, not every frame. That text is `aria-hidden`;
   the agent `<button>`s over each sprite are not (they select the agent shown in the agent panel).
 - `placements.ts` and `assets/hall.ts` were generated from the v1 design. Hand-edit them now; there is no
@@ -144,7 +153,22 @@ Do not change the look without asking. New ideas go into a later version.
 - v2 has no API key and no Agent SDK: it is observer mode. Claude Code runs on the user's own login, and the
   plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
   secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
-- Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads.
+- Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads. Change a
+  model or tools in both `plugin/agents/*.md` and `roster.ts`: `roster.test.ts` fails if they differ, and checks the
+  Lead can start exactly the other four.
+- `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
+  It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
+- The hall sends `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on every
+  response. The Pages build (`VITE_LIVE=false`) carries the same policy as a meta tag, without `frame-ancestors`. Both
+  come from `server/csp.ts`. Add only what the page really needs; never `unsafe-inline` or `unsafe-eval`. React's `style`
+  props go through the DOM, so they are allowed, but a `style` attribute in HTML or `setAttribute('style', …)` is not.
+  The dev server has no policy, because Vite injects inline scripts there. Zod runs `jitless` (`schema.ts`): its speed-up
+  probes `new Function`, and the policy reports even a caught attempt.
+- GitHub Actions: every action is pinned to a full commit SHA, with its tag in a comment. Read the SHA from GitHub and
+  check it is a commit, not a tag object. `pages.yml` runs only on pushes to main and manual dispatch. Its permissions
+  are `contents: read`, `pages: write`, `id-token: write`; the build job narrows to `contents: read`, because npm
+  packages run there.
+- Pictures in the README come from redacted fixtures and show no personal paths. Look at each one before adding it.
 - The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2's
   Live mode there is no task bar: the task is typed in Claude Code, and the page never sends anything to
   an agent. The prompt-injection surface is what agents read (files, tool output), not the page: their
@@ -169,6 +193,17 @@ Do not change the look without asking. New ideas go into a later version.
   restore that one spy. Don't call `vi.restoreAllMocks()`: it also undoes setup.ts's canvas mock.
 - If Vitest crashes with "Cannot read properties of undefined (reading 'config')" on `describe`, check the
   drive letter in your terminal's path: `c:\...` vs `C:\...` makes Vitest load itself twice.
+- Importing `vite` itself in a test fails under jsdom (esbuild's own check), so `quiet-logger.ts` and `csp.ts` import only
+  its types. Don't run real builds in a test either: two of them starved other tests past their timeouts.
+- `npm run check` runs files in parallel, so a busy machine makes CPU-heavy tests several times slower. Playing the whole
+  demo in 50 ms slices is about 1,400 renders, which came close to Vitest's 5 s limit. A test that only looks at where a
+  moment ends up should pass a bigger slice to `at()`, as App.test's "plays the demo run" does.
+- `woa.test.ts` needs Git Bash on Windows (it skips under WSL's `bash`) and skips its symlink test where the account
+  can't create symlinks. `core.filemode` is false on Windows, so git can't see a lost exec bit: a test checks
+  `bin/woa` is 100755 in git. A new launcher needs `git add --chmod=+x`.
+- In Git Bash, MSYS rewrites an argument like `--base=/world-of-agents/` into a Windows path. To build the Pages version
+  locally: `MSYS_NO_PATHCONV=1 VITE_LIVE=false npm run build -- --base=/world-of-agents/`. It overwrites `dist/`, which
+  a running hall serves. The workflow runs on Linux and needs no such flag.
 
 ## Status and next steps
 
@@ -187,15 +222,12 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    message speech bubbles for 4 s (80 chars, plain text), and rest-room small talk every 3 s.
 3. Lights and the page (docs/step3-brief.md). The furnace mouth goes `#5a2a10` / `#f08a3c` / `#ffb15a`
    with 0 / 1 / 2+ working, with a glow that grows up to 4; candles, braziers, the fire and every halo
-   flicker (off with reduced motion). Under the hall: the task bar (Send trims, ignores empty, caps at 500,
-   labels the run and restarts it, and the Lead's first line quotes it: `On it: <task>. Planning the work first.`;
-   v1 sends nothing anywhere), the task board, and the agent panel for the
+   flicker (off with reduced motion). The task bar (Send trims, ignores empty, caps at 500, labels the run and
+   restarts it, and the Lead's first line quotes it: `On it: <task>. Planning the work first.`; v1 sends nothing
+   anywhere). Under the hall: the task board, and the agent panel for the
    agent picked with the buttons over the sprites (Lead/PM by default): race, look, state, task, v2
    model and tools, waiting note. The reducer keeps a `log` of state changes and messages (200 max) for the
    activity feed. An `aria-live` region reads out messages sent to you.
-
-Next:
-
 4. v2 (docs/v2-brief.md): observer mode, no Agent SDK and no API key. A Claude Code plugin (`plugin/`: the
    five agents and hooks) reports to a hall server on 127.0.0.1, which sends the same events to the page over
    Server-Sent Events. Milestone 1 (plugin and payload capture) is done; real payload fields are in
@@ -212,9 +244,15 @@ Next:
    put while it is offline. `VITE_LIVE=false` skips all of it. In Demo it re-checks every 5 s and offers "Go live",
    never switching on its own. An always-there status line turns into the needs-you banner, so nothing below it
    moves. After the first real run: the whole hall fits the first screen, the team's activity feed takes the rest of
-   the width (under the hall when narrow; clicking an agent filters it), and the task bar is Demo only. The status line
-   has no box until someone waits for approval: in a box it looked like a disabled input. `public/favicon.svg` is the
+   the width (under the hall when narrow; clicking an agent filters it), and the task bar is Demo only, at the top of that
+   column. The status line has no box until someone waits for approval: in a box it looked like a disabled input. `public/favicon.svg` is the
    banner's anvil and flame at 16x16. In Live a dev fetches its scroll from the Lead's room before its desk, and a waiting Lead stands on the dev
    room carpet. `SessionEnd` sends all five idle, then `session-end`. There are no token counts in either mode.
-   Tests stub `VITE_LIVE`, `fetch` and `EventSource` (src/test/fakeEventSource.ts). Milestone 4 (launcher and docs) is
-   next.
+   Tests stub `VITE_LIVE`, `fetch` and `EventSource` (src/test/fakeEventSource.ts). Milestone 4 is done: `bin/woa`, the
+   README (written so a fresh clone works by following it alone), the MIT license, the roster test and the Pages
+   workflow. The hosted demo is built with `VITE_LIVE=false` and the base path `/world-of-agents/`, and it needs the
+   repo's Settings, Pages, Source set to GitHub Actions. Its status line says it calls no AI and links to the README,
+   and may wrap, because an ellipsis could hide the link. The unused `tokens` event is gone, and the dev proxy no longer
+   prints an error every 5 s when no hall is running (a hall dying mid-stream still prints).
+
+Next: milestone 5 in docs/v2-brief.md (polish, optional).

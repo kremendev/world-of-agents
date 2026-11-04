@@ -352,3 +352,12 @@ covers the home-folder and key scrubbing. `server/map.test.ts` plays all four ru
 **`StopFailure`, and a `<task-notification>` other than `completed`.** These need an API error or a failed or
 killed subagent, so they may stay uncaptured. Both are mapped from the docs and hand-built tests. Whether a
 failed subagent still sends `SubagentStop` is also unknown.
+
+**How to capture.** Use plain `claude`, not `woa`, which unsets `WOA_CAPTURE` so normal use never saves raw payloads:
+
+```bash
+WOA_CAPTURE=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default
+```
+
+Raw captures land in `~/.world-of-agents/capture/` and hold file contents and commands. Redact them into
+`server/fixtures/`, then delete the capture folder.

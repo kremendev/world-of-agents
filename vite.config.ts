@@ -1,9 +1,12 @@
 /// <reference types="vitest/config" />
-import { defineConfig } from 'vite';
+import { createLogger, defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { hostedCsp } from './server/csp';
+import { quietWhenNoHall } from './server/quiet-logger';
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), hostedCsp()],
+  customLogger: quietWhenNoHall(createLogger()),
   server: {
     // Only this machine can open the dev server. Don't pass --host unless you mean to share it on your network.
     host: 'localhost',

@@ -92,4 +92,15 @@ describe('text sizes and fonts', () => {
     expect(line).not.toMatch(/background/);
     expect(rules.find((r) => r.selector === '.status-line.needs-you')!.body).toMatch(/background/);
   });
+
+  it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
+    expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
+  });
+
+  it('the hosted demo status line can wrap: an ellipsis could hide its link to the README', () => {
+    const line = rules.find((r) => r.selector === '.status-line.hosted')!.body;
+    expect(line).toMatch(/white-space: normal/);
+    expect(line).toMatch(/height: auto/);
+    expect(line).toMatch(/overflow: visible/);
+  });
 });

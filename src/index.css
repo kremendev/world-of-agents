@@ -124,6 +124,23 @@ h1 {
   font-weight: 600;
 }
 
+/*
+ * The hosted demo's line ends in a link, which an ellipsis could hide. Its text never changes, so nothing moves if it
+ * wraps. On one line it is exactly as tall as the others.
+ */
+.status-line.hosted {
+  height: auto;
+  min-height: 2.5rem;
+  padding: calc((2.5rem - 4px - 1.4em) / 2) 0;
+  line-height: 1.4;
+  white-space: normal;
+  overflow: visible;
+}
+
+.status-line a {
+  color: var(--ember-text);
+}
+
 .run-controls {
   margin-left: auto;
   display: flex;
@@ -146,6 +163,7 @@ h1 {
 }
 
 .run-controls button:focus-visible,
+.status-line a:focus-visible,
 .task-bar :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -176,12 +194,25 @@ h1 {
 }
 
 .scene {
+  /* The right-hand column can be the taller one in a short window. */
+  align-self: start;
   border: 2px solid var(--line);
   background: var(--panel);
 }
 
+/* The right-hand column: in Demo the task bar, then the activity feed in whatever height is left. */
+.side {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  min-height: 0;
+}
+
 .hall {
   position: relative;
+  /* A label settleLabels() hid past the edge still counts for the page's width, and would make it scroll sideways. */
+  overflow: clip;
 }
 
 .hall canvas {
@@ -473,7 +504,7 @@ p {
 }
 
 .task-row input {
-  flex: 1 1 280px;
+  flex: 1 1 10rem;
   min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
@@ -610,8 +641,9 @@ p {
   color: #eadcc4;
 }
 
-/* The team's activity: as tall as the hall beside it, scrolling inside. */
+/* The team's activity: fills the column beside the hall, scrolling inside. */
 .feed {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -646,7 +678,8 @@ p {
 .feed-scroll {
   position: relative;
   flex: 1 1 auto;
-  min-height: 0;
+  /* In a short window the task bar could squeeze this to nothing, so the column grows past the hall instead. */
+  min-height: 6rem;
 }
 
 .feed-list {
@@ -688,7 +721,8 @@ p {
 /* A short window (high browser zoom): the hall needs every pixel the page can spare. */
 @media (max-height: 37.5rem) {
   .app,
-  .stage {
+  .stage,
+  .side {
     gap: 8px;
   }
 

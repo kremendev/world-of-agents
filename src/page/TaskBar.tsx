@@ -2,8 +2,8 @@ import { useId, useState, type FormEvent } from 'react';
 import { MAX_TASK_CHARS, cleanTask } from './task';
 
 /**
- * The task bar under the hall, in the demo only: a real run's task is typed in Claude Code, and the page never
- * sends anything to an agent. Sending hands the cleaned text up and clears the field; empty sends do nothing.
+ * The task bar at the top of the right-hand column, in the demo only: a real run's task is typed in Claude Code, and
+ * the page never sends anything to an agent. Sending hands the cleaned text up and clears the field; empty sends do nothing.
  */
 export function TaskBar({ onSend }: { onSend: (task: string) => void }) {
   const [draft, setDraft] = useState('');
@@ -29,7 +29,7 @@ export function TaskBar({ onSend }: { onSend: (task: string) => void }) {
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={MAX_TASK_CHARS}
-          placeholder="Describe what to build, e.g. Create a dashboard"
+          placeholder="e.g. Create a dashboard"
           autoComplete="off"
           aria-describedby={`${id}-note`}
         />

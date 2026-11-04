@@ -1,2 +1,6 @@
 # Prettier expects LF. Without this, core.autocrlf on Windows checks files out as CRLF and `npm run check` fails.
 * text=auto eol=lf
+
+# Images must never be normalised as text: text=auto only guesses from the first 8 KB.
+*.png binary
+*.gif binary

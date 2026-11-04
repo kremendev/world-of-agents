@@ -433,7 +433,7 @@ describe('Needs you', () => {
     const { container } = render(<App />);
     act(() => vi.advanceTimersByTime(70_000));
     expect(container.querySelector('.status-line.needs-you')).toBeNull();
-    expect(container.querySelector('.status-line')).toHaveTextContent('Demo · a scripted run');
+    expect(container.querySelector('.status-line')).toHaveTextContent('Demo · scripted run with no AI calls');
   });
 });
 
@@ -522,6 +522,42 @@ describe('status line', () => {
     fireEvent.click(button('Play demo'));
     await settle();
     expect(app.status()).toBe('Demo · the hall keeps watching Claude Code');
+  });
+
+  it('in the hosted demo says it calls no AI, and links to the README', () => {
+    vi.stubEnv('VITE_LIVE', 'false');
+    vi.stubGlobal('fetch', vi.fn());
+    const { container } = render(<App />);
+    const line = container.querySelector('.status-line')!;
+    expect(line).toHaveTextContent(
+      'Demo · scripted run with no AI calls. To watch your own Claude Code sessions (Max or higher), see the README',
+    );
+    expect(line).toHaveClass('hosted');
+    const link = screen.getByRole('link', { name: 'README' });
+    expect(link).toHaveAttribute('href', 'https://github.com/kremendev/world-of-agents');
+    expect(link).toHaveAttribute('rel', 'noreferrer');
+    expect(line).toContainElement(link);
+  });
+
+  it('with no hall on a local page keeps its short line, with no link: this one can still find a hall', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new Error('no hall');
+      }),
+    );
+    const { container } = render(<App />);
+    await settle();
+    const line = container.querySelector('.status-line')!;
+    expect(line).toHaveTextContent('Demo · a scripted run');
+    expect(line).not.toHaveClass('hosted');
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('has no link while live', async () => {
+    const app = await renderLive(start);
+    expect(app.status()).toBe(LIVE_NOTE);
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });
 
@@ -820,6 +856,24 @@ describe('Task bar in Live', () => {
     expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeEnabled();
     fireEvent.click(button('Back to live'));
     expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
+  it('sits at the top of the right-hand column in Demo, and the feed keeps its place in Live', async () => {
+    const app = await renderLive(start);
+    const side = app.container.querySelector('.stage > .side')!;
+    const feed = side.querySelector('.feed');
+    expect([...side.children]).toEqual([feed]);
+
+    fireEvent.click(button('Play demo'));
+    await settle();
+    const bar = app.container.querySelector('form.task-bar');
+    expect([...side.children]).toEqual([bar, feed]);
+    // Not anywhere else as well, and the same feed: it doesn't lose its place when the mode changes.
+    expect(app.container.querySelectorAll('form.task-bar')).toHaveLength(1);
+    expect(app.container.querySelector('.lower form')).toBeNull();
+
+    fireEvent.click(button('Back to live'));
+    expect([...side.children]).toEqual([feed]);
   });
 });
 

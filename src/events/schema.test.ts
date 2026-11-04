@@ -8,7 +8,6 @@ describe('parseEvent', () => {
       { type: 'state', agent: 'reviewer', state: 'waiting', at: 1000 },
       { type: 'task', taskId: 'api-1', title: 'Board and item API', owner: 'backend', status: 'todo', at: 0 },
       { type: 'message', from: 'lead', to: 'you', text: 'Report ready', at: 5 },
-      { type: 'tokens', agent: 'lead', input: 1200, output: 300, at: 6 },
       { type: 'state', agent: 'backend', state: 'writing', taskId: 'api-1', copies: 2, at: 7 },
       { type: 'reset', at: 8 },
       { type: 'run', text: 'Make a tiny hello page', at: 9 },
@@ -47,8 +46,12 @@ describe('parseEvent', () => {
   });
 
   it('rejects unknown keys instead of passing them through', () => {
-    const result = parseEvent({ type: 'tokens', agent: 'lead', input: 1, output: 1, at: 0, html: '<img>' });
+    const result = parseEvent({ type: 'state', agent: 'lead', state: 'idle', at: 0, html: '<img>' });
     expect(result.ok).toBe(false);
+  });
+
+  it('rejects a tokens event: hooks report no token counts, so there is no such event', () => {
+    expect(parseEvent({ type: 'tokens', agent: 'lead', input: 1, output: 1, at: 0 }).ok).toBe(false);
   });
 
   it('rejects an oversized message', () => {
@@ -63,7 +66,7 @@ describe('parseEvent', () => {
   });
 
   it('rejects negative or fractional numbers', () => {
-    expect(parseEvent({ type: 'tokens', agent: 'lead', input: -1, output: 0, at: 0 }).ok).toBe(false);
+    expect(parseEvent({ type: 'state', agent: 'lead', state: 'idle', at: -1 }).ok).toBe(false);
     expect(parseEvent({ type: 'state', agent: 'lead', state: 'idle', at: 1.5 }).ok).toBe(false);
   });
 
