@@ -73,7 +73,7 @@ const STARTS_WITH_TAG = /^<[A-Za-z][\w-]*/;
 
 /**
  * A background subagent finishing re-prompts the Lead with a `<task-notification>` as if the user typed it
- * (in `-p` runs). Only its ids and status go on: its <result> is the subagent's full output and
+ * (runs 1 and 3). Only its ids and status go on: its <result> is the subagent's full output and
  * <output-file> is a path.
  */
 function taskNotification(prompt) {
@@ -86,8 +86,8 @@ function taskNotification(prompt) {
 }
 
 /**
- * In an interactive session the result comes back as an `<agent-message from="<agent_id>">` hand-back
- * instead. Only `from` goes on: the report inside held file contents and a command in run 2.
+ * In run 2 (`auto` mode) the result came back as an `<agent-message from="<agent_id>">` hand-back instead.
+ * Only `from` goes on: the report inside held file contents and a command.
  */
 function agentMessage(prompt) {
   const from =

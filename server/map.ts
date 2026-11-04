@@ -19,16 +19,18 @@ export type MapState = {
   /** Oldest first: a subagent that starts is matched to the oldest open card of its type. */
   cards: readonly Card[];
   runs: Readonly<Record<string, Run>>;
+  /** The run that used Edit, Write or Bash last: a permission_prompt doesn't say who is waiting (notified()). */
+  lastWriter: string | null;
 };
 
-export const INITIAL_MAP: MapState = { session: null, cards: [], runs: {} };
+export const INITIAL_MAP: MapState = { session: null, cards: [], runs: {}, lastWriter: null };
 
 type Step = { state: MapState; events: OfficeEvent[] };
 
 const nothing = (state: MapState): Step => ({ state, events: [] });
 
 const PREFIX = 'world-of-agents:';
-/** What a subagent says to the Lead when its SubagentStop carries no last message (interactive sessions). */
+/** What a subagent says to the Lead when its SubagentStop carries no last message (run 2, in `auto` mode). */
 const REPORT_SENT = 'Report sent to the Lead';
 const READING: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob']);
 const WRITING: ReadonlySet<string> = new Set(['Edit', 'Write', 'Bash']);
@@ -143,8 +145,8 @@ function takeOver(session: string, at: number): Step {
 function prompted(state: MapState, input: HookInput, at: number): Step {
   const notice = input.task_notification;
   if (notice) {
-    // A background subagent ended (-p), and Claude Code tells the Lead as if you had typed it. It is not a
-    // new run, and it doesn't end the card (its SubagentStop does). Any status but "completed" reopens it.
+    // A background subagent ended, and Claude Code tells the Lead as if you had typed it. It is not a new
+    // run, and it doesn't end the card (its SubagentStop does). Any status but "completed" reopens it.
     const id = notice.tool_use_id;
     const failure = id && notice.status !== 'completed' ? failed(state, id, at) : nothing(state);
     return { state: failure.state, events: [...failure.events, lead('thinking', at)] };
@@ -204,25 +206,36 @@ function act(state: MapState, id: string, agent: AgentId, activity: AgentState, 
 
 function toolUsed(state: MapState, id: string, agent: AgentId, tool: string | undefined, at: number): Step {
   const activity = !tool ? null : READING.has(tool) ? 'reading' : WRITING.has(tool) ? 'writing' : null;
-  return activity ? act(state, id, agent, activity, at) : nothing(state);
+  if (!activity) return nothing(state);
+  const step = act(state, id, agent, activity, at);
+  return activity === 'writing' && !state.runs[id]?.stopped
+    ? { ...step, state: { ...step.state, lastWriter: id } }
+    : step;
 }
 
+/**
+ * A permission_prompt doesn't say who is waiting: even for a subagent's tool it carries the Lead's agent_type
+ * and no agent_id (docs/v2-hooks.md, run 3). Edit, Write and Bash are the tools that ask, and each one's
+ * PreToolUse comes just before its prompt, so the waiting agent is the running subagent that used one last, or
+ * the Lead if there is none. With two subagents writing at once this can name the wrong one. An agent_id wins
+ * if Claude Code ever sends one. No hook says when you answer: the flag clears at that agent's next event.
+ */
 function notified(state: MapState, input: HookInput, agent: AgentId, sub: string | null, at: number): Step {
   if (input.notification_type === 'idle_prompt') return { state, events: [lead('needs-you', at)] };
   if (input.notification_type !== 'permission_prompt') return nothing(state);
-  // Not captured yet (docs/v2-hooks.md): whether this names the waiting subagent. If it does, that agent is
-  // flagged; if not, agent_type is the Lead's and the Lead is.
-  return sub
-    ? act(state, sub, agent, 'needs-you', at)
-    : { state, events: [{ type: 'state', agent, state: 'needs-you', at }] };
+  if (sub) return act(state, sub, agent, 'needs-you', at);
+  const writer = state.lastWriter;
+  const run = writer ? state.runs[writer] : undefined;
+  return writer && run && !run.stopped
+    ? act(state, writer, run.agent, 'needs-you', at)
+    : { state, events: [lead('needs-you', at)] };
 }
 
 /**
  * A subagent run ends: its last message to the Lead, its card Done and the agent done, even when the run
- * already counts as stopped. Both -p and interactive sessions send SubagentStop, so it is what ends a card.
- * Interactive sessions send no last message (the report comes in a hand-back the hall never sees), so the
- * message then only says it was sent. A run whose task already failed keeps its agent in error and its card
- * open.
+ * already counts as stopped. All three recorded runs send SubagentStop, so it is what ends a card. Run 2 (`auto`
+ * mode) sent no last message (the report came in a hand-back the hall never sees), so the message then only
+ * says it was sent. A run whose task already failed keeps its agent in error and its card open.
  */
 function stopRun(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
   // A stop whose start never arrived still links its run to a card, and a late start is then ignored.

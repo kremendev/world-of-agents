@@ -1,0 +1,20 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "75b50a4e-d2cc-4f9d-b245-8f6d6c029334",
+  "permission_mode": "default",
+  "agent_id": "a27467849b4c04f60",
+  "agent_type": "world-of-agents:backend",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Glob",
+  "tool_input": {
+    "pattern": "<redacted>",
+    "path": "<redacted>"
+  },
+  "tool_use_id": "toolu_013cUGc6imyxyPusEbbLf36i"
+}

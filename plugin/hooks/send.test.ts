@@ -93,6 +93,25 @@ describe('<task-notification> detection', () => {
     expect(kinds).toEqual(['user', 'notice', 'notice']);
     expect(allowlist(run1[0]!.payload, HOME).prompt).toMatch(/^Make a tiny hello page/);
   });
+
+  it('finds them in the interactive run 3 too: the frame does not depend on -p', () => {
+    const run3 = prompts.filter((f) => f.name.startsWith('run3-manual'));
+    const kinds = run3.map((f) => (allowlist(f.payload, HOME).task_notification ? 'notice' : 'user'));
+    expect(kinds).toEqual(['user', 'notice', 'notice']);
+  });
+});
+
+describe('Notification', () => {
+  it("forwards run 3's permission_prompt as its type only, never its message", () => {
+    const notice = fixtures.find((f) => f.name.endsWith('11-Notification.json'))!;
+    expect(notice.payload.message).toBe('Claude needs your permission');
+    expect(allowlist(poison(notice.payload) as Payload, HOME)).toEqual({
+      hook_event_name: 'Notification',
+      session_id: '00000000-0000-4000-8000-000000000003',
+      agent_type: 'world-of-agents:lead',
+      notification_type: 'permission_prompt',
+    });
+  });
 });
 
 describe('Claude Code frames never reach the hall as text', () => {

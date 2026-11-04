@@ -1,7 +1,8 @@
 # v2 hook payloads: what Claude Code really sends
 
-Recorded on 28 Oct 2026 with Claude Code 2.1.312 on Windows 11 (native, Git Bash). Two runs, each redacted
-into `server/fixtures/` in the order its payloads arrived. The raw capture folders were deleted afterwards.
+Recorded with Claude Code 2.1.312 on Windows 11 (native, Git Bash): runs 1 and 2 on 28 Oct 2026, run 3 on 4 Nov.
+Each run is redacted into `server/fixtures/` in the order its payloads arrived. The raw capture folders were
+deleted afterwards.
 
 **Run 1** (`run1-background/`, 28 payloads, Node 26.12.1), in a scratch git repo: `claude -p "<task>" --plugin-dir
 <repo>/plugin --agent world-of-agents:lead --permission-mode acceptEdits` with `WOA_CAPTURE=1`. The Lead sent
@@ -15,30 +16,36 @@ ran `node --check` in Bash), then the Reviewer. The whole session ran in `auto` 
 built-in start mode for interactive sessions, see `Notification`), so it brought no `Notification` either, but
 background results came back in a new form: see What run 2 changed.
 
+**Run 3** (`run3-manual/`, 25 payloads): the same task in an interactive session started with
+`--permission-mode default`. The Lead sent the Backend dev, which had to ask for approval, then the Reviewer.
+This run captured `permission_prompt`: see `Notification` and What run 3 changed. A stray `SessionStart` from
+another session, a week older, was in the capture folder and was left out.
+
 ## Fields on every event
 
-| Field             | Seen on                                                            | Notes                                                               |
-| ----------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
-| `hook_event_name` | all                                                                |                                                                     |
-| `session_id`      | all                                                                | UUID                                                                |
-| `agent_type`      | all                                                                | `world-of-agents:lead` on the Lead's events (from `--agent`)        |
-| `transcript_path` | all                                                                | Full local path. Never forwarded.                                   |
-| `cwd`             | all                                                                | Full local path. Never forwarded.                                   |
-| `scratchpad_dir`  | all                                                                | Full local path. Never forwarded.                                   |
-| `prompt_id`       | all but `SessionStart`                                             | UUID per user turn; a background task notification starts a new one |
-| `permission_mode` | all but `SessionStart`, `SubagentStart`, `SessionEnd`              | `"acceptEdits"` in run 1, `"auto"` in run 2                         |
-| `effort`          | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`                | `{ "level": "medium" }`; the Lead's were `"xhigh"` in run 2         |
-| `agent_id`        | `SubagentStart`, `SubagentStop`, and every event inside a subagent | e.g. `"afcc4e7953aac3c28"`. The Lead's own events have none.        |
+| Field             | Seen on                                                               | Notes                                                               |
+| ----------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `hook_event_name` | all                                                                   |                                                                     |
+| `session_id`      | all                                                                   | UUID                                                                |
+| `agent_type`      | all                                                                   | `world-of-agents:lead` on the Lead's events (from `--agent`)        |
+| `transcript_path` | all                                                                   | Full local path. Never forwarded.                                   |
+| `cwd`             | all                                                                   | Full local path. Never forwarded.                                   |
+| `scratchpad_dir`  | all                                                                   | Full local path. Never forwarded.                                   |
+| `prompt_id`       | all but `SessionStart`                                                | UUID per user turn; a background task notification starts a new one |
+| `permission_mode` | all but `SessionStart`, `SubagentStart`, `Notification`, `SessionEnd` | `"acceptEdits"` in run 1, `"auto"` in run 2, `"default"` in run 3   |
+| `effort`          | `PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`                   | `{ "level": "medium" }`; the Lead's were `"xhigh"` in run 2         |
+| `agent_id`        | `SubagentStart`, `SubagentStop`, and every event inside a subagent    | e.g. `"afcc4e7953aac3c28"`. The Lead's own events have none.        |
 
-So: **no `agent_id` means the Lead**. Inside a subagent, `agent_type` is the subagent's
+So: **no `agent_id` means the Lead**, with one exception: a `Notification` has none and the Lead's `agent_type`
+even when a subagent's tool is the one waiting. Inside a subagent, `agent_type` is the subagent's
 (`world-of-agents:designer`), as the brief expected.
 
 ## Per event
 
 ### `SessionStart`
 
-`source`: `"startup"` (docs list `startup`, `resume`, `clear`, `compact`, `fork`). Run 2's (interactive) also
-has `model`: `"claude-opus-5-5"`, the Lead's model. Run 1's (`-p`) has none.
+`source`: `"startup"` (docs list `startup`, `resume`, `clear`, `compact`, `fork`). Runs 2 and 3 (interactive)
+also have `model`: `"claude-opus-5-5"`, the Lead's model. Run 1's (`-p`) has none.
 
 ### `UserPromptSubmit`
 
@@ -70,15 +77,17 @@ The report follows:
 ```
 
 It has no `<status>` and no tool-use id, only `from`. The report held the full contents of `server.js` and the
-Bash command the dev ran; the fixtures keep the frame and redact the report. Run 2 used the same Claude Code
-version as run 1, so the change comes from how it ran: interactive instead of `-p`, or `auto` instead of
-`acceptEdits`. Which of the two is not known.
+Bash command the dev ran; the fixtures keep the frame and redact the report.
 
-**Only `prompt` tells a frame from your own prompt.** Your prompts (run 1 row 2, run 2 row 2) and the frames
-(run 1 rows 16 and 19, run 2 rows 12 and 20) have the same keys, the same `permission_mode` and `agent_type`,
-and each starts a new `prompt_id` the way your turns do. The only pattern is order: each frame came right after
-its subagent's `SubagentStop` (1 to 4 ms later in run 2), which is timing, not a field. So `send.mjs` matches
-the exact start of the text.
+**So far only `auto` mode has sent hand-backs.** All three runs used the same Claude Code version. Run 3 was
+interactive like run 2 but sent `<task-notification>`s like run 1, so being interactive isn't the cause. The one
+thing only run 2 had is `auto` mode. That is one run of each, so `send.mjs` and `map.ts` keep handling both.
+
+**Only `prompt` tells a frame from your own prompt.** Your prompts (row 2 of each run) and the frames (run 1 rows
+16 and 19, run 2 rows 12 and 20, run 3 rows 14 and 22) have the same keys, the same `permission_mode` and
+`agent_type`, and each starts a new `prompt_id` the way your turns do. The only pattern is order: each frame came
+right after its subagent's `SubagentStop`, which is timing, not a field. So `send.mjs` matches the exact start of
+the text.
 
 ### `PreToolUse`
 
@@ -93,13 +102,17 @@ the exact start of the text.
 | `Bash`         | `command` (and `description` when given)                      |
 
 `subagent_type` is the full name: `"world-of-agents:designer"`. In run 1 the Lead chose
-`run_in_background: true` for the two devs and `false` for the Reviewer. In run 2 neither Agent call had
-`run_in_background`, and both came back `async_launched`, the Reviewer's too.
+`run_in_background: true` for the two devs and `false` for the Reviewer. In runs 2 and 3 no Agent call had
+`run_in_background`, and all came back `async_launched`, the Reviewer's too.
 
 ### `SubagentStart`
 
 Only `agent_id` and `agent_type` (plus the common fields). **No `tool_use_id`**, so it does not say which
 Agent call started it. It arrived right after its `PreToolUse` `Agent` and before the matching `PostToolUse`.
+
+**Still open:** in run 3 those two hooks fired in the same millisecond (rows 4 and 5). Each hook is its own
+process, so they can reach the hall in either order. If `SubagentStart` lands first, `map.ts` has no card to give
+it: the card stays Todo until its `SubagentStop`, and the agent shows no card until its next tool call.
 
 ### `PostToolUse` (tool `Agent`)
 
@@ -128,11 +141,14 @@ path), `stop_hook_active`, `background_tasks`, `session_crons`. In `background_t
 itself is still listed as `"running"`, so don't read it here.
 
 In run 2 the two real subagents' `SubagentStop` had **no `last_assistant_message`**: their report came in the
-hand-back instead. Run 2 also has three `SubagentStop`s with the Lead's `agent_type` and an `agent_id` that
-never started (rows 10, 17 and 23). Rows 17 and 23 carry a short `last_assistant_message` that reads like a
-suggested next prompt for you ("run it and curl localhost:3000 to verify"), so they look like Claude Code's
-prompt suggestions running as a side agent; that is a guess from the text. The hall already ignores them: a
-`SubagentStop` with the Lead's type is not one of our subagents.
+hand-back instead. Run 3's have it again.
+
+Runs 2 and 3 also have three `SubagentStop`s each with the Lead's `agent_type` and an `agent_id` that never
+started (run 2 rows 10, 17, 23; run 3 rows 8, 20, 24). Most carry a short `last_assistant_message` that reads like
+a suggested next prompt for you ("run it and curl localhost:3000 to verify", "commit this"), so they look like
+Claude Code's prompt suggestions running as a side agent; that is a guess from the text. Run 3's row 8 repeats the
+Lead's last message instead. The hall ignores them all: a `SubagentStop` with the Lead's type is not one of our
+subagents.
 
 ### `Stop`
 
@@ -143,23 +159,51 @@ after the first task notification (1 running), and once at the real end (`[]`).
 
 ### `SessionEnd`
 
-`reason`: `"other"` when `-p` exits, `"prompt_input_exit"` when you quit an interactive session (run 2).
+`reason`: `"other"` when `-p` exits, `"prompt_input_exit"` when you quit an interactive session (runs 2 and 3).
 
-### `Notification`, `StopFailure`
+### `Notification`
 
-Still not captured. Run 2 was meant to fill in `Notification`, but the whole session ran in `auto` permission
-mode (`permission_mode` on every payload). `auto` approved the Backend dev's Bash without asking, so no
-`permission_prompt` fired. No `idle_prompt` either: the session ended 62 s after the Lead's last turn.
+Run 3 captured one `permission_prompt` (row 11). Beyond the common fields it has only `message` and
+`notification_type`:
 
-Why `auto`: since Claude Code 2.1.283, `auto` is the built-in start mode for interactive terminal and VS Code
-sessions, and since 2.1.302 `claude -p` with no mode set starts in `default` (shown as Manual), not `auto`
+```json
+{
+  "agent_type": "world-of-agents:lead",
+  "hook_event_name": "Notification",
+  "message": "Claude needs your permission",
+  "notification_type": "permission_prompt"
+}
+```
+
+**`permission_prompt` does not say which subagent is waiting.** The Backend dev's Write was the tool waiting
+(row 10), yet the hook has the Lead's `agent_type`, no `agent_id`, no tool name and a generic message. The docs
+list no field that would say. So `server/map.ts` works it out: Edit, Write and Bash are the tools that ask, and
+each one's `PreToolUse` comes just before its prompt (the dev's Bash only fired once its Write had finished). The
+waiting agent is the running subagent that used one last, or the Lead if there is none. With two subagents writing
+at once this can name the wrong one. An `agent_id` wins if Claude Code ever sends one.
+
+**It comes late, or not at all.** The docs say it fires when "the prompt has waited about six seconds", and each
+keystroke defers it. Run 3 agrees: it arrived 6.0 s after the Write's `PreToolUse`, while the Bash finished 2.7 s
+after its own and sent none. So a prompt you answer quickly never shows in the hall.
+
+**Nothing says you answered.** No hook fires when you approve, so the flag clears at that agent's next event: its
+next tool call or its `SubagentStop`. During a long Bash command it stays up after you approved.
+
+**`idle_prompt` has not fired in any run, so `map.ts` still maps it from the docs (Lead `needs-you`).** The docs
+say "Claude finished responding about 60 seconds ago and you haven't typed since", and that a background agent
+still running suppresses it. Run 3 quit 15 s after the Lead's last turn, and run 2 at 62 s, where the typing to
+quit may have reset the timer.
+
+**Why run 2 had no `permission_prompt`:** it ran in `auto`, which approved the Backend dev's Bash without asking.
+Since Claude Code 2.1.283, `auto` is the built-in start mode for interactive terminal and VS Code sessions, and
+since 2.1.302 `claude -p` with no mode set starts in `default` (shown as Manual), not `auto`
 ([permission modes](https://code.claude.com/docs/en/permission-modes)). No settings file on this PC sets a mode
 (user, project, managed and VS Code settings were checked), so run 2 got the interactive default. Run 1 was `-p`
-with `--permission-mode acceptEdits`, which is why the two runs differ.
+with `--permission-mode acceptEdits`.
 
-So **whether `permission_prompt` names the waiting subagent is still unknown**. `server/map.ts` handles both: with
-an `agent_id` that subagent needs you, without one the Lead does. Nothing failed, so there was no
-`StopFailure`. See Still to capture.
+### `StopFailure`
+
+Not captured: nothing has failed in any run. It is mapped from the docs. See Still to capture.
 
 ## What changes in the run table
 
@@ -189,21 +233,31 @@ Before this was handled, run 2 fed through `allowlist()` and `mapHook()` replace
    `<agent-message from="` by their exact start and forwards only ids, status and `from`. Any other prompt that
    starts with a tag forwards no text at all, so a frame Claude Code changes or adds can't leak its contents
    (the hand-backs held file contents) and can't replace the run text.
-2. **Cards end at `SubagentStop`**, which both kinds of run send. Frame text changed between two runs of the
-   same version, so it never decides Done. A `<task-notification>` status other than `completed` reopens the
-   card and puts its agent in `error`; a hand-back has no status, so it changes no card.
+2. **Cards end at `SubagentStop`**, which all three runs send. Frame text changed between runs of the same
+   version, so it never decides Done. A `<task-notification>` status other than `completed` reopens the card and
+   puts its agent in `error`; a hand-back has no status, so it changes no card.
 3. **The subagent's report moved** from `SubagentStop.last_assistant_message` into the hand-back, which the
    hall never reads. A `SubagentStop` without a last message says "Report sent to the Lead".
-4. **Agent calls ran in the background without asking for it**, so a foreground `PostToolUse` `completed` may
-   be rare in interactive runs.
+4. **Agent calls ran in the background without asking for it** (in run 3 too), so a foreground `PostToolUse`
+   `completed` may be rare in interactive runs.
+
+## What run 3 changed
+
+1. **`permission_prompt` names nobody.** `map.ts` assumed a hook with no `agent_id` meant the Lead was waiting.
+   Fed through it, run 3 flagged the Lead while the Backend dev waited, and the Lead stayed flagged for about 25 s,
+   until its next event. Now the running subagent that last used Edit, Write or Bash is flagged, and the Lead keeps
+   its state. See `Notification`.
+2. **Interactive does not mean hand-backs.** `<task-notification>`s and `SubagentStop.last_assistant_message`
+   came back in an interactive session, so neither is tied to `-p`.
 
 ## What `send.mjs` forwards
 
-Only these fields go to the hall server, checked against all 52 payloads of both runs (no path, file content
+Only these fields go to the hall server, checked against all 77 payloads of the three runs (no path, file content
 or command got through):
 
 - `hook_event_name`, `session_id`, `agent_id`, `agent_type`, `tool_name`, `tool_use_id`,
-  `notification_type`, `source`, `reason`
+  `notification_type`, `source`, `reason` (a `Notification`'s `message` stays behind: the type is all the hall
+  needs)
 - Free text: `prompt` (120 characters), `last_assistant_message` (200) and the Agent call's `description`
   (120). The Backend dev's last message quoted the full path of the file it wrote, so free text is scrubbed
   before it is capped:
@@ -238,30 +292,30 @@ world-of-agents:designer, world-of-agents:frontend, world-of-agents:reviewer`, a
 
 ## Tests
 
-`plugin/hooks/send.test.ts` runs every fixture of both runs through `allowlist()` after putting the dangerous values back
-(each `<redacted>` becomes a unique sentinel, each placeholder path a real one under a test home folder) and
-checks that no sentinel, home folder spelling or path field comes out. It also pins the
-`<task-notification>` detection on run 1's fixtures, the hand-back detection and the tag safety net on run 2's,
-and covers the home-folder and key scrubbing. `server/map.test.ts` plays both runs through `allowlist()` and
+`plugin/hooks/send.test.ts` runs every fixture of every run through `allowlist()` after putting the dangerous
+values back (each `<redacted>` becomes a unique sentinel, each placeholder path a real one under a test home
+folder) and checks that no sentinel, home folder spelling or path field comes out. It also pins the
+`<task-notification>` detection on runs 1 and 3, the hand-back detection and the tag safety net on run 2, and
+covers the home-folder and key scrubbing. `server/map.test.ts` plays all three runs through `allowlist()` and
 `mapHook()`.
 
 ## Still to capture
 
-One more short interactive run, to fill in `Notification` (`permission_prompt`, `idle_prompt`) and to see
-whether it names the subagent that is waiting. An interactive session starts in `auto`, which approves Bash
-without asking, so start this one in `default` explicitly. `default` is the config value (what hooks report
-in `permission_mode`); Claude Code shows it as Manual and also accepts `manual`:
+**`idle_prompt`.** One short session is enough. Start it in `default` as run 3 was; an interactive session
+otherwise starts in `auto`. `default` is the config value (what hooks report in `permission_mode`); Claude Code
+shows it as Manual and also accepts `manual`:
 
 ```bash
 cd <a scratch git repo>
 WOA_CAPTURE=1 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default
 ```
 
-Ask for a task that needs Bash in a subagent (for example "have the backend dev add server.js and run
-`node --check` on it"). If Bash runs without asking you, the session is not in the default mode: stop and check
-the mode (Shift+Tab cycles it). Approve or deny the prompt, then wait two minutes at the end for
-`idle_prompt` before you quit (run 2 quit after 62 s and got none). `StopFailure` needs an API error, so it may
-stay uncaptured; it is mapped from the docs.
+Ask for something small that needs no subagent, since a background agent still running suppresses it. When the
+Lead has answered, **don't type anything for two minutes**, then quit. Run 3 quit after 15 s and run 2 after 62 s.
 
 Check `ls ~/.world-of-agents/capture` before quitting: if it is empty, the plugin's hooks didn't run (check
 `/hooks` in that session) or `WOA_CAPTURE=1` wasn't set in that shell.
+
+**`StopFailure`, and a `<task-notification>` other than `completed`.** These need an API error or a failed or
+killed subagent, so they may stay uncaptured. Both are mapped from the docs and hand-built tests. Whether a
+failed subagent still sends `SubagentStop` is also unknown.

@@ -1,0 +1,19 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "be7edc37-7218-44df-8554-655d7e257a15",
+  "permission_mode": "default",
+  "agent_id": "acf1e920ac8d21f95",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "commit this",
+  "background_tasks": [],
+  "session_crons": []
+}

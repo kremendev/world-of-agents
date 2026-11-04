@@ -47,7 +47,7 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
-                  fixtures/: run 1's hooks, redacted
+                  fixtures/: the recorded runs' hooks, redacted
 plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, agents/ (the five agents' prompts
                   and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs (allowlists and
                   scrubs each payload, then posts it to the hall with the token; send.test.ts)
@@ -188,6 +188,8 @@ Next:
    deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
    that only a new, cleared or resumed session switches it. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
-   with a tag) never reach the hall as text. Fixtures: run 1 (`-p`) and run 2 (interactive). Milestone 3
-   (Live mode in the page) is next; it also takes the "Session ended" signal (SessionEnd sends no event yet)
-   and the roster drift between roster.ts and the plugin's agent files.
+   with a tag) never reach the hall as text. A `permission_prompt` doesn't say who is waiting, so the running
+   subagent that last used Edit, Write or Bash is flagged. Fixtures: run 1 (`-p`), run 2 (interactive, `auto`)
+   and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is next; it also takes the "Session
+   ended" signal (SessionEnd sends no event yet) and the roster drift between roster.ts and the plugin's agent
+   files.

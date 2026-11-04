@@ -1,0 +1,17 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "be7edc37-7218-44df-8554-655d7e257a15",
+  "permission_mode": "default",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "Dima, `server.js` is in the project root: it uses only the built-in `http` module, listens on 127.0.0.1:3000 (loopback only) and replies with plain text `Hello, World!`.\n`node --check server.js` printed nothing and exited 0, but that only checks syntax, as nobody has started the server or sent it a request.\nThe reviewer found no bugs or security issues and confirmed all the requirements are met; with no `server.on('error')` handler, a busy port crashes it with `EADDRINUSE`, which is fine for a hello-world.\nStill to do: the file isn't committed, and to try it, run `node server.js`, then `curl http://127.0.0.1:3000` in a second terminal.",
+  "background_tasks": [],
+  "session_crons": []
+}

@@ -1,0 +1,25 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "b6266d81-d284-4b04-809b-a408bad5abb1",
+  "permission_mode": "default",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "`server.js` is written and `node --check server.js` passed: no output, exit code 0. The reviewer is reading it now, and I'll send you the full report when that's back.",
+  "background_tasks": [
+    {
+      "id": "aedeba898e3731bcb",
+      "type": "subagent",
+      "status": "running",
+      "description": "Review server.js",
+      "agent_type": "world-of-agents:reviewer"
+    }
+  ],
+  "session_crons": []
+}

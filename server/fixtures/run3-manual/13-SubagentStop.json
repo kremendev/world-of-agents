@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000003",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "75b50a4e-d2cc-4f9d-b245-8f6d6c029334",
+  "permission_mode": "default",
+  "agent_id": "a27467849b4c04f60",
+  "agent_type": "world-of-agents:backend",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "I created `<path>` and it passes the syntax check. Neither `server.js` nor `package.json` existed beforehand, so I used CommonJS.\n- It uses only the built-in `http` module. It binds to 127.0.0.1:3000, replies with plain text \"Hello, World!\", and logs `Server listening on http://127.0.0.1:3000` on start.\n- `node --check server.js`, run from the project root, printed nothing. The exit code was 0.\n- I did not start the server, commit, or touch any other file.",
+  "background_tasks": [
+    {
+      "id": "a27467849b4c04f60",
+      "type": "subagent",
+      "status": "running",
+      "description": "Create hello-world server.js",
+      "agent_type": "world-of-agents:backend"
+    }
+  ],
+  "session_crons": []
+}

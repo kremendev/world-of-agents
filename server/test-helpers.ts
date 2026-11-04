@@ -18,10 +18,12 @@ const load = (run: string) =>
       body: allowlist(JSON.parse(readFileSync(join(FIXTURES, run, file), 'utf8')), 'C:\\Users\\woa-tester'),
     }));
 
-/** Run 1 (`-p`, 28 hooks): background devs, a foreground Reviewer, <task-notification>s. */
+/** Run 1 (`-p`, `acceptEdits`, 28 hooks): background devs, a foreground Reviewer, <task-notification>s. */
 export const run1 = load('run1-background');
-/** Run 2 (interactive, 24 hooks): <agent-message> hand-backs, SubagentStops with no last message. */
+/** Run 2 (interactive, `auto`, 24 hooks): <agent-message> hand-backs, SubagentStops with no last message. */
 export const run2 = load('run2-interactive');
+/** Run 3 (interactive, `default`, 25 hooks): a real permission_prompt, <task-notification>s. */
+export const run3 = load('run3-manual');
 
 /** Hook number `n` of a run (run 1 unless given), as the server reads it. */
 export const hookOf = (n: number, run = run1): HookInput => hookInputSchema.parse(run[n - 1]!.body);

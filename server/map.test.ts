@@ -3,7 +3,7 @@ import { parseEvent, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../src/state/office';
 import type { HookInput } from './hook-input';
 import { INITIAL_MAP, mapHook, type MapState } from './map';
-import { hookOf, run1, run2 } from './test-helpers';
+import { hookOf, run1, run2, run3 } from './test-helpers';
 
 /** Freezes a state all the way down, so a mapHook that changes the state it was given throws. */
 function frozen<T>(value: T): T {
@@ -235,7 +235,7 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
   });
 });
 
-describe('mapHook on run 2 (interactive: hand-backs instead of <task-notification>s)', () => {
+describe('mapHook on run 2 (`auto` mode: hand-backs instead of <task-notification>s)', () => {
   const run = play(run2.map((hook) => hookOf(hook.n, run2)));
   const after = (n: number) => run.steps[n - 1]!.events;
 
@@ -290,8 +290,172 @@ describe('mapHook on run 2 (interactive: hand-backs instead of <task-notificatio
   });
 });
 
-describe('mapHook rows run 1 does not have (not captured yet: docs/v2-hooks.md)', () => {
-  it('Notification permission_prompt naming a subagent: that agent needs you', () => {
+describe('mapHook on run 3 (`default` mode: a real permission_prompt)', () => {
+  const run = play(run3.map((hook) => hookOf(hook.n, run3)));
+  const after = (n: number) => run.steps[n - 1]!.events;
+  const upTo = (n: number) =>
+    run.steps
+      .slice(0, n)
+      .flatMap((s) => s.events)
+      .reduce(officeReducer, INITIAL_OFFICE);
+  const backendCard = hookOf(4, run3).tool_use_id!;
+
+  it("permission_prompt names nobody: the Lead's agent_type and no agent_id, while the Backend dev's Write waits", () => {
+    expect(hookOf(10, run3)).toMatchObject({
+      tool_name: 'Write',
+      agent_type: 'world-of-agents:backend',
+      agent_id: hookOf(5, run3).agent_id,
+    });
+    expect(hookOf(11, run3)).toEqual({
+      hook_event_name: 'Notification',
+      session_id: '00000000-0000-4000-8000-000000000003',
+      agent_type: 'world-of-agents:lead',
+      notification_type: 'permission_prompt',
+    });
+  });
+
+  it('flags the Backend dev, not the Lead, and the Lead keeps waiting', () => {
+    expect(after(11)).toEqual([
+      { type: 'state', agent: 'backend', state: 'needs-you', taskId: backendCard, at: 10 },
+    ]);
+    expect(upTo(11).agents.backend).toMatchObject({ state: 'needs-you' });
+    expect(upTo(11).agents.lead).toMatchObject({ state: 'waiting' });
+  });
+
+  it("clears the flag at that agent's next tool call", () => {
+    expect(after(12)).toEqual([
+      { type: 'state', agent: 'backend', state: 'writing', taskId: backendCard, at: 11 },
+    ]);
+  });
+
+  it('SubagentStop with a last message: that message, its card Done, the agent done', () => {
+    expect(after(13)).toEqual([
+      { type: 'message', from: 'backend', to: 'lead', text: hookOf(13, run3).last_assistant_message, at: 12 },
+      {
+        type: 'task',
+        taskId: backendCard,
+        title: 'Create hello-world server.js',
+        owner: 'backend',
+        status: 'done',
+        at: 12,
+      },
+      { type: 'state', agent: 'backend', state: 'done', taskId: backendCard, at: 12 },
+    ]);
+  });
+
+  it('a completed <task-notification>: the Lead thinks, the card stays Done, and the header keeps your prompt', () => {
+    for (const n of [14, 22]) {
+      expect(hookOf(n, run3).task_notification?.status).toBe('completed');
+      expect(after(n)).toEqual([{ type: 'state', agent: 'lead', state: 'thinking', at: n - 1 }]);
+    }
+    expect(run.events.filter((e) => e.type === 'run')).toMatchObject([
+      { text: expect.stringMatching(/^Ask the backend dev to create server\.js/) },
+    ]);
+  });
+
+  it("ignores the SubagentStops that carry the Lead's own type", () => {
+    for (const n of [8, 20, 24]) {
+      expect(hookOf(n, run3).agent_type).toBe('world-of-agents:lead');
+      expect(after(n)).toEqual([]);
+    }
+  });
+
+  it('ends with both cards Done, everyone idle, and only events that pass parseEvent()', () => {
+    const office = upTo(run3.length);
+    expect(office.tasks.map((t) => [t.owner, t.status])).toEqual([
+      ['backend', 'done'],
+      ['reviewer', 'done'],
+    ]);
+    expect(Object.values(office.agents).map((a) => a.state)).toEqual(Array(5).fill('idle'));
+    for (const event of run.events) expect(parseEvent(event)).toEqual({ ok: true, event });
+  });
+});
+
+describe('mapHook on a permission_prompt, which names nobody: the running subagent that wrote last', () => {
+  const prompt = byLead('Notification', { notification_type: 'permission_prompt' });
+  const needsYou = (agent: string, taskId: string, at: number) => ({
+    type: 'state',
+    agent,
+    state: 'needs-you',
+    taskId,
+    at,
+  });
+  const two = [
+    start,
+    handOut('t1', 'backend'),
+    handOut('t2', 'frontend'),
+    bySub('SubagentStart', 'backend', 'b1'),
+    bySub('SubagentStart', 'frontend', 'f1'),
+  ];
+
+  it('a subagent that only reads does not take it from the one that wrote', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Bash' }),
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Read' }),
+      prompt,
+    ]);
+    expect(steps[7]!.events).toEqual([needsYou('backend', 't1', 7)]);
+  });
+
+  it('of two writers, the later one', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      prompt,
+    ]);
+    expect(steps[7]!.events).toEqual([needsYou('frontend', 't2', 7)]);
+  });
+
+  it('a late Write from a stopped run does not take it from a running writer', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      prompt,
+    ]);
+    expect(steps[7]!.events).toEqual([]);
+    expect(steps[8]!.events).toEqual([needsYou('frontend', 't2', 8)]);
+  });
+
+  it('the Lead, when the last writer has stopped', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      prompt,
+    ]);
+    expect(steps[7]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 7 }]);
+  });
+
+  it('the Lead in a new session: it forgets the old writer', () => {
+    const other = (input: HookInput): HookInput => ({ ...input, session_id: 'session-2' });
+    const { steps, state } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      other(start),
+      other(prompt),
+    ]);
+    expect(steps[7]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 7 }]);
+    expect(state.lastWriter).toBeNull();
+  });
+
+  it('the Lead when nobody has written, and until its next event', () => {
+    const { steps } = play([
+      start,
+      byLead('PreToolUse', { tool_name: 'Read' }),
+      prompt,
+      byLead('PreToolUse', { tool_name: 'Glob' }),
+    ]);
+    expect(steps[2]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 2 }]);
+    expect(steps[3]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'reading', at: 3 }]);
+  });
+});
+
+describe('mapHook rows no recorded run has (hand-built from docs/v2-hooks.md)', () => {
+  it('Notification permission_prompt with an agent_id, if Claude Code ever sends one: that agent needs you', () => {
     const { steps } = play([
       start,
       handOut('t1', 'backend'),
@@ -303,7 +467,7 @@ describe('mapHook rows run 1 does not have (not captured yet: docs/v2-hooks.md)'
     ]);
   });
 
-  it('Notification permission_prompt without a subagent, or idle_prompt: the Lead needs you', () => {
+  it('Notification permission_prompt with no subagent writing, or idle_prompt: the Lead needs you', () => {
     const { steps } = play([
       start,
       byLead('Notification', { notification_type: 'permission_prompt' }),
@@ -416,7 +580,7 @@ describe('mapHook rules', () => {
   it.each([
     ['no last message', {}],
     ['a blank one', { last_assistant_message: ' \n ' }],
-  ])('SubagentStop with %s (interactive): "Report sent to the Lead", card Done, done', (_, more) => {
+  ])('SubagentStop with %s (as in run 2): "Report sent to the Lead", card Done, done', (_, more) => {
     const { steps } = play([
       start,
       handOut('t1', 'backend'),
