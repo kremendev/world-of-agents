@@ -122,8 +122,9 @@ export function createHall({
     res.writeHead(200, { ...BASE_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8' });
     res.flushHeaders();
     // Everything since the last reset, then each new event as it comes: a page that (re)connects rebuilds
-    // its office from a clean one.
-    if (replay.length > 0) res.write(replay.map(frame).join(''));
+    // its office from a clean one. A named event marks the end of the replay, so it can do that in one go;
+    // it is not a `message`, and it carries nothing.
+    res.write(`${replay.map(frame).join('')}event: replayed\ndata: 1\n\n`);
     pages.add(res);
     req.on('close', () => pages.delete(res));
   }

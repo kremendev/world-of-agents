@@ -77,6 +77,49 @@ h1 {
   font-size: 13px;
 }
 
+/* The mode badge, in the colours the state chips already use. */
+.mode-demo {
+  background: #2e2924;
+  color: #d6c9b3;
+}
+
+.mode-live {
+  background: #2c4622;
+  color: #c4e8a8;
+}
+
+.mode-offline {
+  background: #4d3a0c;
+  color: #ffd97a;
+}
+
+.mode-ended {
+  background: #3a342c;
+  color: #eadcc4;
+}
+
+/* Always there, one line, always this tall: what it says changes, and the hall under it never moves. */
+.status-line {
+  height: 40px;
+  box-sizing: border-box;
+  padding: 0 16px;
+  border: 2px solid var(--line);
+  background: var(--panel);
+  color: var(--muted);
+  font-family: var(--pixel-font);
+  font-size: 16px;
+  line-height: 36px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-line.needs-you {
+  border-color: #1a1410;
+  background: #4d3a0c;
+  color: #ffd97a;
+}
+
 .run-controls {
   margin-left: auto;
   display: flex;
@@ -160,6 +203,13 @@ h1 {
   border: calc(var(--u) * 1px) solid var(--line);
   color: var(--text);
   white-space: nowrap;
+}
+
+.copies {
+  margin-left: calc(var(--u) * 3px);
+  padding: 0 calc(var(--u) * 2px);
+  background: #4a2a12;
+  color: var(--ember-text);
 }
 
 .furnace-label {
@@ -389,6 +439,12 @@ p {
   color: var(--muted);
 }
 
+.task-row input:disabled,
+.primary:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .primary {
   min-height: 44px;
   padding: 0 24px;
@@ -477,6 +533,16 @@ p {
   flex-direction: column;
   align-items: flex-start;
   gap: 6px;
+}
+
+.agent-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.copies-chip {
+  background: #4a2a12;
+  color: var(--ember-text);
 }
 
 .details {

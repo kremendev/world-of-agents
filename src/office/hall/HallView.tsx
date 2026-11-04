@@ -20,6 +20,7 @@ import {
 import { HallLabels, type AgentTag } from './HallLabels';
 import { HALL, hallStations } from './layout';
 import { SPEECH_MS, clip, smallTalk } from './talk';
+import { FETCH_SPOTS } from './walk';
 import { restingWalkers, sendTo, step, walkerAt } from './walkers';
 
 /** CSS pixels per art pixel we aim for, as in the design. The real scale is rounded so pixels stay crisp. */
@@ -43,17 +44,22 @@ const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
  * The Forge Hall: one canvas redrawn every animation frame, with HTML text on top.
  * `run` changes on Restart, which puts every agent back at its rest spot at once.
  * Each agent has a button over it; `selected` is the one the agent panel shows.
+ * `live`: the office comes from a real run. `hushed`: its messages are old news (a replay), so nobody says them.
  */
 export function HallView({
   office,
   run,
   selected,
   onSelect,
+  live = false,
+  hushed = false,
 }: {
   office: OfficeState;
   run: number;
   selected: AgentId;
   onSelect: (id: AgentId) => void;
+  live?: boolean;
+  hushed?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(currentDpr);
@@ -69,6 +75,8 @@ export function HallView({
   const speech = useRef<Partial<Record<AgentId, { text: string; until: number }>>>({});
   const heard = useRef(new WeakSet<Message>());
   const lastRun = useRef(run);
+  // Live: the tasks whose scroll their dev has fetched from the Lead's room. Task ids never repeat.
+  const fetched = useRef(new Set<string>());
   const [tags, setTags] = useState<AgentTag[]>([]);
 
   // Browser zoom and moving the window to another monitor change devicePixelRatio and fire resize.
@@ -81,22 +89,24 @@ export function HallView({
   // New office state: send each agent where the state says, and give new messages a speech bubble.
   useEffect(() => {
     const now = performance.now();
-    if (lastRun.current !== run) {
+    const newRun = lastRun.current !== run;
+    if (newRun) {
       lastRun.current = run;
       walkers.current = restingWalkers();
       speech.current = {};
     }
     officeRef.current = office;
     for (const { id } of ROSTER) {
-      const to = destinationFor(id, office);
+      const to = destinationFor(id, office, live, fetched.current);
       if (to) walkers.current[id] = sendTo(walkers.current[id], to, now, reducedMotion);
     }
     for (const m of office.messages) {
       if (heard.current.has(m)) continue;
       heard.current.add(m);
-      speech.current[m.from] = { text: clip(m.text), until: now + SPEECH_MS };
+      // Messages already there when the view changes (back to live, or a replay) are not news.
+      if (!newRun && !hushed) speech.current[m.from] = { text: clip(m.text), until: now + SPEECH_MS };
     }
-  }, [office, run, reducedMotion]);
+  }, [office, run, reducedMotion, live, hushed]);
 
   // The one animation loop. The floor never changes, so it is drawn once into a cache.
   useEffect(() => {
@@ -129,7 +139,17 @@ export function HallView({
       const next: AgentTag[] = [];
 
       for (const agent of ROSTER) {
-        const w = (walkers.current[agent.id] = step(walkers.current[agent.id], now));
+        let w = step(walkers.current[agent.id], now);
+        // Live: a dev that has reached its scroll takes every one waiting for it and heads for its desk.
+        const scroll = FETCH_SPOTS[agent.id];
+        if (live && !w.walk && w.spot === scroll) {
+          if (destinationFor(agent.id, latest, live, fetched.current) === scroll) {
+            for (const t of latest.tasks) if (t.owner === agent.id) fetched.current.add(t.id);
+            const to = destinationFor(agent.id, latest, live, fetched.current);
+            if (to) w = sendTo(w, to, now, reducedMotion);
+          }
+        }
+        walkers.current[agent.id] = w;
         const { point, walking } = walkerAt(w, now);
         const { state } = agents[agent.id];
         const seat = SEATS[agent.id];
@@ -177,7 +197,7 @@ export function HallView({
 
     frame();
     return () => cancelAnimationFrame(frameId);
-  }, [scale, stations, reducedMotion]);
+  }, [scale, stations, reducedMotion, live]);
 
   return (
     <div className="hall" style={{ width: `${scale.cssWidth}px`, height: `${scale.cssHeight}px` }}>

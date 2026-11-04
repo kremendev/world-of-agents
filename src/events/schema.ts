@@ -89,6 +89,12 @@ const runEvent = z.strictObject({
   at: timestamp,
 });
 
+/** v2: the Claude Code session closed. The page shows "Session ended" until the next reset. */
+const sessionEndEvent = z.strictObject({
+  type: z.literal('session-end'),
+  at: timestamp,
+});
+
 export const officeEventSchema = z.discriminatedUnion('type', [
   stateEvent,
   taskEvent,
@@ -96,6 +102,7 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   tokensEvent,
   resetEvent,
   runEvent,
+  sessionEndEvent,
 ]);
 
 export type AgentId = z.infer<typeof agentId>;

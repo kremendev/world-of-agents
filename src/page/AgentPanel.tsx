@@ -39,10 +39,21 @@ function describe(entry: LogEntry, viewer: AgentId, office: OfficeState): string
   return task ? `${stateWords(entry.state)} · ${task.title}` : stateWords(entry.state);
 }
 
-/** Everything about the selected agent: who it is, what it is doing, and what it has done this run. */
-export function AgentPanel({ office, agent: id }: { office: OfficeState; agent: AgentId }) {
+/**
+ * Everything about the selected agent: who it is, what it is doing, and what it has done this run.
+ * `live`: a real run, so the model and tools are the real ones.
+ */
+export function AgentPanel({
+  office,
+  agent: id,
+  live = false,
+}: {
+  office: OfficeState;
+  agent: AgentId;
+  live?: boolean;
+}) {
   const agent = agentById(id);
-  const { state, taskId } = office.agents[id];
+  const { state, taskId, copies } = office.agents[id];
   const task = office.tasks.find((t) => t.id === taskId);
   const chip = STATE_STYLE[state];
   const log = logFor(office, id);
@@ -57,12 +68,15 @@ export function AgentPanel({ office, agent: id }: { office: OfficeState; agent: 
         <div className="agent-intro">
           <h2 id={headingId}>{agent.name}</h2>
           <p className="muted">
-            {agent.race} · model in v2: {agent.model}
+            {agent.race} · {live ? 'model' : 'model in v2'}: {agent.model}
           </p>
           <p>{agent.look}</p>
-          <span className="chip" style={{ background: chip.bg, color: chip.text }}>
-            {chip.label}
-          </span>
+          <div className="agent-chips">
+            <span className="chip" style={{ background: chip.bg, color: chip.text }}>
+              {chip.label}
+            </span>
+            {copies && <span className="chip copies-chip">x{copies}</span>}
+          </div>
         </div>
       </div>
 
@@ -71,16 +85,12 @@ export function AgentPanel({ office, agent: id }: { office: OfficeState; agent: 
         <dd>{task?.title ?? 'None'}</dd>
         <dt>Task status</dt>
         <dd>{task ? STATUS_CHIP[task.status].label : 'None'}</dd>
-        <dt>Tools in v2</dt>
+        <dt>{live ? 'Tools' : 'Tools in v2'}</dt>
         <dd>{agent.tools}</dd>
-        <dt>Tokens</dt>
-        <dd>0 · real numbers from v2</dd>
       </dl>
 
       {state === 'waiting' && (
-        <p className="waiting-note">
-          Waiting for {agent.waitingFor}. Not running while it waits, so it uses 0 tokens.
-        </p>
+        <p className="waiting-note">Waiting for {agent.waitingFor}. Not working while it waits.</p>
       )}
 
       <h3>Activity</h3>

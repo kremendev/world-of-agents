@@ -58,6 +58,53 @@ describe('destinationFor', () => {
     },
   );
 
+  describe('live: the scroll', () => {
+    const own = (id: 'backend' | 'reviewer', state: 'thinking' | 'reading' | 'writing' | 'needs-you') =>
+      office(
+        { type: 'task', taskId: 'mine', title: 'Mine', owner: id, status: 'in-progress', at: 0 },
+        act(id, state, 'mine'),
+      );
+
+    it.each(['thinking', 'reading', 'writing', 'needs-you'] as const)(
+      'a dev %s on a card it has no scroll for goes to the Lead room, then its desk',
+      (state) => {
+        expect(destinationFor('backend', own('backend', state), true)).toBe(FETCH_SPOTS.backend);
+        expect(destinationFor('backend', own('backend', state), true, new Set(['mine']))).toBe(SEATS.backend);
+      },
+    );
+
+    it('not in the demo: the script does the fetching', () => {
+      expect(destinationFor('backend', own('backend', 'thinking'))).toBe(SEATS.backend);
+    });
+
+    it('the Reviewer has no scroll to fetch', () => {
+      expect(destinationFor('reviewer', own('reviewer', 'thinking'), true)).toBe(SEATS.reviewer);
+    });
+
+    it('thinking with no card yet: stays put, the card is on its way', () => {
+      expect(destinationFor('backend', office(act('backend', 'thinking')), true)).toBeNull();
+    });
+
+    it('using a tool with no card: there will be none, so to its desk', () => {
+      expect(destinationFor('backend', office(act('backend', 'writing')), true)).toBe(SEATS.backend);
+    });
+
+    it('done or idle: to rest, scroll or no scroll', () => {
+      expect(destinationFor('backend', office(act('backend', 'done', 'mine')), true)).toBe(
+        REST_SPOTS.backend,
+      );
+      expect(destinationFor('backend', office(act('backend', 'idle')), true)).toBe(REST_SPOTS.backend);
+    });
+  });
+
+  it('live: a waiting Lead stands on the dev room carpet, like the check-in. Nobody else moves', () => {
+    expect(destinationFor('lead', office(act('lead', 'waiting')), true)).toBe(CHECK_SPOT);
+    expect(destinationFor('lead', office(act('lead', 'thinking')), true)).toBe(SEATS.lead);
+    for (const id of AGENT_IDS.filter((a) => a !== 'lead')) {
+      expect(destinationFor(id, office(act(id, 'waiting')), true)).toBe(SEATS[id]);
+    }
+  });
+
   describe('reading', () => {
     it('own task while it is still todo: a dev collects its scroll in the Lead room', () => {
       for (const id of ['designer', 'frontend', 'backend'] as const) {

@@ -43,6 +43,9 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
                   destination.ts: destinationFor(agent, office), walkers.ts: walk queue, talk.ts: bubbles
 src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap), TaskBoard,
                   AgentPanel (details and activity of the selected agent)
+src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
+                  message), useLiveHall.ts (status, office, the 5 s re-check in Demo), announce.ts (what the
+                  aria-live region says, cut at the last full sentence)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
@@ -191,6 +194,11 @@ Next:
    with a tag) never reach the hall as text. A `permission_prompt` doesn't say who is waiting, so the running
    subagent that last used Edit, Write or Bash is flagged. `PermissionRequest` is hooked and mapped the same way
    (an `agent_id` wins), but not captured yet; docs/v2-hooks.md says how. Fixtures: run 1 (`-p`), run 2
-   (interactive, `auto`) and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is next; it also
-   takes the "Session ended" signal (SessionEnd sends no event yet) and the roster drift between roster.ts and the
-   plugin's agent files.
+   (interactive, `auto`) and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is done: the page checks
+   `/api/health` on load (1 s), follows the hall over SSE, and rebuilds from the replay on reconnect, so agents stay
+   put while it is offline. `VITE_LIVE=false` skips all of it. In Demo it re-checks every 5 s and offers "Go live",
+   never switching on its own. An always-there status line turns into the needs-you banner, so nothing below it
+   moves. In Live a dev fetches its scroll from the Lead's room before its desk, and a waiting Lead stands on the dev
+   room carpet. `SessionEnd` sends all five idle, then `session-end`. There are no token counts in either mode.
+   Tests stub `VITE_LIVE`, `fetch` and `EventSource` (src/test/fakeEventSource.ts). Milestone 4 (launcher and docs) is
+   next.

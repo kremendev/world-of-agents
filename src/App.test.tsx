@@ -63,9 +63,12 @@ const xy = (p: Point) => ({ x: p.x, y: p.y });
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // The v1 demo, starting at once with no hall to ask. App.live.test.tsx covers the check and Live mode.
+  vi.stubEnv('VITE_LIVE', 'false');
 });
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
@@ -207,11 +210,11 @@ describe('App', () => {
     }
   });
 
-  it('shows the run in the header: task, tasks done and tokens', () => {
+  it('shows the run in the header: the task and tasks done, and no token count', () => {
     const app = renderApp();
     expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
     expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
-    expect(screen.getByText('Tokens: 0')).toBeInTheDocument();
+    expect(screen.queryByText(/Tokens/)).toBeNull();
     app.at(stepStart(4) + 2500);
     expect(screen.getByText('Tasks done: 1 of 5')).toBeInTheDocument();
   });

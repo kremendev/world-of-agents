@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { parseEvent, type OfficeEvent } from '../src/events/schema';
-import { INITIAL_OFFICE, officeReducer } from '../src/state/office';
+import { INITIAL_OFFICE, officeReducer, workingCount } from '../src/state/office';
 import type { HookInput } from './hook-input';
 import { INITIAL_MAP, mapHook, type MapState } from './map';
+import { finalReport, whoIsWaiting } from '../src/live/announce';
 import { hookOf, run1, run2, run3 } from './test-helpers';
 
 /** Freezes a state all the way down, so a mapHook that changes the state it was given throws. */
@@ -203,8 +204,16 @@ describe('mapHook on run 1, row by row (the run table in docs/v2-brief.md)', () 
     expect(hookOf(27).last_assistant_message).toMatch(/^The hello page is built/);
   });
 
-  it('SessionEnd: nothing', () => {
-    expect(after(28)).toEqual([]);
+  it('SessionEnd: everyone rests, then the signal for the "Session ended" badge', () => {
+    expect(after(28)).toEqual([
+      ...['lead', 'designer', 'frontend', 'backend', 'reviewer'].map((agent) => ({
+        type: 'state',
+        agent,
+        state: 'idle',
+        at: 27,
+      })),
+      { type: 'session-end', at: 27 },
+    ]);
   });
 
   it('ends with every card done, everyone idle, three reports to the Lead and three from it to you', () => {
@@ -358,6 +367,26 @@ describe('mapHook on run 3 (`default` mode: a real permission_prompt)', () => {
       expect(hookOf(n, run3).agent_type).toBe('world-of-agents:lead');
       expect(after(n)).toEqual([]);
     }
+  });
+
+  it('gives a screen reader three things to say: the wait, the final report and the end of the session', () => {
+    const heard: string[] = [];
+    let last = '';
+    for (let n = 1; n <= run3.length; n++) {
+      const office = upTo(n);
+      const lines = [
+        ...whoIsWaiting(office),
+        finalReport(office)?.text.slice(0, 20) ?? '',
+        office.sessionEnded ? 'Session ended' : '',
+      ].filter(Boolean);
+      for (const line of lines) if (!last.includes(line)) heard.push(line);
+      last = lines.join('|');
+    }
+    expect(heard).toEqual([
+      'Backend dev needs your approval in Claude Code',
+      'Dima, `server.js` is',
+      'Session ended',
+    ]);
   });
 
   it('ends with both cards Done, everyone idle, and only events that pass parseEvent()', () => {
@@ -606,6 +635,31 @@ describe('mapHook on a permission_prompt, which names nobody: the running subage
     ]);
     expect(steps[2]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 2 }]);
     expect(steps[3]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'reading', at: 3 }]);
+  });
+});
+
+describe('mapHook on a session that ends mid-run', () => {
+  const { steps, state, events } = play([
+    start,
+    handOut('t1', 'backend', 'Server'),
+    bySub('SubagentStart', 'backend', 'b1'),
+    bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+    byLead('SessionEnd', { reason: 'prompt_input_exit' }),
+    bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Edit' }),
+  ]);
+
+  it('everyone goes idle, and the card stays where it is', () => {
+    expect(steps[4]!.events.map((e) => e.type)).toEqual([...Array(5).fill('state'), 'session-end']);
+    const office = events.reduce(officeReducer, INITIAL_OFFICE);
+    expect(Object.values(office.agents).map((a) => a.state)).toEqual(Array(5).fill('idle'));
+    expect(workingCount(office)).toBe(0);
+    expect(office.tasks).toMatchObject([{ id: 't1', status: 'in-progress' }]);
+    expect(office.sessionEnded).toBe(true);
+  });
+
+  it('a late hook from the dead session changes nothing', () => {
+    expect(steps[5]!.events).toEqual([]);
+    expect(state.runs.b1!.stopped).toBe(true);
   });
 });
 

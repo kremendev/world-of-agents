@@ -12,6 +12,7 @@ describe('parseEvent', () => {
       { type: 'state', agent: 'backend', state: 'writing', taskId: 'api-1', copies: 2, at: 7 },
       { type: 'reset', at: 8 },
       { type: 'run', text: 'Make a tiny hello page', at: 9 },
+      { type: 'session-end', at: 10 },
     ];
     for (const event of events) {
       expect(parseEvent(event)).toEqual({ ok: true, event });
@@ -29,6 +30,10 @@ describe('parseEvent', () => {
     expect(parseEvent({ type: 'run', text: '', at: 0 }).ok).toBe(false);
     expect(parseEvent({ type: 'run', text: 'x'.repeat(LIMITS.titleLength + 1), at: 0 }).ok).toBe(false);
     expect(parseEvent({ type: 'reset', at: 0, tasks: [] }).ok).toBe(false);
+  });
+
+  it('rejects a session-end with anything else in it', () => {
+    expect(parseEvent({ type: 'session-end', at: 0, reason: 'other' }).ok).toBe(false);
   });
 
   it('rejects an unknown agent', () => {

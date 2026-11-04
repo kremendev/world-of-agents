@@ -1,0 +1,906 @@
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { INITIAL_MAP, mapHook, type MapState } from '../server/map';
+import App from './App';
+import type { AgentId, AgentState, OfficeEvent } from './events/schema';
+import { HEALTH_TIMEOUT_MS, RECHECK_MS, RETRY_MS } from './live/hall';
+import { SEATS } from './office/hall/destination';
+import { CHECK_SPOT, FETCH_SPOTS, REST_SPOTS, type Point } from './office/hall/walk';
+import { createPlayer } from './script/player';
+import { FakeEventSource } from './test/fakeEventSource';
+
+// The real player, watched: nothing on screen shows a demo ticking away behind a live hall.
+vi.mock('./script/player', async (original) => {
+  const real = await original<typeof import('./script/player')>();
+  return { ...real, createPlayer: vi.fn(real.createPlayer) };
+});
+
+const RUN_TEXT = 'Build a server';
+const start: OfficeEvent[] = [
+  { type: 'reset', at: 0 },
+  { type: 'run', text: RUN_TEXT, at: 1 },
+  { type: 'task', taskId: 't1', title: 'Server', owner: 'backend', status: 'in-progress', at: 2 },
+  { type: 'state', agent: 'backend', state: 'writing', taskId: 't1', at: 3 },
+];
+const say = (text: string, to: AgentId | 'you' = 'you', from: AgentId = 'lead'): OfficeEvent => ({
+  type: 'message',
+  from,
+  to,
+  text,
+  at: 4,
+});
+const state = (agent: AgentId, s: AgentState): OfficeEvent => ({
+  type: 'state',
+  agent,
+  state: s,
+  at: 5,
+});
+
+const hallAnswers = () =>
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) })),
+  );
+
+/** Runs what is waiting on promises (the health check). React sees the result when the act() ends. */
+const settle = () => act(async () => {});
+
+/** The app with a hall behind it, the replay already delivered. */
+async function renderLive(replay: readonly OfficeEvent[] = []) {
+  hallAnswers();
+  const view = render(<App />);
+  await settle();
+  const source = () => FakeEventSource.latest;
+  const tag = (id: AgentId) => view.container.querySelector<HTMLElement>(`.agent-tag[data-agent="${id}"]`)!;
+  const tick = (ms = 16) => {
+    for (let left = ms; left > 0; left -= 50) act(() => vi.advanceTimersByTime(Math.min(50, left)));
+  };
+  act(() => {
+    for (const event of replay) source().send(event);
+    source().replayed();
+  });
+  tick();
+  return {
+    ...view,
+    source,
+    tick,
+    emit: (...events: OfficeEvent[]) => {
+      act(() => {
+        for (const event of events) source().send(event);
+      });
+      tick();
+    },
+    feet: (id: AgentId): Point => {
+      const style = tag(id).style;
+      return { x: Number(style.getPropertyValue('--x')), y: Number(style.getPropertyValue('--y')) };
+    },
+    bubble: (id: AgentId) => tag(id).querySelector('.state-bubble')?.textContent ?? null,
+    speech: (id: AgentId) => tag(id).querySelector('.speech')?.textContent ?? null,
+    live: () => view.container.querySelector('[aria-live="polite"]')!,
+    badge: () => view.container.querySelector('.brand [class*="mode-"]')?.textContent ?? null,
+    banner: () => view.container.querySelector('.status-line.needs-you')?.textContent ?? null,
+    status: () => view.container.querySelector('.status-line')?.textContent ?? null,
+  };
+}
+
+const xy = (p: Point) => ({ x: p.x, y: p.y });
+const button = (name: string) => screen.getByRole('button', { name });
+const noButton = (name: string) => expect(screen.queryByRole('button', { name })).toBeNull();
+/** Long enough for any walk across the hall. */
+const WALK_MS = 30_000;
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.mocked(createPlayer).mockClear();
+  FakeEventSource.all = [];
+  vi.stubGlobal('EventSource', FakeEventSource);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
+  vi.useRealTimers();
+});
+
+describe('Demo and Live', () => {
+  it('goes Live when the hall answers: its header, no demo controls, and the demo does not play', async () => {
+    const app = await renderLive(start);
+    expect(app.badge()).toBe('Live');
+    expect(screen.getByText('Forge Hall · v2')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'World of Agents' })).toBeInTheDocument();
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+    for (const name of ['Play', 'Pause', 'Restart']) noButton(name);
+    expect(screen.queryByText(/^Tokens/)).toBeNull();
+    expect(button('Play demo')).toBeEnabled();
+
+    app.tick(WALK_MS);
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+    expect(createPlayer).not.toHaveBeenCalled();
+    expect(FakeEventSource.latest.url).toBe('/api/events');
+  });
+
+  it('shows no mode and starts nothing while the health check is out', () => {
+    hallAnswers();
+    const { container } = render(<App />);
+    expect(container.querySelector('.brand [class*="mode-"]')).toBeNull();
+    noButton('Play demo');
+    noButton('Play');
+    expect(FakeEventSource.all).toEqual([]);
+  });
+
+  it.each([
+    ['the request fails', vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))],
+    ['it answers 500, like the dev proxy with no hall', vi.fn(async () => ({ ok: false }))],
+  ])('is the v1 demo when %s', async (_, fetchStub) => {
+    vi.stubGlobal('fetch', fetchStub);
+    const { container } = render(<App />);
+    await settle();
+    expect(container.querySelector('.mode-demo')).toHaveTextContent('Demo');
+    for (const name of ['Play', 'Pause', 'Restart']) expect(button(name)).toBeInTheDocument();
+    expect(screen.queryByText(/Tokens/)).toBeNull();
+    expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Demo mode plays a scripted run with no AI calls. Sending restarts the run: the Lead/PM walks in and picks up your task.',
+      ),
+    ).toBeInTheDocument();
+    noButton('Play demo');
+    noButton('Back to live');
+    expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeEnabled();
+    expect(FakeEventSource.all).toEqual([]);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(screen.getByText('1/5 done')).toBeInTheDocument();
+  });
+
+  it('is the v1 demo after a second if the hall never answers', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, { signal }: { signal: AbortSignal }) =>
+          new Promise((_, reject) => {
+            signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          }),
+      ),
+    );
+    const { container } = render(<App />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(HEALTH_TIMEOUT_MS - 1);
+    });
+    expect(container.querySelector('.mode-demo')).toBeNull();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(container.querySelector('.mode-demo')).toHaveTextContent('Demo');
+  });
+
+  it('with VITE_LIVE=false never calls an API: the demo starts at once', () => {
+    vi.stubEnv('VITE_LIVE', 'false');
+    const fetchStub = vi.fn();
+    vi.stubGlobal('fetch', fetchStub);
+    const { container } = render(<App />);
+    expect(container.querySelector('.mode-demo')).toHaveTextContent('Demo');
+    act(() => vi.advanceTimersByTime(20_000));
+    expect(screen.getByText('1/5 done')).toBeInTheDocument();
+    expect(fetchStub).not.toHaveBeenCalled();
+    expect(FakeEventSource.all).toEqual([]);
+  });
+});
+
+describe('Hall offline and reconnecting', () => {
+  it('says so, and agents stay where they are', async () => {
+    const app = await renderLive(start);
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+
+    act(() => app.source().fail());
+    app.tick(10_000);
+    expect(app.badge()).toBe('Hall offline, reconnecting');
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+    expect(app.bubble('backend')).toContain('writing');
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+    expect(button('Play demo')).toBeEnabled();
+  });
+
+  it('reconnects and rebuilds from the replay: nothing doubled, nobody walks home, nobody repeats themselves', async () => {
+    const app = await renderLive([...start, say('Backend is on it.')]);
+    app.tick(WALK_MS);
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    expect(FakeEventSource.all).toHaveLength(2);
+    expect(app.badge()).toBe('Hall offline, reconnecting');
+
+    // The same run, plus what happened while the page was away, all in one go.
+    const done: OfficeEvent = {
+      type: 'task',
+      taskId: 't1',
+      title: 'Server',
+      owner: 'backend',
+      status: 'done',
+      at: 9,
+    };
+    act(() => {
+      for (const event of [...start, say('Backend is on it.'), say('Almost there.'), done]) {
+        app.source().send(event);
+      }
+      // Replay still coming: what is on screen hasn't moved.
+      expect(app.badge()).toBe('Hall offline, reconnecting');
+      app.source().replayed();
+    });
+    app.tick();
+    expect(app.badge()).toBe('Live');
+    expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+    expect(app.speech('lead')).not.toBe('Almost there.');
+    expect(screen.getAllByText('To you: Backend is on it.')).toHaveLength(1);
+    expect(screen.getAllByText('To you: Almost there.')).toHaveLength(1);
+
+    // Back to normal: a new event is news again.
+    app.emit(say('All done.'));
+    expect(app.speech('lead')).toBe('All done.');
+  });
+
+  it('keeps what it shows when the hall restarted and remembers nothing, until events return', async () => {
+    const app = await renderLive(start);
+    app.tick(WALK_MS);
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => app.source().replayed()); // an empty replay
+    app.tick();
+    expect(app.badge()).toBe('Live');
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+
+    app.emit(state('backend', 'idle'));
+    expect(app.bubble('backend')).toBe('idle');
+  });
+
+  it('a page that opens mid-run walks agents to work, but nobody says old messages', async () => {
+    const app = await renderLive([...start, say('Backend is on it.')]);
+    expect(app.speech('lead')).not.toBe('Backend is on it.');
+    expect(app.feet('backend')).not.toEqual(xy(SEATS.backend)); // on its way, not teleported
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+});
+
+describe('Session ended', () => {
+  const ended: OfficeEvent = { type: 'session-end', at: 9 };
+
+  it('shows the badge, and a new session clears it', async () => {
+    const app = await renderLive(start);
+    app.emit(ended);
+    expect(app.badge()).toBe('Session ended');
+    expect(button('Play demo')).toBeEnabled();
+    expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeDisabled();
+
+    app.emit({ type: 'reset', at: 10 });
+    expect(app.badge()).toBe('Live');
+    expect(screen.queryByText(`Run: ${RUN_TEXT}`)).toBeNull();
+  });
+
+  it('shows it to a page that connects afterwards', async () => {
+    const app = await renderLive([...start, ended]);
+    expect(app.badge()).toBe('Session ended');
+  });
+
+  it('gives way to Hall offline, and comes back with the replay', async () => {
+    const app = await renderLive([...start, ended]);
+    act(() => app.source().fail());
+    expect(app.badge()).toBe('Hall offline, reconnecting');
+    app.tick(RETRY_MS);
+    act(() => {
+      for (const event of [...start, ended]) app.source().send(event);
+      app.source().replayed();
+    });
+    expect(app.badge()).toBe('Session ended');
+  });
+
+  it('mid-run, through the real mapping: everyone idle, the furnace cold, cards where they were, no banner', async () => {
+    const app = await renderLive();
+    let map: MapState = INITIAL_MAP;
+    const hook = (input: Parameters<typeof mapHook>[1]) => {
+      const step = mapHook(map, { session_id: 's1', ...input }, 0);
+      map = step.state;
+      app.emit(...step.events);
+    };
+    const lead = { agent_type: 'world-of-agents:lead' };
+    const backend = { agent_type: 'world-of-agents:backend', agent_id: 'b1' };
+    hook({ hook_event_name: 'SessionStart', source: 'startup', ...lead });
+    hook({
+      hook_event_name: 'PreToolUse',
+      ...lead,
+      tool_name: 'Agent',
+      tool_use_id: 't1',
+      tool_input: { subagent_type: 'world-of-agents:backend', description: 'Server' },
+    });
+    hook({ hook_event_name: 'SubagentStart', ...backend });
+    hook({ hook_event_name: 'PreToolUse', ...backend, tool_name: 'Write' });
+    hook({ hook_event_name: 'Notification', ...lead, notification_type: 'permission_prompt' });
+    expect(app.banner()).toBe('Backend dev needs your approval in Claude Code');
+    expect(screen.getByText('Furnace · 1 working')).toBeInTheDocument();
+
+    hook({ hook_event_name: 'SessionEnd', ...lead, reason: 'prompt_input_exit' });
+    expect(app.badge()).toBe('Session ended');
+    expect(app.banner()).toBeNull();
+    expect(screen.getByText('Furnace · cold')).toBeInTheDocument();
+    expect(app.bubble('backend')).toBe('idle');
+    expect(screen.getByText('In progress')).toBeInTheDocument();
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(REST_SPOTS.backend));
+  });
+});
+
+describe('out-of-order events, through the real mapping', () => {
+  it('a stop that arrives before its start: the agent stays done and its card Done', async () => {
+    const app = await renderLive();
+    let map: MapState = INITIAL_MAP;
+    const hook = (input: Parameters<typeof mapHook>[1]) => {
+      const step = mapHook(map, { session_id: 's1', ...input }, 0);
+      map = step.state;
+      app.emit(...step.events);
+    };
+    const backend = { agent_type: 'world-of-agents:backend', agent_id: 'b1' };
+    hook({ hook_event_name: 'SessionStart', source: 'startup', agent_type: 'world-of-agents:lead' });
+    hook({
+      hook_event_name: 'PreToolUse',
+      agent_type: 'world-of-agents:lead',
+      tool_name: 'Agent',
+      tool_use_id: 't1',
+      tool_input: { subagent_type: 'world-of-agents:backend', description: 'Server' },
+    });
+    hook({ hook_event_name: 'SubagentStop', ...backend, last_assistant_message: 'Server is up.' });
+    expect(app.bubble('backend')).toBe('done');
+    expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
+
+    hook({ hook_event_name: 'SubagentStart', ...backend });
+    hook({ hook_event_name: 'PreToolUse', ...backend, tool_name: 'Write' });
+    expect(app.bubble('backend')).toBe('done');
+    expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(REST_SPOTS.backend));
+  });
+});
+
+describe('copies', () => {
+  const copies = (n: number | undefined): OfficeEvent => ({
+    type: 'state',
+    agent: 'backend',
+    state: 'writing',
+    ...(n ? { copies: n } : {}),
+    at: 6,
+  });
+
+  it('shows x2 on the name plate and in the panel, and takes it away again', async () => {
+    const app = await renderLive(start);
+    const plate = () => screen.getByText('Backend dev · Orc', { exact: false, selector: '.nameplate' });
+    expect(plate().querySelector('.copies')).toBeNull();
+
+    app.emit(copies(2));
+    expect(plate().querySelector('.copies')).toHaveTextContent('x2');
+    fireEvent.click(screen.getByRole('button', { name: /^Backend dev, Orc/ }));
+    expect(screen.getByText('x2', { selector: '.chip' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Backend dev, Orc, Writing, 2 copies running. Show details' }),
+    ).toBeInTheDocument();
+
+    app.emit(copies(3));
+    expect(plate().querySelector('.copies')).toHaveTextContent('x3');
+
+    app.emit(copies(undefined));
+    expect(plate().querySelector('.copies')).toBeNull();
+    expect(screen.queryByText('x2', { selector: '.chip' })).toBeNull();
+  });
+});
+
+describe('Needs you', () => {
+  it('names the agent in a banner and the live region, and clears when it moves on', async () => {
+    const app = await renderLive(start);
+    expect(app.banner()).toBeNull();
+
+    app.emit(state('backend', 'needs-you'));
+    expect(app.banner()).toBe('Backend dev needs your approval in Claude Code');
+    expect(app.live()).toHaveTextContent('Backend dev needs your approval in Claude Code');
+
+    app.emit(state('backend', 'writing'));
+    expect(app.banner()).toBeNull();
+    expect(app.live()).not.toHaveTextContent('needs your approval');
+  });
+
+  it('does not claim an approval for the Lead: its state can also mean Claude Code waits for your reply', async () => {
+    const app = await renderLive(start);
+    app.emit(state('lead', 'needs-you'));
+    expect(app.banner()).toBe('Lead/PM needs you in Claude Code');
+  });
+
+  it('names every agent waiting', async () => {
+    const app = await renderLive(start);
+    app.emit(state('backend', 'needs-you'), state('frontend', 'needs-you'));
+    expect(app.banner()).toBe(
+      'Frontend dev needs your approval in Claude Code · Backend dev needs your approval in Claude Code',
+    );
+  });
+
+  it('shows no banner in the demo', async () => {
+    vi.stubEnv('VITE_LIVE', 'false');
+    const { container } = render(<App />);
+    act(() => vi.advanceTimersByTime(70_000));
+    expect(container.querySelector('.status-line.needs-you')).toBeNull();
+    expect(container.querySelector('.status-line')).toHaveTextContent('Demo · a scripted run');
+  });
+});
+
+describe('status line', () => {
+  it('is always there, one element, in every mode: only what it says changes', async () => {
+    const app = await renderLive(start);
+    const line = app.container.querySelector('.status-line');
+    expect(app.status()).toBe('Live · watching Claude Code');
+
+    app.emit(state('backend', 'needs-you'));
+    expect(app.container.querySelector('.status-line')).toBe(line);
+    expect(app.status()).toBe('Backend dev needs your approval in Claude Code');
+    expect(line).toHaveClass('needs-you');
+
+    app.emit(state('backend', 'writing'));
+    expect(app.status()).toBe('Live · watching Claude Code');
+    expect(line).not.toHaveClass('needs-you');
+
+    app.emit({ type: 'session-end', at: 9 });
+    expect(app.status()).toBe('Session ended · waiting for the next one');
+
+    act(() => app.source().fail());
+    expect(app.status()).toBe('Hall offline · reconnecting');
+    expect(app.container.querySelector('.status-line')).toBe(line);
+  });
+
+  it('says it is looking while the health check is out', () => {
+    hallAnswers();
+    const { container } = render(<App />);
+    expect(container.querySelector('.status-line')).toHaveTextContent('Looking for the hall');
+  });
+
+  it('during Play demo says the hall keeps watching', async () => {
+    const app = await renderLive(start);
+    fireEvent.click(button('Play demo'));
+    await settle();
+    expect(app.status()).toBe('Demo · the hall keeps watching Claude Code');
+  });
+});
+
+describe('live region', () => {
+  const heardFrom = (app: Awaited<ReturnType<typeof renderLive>>) => {
+    const lines = [...app.live().querySelectorAll('p')];
+    const seen = lines.map((p) => p.textContent);
+    const heard: string[] = [];
+    return {
+      heard,
+      listen: () =>
+        lines.forEach((p, i) => {
+          if (p.textContent === seen[i]) return;
+          seen[i] = p.textContent;
+          if (p.textContent) heard.push(p.textContent); // text going away is not read out
+        }),
+    };
+  };
+
+  it('always announces needs-you and Session ended; the Lead only when nothing is left running', async () => {
+    const app = await renderLive(start);
+    const { heard, listen } = heardFrom(app);
+    for (const event of [
+      state('lead', 'thinking'),
+      say('The dev is on it.'),
+      state('lead', 'waiting'),
+      say('Report sent to the Lead', 'lead', 'backend'),
+      state('backend', 'needs-you'),
+      state('backend', 'writing'),
+      state('backend', 'done'),
+      state('lead', 'thinking'),
+      say('All done.'),
+      state('lead', 'idle'),
+      { type: 'session-end', at: 9 } as const,
+    ]) {
+      app.emit(event);
+      listen();
+    }
+    expect(heard).toEqual([
+      'Backend dev needs your approval in Claude Code',
+      'Lead/PM: All done.',
+      'Session ended',
+    ]);
+  });
+
+  it('cuts a long report at its last full sentence; the bubble and panel keep what was sent', async () => {
+    const app = await renderLive();
+    const long = `All done. ${'And then some more words '.repeat(20)}`;
+    app.emit(say(long));
+    expect(app.live().querySelector('p')).toHaveTextContent(/^Lead\/PM: All done\.$/);
+    expect(screen.getByText(`To you: ${long.trim()}`)).toBeInTheDocument();
+  });
+
+  it('does not say an old report again when a page reconnects', async () => {
+    const run = [...start, state('backend', 'idle'), say('All done.')];
+    const app = await renderLive(run);
+    const { heard, listen } = heardFrom(app);
+    act(() => app.source().fail());
+    listen();
+    app.tick(RETRY_MS);
+    act(() => {
+      for (const event of run) app.source().send(event);
+      app.source().replayed();
+    });
+    listen();
+    expect(heard).toEqual([]);
+  });
+
+  it('in the demo says everything to you, as in v1', () => {
+    vi.stubEnv('VITE_LIVE', 'false');
+    const { container } = render(<App />);
+    act(() => vi.advanceTimersByTime(8100));
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
+      'Lead/PM: On it: Create a dashboard.',
+    );
+  });
+});
+
+describe("the scroll: a dev fetches it from the Lead's room, then goes to its desk", () => {
+  const card = (taskId: string, owner: AgentId = 'backend'): OfficeEvent => ({
+    type: 'task',
+    taskId,
+    title: taskId,
+    owner,
+    status: 'in-progress',
+    at: 1,
+  });
+  const works = (agent: AgentId, taskId?: string): OfficeEvent => ({
+    type: 'state',
+    agent,
+    state: 'thinking',
+    ...(taskId ? { taskId } : {}),
+    at: 2,
+  });
+  /** Walks in small steps and says how far into the Lead's room the agent got. */
+  const furthest = (app: Awaited<ReturnType<typeof renderLive>>, id: AgentId) => {
+    let x = Infinity;
+    for (let left = WALK_MS; left > 0; left -= 50) {
+      app.tick(50);
+      x = Math.min(x, app.feet(id).x);
+    }
+    return x;
+  };
+
+  it("goes via the Lead's room, as in the demo", async () => {
+    const app = await renderLive();
+    app.emit(card('t1'), works('backend', 't1'));
+    expect(furthest(app, 'backend')).toBeLessThanOrEqual(FETCH_SPOTS.backend!.x + 3);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+
+  it('with the subagent first and its card a moment later: waits, then goes the same way', async () => {
+    const app = await renderLive();
+    app.emit(works('backend'));
+    app.tick(1000);
+    expect(app.feet('backend')).toEqual(xy(REST_SPOTS.backend));
+    expect(app.bubble('backend')).toBe('thinking');
+
+    app.emit(card('t1'), works('backend', 't1'));
+    expect(furthest(app, 'backend')).toBeLessThanOrEqual(FETCH_SPOTS.backend!.x + 3);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+
+  it('with no card at its first tool call (the hall started mid-run): straight to its desk', async () => {
+    const app = await renderLive();
+    app.emit(works('backend'));
+    app.emit(state('backend', 'writing'));
+    expect(furthest(app, 'backend')).toBeGreaterThan(FETCH_SPOTS.backend!.x);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+
+  it('the Reviewer has no scroll to fetch: straight to its desk', async () => {
+    const app = await renderLive();
+    app.emit(card('r1', 'reviewer'), works('reviewer', 'r1'));
+    expect(furthest(app, 'reviewer')).toBeGreaterThan(FETCH_SPOTS.backend!.x);
+    expect(app.feet('reviewer')).toEqual(xy(SEATS.reviewer));
+  });
+
+  it('done before it got there: it finishes the walk, then goes to rest', async () => {
+    const app = await renderLive();
+    app.emit(card('t1'), works('backend', 't1'));
+    app.tick(500);
+    app.emit(state('backend', 'idle'));
+    expect(furthest(app, 'backend')).toBeLessThanOrEqual(FETCH_SPOTS.backend!.x + 3);
+    expect(app.feet('backend')).toEqual(xy(REST_SPOTS.backend));
+  });
+
+  it('takes every scroll waiting for it in one trip: two copies do not send it back', async () => {
+    const app = await renderLive();
+    app.emit(card('t1'), card('t2'), works('backend', 't1'));
+    app.tick(100);
+    app.emit(works('backend', 't2'));
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+    app.emit(works('backend', 't1'));
+    app.tick(100);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+
+  it('a reconnect does not send it back for a scroll it already has', async () => {
+    const run = [card('t1'), works('backend', 't1')];
+    const app = await renderLive(run);
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => {
+      for (const event of run) app.source().send(event);
+      app.source().replayed();
+    });
+    app.tick(500);
+    expect(app.feet('backend')).toEqual(xy(SEATS.backend));
+  });
+});
+
+describe('Go live', () => {
+  const answering = (up: { now: boolean }) =>
+    vi.fn(async () => (up.now ? { ok: true, json: async () => ({ ok: true }) } : { ok: false }));
+  const advance = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+  const mode = (c: HTMLElement) => c.querySelector('.brand [class*="mode-"]')?.textContent;
+
+  it('in the demo looks again every 5 s, offers a hall that appears, and does not switch on its own', async () => {
+    const up = { now: false };
+    const fetchStub = answering(up);
+    vi.stubGlobal('fetch', fetchStub);
+    const { container } = render(<App />);
+    await settle();
+    expect(mode(container)).toBe('Demo');
+    noButton('Go live');
+
+    await advance(RECHECK_MS);
+    expect(fetchStub).toHaveBeenCalledTimes(2);
+    noButton('Go live');
+
+    up.now = true;
+    await advance(RECHECK_MS);
+    expect(button('Go live')).toBeEnabled();
+    expect(container.querySelector('.status-line')).toHaveTextContent('Demo · the hall is running');
+    await advance(RECHECK_MS * 3);
+    expect(mode(container)).toBe('Demo');
+    expect(FakeEventSource.all).toEqual([]);
+    expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
+  });
+
+  it('takes the offer away if the hall goes again', async () => {
+    const up = { now: false };
+    vi.stubGlobal('fetch', answering(up));
+    render(<App />);
+    await settle();
+    up.now = true;
+    await advance(RECHECK_MS);
+    expect(button('Go live')).toBeEnabled();
+    up.now = false;
+    await advance(RECHECK_MS);
+    noButton('Go live');
+  });
+
+  it('on click: stops the demo, follows the hall, and stops looking', async () => {
+    const up = { now: false };
+    const fetchStub = answering(up);
+    vi.stubGlobal('fetch', fetchStub);
+    const { container } = render(<App />);
+    await settle();
+    up.now = true;
+    await advance(RECHECK_MS);
+    await advance(20_000);
+    expect(screen.getByText('1/5 done')).toBeInTheDocument();
+
+    fireEvent.click(button('Go live'));
+    await settle();
+    expect(FakeEventSource.all).toHaveLength(1);
+    act(() => {
+      for (const event of start) FakeEventSource.latest.send(event);
+      FakeEventSource.latest.replayed();
+    });
+    expect(mode(container)).toBe('Live');
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+    noButton('Go live');
+    noButton('Play');
+
+    const calls = fetchStub.mock.calls.length;
+    await advance(RECHECK_MS * 3);
+    expect(fetchStub).toHaveBeenCalledTimes(calls);
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+  });
+
+  it('with VITE_LIVE=false never looks', async () => {
+    vi.stubEnv('VITE_LIVE', 'false');
+    const fetchStub = vi.fn();
+    vi.stubGlobal('fetch', fetchStub);
+    render(<App />);
+    await advance(RECHECK_MS * 3);
+    expect(fetchStub).not.toHaveBeenCalled();
+    noButton('Go live');
+  });
+
+  it('does not look while a hall is being followed, even offline: the stream does that', async () => {
+    const app = await renderLive(start);
+    const calls = vi.mocked(fetch).mock.calls.length;
+    act(() => app.source().fail());
+    await advance(RECHECK_MS * 2);
+    expect(vi.mocked(fetch).mock.calls.length).toBe(calls);
+  });
+});
+
+describe('Task bar in Live', () => {
+  it('is disabled with a note, and sends nothing', async () => {
+    const app = await renderLive(start);
+    const input = screen.getByRole('textbox', { name: 'Task for the Lead/PM' });
+    expect(input).toBeDisabled();
+    expect(button('Send')).toBeDisabled();
+    expect(screen.getByText('Type your task in Claude Code. The hall only watches.')).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Delete everything' } });
+    fireEvent.submit(input.closest('form')!);
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+    expect(app.badge()).toBe('Live');
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // only the health check
+  });
+});
+
+describe('Play demo while live', () => {
+  it('plays the script, keeps following the hall, and Back to live shows what happened meanwhile', async () => {
+    const app = await renderLive(start);
+    const stream = app.source();
+    fireEvent.click(button('Play demo'));
+    await settle();
+
+    expect(createPlayer).toHaveBeenCalledOnce();
+    expect(app.badge()).toBe('Demo');
+    for (const name of ['Play', 'Pause', 'Restart', 'Back to live']) expect(button(name)).toBeInTheDocument();
+    noButton('Play demo');
+    expect(screen.getByText('Run: Create a dashboard')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeEnabled();
+    expect(stream.closed).toBe(false);
+    app.tick(20_000);
+    expect(screen.getByText('1/5 done')).toBeInTheDocument();
+
+    // The real run goes on underneath: not shown, but not lost.
+    app.emit(say('Still going.'), {
+      type: 'task',
+      taskId: 't1',
+      title: 'Server',
+      owner: 'backend',
+      status: 'done',
+      at: 7,
+    });
+    expect(screen.queryByText('Tasks done: 1 of 1')).toBeNull();
+
+    fireEvent.click(button('Back to live'));
+    app.tick();
+    expect(app.badge()).toBe('Live');
+    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
+    expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
+    expect(app.speech('lead')).not.toBe('Still going.'); // old news by now
+    expect(screen.getByText('To you: Still going.')).toBeInTheDocument();
+    for (const name of ['Play', 'Pause', 'Restart']) noButton(name);
+    expect(stream.closed).toBe(false);
+
+    app.emit(say('And done.'));
+    expect(app.speech('lead')).toBe('And done.');
+  });
+
+  it('keeps the banner up during the demo: Claude Code is still waiting for you', async () => {
+    const app = await renderLive(start);
+    fireEvent.click(button('Play demo'));
+    await settle();
+    app.emit(state('backend', 'needs-you'));
+    expect(app.badge()).toBe('Demo');
+    expect(app.banner()).toBe('Backend dev needs your approval in Claude Code');
+  });
+
+  it('starts the script over each time', async () => {
+    const app = await renderLive(start);
+    fireEvent.click(button('Play demo'));
+    await settle();
+    app.tick(20_000);
+    expect(screen.getByText('1/5 done')).toBeInTheDocument();
+    fireEvent.click(button('Back to live'));
+    await settle();
+    fireEvent.click(button('Play demo'));
+    await settle();
+    app.tick();
+    expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
+  });
+
+  it('works while the hall is offline, and Back to live returns to the same offline hall', async () => {
+    const app = await renderLive(start);
+    act(() => app.source().fail());
+    fireEvent.click(button('Play demo'));
+    await settle();
+    expect(app.badge()).toBe('Demo');
+    fireEvent.click(button('Back to live'));
+    expect(app.badge()).toBe('Hall offline, reconnecting');
+  });
+});
+
+describe('Agent panel in Live', () => {
+  it('shows the real model and tools and no Tokens row', async () => {
+    await renderLive(start);
+    expect(screen.getByText('Goblin · model: Opus')).toBeInTheDocument();
+    const details = Object.fromEntries(
+      [...document.querySelectorAll('.details dt')].map((dt) => [
+        dt.textContent,
+        dt.nextElementSibling?.textContent,
+      ]),
+    );
+    expect(details.Tools).toBe('Agent, Read, Grep, Glob');
+    expect(details).not.toHaveProperty('Tokens');
+    expect(details).not.toHaveProperty('Tools in v2');
+  });
+
+  it('fills the activity log from live events', async () => {
+    const app = await renderLive(start);
+    fireEvent.click(screen.getByRole('button', { name: /^Backend dev, Orc/ }));
+    app.emit(say('Routes are up.', 'lead', 'backend'));
+    const items = screen.getAllByRole('listitem').map((li) => li.textContent);
+    expect(items).toContain('To Lead/PM: Routes are up.');
+    expect(items).toContain('Writing · Server');
+  });
+});
+
+describe('where the Lead stands in Live', () => {
+  it('waiting: on the dev room carpet. Thinking again: back at its desk', async () => {
+    const app = await renderLive(start);
+    app.emit(state('lead', 'waiting'));
+    app.tick(WALK_MS);
+    expect(app.feet('lead')).toEqual(xy(CHECK_SPOT));
+    expect(app.bubble('lead')).toBe('waiting');
+
+    app.emit(state('lead', 'thinking'));
+    app.tick(WALK_MS);
+    expect(app.feet('lead')).toEqual(xy(SEATS.lead));
+  });
+});
+
+describe('untrusted text from a real run', () => {
+  const attack = '<img src=x onerror="alert(1)">';
+
+  it('renders as text everywhere: header, speech bubble, panel, live region', async () => {
+    const app = await renderLive(start);
+    app.emit({ type: 'run', text: attack, at: 6 }, state('backend', 'idle'), say(attack));
+    expect(app.container.querySelector('img')).toBeNull();
+    expect(screen.getByText(`Run: ${attack}`)).toBeInTheDocument();
+    expect(app.speech('lead')).toBe(attack);
+    expect(screen.getByText(`To you: ${attack}`)).toBeInTheDocument();
+    expect(app.live()).toHaveTextContent(`Lead/PM: ${attack}`);
+  });
+
+  it('as a task title and in the replay as well', async () => {
+    const app = await renderLive([
+      ...start,
+      { type: 'task', taskId: 't2', title: attack, owner: 'frontend', status: 'todo', at: 6 },
+      say(attack),
+    ]);
+    expect(app.container.querySelector('img')).toBeNull();
+    expect(screen.getByText(attack)).toBeInTheDocument();
+  });
+
+  it('drops a message that fails parseEvent(): it never touches the page', async () => {
+    const app = await renderLive(start);
+    act(() => {
+      app.source().send({ ...say('Hidden'), html: attack });
+      app.source().send('<script>alert(1)</script>');
+      app.source().send({ type: 'state', agent: 'intern', state: 'writing', at: 0 });
+    });
+    app.tick();
+    expect(screen.queryByText(/Hidden/)).toBeNull();
+    expect(app.container.querySelector('script, img')).toBeNull();
+    expect(app.badge()).toBe('Live');
+  });
+});

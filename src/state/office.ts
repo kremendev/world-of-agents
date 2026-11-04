@@ -1,6 +1,7 @@
 import type { AgentId, AgentState, OfficeEvent, TaskStatus } from '../events/schema';
 
-export type AgentStatus = { state: AgentState; taskId?: string };
+/** `copies` is set only while more than one copy of the agent runs (v2). */
+export type AgentStatus = { state: AgentState; taskId?: string; copies?: number };
 export type Task = { id: string; title: string; owner: AgentId; status: TaskStatus };
 export type Message = { from: AgentId; to: AgentId | 'you'; text: string; at: number };
 
@@ -17,6 +18,10 @@ export type OfficeState = {
   messages: readonly Message[];
   /** Every state change and message, oldest first, at most MAX_LOG of them. */
   log: readonly LogEntry[];
+  /** v2: the task you typed in Claude Code, for the header. A reset clears it, a hand-back never replaces it. */
+  runText: string | null;
+  /** v2: the Claude Code session closed. A reset clears it. */
+  sessionEnded: boolean;
 };
 
 /** Keeps a long run from growing the message list without limit. The oldest messages go first. */
@@ -35,6 +40,8 @@ export const INITIAL_OFFICE: OfficeState = {
   tasks: [],
   messages: [],
   log: [],
+  runText: null,
+  sessionEnded: false,
 };
 
 const logged = (state: OfficeState, entry: LogEntry) => [...state.log, entry].slice(-MAX_LOG);
@@ -43,10 +50,10 @@ const logged = (state: OfficeState, entry: LogEntry) => [...state.log, entry].sl
 export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeState {
   switch (event.type) {
     case 'state': {
-      const { agent, state: agentState, taskId, at } = event;
+      const { agent, state: agentState, taskId, copies, at } = event;
       return {
         ...state,
-        agents: { ...state.agents, [agent]: { state: agentState, taskId } },
+        agents: { ...state.agents, [agent]: { state: agentState, taskId, copies } },
         log: logged(state, { kind: 'state', agent, state: agentState, taskId, at }),
       };
     }
@@ -68,13 +75,14 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
       };
     }
     case 'tokens':
-      // Real token counts come with v2; until then the header and the agent panel show 0.
+      // Hooks report no token counts, and the page shows none.
       return state;
     case 'reset':
       return INITIAL_OFFICE;
     case 'run':
-      // The run's text is the header's, not the office's (Live mode, milestone 3).
-      return state;
+      return { ...state, runText: event.text };
+    case 'session-end':
+      return { ...state, sessionEnded: true };
   }
 }
 

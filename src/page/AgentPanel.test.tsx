@@ -40,21 +40,46 @@ describe('AgentPanel', () => {
     expect(details).toEqual({
       'Current task': 'Board and item API',
       'Task status': 'In progress',
-      'Tools in v2': 'Read, Edit, Write, Bash',
-      Tokens: '0 · real numbers from v2',
+      'Tools in v2': 'Read, Grep, Glob, Write, Edit, Bash',
     });
   });
 
-  it('says what a waiting agent waits for, and that it costs nothing meanwhile', () => {
+  it('live: the real model and tools, and the copies chip while there are copies', () => {
+    const { rerender } = render(
+      <AgentPanel
+        office={office(api, { type: 'state', agent: 'backend', state: 'writing', copies: 2, at: 0 })}
+        agent="backend"
+        live
+      />,
+    );
+    expect(screen.getByText('Orc · model: Sonnet')).toBeInTheDocument();
+    expect(screen.getByText('x2', { selector: '.chip' })).toBeInTheDocument();
+    const terms = [...document.querySelectorAll('.details dt')].map((dt) => dt.textContent);
+    expect(terms).toEqual(['Current task', 'Task status', 'Tools']);
+
+    rerender(
+      <AgentPanel
+        office={office(api, { type: 'state', agent: 'backend', state: 'writing', at: 1 })}
+        agent="backend"
+        live
+      />,
+    );
+    expect(screen.queryByText('x2')).toBeNull();
+  });
+
+  it("shows the Lead's real tools: it starts agents and reads, and has no Write", () => {
+    render(<AgentPanel office={INITIAL_OFFICE} agent="lead" live />);
+    expect(screen.getByText('Agent, Read, Grep, Glob')).toBeInTheDocument();
+  });
+
+  it('says what a waiting agent waits for', () => {
     render(
       <AgentPanel
         office={office({ type: 'state', agent: 'frontend', state: 'waiting', at: 0 })}
         agent="frontend"
       />,
     );
-    expect(
-      screen.getByText('Waiting for the Designer. Not running while it waits, so it uses 0 tokens.'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('Waiting for the Designer. Not working while it waits.')).toBeInTheDocument();
   });
 
   it('shows "None" without a task and "Nothing yet." without activity', () => {

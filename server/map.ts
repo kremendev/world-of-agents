@@ -102,8 +102,12 @@ function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number)
       return byLead ? turnEnded(state, input, at) : nothing(state);
     case 'StopFailure':
       return byLead ? { state, events: [lead('error', at)] } : nothing(state);
+    case 'SessionEnd': {
+      const rest = everyoneRests(state, at);
+      return { state: rest.state, events: [...rest.events, { type: 'session-end', at }] };
+    }
     default:
-      return nothing(state); // SessionStart from compaction, SessionEnd, and any event Claude Code adds later
+      return nothing(state); // SessionStart from compaction, and any event Claude Code adds later
   }
 }
 
@@ -352,15 +356,17 @@ function turnEnded(state: MapState, input: HookInput, at: number): Step {
   const report: OfficeEvent[] = text?.trim() ? [{ type: 'message', from: 'lead', to: 'you', text, at }] : [];
   // Stop fires after every Lead turn. While subagents still run in the background, the Lead waits for them.
   if ((input.background_tasks ?? []).length > 0) return { state, events: [...report, lead('waiting', at)] };
-  // Nothing runs any more: everyone rests, and a late hook from a finished run changes nothing.
+  const rest = everyoneRests(state, at);
+  return { state: rest.state, events: [...report, ...rest.events] };
+}
+
+/** Nothing runs any more: everyone rests, and a late hook from a finished run changes nothing. Cards stay put. */
+function everyoneRests(state: MapState, at: number): Step {
   const runs = Object.fromEntries(
     Object.entries(state.runs).map(([id, run]) => [id, { ...run, stopped: true }]),
   );
   return {
     state: { ...state, runs },
-    events: [
-      ...report,
-      ...AGENT_IDS.map((agent): OfficeEvent => ({ type: 'state', agent, state: 'idle', at })),
-    ],
+    events: AGENT_IDS.map((agent): OfficeEvent => ({ type: 'state', agent, state: 'idle', at })),
   };
 }

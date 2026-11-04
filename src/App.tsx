@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AgentId } from './events/schema';
+import { finalReport, shortLine, whoIsWaiting } from './live/announce';
+import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { HallView } from './office/hall/HallView';
 import { agentById } from './office/roster';
 import { AgentPanel } from './page/AgentPanel';
@@ -7,13 +9,39 @@ import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
 import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
-import { INITIAL_OFFICE, doneCount, officeReducer } from './state/office';
+import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
 
 type RunStatus = 'playing' | 'paused' | 'ended';
 
+/** The mode badge and what the status line says. No badge while the health check is out: a second at most. */
+function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
+  if (demo) {
+    const status =
+      hall.status !== 'no-hall'
+        ? 'Demo · the hall keeps watching Claude Code'
+        : hall.hallFound
+          ? 'Demo · the hall is running'
+          : 'Demo · a scripted run';
+    return { kind: 'demo', label: 'Demo', status };
+  }
+  if (hall.status === 'checking') return { status: 'Looking for the hall' };
+  if (hall.status === 'offline') {
+    return { kind: 'offline', label: 'Hall offline, reconnecting', status: 'Hall offline · reconnecting' };
+  }
+  if (office.sessionEnded) {
+    return { kind: 'ended', label: 'Session ended', status: 'Session ended · waiting for the next one' };
+  }
+  return { kind: 'live', label: 'Live', status: 'Live · watching Claude Code' };
+}
+
 export default function App() {
-  const [office, setOffice] = useState(INITIAL_OFFICE);
-  const [status, setStatus] = useState<RunStatus>('playing');
+  const hall = useLiveHall();
+  const [watchingDemo, setWatchingDemo] = useState(false);
+  // The scripted run: the whole page when no hall answered, or on request while one does.
+  const demo = hall.status === 'no-hall' || watchingDemo;
+
+  const [demoOffice, setDemoOffice] = useState(INITIAL_OFFICE);
+  const [runStatus, setRunStatus] = useState<RunStatus>('playing');
   // Goes up on every restart; the hall puts everyone back at their rest spots when it changes.
   const [run, setRun] = useState(0);
   const [task, setTask] = useState(DEMO_TASK);
@@ -21,23 +49,27 @@ export default function App() {
   const player = useRef<Player | null>(null);
 
   useEffect(() => {
+    if (!demo) return;
     const p = createPlayer(DEMO_RUN, {
-      onEvent: (event) => setOffice((state) => officeReducer(state, event)),
+      onEvent: (event) => setDemoOffice((state) => officeReducer(state, event)),
       onRestart: () => {
-        setOffice(INITIAL_OFFICE);
+        setDemoOffice(INITIAL_OFFICE);
         setRun((n) => n + 1);
       },
-      onEnd: () => setStatus('ended'),
+      onEnd: () => setRunStatus('ended'),
     });
     player.current = p;
     // restart(), not play(): Fast Refresh keeps state but re-runs effects, so each run starts from a clean office.
     p.restart();
-    return () => p.pause();
-  }, []);
+    return () => {
+      p.pause();
+      player.current = null;
+    };
+  }, [demo]);
 
   // Status first: play() and restart() can end the run straight away, and that must win.
   const control = (next: RunStatus, action: (p: Player) => void) => () => {
-    setStatus(next);
+    setRunStatus(next);
     if (player.current) action(player.current);
   };
   const restart = control('playing', (p) => p.restart());
@@ -49,51 +81,117 @@ export default function App() {
     control('playing', (p) => p.restart(demoRun(text)))();
   };
 
-  const toYou = [...office.messages].reverse().find((m) => m.to === 'you');
+  const playDemo = () => {
+    setTask(DEMO_TASK);
+    setRunStatus('playing');
+    setWatchingDemo(true);
+  };
+
+  const backToLive = () => {
+    setWatchingDemo(false);
+    setRun((n) => n + 1);
+  };
+
+  const goLive = () => {
+    hall.goLive();
+    setRun((n) => n + 1);
+  };
+
+  const office = demo ? demoOffice : hall.office;
+  const live = !demo;
+  const mode = modeOf(hall, demo, office);
+  // From the real run even during a demo: Claude Code is still waiting for you.
+  const waiting = hall.status === 'no-hall' ? [] : whoIsWaiting(hall.office);
+  const status = waiting.length > 0 ? waiting.join(' · ') : mode.status;
+  const runText = demo ? task : office.runText;
+  // The demo says everything to you, as in v1. A real run only its final report: updates would talk over the work.
+  const said = demo ? [...office.messages].reverse().find((m) => m.to === 'you') : finalReport(office);
 
   return (
     <main className="app">
       <header className="app-header">
         <div className="brand">
           <h1>World of Agents</h1>
-          <span className="badge">Forge Hall · v1</span>
+          <span className="badge">Forge Hall · v2</span>
+          {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
         </div>
         <div className="run-info">
-          <span className="run-task" title={task}>
-            Run: {task}
-          </span>
+          {runText && (
+            <span className="run-task" title={runText}>
+              Run: {runText}
+            </span>
+          )}
           <span>
             Tasks done: {doneCount(office)} of {office.tasks.length}
           </span>
-          <span>Tokens: 0</span>
         </div>
-        <div className="run-controls" role="group" aria-label="Demo run">
-          <button type="button" onClick={control('playing', (p) => p.play())} disabled={status !== 'paused'}>
-            Play
-          </button>
-          <button type="button" onClick={control('paused', (p) => p.pause())} disabled={status !== 'playing'}>
-            Pause
-          </button>
-          <button type="button" onClick={restart}>
-            Restart
-          </button>
-        </div>
+        {demo && (
+          <div className="run-controls" role="group" aria-label="Demo run">
+            <button
+              type="button"
+              onClick={control('playing', (p) => p.play())}
+              disabled={runStatus !== 'paused'}
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              onClick={control('paused', (p) => p.pause())}
+              disabled={runStatus !== 'playing'}
+            >
+              Pause
+            </button>
+            <button type="button" onClick={restart}>
+              Restart
+            </button>
+            {hall.status !== 'no-hall' && (
+              <button type="button" onClick={backToLive}>
+                Back to live
+              </button>
+            )}
+            {hall.hallFound && (
+              <button type="button" onClick={goLive}>
+                Go live
+              </button>
+            )}
+          </div>
+        )}
+        {live && hall.status !== 'checking' && (
+          <div className="run-controls">
+            <button type="button" onClick={playDemo}>
+              Play demo
+            </button>
+          </div>
+        )}
       </header>
 
+      <p className={waiting.length > 0 ? 'status-line needs-you' : 'status-line'} title={status}>
+        {status}
+      </p>
+
       <section aria-label="Forge Hall office" className="scene-scroll">
-        <HallView office={office} run={run} selected={selected} onSelect={setSelected} />
+        <HallView
+          office={office}
+          run={run}
+          selected={selected}
+          onSelect={setSelected}
+          live={live}
+          hushed={live && hall.hushed}
+        />
       </section>
 
-      <TaskBar onSend={send} />
+      <TaskBar onSend={send} watching={live} />
 
       <div className="lower">
         <TaskBoard office={office} />
-        <AgentPanel office={office} agent={selected} />
+        <AgentPanel office={office} agent={selected} live={live} />
       </div>
 
-      {/* The bubbles are hidden from screen readers; this reads out what the agents tell you. */}
+      {/* The bubbles are hidden from screen readers; this reads out what they must not miss. */}
       <div className="sr-only" aria-live="polite">
-        {toYou ? `${agentById(toYou.from).name}: ${toYou.text}` : ''}
+        <p>{said ? shortLine(`${agentById(said.from).name}: ${said.text}`) : ''}</p>
+        <p>{waiting.join('. ')}</p>
+        <p>{hall.office.sessionEnded ? 'Session ended' : ''}</p>
       </div>
     </main>
   );

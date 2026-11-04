@@ -105,9 +105,28 @@ describe('officeReducer', () => {
     expect(officeReducer(busy, { type: 'reset', at: 2 })).toEqual(INITIAL_OFFICE);
   });
 
-  it('leaves the office as it is for the run text (the header shows it)', () => {
+  it('keeps the run text and the end of the session for the header, until a reset', () => {
     const before = apply([task('a')]);
-    expect(officeReducer(before, { type: 'run', text: 'Make a page', at: 0 })).toBe(before);
+    const after = [
+      { type: 'run', text: 'Make a page', at: 0 } as const,
+      { type: 'session-end', at: 1 } as const,
+    ].reduce(officeReducer, before);
+    expect(after).toMatchObject({ runText: 'Make a page', sessionEnded: true });
+    expect(after.tasks).toBe(before.tasks);
+    expect(officeReducer(after, { type: 'reset', at: 2 })).toEqual(INITIAL_OFFICE);
+  });
+
+  it('keeps how many copies of an agent run, and drops the count with the next event that has none', () => {
+    const two = officeReducer(INITIAL_OFFICE, {
+      type: 'state',
+      agent: 'backend',
+      state: 'writing',
+      copies: 2,
+      at: 0,
+    });
+    expect(two.agents.backend.copies).toBe(2);
+    const one = officeReducer(two, { type: 'state', agent: 'backend', state: 'thinking', at: 1 });
+    expect(one.agents.backend.copies).toBeUndefined();
   });
 
   it('never changes the state it is given', () => {

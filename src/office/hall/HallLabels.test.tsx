@@ -77,6 +77,21 @@ describe('HallLabels', () => {
     expect(screen.getByText(attack)).toBeInTheDocument();
   });
 
+  it('puts the copies chip on the name plate and in the button label while copies run', () => {
+    const two = office({ type: 'state', agent: 'backend', state: 'writing', copies: 2, at: 0 });
+    const { container, rerender } = render(labels(two, [tag(null, { id: 'backend', state: 'writing' })]));
+    expect(container.querySelector('.nameplate .copies')?.textContent).toBe('x2');
+    expect(
+      screen.getByRole('button', { name: 'Backend dev, Orc, Writing, 2 copies running. Show details' }),
+    ).toBeInTheDocument();
+
+    rerender(labels(INITIAL_OFFICE, [tag(null, { id: 'backend', state: 'writing' })]));
+    expect(container.querySelector('.copies')).toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Backend dev, Orc, Writing. Show details' }),
+    ).toBeInTheDocument();
+  });
+
   it('shows the state bubble, "!!" for a smashing orc, and no bubble while walking', () => {
     const { container, rerender } = render(
       labels(INITIAL_OFFICE, [tag(null, { id: 'backend', state: 'writing', smashing: true })]),

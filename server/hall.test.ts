@@ -277,6 +277,32 @@ describe('GET /api/events', () => {
     expect(page.events).toMatchObject([{ type: 'reset' }]);
   });
 
+  it('marks the end of the replay with a named event, which browsers do not deliver as a message', async () => {
+    const raw = (): Promise<string> =>
+      new Promise((done, fail) => {
+        const req = request(
+          { host: '127.0.0.1', port, path: '/api/events', setHost: false, headers: { Host: HALL_HOST } },
+          (res) => {
+            res.setEncoding('utf8');
+            res.once('data', (chunk: string) => {
+              req.destroy();
+              done(chunk);
+            });
+          },
+        );
+        req.on('error', () => {});
+        req.on('close', () => fail(new Error('closed before any data')));
+        req.end();
+      });
+
+    expect(await raw()).toBe('event: replayed\ndata: 1\n\n'); // nothing to replay, but the page must still hear it
+
+    await post(first);
+    const frames = (await raw()).split('\n\n');
+    expect(frames[0]).toMatch(/^data: \{"type":"reset"/);
+    expect(frames[1]).toBe('event: replayed\ndata: 1');
+  });
+
   it('replays the run so far to a page that connects later, starting at its reset', async () => {
     // reset, run, Lead thinking, Lead reading, a card, Lead thinking
     for (const hook of run1.slice(0, 4)) await post(hook.body);

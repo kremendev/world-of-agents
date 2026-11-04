@@ -69,13 +69,17 @@ export function HallLabels({
           </div>
         ))}
 
-        {stations.map((s) => (
-          <div key={s.agent.id} className="hall-row" style={at(s.x, s.plateY, s.width)}>
-            <span className="nameplate">
-              {s.agent.name} · {s.agent.race}
-            </span>
-          </div>
-        ))}
+        {stations.map((s) => {
+          const { copies } = office.agents[s.agent.id];
+          return (
+            <div key={s.agent.id} className="hall-row" style={at(s.x, s.plateY, s.width)}>
+              <span className="nameplate">
+                {s.agent.name} · {s.agent.race}
+                {copies && <span className="copies">x{copies}</span>}
+              </span>
+            </div>
+          );
+        })}
 
         <div className="dashboard" style={at(DASHBOARD.x, DASHBOARD.y, DASHBOARD.w, DASHBOARD.h)}>
           <div className="dashboard-head">
@@ -121,6 +125,8 @@ export function HallLabels({
 
       {agents.map((t) => {
         const agent = agentById(t.id);
+        const { copies } = office.agents[t.id];
+        const running = copies ? `, ${copies} copies running` : '';
         return (
           <button
             key={t.id}
@@ -129,7 +135,7 @@ export function HallLabels({
             data-agent={t.id}
             style={at(t.x, t.y, t.width, t.height)}
             aria-pressed={t.id === selected}
-            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}. Show details`}
+            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}${running}. Show details`}
             onClick={() => onSelect(t.id)}
           />
         );
