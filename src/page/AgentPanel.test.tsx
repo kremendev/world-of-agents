@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import type { OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
@@ -13,10 +13,6 @@ const api: OfficeEvent = {
   status: 'in-progress',
   at: 0,
 };
-const activity = () =>
-  within(screen.getByRole('list'))
-    .getAllByRole('listitem')
-    .map((li) => li.textContent);
 
 describe('AgentPanel', () => {
   it('introduces the agent: name, race and v2 model, look, state chip and details', () => {
@@ -82,40 +78,8 @@ describe('AgentPanel', () => {
     expect(screen.getByText('Waiting for the Designer. Not working while it waits.')).toBeInTheDocument();
   });
 
-  it('shows "None" without a task and "Nothing yet." without activity', () => {
+  it('shows "None" without a task', () => {
     render(<AgentPanel office={INITIAL_OFFICE} agent="lead" />);
     expect(screen.getAllByText('None')).toHaveLength(2);
-    expect(screen.getByText('Nothing yet.')).toBeInTheDocument();
-  });
-
-  it("lists only this agent's activity, newest first", () => {
-    const run = office(
-      api,
-      { type: 'state', agent: 'backend', state: 'reading', taskId: 'api', at: 0 },
-      { type: 'message', from: 'lead', to: 'backend', text: "How's the API coming?", at: 1 },
-      { type: 'message', from: 'designer', to: 'frontend', text: 'Screens are on your desk.', at: 2 },
-      { type: 'state', agent: 'designer', state: 'done', at: 2 },
-      { type: 'message', from: 'backend', to: 'you', text: 'Routes are up.', at: 3 },
-      { type: 'state', agent: 'backend', state: 'writing', taskId: 'api', at: 4 },
-    );
-    render(<AgentPanel office={run} agent="backend" />);
-    expect(activity()).toEqual([
-      'Writing · Board and item API',
-      'To you: Routes are up.',
-      "From Lead/PM: How's the API coming?",
-      'Reading · Board and item API',
-    ]);
-  });
-
-  it('shows agent output as plain text, never as HTML', () => {
-    const attack = '<img src=x onerror="alert(1)">';
-    const { container } = render(
-      <AgentPanel
-        office={office({ type: 'message', from: 'lead', to: 'you', text: attack, at: 0 })}
-        agent="lead"
-      />,
-    );
-    expect(container.querySelector('img')).toBeNull();
-    expect(activity()).toEqual([`To you: ${attack}`]);
   });
 });

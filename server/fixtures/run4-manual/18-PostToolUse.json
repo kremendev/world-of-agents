@@ -1,0 +1,32 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "44522a6c-c85e-4313-a221-32a5de3180f0",
+  "permission_mode": "default",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Review server.js",
+    "prompt": "<redacted>",
+    "subagent_type": "world-of-agents:reviewer"
+  },
+  "tool_response": {
+    "isAsync": true,
+    "status": "async_launched",
+    "agentId": "a4f688d1a0fbf42fa",
+    "description": "Review server.js",
+    "resolvedModel": "claude-sonnet-5-5",
+    "prompt": "<redacted>",
+    "outputFile": "<redacted>",
+    "canReadOutputFile": true,
+    "canContinueAgent": false
+  },
+  "tool_use_id": "toolu_011MkWzBwqrQYFGt2iXrtRuM",
+  "duration_ms": 4
+}

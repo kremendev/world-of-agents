@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "c6576ab1-8136-4125-b7e5-ef9991d08672",
+  "permission_mode": "default",
+  "agent_id": "abf000e78726f5723",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "The backend dev is on it, Dima: `server.js` first, then `node --check server.js`. I'll send the reviewer once that's done, then give you the results.",
+  "background_tasks": [
+    {
+      "id": "a828fc4ca5bd15328",
+      "type": "subagent",
+      "status": "running",
+      "description": "Create hello-world server.js",
+      "agent_type": "world-of-agents:backend"
+    }
+  ],
+  "session_crons": []
+}

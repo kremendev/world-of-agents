@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "c6576ab1-8136-4125-b7e5-ef9991d08672",
+  "permission_mode": "default",
+  "agent_id": "a828fc4ca5bd15328",
+  "agent_type": "world-of-agents:backend",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "`server.js` is written, and `node --check server.js` passed. I did not start the server or commit anything.\n\n- **Check result:** the command printed nothing and exited with code 0, on Node v24.22.0.\n- **Module syntax:** the file uses ESM `import` syntax with no `package.json`. That works because Node 24 detects the module type automatically. On older Node (before about 22.7) it would fail, and `require('node:http')` would be the portable form. I can switch it if you want.\n- **File:** `<path>`\n\n```js\nimport http from 'node:http';\n\nconst port = 3000;\n\nconst server = http.createServer((req, res) => {\n  res.writeHead(200, { 'Content-Type': 'text/plain' });\n  res.end('Hello, World!');\n});\n\nserver.listen(port, () => {\n  console.log(`Server listening at http://localhost:${port}`);\n});\n```",
+  "background_tasks": [
+    {
+      "id": "a828fc4ca5bd15328",
+      "type": "subagent",
+      "status": "running",
+      "description": "Create hello-world server.js",
+      "agent_type": "world-of-agents:backend"
+    }
+  ],
+  "session_crons": []
+}

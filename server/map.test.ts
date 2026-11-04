@@ -4,7 +4,7 @@ import { INITIAL_OFFICE, officeReducer, workingCount } from '../src/state/office
 import type { HookInput } from './hook-input';
 import { INITIAL_MAP, mapHook, type MapState } from './map';
 import { finalReport, whoIsWaiting } from '../src/live/announce';
-import { hookOf, run1, run2, run3 } from './test-helpers';
+import { hookOf, run1, run2, run3, run4 } from './test-helpers';
 
 /** Freezes a state all the way down, so a mapHook that changes the state it was given throws. */
 function frozen<T>(value: T): T {
@@ -512,7 +512,165 @@ describe('mapHook when an Agent call and its SubagentStart race (the same millis
   });
 });
 
-describe('mapHook on PermissionRequest (not captured yet: hand-built from the docs, mapped like permission_prompt)', () => {
+describe('mapHook on run 4 (`default` mode: PermissionRequest, and an idle_prompt after the final report)', () => {
+  const run = play(run4.map((hook) => hookOf(hook.n, run4)));
+  const after = (n: number) => run.steps[n - 1]!.events;
+  const upTo = (n: number) =>
+    run.steps
+      .slice(0, n)
+      .flatMap((s) => s.events)
+      .reduce(officeReducer, INITIAL_OFFICE);
+  const backendCard = hookOf(4, run4).tool_use_id!;
+  const reviewerCard = hookOf(17, run4).tool_use_id!;
+
+  it('PermissionRequest says who asks and for which tool, and nothing else reaches the hall', () => {
+    expect(hookOf(10, run4)).toEqual({
+      hook_event_name: 'PermissionRequest',
+      session_id: '00000000-0000-4000-8000-000000000004',
+      agent_id: hookOf(9, run4).agent_id,
+      agent_type: 'world-of-agents:backend',
+      tool_name: 'Write',
+    });
+  });
+
+  it('flags the Backend dev at its PermissionRequest; the permission_prompt 6 s later adds nothing', () => {
+    expect(after(10)).toEqual([
+      { type: 'state', agent: 'backend', state: 'needs-you', taskId: backendCard, at: 9 },
+    ]);
+    expect(hookOf(11, run4)).toMatchObject({ notification_type: 'permission_prompt' });
+    expect(hookOf(11, run4)).not.toHaveProperty('agent_id');
+    expect(after(11)).toEqual([]);
+    expect(upTo(11).agents.backend).toMatchObject({ state: 'needs-you' });
+    expect(upTo(11).agents.lead.state).not.toBe('needs-you');
+  });
+
+  it('flags it again for a tool you answered before any permission_prompt came', () => {
+    expect(after(12)).toEqual([
+      { type: 'state', agent: 'backend', state: 'writing', taskId: backendCard, at: 11 },
+    ]);
+    expect(after(13)).toEqual([
+      { type: 'state', agent: 'backend', state: 'needs-you', taskId: backendCard, at: 12 },
+    ]);
+  });
+
+  it('SubagentStart before its Agent call (the same millisecond): the card still goes In progress', () => {
+    expect(after(16).map((e) => e.type)).toEqual(['state']);
+    expect(after(17)).toContainEqual({
+      type: 'task',
+      taskId: reviewerCard,
+      title: expect.any(String),
+      owner: 'reviewer',
+      status: 'in-progress',
+      at: 16,
+    });
+  });
+
+  it("idle_prompt is not a wait for approval: the Lead's turn is over, and it flags nobody", () => {
+    expect(hookOf(26, run4)).toEqual({
+      hook_event_name: 'Notification',
+      session_id: '00000000-0000-4000-8000-000000000004',
+      agent_type: 'world-of-agents:lead',
+      notification_type: 'idle_prompt',
+    });
+    expect(after(26)).toEqual([{ type: 'awaiting-prompt', at: 25 }]);
+    const office = upTo(26);
+    expect(office.awaitingPrompt).toBe(true);
+    expect(whoIsWaiting(office)).toEqual([]);
+    expect(Object.values(office.agents).map((a) => a.state)).not.toContain('needs-you');
+  });
+
+  it("ignores the SubagentStops that carry the Lead's own type", () => {
+    for (const n of [8, 21, 25, 27]) {
+      expect(hookOf(n, run4).agent_type).toBe('world-of-agents:lead');
+      expect(after(n)).toEqual([]);
+    }
+  });
+
+  it('asks a screen reader to announce the two approvals and the final report, never the idle_prompt', () => {
+    const heard: string[] = [];
+    let last = '';
+    for (let n = 1; n <= run4.length; n++) {
+      const office = upTo(n);
+      const lines = [...whoIsWaiting(office), finalReport(office)?.text.slice(0, 20) ?? ''].filter(Boolean);
+      for (const line of lines) if (!last.includes(line)) heard.push(line);
+      last = lines.join('|');
+    }
+    expect(heard.slice(0, 2)).toEqual([
+      'Backend dev needs your approval in Claude Code',
+      'Backend dev needs your approval in Claude Code',
+    ]);
+    expect(heard).toHaveLength(3);
+  });
+
+  it('stays waiting for your next message until the session ends', () => {
+    expect(upTo(27).awaitingPrompt).toBe(true);
+    expect(upTo(28)).toMatchObject({ awaitingPrompt: false, sessionEnded: true });
+  });
+
+  it('ends with both cards Done, everyone idle, and only events that pass parseEvent()', () => {
+    const office = upTo(run4.length);
+    expect(office.tasks.map((t) => [t.owner, t.status])).toEqual([
+      ['backend', 'done'],
+      ['reviewer', 'done'],
+    ]);
+    expect(Object.values(office.agents).map((a) => a.state)).toEqual(Array(5).fill('idle'));
+    for (const event of run.events) expect(parseEvent(event)).toEqual({ ok: true, event });
+  });
+
+  it('a new prompt after the idle_prompt: the Lead is back to work and the calm line goes', () => {
+    const next = mapHook(
+      run.steps[26]!.state,
+      byLead('UserPromptSubmit', { session_id: run.steps[26]!.state.session!, prompt: 'More' }),
+      99,
+    );
+    expect(next.events.reduce(officeReducer, upTo(27)).awaitingPrompt).toBe(false);
+  });
+});
+
+describe('mapHook when a PreToolUse lands after its own PermissionRequest (their posts can race)', () => {
+  const ready = play([start, handOut('t1', 'backend'), bySub('SubagentStart', 'backend', 'b1')]).state;
+  const uses = (tool_name: string) => bySub('PreToolUse', 'backend', 'b1', { tool_name });
+  const flagged = mapHook(
+    ready,
+    bySub('PermissionRequest', 'backend', 'b1', { tool_name: 'Write' }),
+    1000,
+  ).state;
+  const backend = (state: string, at: number) => ({
+    type: 'state',
+    agent: 'backend',
+    state,
+    taskId: 't1',
+    at,
+  });
+
+  it('keeps the flag up, and still counts the agent as the last writer', () => {
+    const late = mapHook(flagged, uses('Write'), 1018);
+    expect(late.events).toEqual([]);
+    expect(late.state.runs.b1!.state).toBe('needs-you');
+    expect(late.state.lastWriter).toBe('b1');
+  });
+
+  it('a second later it is the next call, so you have answered', () => {
+    expect(mapHook(flagged, uses('Write'), 2000).events).toEqual([backend('writing', 2000)]);
+  });
+
+  it('another tool at any time: you have answered', () => {
+    expect(mapHook(flagged, uses('Read'), 1018).events).toEqual([backend('reading', 1018)]);
+  });
+
+  it('the usual order clears nothing it should not: PreToolUse, then PermissionRequest', () => {
+    const wrote = mapHook(ready, uses('Write'), 1000);
+    expect(wrote.events).toEqual([backend('writing', 1000)]);
+    const asked = mapHook(
+      wrote.state,
+      bySub('PermissionRequest', 'backend', 'b1', { tool_name: 'Write' }),
+      1018,
+    );
+    expect(asked.events).toEqual([backend('needs-you', 1018)]);
+  });
+});
+
+describe('mapHook on PermissionRequest', () => {
   const asks = (more: Partial<HookInput> = {}) => byLead('PermissionRequest', { tool_name: 'Bash', ...more });
 
   it('an agent_id wins: that subagent needs you, even if another one wrote last', () => {
@@ -530,7 +688,7 @@ describe('mapHook on PermissionRequest (not captured yet: hand-built from the do
     ]);
   });
 
-  it('with no agent_id: the running subagent that wrote last, and the Lead keeps its state', () => {
+  it('with no agent_id: the Lead itself, even while a subagent writes', () => {
     const { steps } = play([
       start,
       handOut('t1', 'backend'),
@@ -538,9 +696,7 @@ describe('mapHook on PermissionRequest (not captured yet: hand-built from the do
       bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
       asks(),
     ]);
-    expect(steps[4]!.events).toEqual([
-      { type: 'state', agent: 'backend', state: 'needs-you', taskId: 't1', at: 4 },
-    ]);
+    expect(steps[4]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 4 }]);
   });
 
   it('with no agent_id and nobody writing: the Lead', () => {
@@ -553,9 +709,128 @@ describe('mapHook on PermissionRequest (not captured yet: hand-built from the do
     expect(steps[1]!.events).toEqual([]);
     expect(steps[2]!.events).toEqual([]);
   });
+
+  it('is ignored from a run that has stopped', () => {
+    const { steps } = play([
+      start,
+      handOut('t1', 'backend'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      bySub('PermissionRequest', 'backend', 'b1', { tool_name: 'Bash' }),
+    ]);
+    expect(steps[4]!.events).toEqual([]);
+  });
 });
 
-describe('mapHook on a permission_prompt, which names nobody: the running subagent that wrote last', () => {
+describe('mapHook: once a PermissionRequest has arrived, a permission_prompt never guesses', () => {
+  const prompt = byLead('Notification', { notification_type: 'permission_prompt' });
+  const two = [
+    start,
+    handOut('t1', 'backend'),
+    handOut('t2', 'frontend'),
+    bySub('SubagentStart', 'backend', 'b1'),
+    bySub('SubagentStart', 'frontend', 'f1'),
+  ];
+  const asksFor = (agent: string, id: string, tool_name: string) =>
+    bySub('PermissionRequest', agent, id, { tool_name });
+  const flagged = (events: readonly OfficeEvent[]) =>
+    events
+      .filter((e) => e.type === 'state' && e.state === 'needs-you')
+      .map((e) => (e as { agent: string }).agent);
+
+  it('the agent that asked stays the only one flagged, even when another wrote last', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Bash' }),
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      asksFor('backend', 'b1', 'Bash'),
+      prompt,
+    ]);
+    expect(flagged(steps[7]!.events)).toEqual(['backend']);
+    expect(steps[8]!.events).toEqual([]);
+  });
+
+  it("the Lead's own request: no subagent gets flagged for it, even one that has written", () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }),
+      byLead('PermissionRequest', { tool_name: 'Bash' }),
+      prompt,
+    ]);
+    expect(flagged(steps[6]!.events)).toEqual(['lead']);
+    expect(steps[7]!.events).toEqual([]);
+  });
+
+  it('still no guess when the flag has already cleared by the time the prompt comes', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      asksFor('backend', 'b1', 'Bash'),
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Read' }),
+      prompt,
+    ]);
+    expect(flagged(steps[6]!.events)).toEqual(['backend']);
+    expect(flagged(steps[7]!.events)).toEqual([]);
+    expect(steps[8]!.events).toEqual([]);
+  });
+
+  it('still no guess when the agent that asked has stopped', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      asksFor('backend', 'b1', 'Bash'),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      prompt,
+    ]);
+    expect(steps[8]!.events).toEqual([]);
+  });
+
+  it('a request from a run that had stopped still counts as having arrived', () => {
+    const { steps } = play([
+      ...two,
+      bySub('PreToolUse', 'frontend', 'f1', { tool_name: 'Edit' }),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Done.' }),
+      asksFor('backend', 'b1', 'Bash'),
+      prompt,
+    ]);
+    expect(steps[8]!.events).toEqual([]);
+  });
+
+  it('a new session starts over: with no request in it, the guess runs', () => {
+    const other = (input: HookInput): HookInput => ({ ...input, session_id: 'session-2' });
+    const { steps, state } = play([
+      ...two,
+      asksFor('backend', 'b1', 'Bash'),
+      other(start),
+      other(handOut('t9', 'frontend')),
+      other(bySub('SubagentStart', 'frontend', 'f9')),
+      other(bySub('PreToolUse', 'frontend', 'f9', { tool_name: 'Edit' })),
+      other(prompt),
+    ]);
+    expect(flagged(steps.at(-1)!.events)).toEqual(['frontend']);
+    expect(state.askSeen).toBe(false);
+  });
+
+  it('a permission_prompt that names its agent is not a guess: it still flags that agent', () => {
+    const { steps } = play([
+      ...two,
+      asksFor('backend', 'b1', 'Bash'),
+      bySub('Notification', 'frontend', 'f1', { notification_type: 'permission_prompt' }),
+    ]);
+    expect(flagged(steps[6]!.events)).toEqual(['frontend']);
+  });
+
+  it('run 4 with its PermissionRequests lost: the guess runs and names the right agent', () => {
+    const lost = run4
+      .map((hook) => hookOf(hook.n, run4))
+      .filter((hook) => hook.hook_event_name !== 'PermissionRequest');
+    const { steps } = play(lost);
+    const at = lost.findIndex((hook) => hook.notification_type === 'permission_prompt');
+    expect(flagged(steps[at]!.events)).toEqual(['backend']);
+  });
+});
+
+describe('mapHook on a permission_prompt when no PermissionRequest has arrived in the session', () => {
   const prompt = byLead('Notification', { notification_type: 'permission_prompt' });
   const needsYou = (agent: string, taskId: string, at: number) => ({
     type: 'state',
@@ -676,16 +951,14 @@ describe('mapHook rows no recorded run has (hand-built from docs/v2-hooks.md)', 
     ]);
   });
 
-  it('Notification permission_prompt with no subagent writing, or idle_prompt: the Lead needs you', () => {
+  it('Notification permission_prompt with no subagent writing: the Lead needs you. Other types: nothing', () => {
     const { steps } = play([
       start,
       byLead('Notification', { notification_type: 'permission_prompt' }),
-      byLead('Notification', { notification_type: 'idle_prompt' }),
       byLead('Notification', { notification_type: 'auth_success' }),
     ]);
     expect(steps[1]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 1 }]);
-    expect(steps[2]!.events).toEqual([{ type: 'state', agent: 'lead', state: 'needs-you', at: 2 }]);
-    expect(steps[3]!.events).toEqual([]);
+    expect(steps[2]!.events).toEqual([]);
   });
 
   it('StopFailure: the Lead shows the error state', () => {

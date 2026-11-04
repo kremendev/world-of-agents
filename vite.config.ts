@@ -29,6 +29,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
-    css: false,
+    // No styles in tests, except the stylesheet as text: layout.test.ts checks a rule in it.
+    css: { include: [/index\.css\?raw$/] },
   },
 });

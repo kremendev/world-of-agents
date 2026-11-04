@@ -46,6 +46,9 @@ const hallAnswers = () =>
 const settle = () => act(async () => {});
 
 /** The app with a hall behind it, the replay already delivered. */
+/** What the status line says in Live, with nothing else to say. */
+const LIVE_NOTE = 'Live · Type your task in Claude Code. The hall only watches.';
+
 async function renderLive(replay: readonly OfficeEvent[] = []) {
   hallAnswers();
   const view = render(<App />);
@@ -235,8 +238,8 @@ describe('Hall offline and reconnecting', () => {
     expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
     expect(app.feet('backend')).toEqual(xy(SEATS.backend));
     expect(app.speech('lead')).not.toBe('Almost there.');
-    expect(screen.getAllByText('To you: Backend is on it.')).toHaveLength(1);
-    expect(screen.getAllByText('To you: Almost there.')).toHaveLength(1);
+    expect(screen.getAllByText('to you: Backend is on it.')).toHaveLength(1);
+    expect(screen.getAllByText('to you: Almost there.')).toHaveLength(1);
 
     // Back to normal: a new event is news again.
     app.emit(say('All done.'));
@@ -275,7 +278,7 @@ describe('Session ended', () => {
     app.emit(ended);
     expect(app.badge()).toBe('Session ended');
     expect(button('Play demo')).toBeEnabled();
-    expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeDisabled();
+    expect(screen.queryByRole('textbox', { name: 'Task for the Lead/PM' })).toBeNull();
 
     app.emit({ type: 'reset', at: 10 });
     expect(app.badge()).toBe('Live');
@@ -411,10 +414,10 @@ describe('Needs you', () => {
     expect(app.live()).not.toHaveTextContent('needs your approval');
   });
 
-  it('does not claim an approval for the Lead: its state can also mean Claude Code waits for your reply', async () => {
+  it('an approval wait of the Lead itself uses the same banner', async () => {
     const app = await renderLive(start);
     app.emit(state('lead', 'needs-you'));
-    expect(app.banner()).toBe('Lead/PM needs you in Claude Code');
+    expect(app.banner()).toBe('Lead/PM needs your approval in Claude Code');
   });
 
   it('names every agent waiting', async () => {
@@ -434,11 +437,62 @@ describe('Needs you', () => {
   });
 });
 
+describe('Lead/PM waiting for your next message (idle_prompt)', () => {
+  const CALM = 'Lead/PM is waiting for your next message in Claude Code';
+  const awaiting: OfficeEvent = { type: 'awaiting-prompt', at: 9 };
+
+  it('is calm text in the status line: no banner, no chip, no announcement', async () => {
+    const app = await renderLive(start);
+    const before = app.bubble('lead');
+    const said = app.live().textContent;
+
+    app.emit(awaiting);
+    expect(app.status()).toBe(CALM);
+    expect(app.banner()).toBeNull();
+    expect(app.bubble('lead')).toBe(before);
+    expect(screen.queryByText('needs you', { selector: '.chip' })).toBeNull();
+    expect(app.live().textContent).toBe(said);
+  });
+
+  it('goes when the Lead is back to work', async () => {
+    const app = await renderLive(start);
+    app.emit(awaiting);
+    app.emit(state('lead', 'thinking'));
+    expect(app.status()).toBe(LIVE_NOTE);
+  });
+
+  it('gives way to an approval wait, and comes back after it', async () => {
+    const app = await renderLive(start);
+    app.emit(awaiting);
+    app.emit(state('backend', 'needs-you'));
+    expect(app.banner()).toBe('Backend dev needs your approval in Claude Code');
+    app.emit(state('backend', 'done'));
+    expect(app.banner()).toBeNull();
+    expect(app.status()).toBe(CALM);
+  });
+
+  it('never shows during a demo, while the hall is offline or after the session ended', async () => {
+    const app = await renderLive(start);
+    app.emit(awaiting);
+    fireEvent.click(button('Play demo'));
+    await settle();
+    expect(app.status()).toBe('Demo · the hall keeps watching Claude Code');
+    fireEvent.click(button('Back to live'));
+    expect(app.status()).toBe(CALM);
+
+    app.emit({ type: 'session-end', at: 10 });
+    expect(app.status()).toBe('Session ended · waiting for the next one');
+
+    act(() => app.source().fail());
+    expect(app.status()).toBe('Hall offline · reconnecting');
+  });
+});
+
 describe('status line', () => {
   it('is always there, one element, in every mode: only what it says changes', async () => {
     const app = await renderLive(start);
     const line = app.container.querySelector('.status-line');
-    expect(app.status()).toBe('Live · watching Claude Code');
+    expect(app.status()).toBe(LIVE_NOTE);
 
     app.emit(state('backend', 'needs-you'));
     expect(app.container.querySelector('.status-line')).toBe(line);
@@ -446,7 +500,7 @@ describe('status line', () => {
     expect(line).toHaveClass('needs-you');
 
     app.emit(state('backend', 'writing'));
-    expect(app.status()).toBe('Live · watching Claude Code');
+    expect(app.status()).toBe(LIVE_NOTE);
     expect(line).not.toHaveClass('needs-you');
 
     app.emit({ type: 'session-end', at: 9 });
@@ -518,7 +572,7 @@ describe('live region', () => {
     const long = `All done. ${'And then some more words '.repeat(20)}`;
     app.emit(say(long));
     expect(app.live().querySelector('p')).toHaveTextContent(/^Lead\/PM: All done\.$/);
-    expect(screen.getByText(`To you: ${long.trim()}`)).toBeInTheDocument();
+    expect(screen.getByText(`to you: ${long.trim()}`)).toBeInTheDocument();
   });
 
   it('does not say an old report again when a page reconnects', async () => {
@@ -738,18 +792,34 @@ describe('Go live', () => {
 });
 
 describe('Task bar in Live', () => {
-  it('is disabled with a note, and sends nothing', async () => {
+  it('is gone: its note is in the status line, and the page has nothing to send with', async () => {
     const app = await renderLive(start);
-    const input = screen.getByRole('textbox', { name: 'Task for the Lead/PM' });
-    expect(input).toBeDisabled();
-    expect(button('Send')).toBeDisabled();
-    expect(screen.getByText('Type your task in Claude Code. The hall only watches.')).toBeInTheDocument();
-
-    fireEvent.change(input, { target: { value: 'Delete everything' } });
-    fireEvent.submit(input.closest('form')!);
-    expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
-    expect(app.badge()).toBe('Live');
+    expect(screen.queryByRole('textbox')).toBeNull();
+    noButton('Send');
+    expect(app.container.querySelector('form')).toBeNull();
+    expect(app.status()).toBe(LIVE_NOTE);
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1); // only the health check
+  });
+
+  it('leaves no form control of any kind in Live, in any state', async () => {
+    const app = await renderLive(start);
+    const controls = () => app.container.querySelectorAll('input, textarea, select, [contenteditable], form');
+    expect(controls()).toHaveLength(0);
+    app.emit(state('backend', 'needs-you'));
+    expect(controls()).toHaveLength(0);
+    app.emit({ type: 'session-end', at: 9 });
+    expect(controls()).toHaveLength(0);
+    act(() => app.source().fail());
+    expect(controls()).toHaveLength(0);
+  });
+
+  it('comes back for Play demo, and goes again with Back to live', async () => {
+    await renderLive(start);
+    fireEvent.click(button('Play demo'));
+    await settle();
+    expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeEnabled();
+    fireEvent.click(button('Back to live'));
+    expect(screen.queryByRole('textbox')).toBeNull();
   });
 });
 
@@ -787,7 +857,7 @@ describe('Play demo while live', () => {
     expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
     expect(screen.getByText('Tasks done: 1 of 1')).toBeInTheDocument();
     expect(app.speech('lead')).not.toBe('Still going.'); // old news by now
-    expect(screen.getByText('To you: Still going.')).toBeInTheDocument();
+    expect(screen.getByText('to you: Still going.')).toBeInTheDocument();
     for (const name of ['Play', 'Pause', 'Restart']) noButton(name);
     expect(stream.closed).toBe(false);
 
@@ -843,14 +913,42 @@ describe('Agent panel in Live', () => {
     expect(details).not.toHaveProperty('Tokens');
     expect(details).not.toHaveProperty('Tools in v2');
   });
+});
 
-  it('fills the activity log from live events', async () => {
+describe('what a screen reader gets', () => {
+  it('reads the report without its Markdown markers, while the page shows them as elements', async () => {
     const app = await renderLive(start);
+    app.emit(state('backend', 'idle'), say('Run `npm test` then **ship it**. Line 1 uses `req'));
+    expect(app.live()).toHaveTextContent('Lead/PM: Run npm test then ship it. Line 1 uses req');
+    expect(app.live().textContent).not.toMatch(/`|\*\*/);
+    expect(app.container.querySelector('.feed-what code')).toHaveTextContent('npm test');
+  });
+});
+
+describe('Activity feed in Live', () => {
+  const lines = () => [...document.querySelectorAll('.feed-what')].map((line) => line.textContent);
+
+  it('fills from live events, for the whole team', async () => {
+    const app = await renderLive(start);
+    app.emit(say('Routes are up.', 'lead', 'backend'), state('reviewer', 'reading'));
+    expect(lines()).toContain('to Lead/PM: Routes are up.');
+    expect(lines()).toContain('Writing · Server');
+    expect(lines()).toContain('Reading');
+    expect(lines().filter((line) => line === 'Writing · Server')).toHaveLength(1);
+  });
+
+  it('narrows to the clicked agent, without changing what the hall shows', async () => {
+    const app = await renderLive(start);
+    app.emit(state('reviewer', 'reading'));
     fireEvent.click(screen.getByRole('button', { name: /^Backend dev, Orc/ }));
-    app.emit(say('Routes are up.', 'lead', 'backend'));
-    const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-    expect(items).toContain('To Lead/PM: Routes are up.');
-    expect(items).toContain('Writing · Server');
+    expect(lines()).toContain('Writing · Server');
+    expect(lines()).not.toContain('Reading');
+    app.emit(state('reviewer', 'writing'));
+    expect(lines()).not.toContain('Writing');
+    expect(app.bubble('reviewer')).toBe('writing');
+
+    fireEvent.click(button('Show everyone'));
+    expect(lines()).toContain('Reading');
   });
 });
 
@@ -871,13 +969,22 @@ describe('where the Lead stands in Live', () => {
 describe('untrusted text from a real run', () => {
   const attack = '<img src=x onerror="alert(1)">';
 
-  it('renders as text everywhere: header, speech bubble, panel, live region', async () => {
+  it('shows its `code` and **bold** as elements in the bubble, not as HTML', async () => {
+    const app = await renderLive(start);
+    app.emit(say(`${attack} \`npm test\` **now**`));
+    const bubble = app.container.querySelector('.agent-tag[data-agent="lead"] .speech')!;
+    expect(bubble.querySelector('code')).toHaveTextContent('npm test');
+    expect(bubble.querySelector('strong')).toHaveTextContent('now');
+    expect(app.container.querySelector('img')).toBeNull();
+  });
+
+  it('renders as text everywhere: header, speech bubble, feed, live region', async () => {
     const app = await renderLive(start);
     app.emit({ type: 'run', text: attack, at: 6 }, state('backend', 'idle'), say(attack));
     expect(app.container.querySelector('img')).toBeNull();
     expect(screen.getByText(`Run: ${attack}`)).toBeInTheDocument();
     expect(app.speech('lead')).toBe(attack);
-    expect(screen.getByText(`To you: ${attack}`)).toBeInTheDocument();
+    expect(screen.getByText(`to you: ${attack}`)).toBeInTheDocument();
     expect(app.live()).toHaveTextContent(`Lead/PM: ${attack}`);
   });
 

@@ -24,6 +24,8 @@ export const run1 = load('run1-background');
 export const run2 = load('run2-interactive');
 /** Run 3 (interactive, `default`, 25 hooks): a real permission_prompt, <task-notification>s. */
 export const run3 = load('run3-manual');
+/** Run 4 (interactive, `default`, 28 hooks): PermissionRequests with their agent_id, an idle_prompt. */
+export const run4 = load('run4-manual');
 
 /** Hook number `n` of a run (run 1 unless given), as the server reads it. */
 export const hookOf = (n: number, run = run1): HookInput => hookInputSchema.parse(run[n - 1]!.body);

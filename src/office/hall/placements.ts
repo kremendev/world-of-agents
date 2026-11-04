@@ -93,9 +93,9 @@ export const HALOS: readonly Halo[] = [
 
 /** Room name plaques on the walls. */
 export const PLAQUES: readonly Plaque[] = [
-  { text: 'Lead/PM room', x: 8, y: 1.5, width: 192 },
-  { text: 'Great hall', x: 208, y: 1.5, width: 256 },
-  { text: 'Rest room', x: 472, y: 1.5, width: 192 },
+  { text: 'Lead/PM room', x: 8, y: 0, width: 192 },
+  { text: 'Great hall', x: 208, y: 0, width: 256 },
+  { text: 'Rest room', x: 472, y: 0, width: 192 },
   { text: 'Dev room', x: 75, y: 254, width: 90 },
 ];
 

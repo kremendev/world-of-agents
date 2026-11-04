@@ -18,6 +18,9 @@ export function shortLine(line: string): string {
   return line.slice(0, Math.max(end, 0)).trimEnd();
 }
 
+/** Agent text without its Markdown markers, even one left alone by a cut, so a screen reader doesn't read them out. */
+export const withoutMarkers = (text: string) => text.replace(/`|\*\*/g, '');
+
 const AT_REST: ReadonlySet<AgentState> = new Set(['idle', 'done', 'error']);
 
 /**
@@ -33,11 +36,9 @@ export function finalReport(office: OfficeState): Message | null {
   return null;
 }
 
-/** Who is waiting for you in Claude Code. The Lead's state can also mean Claude Code waits for your reply. */
+/** Who is waiting for your approval in Claude Code. */
 export function whoIsWaiting(office: OfficeState): string[] {
-  return AGENT_IDS.filter((id) => office.agents[id].state === 'needs-you').map((id) =>
-    id === 'lead'
-      ? `${agentById(id).name} needs you in Claude Code`
-      : `${agentById(id).name} needs your approval in Claude Code`,
+  return AGENT_IDS.filter((id) => office.agents[id].state === 'needs-you').map(
+    (id) => `${agentById(id).name} needs your approval in Claude Code`,
   );
 }

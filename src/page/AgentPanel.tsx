@@ -1,9 +1,9 @@
 import { useId, useMemo } from 'react';
 import type { AgentId } from '../events/schema';
 import { spriteSize, toRuns, type PixelSprite } from '../pixel/sprite';
-import { logFor, type LogEntry, type OfficeState } from '../state/office';
+import type { OfficeState } from '../state/office';
 import { agentById } from '../office/roster';
-import { STATE_STYLE, stateWords } from '../office/states';
+import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
 
 /** A sprite as SVG rects, `scale` CSS px per art pixel. crispEdges keeps the pixels square at any zoom. */
@@ -26,21 +26,8 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
   );
 }
 
-const nameOf = (id: AgentId | 'you') => (id === 'you' ? 'you' : agentById(id).name);
-
-/** One activity line, from `viewer`'s side. Agent output stays plain text. */
-function describe(entry: LogEntry, viewer: AgentId, office: OfficeState): string {
-  if (entry.kind === 'message') {
-    return entry.from === viewer
-      ? `To ${nameOf(entry.to)}: ${entry.text}`
-      : `From ${nameOf(entry.from)}: ${entry.text}`;
-  }
-  const task = office.tasks.find((t) => t.id === entry.taskId);
-  return task ? `${stateWords(entry.state)} · ${task.title}` : stateWords(entry.state);
-}
-
 /**
- * Everything about the selected agent: who it is, what it is doing, and what it has done this run.
+ * Everything about the selected agent: who it is and what it is doing.
  * `live`: a real run, so the model and tools are the real ones.
  */
 export function AgentPanel({
@@ -56,7 +43,6 @@ export function AgentPanel({
   const { state, taskId, copies } = office.agents[id];
   const task = office.tasks.find((t) => t.id === taskId);
   const chip = STATE_STYLE[state];
-  const log = logFor(office, id);
   const headingId = useId();
 
   return (
@@ -91,17 +77,6 @@ export function AgentPanel({
 
       {state === 'waiting' && (
         <p className="waiting-note">Waiting for {agent.waitingFor}. Not working while it waits.</p>
-      )}
-
-      <h3>Activity</h3>
-      {log.length === 0 ? (
-        <p className="muted">Nothing yet.</p>
-      ) : (
-        <ol className="activity">
-          {log.map((entry, i) => (
-            <li key={log.length - i}>{describe(entry, id, office)}</li>
-          ))}
-        </ol>
       )}
     </section>
   );

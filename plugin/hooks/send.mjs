@@ -52,12 +52,13 @@ const SECRETS = [
 /**
  * Free text (the prompt, an agent's last message, an Agent call's description): the home folder becomes
  * `~` and key-shaped strings become `[redacted]`. Scrubbed before the cap, so a cut can't leave half a key.
+ * Text cut at the cap ends with "…", which counts towards it.
  */
 export function text(v, max, home = homedir()) {
   if (typeof v !== 'string') return undefined;
   let out = v.replace(homePattern(home), '~');
   for (const secret of SECRETS) out = out.replace(secret, '[redacted]');
-  return out.slice(0, max);
+  return out.length > max ? `${out.slice(0, max - 1)}…` : out;
 }
 
 const withoutUndefined = (v) => JSON.parse(JSON.stringify(v));

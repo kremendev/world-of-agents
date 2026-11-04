@@ -78,7 +78,6 @@ export function createHall({
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
-  const startedAt = performance.now();
   const pages = new Set<ServerResponse>();
   let map = INITIAL_MAP;
   let replay: OfficeEvent[] = [];
@@ -112,7 +111,7 @@ export function createHall({
     }
     const input = hookInputSchema.safeParse(json);
     if (!input.success) return reply(res, 400);
-    const result = mapHook(map, input.data, Math.round(performance.now() - startedAt));
+    const result = mapHook(map, input.data, Date.now());
     map = result.state;
     publish(result.events);
     reply(res, 204); // no body: send.mjs throws any reply away, and there must be nothing to steer Claude Code

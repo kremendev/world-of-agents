@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AgentId } from './events/schema';
-import { finalReport, shortLine, whoIsWaiting } from './live/announce';
+import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { HallView } from './office/hall/HallView';
+import { useStage } from './office/hall/useStage';
 import { agentById } from './office/roster';
+import { ActivityFeed } from './page/ActivityFeed';
 import { AgentPanel } from './page/AgentPanel';
 import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
@@ -31,7 +33,10 @@ function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
   if (office.sessionEnded) {
     return { kind: 'ended', label: 'Session ended', status: 'Session ended · waiting for the next one' };
   }
-  return { kind: 'live', label: 'Live', status: 'Live · watching Claude Code' };
+  const status = office.awaitingPrompt
+    ? 'Lead/PM is waiting for your next message in Claude Code'
+    : 'Live · Type your task in Claude Code. The hall only watches.';
+  return { kind: 'live', label: 'Live', status };
 }
 
 export default function App() {
@@ -46,12 +51,15 @@ export default function App() {
   const [run, setRun] = useState(0);
   const [task, setTask] = useState(DEMO_TASK);
   const [selected, setSelected] = useState<AgentId>('lead');
+  const [feedAgent, setFeedAgent] = useState<AgentId | null>(null);
   const player = useRef<Player | null>(null);
+  const stage = useStage();
 
   useEffect(() => {
     if (!demo) return;
     const p = createPlayer(DEMO_RUN, {
-      onEvent: (event) => setDemoOffice((state) => officeReducer(state, event)),
+      // A script's `at` is when it plays. In the office it is the time of day, as in a real run.
+      onEvent: (event) => setDemoOffice((state) => officeReducer(state, { ...event, at: Date.now() })),
       onRestart: () => {
         setDemoOffice(INITIAL_OFFICE);
         setRun((n) => n + 1);
@@ -97,6 +105,11 @@ export default function App() {
     setRun((n) => n + 1);
   };
 
+  const select = (id: AgentId) => {
+    setSelected(id);
+    setFeedAgent(id);
+  };
+
   const office = demo ? demoOffice : hall.office;
   const live = !demo;
   const mode = modeOf(hall, demo, office);
@@ -112,7 +125,7 @@ export default function App() {
       <header className="app-header">
         <div className="brand">
           <h1>World of Agents</h1>
-          <span className="badge">Forge Hall · v2</span>
+          <span className="badge forge-badge">Forge Hall · v2</span>
           {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
         </div>
         <div className="run-info">
@@ -169,18 +182,22 @@ export default function App() {
         {status}
       </p>
 
-      <section aria-label="Forge Hall office" className="scene-scroll">
-        <HallView
-          office={office}
-          run={run}
-          selected={selected}
-          onSelect={setSelected}
-          live={live}
-          hushed={live && hall.hushed}
-        />
-      </section>
+      <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
+        <section aria-label="Forge Hall office" className="scene">
+          <HallView
+            office={office}
+            run={run}
+            selected={selected}
+            onSelect={select}
+            live={live}
+            hushed={live && hall.hushed}
+            room={stage.fit}
+          />
+        </section>
+        <ActivityFeed office={office} agent={feedAgent} onShowEveryone={() => setFeedAgent(null)} />
+      </div>
 
-      <TaskBar onSend={send} watching={live} />
+      {demo && <TaskBar onSend={send} />}
 
       <div className="lower">
         <TaskBoard office={office} />
@@ -189,7 +206,7 @@ export default function App() {
 
       {/* The bubbles are hidden from screen readers; this reads out what they must not miss. */}
       <div className="sr-only" aria-live="polite">
-        <p>{said ? shortLine(`${agentById(said.from).name}: ${said.text}`) : ''}</p>
+        <p>{said ? shortLine(`${agentById(said.from).name}: ${withoutMarkers(said.text)}`) : ''}</p>
         <p>{waiting.join('. ')}</p>
         <p>{hall.office.sessionEnded ? 'Session ended' : ''}</p>
       </div>

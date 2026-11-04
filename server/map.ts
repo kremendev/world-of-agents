@@ -8,7 +8,14 @@ export type Card = { taskId: string; owner: AgentId; title: string; agentId?: st
  * One subagent run, keyed by its `agent_id`. A stopped run is kept: hooks run in the background and can
  * arrive out of order, so a start or a tool call that lands after its stop must be ignored.
  */
-export type Run = { agent: AgentId; taskId?: string; state: AgentState; stopped: boolean };
+export type Run = {
+  agent: AgentId;
+  taskId?: string;
+  state: AgentState;
+  stopped: boolean;
+  /** The tool its last PermissionRequest was for, and when: its own PreToolUse may still land after it. */
+  asked?: { tool: string | undefined; at: number };
+};
 
 export type MapState = {
   /**
@@ -19,11 +26,13 @@ export type MapState = {
   /** Oldest first: a subagent that starts is matched to the oldest open card of its type. */
   cards: readonly Card[];
   runs: Readonly<Record<string, Run>>;
-  /** The run that used Edit, Write or Bash last: a permission_prompt doesn't say who is waiting (notified()). */
+  /** The run that used Edit, Write or Bash last: a permission_prompt doesn't say who is waiting (promptOpen()). */
   lastWriter: string | null;
+  /** A PermissionRequest has arrived in this session, so they get here and a permission_prompt has nothing to guess. */
+  askSeen: boolean;
 };
 
-export const INITIAL_MAP: MapState = { session: null, cards: [], runs: {}, lastWriter: null };
+export const INITIAL_MAP: MapState = { session: null, cards: [], runs: {}, lastWriter: null, askSeen: false };
 
 type Step = { state: MapState; events: OfficeEvent[] };
 
@@ -34,6 +43,11 @@ const PREFIX = 'world-of-agents:';
 const REPORT_SENT = 'Report sent to the Lead';
 const READING: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob']);
 const WRITING: ReadonlySet<string> = new Set(['Edit', 'Write', 'Bash']);
+/**
+ * A tool's PreToolUse fires 12 to 18 ms before its PermissionRequest (run 4), and each hook is its own process,
+ * so they can land in either order. A PreToolUse for the same tool this soon after is that one, not your approval.
+ */
+const LATE_PRE_TOOL_USE_MS = 1000;
 /** The SessionStart sources that switch the hall to that session and reset the run. Not `compact`. */
 const TAKES_OVER: ReadonlySet<string> = new Set(['startup', 'clear', 'resume']);
 
@@ -93,7 +107,7 @@ function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number)
     case 'Notification':
       return notified(state, input, agent, sub, at);
     case 'PermissionRequest':
-      return waiting(state, agent, sub, at); // not captured yet (docs/v2-hooks.md)
+      return asking(state, agent, sub, input.tool_name, at);
     case 'SubagentStop':
       return sub ? stopRun(state, sub, agent, input.last_assistant_message, at) : nothing(state);
     case 'PostToolUse':
@@ -222,22 +236,48 @@ function act(state: MapState, id: string, agent: AgentId, activity: AgentState, 
 function toolUsed(state: MapState, id: string, agent: AgentId, tool: string | undefined, at: number): Step {
   const activity = !tool ? null : READING.has(tool) ? 'reading' : WRITING.has(tool) ? 'writing' : null;
   if (!activity) return nothing(state);
-  const step = act(state, id, agent, activity, at);
-  return activity === 'writing' && !state.runs[id]?.stopped
+  const run = state.runs[id];
+  const asked = run?.state === 'needs-you' ? run.asked : undefined;
+  const late = asked && asked.tool === tool && at - asked.at < LATE_PRE_TOOL_USE_MS;
+  const step = late ? nothing(state) : act(state, id, agent, activity, at);
+  return activity === 'writing' && !run?.stopped
     ? { ...step, state: { ...step.state, lastWriter: id } }
     : step;
 }
 
 /**
- * A permission_prompt doesn't say who is waiting: even for a subagent's tool it carries the Lead's agent_type
- * and no agent_id (docs/v2-hooks.md, run 3). Edit, Write and Bash are the tools that ask, and each one's
- * PreToolUse comes just before its prompt, so the waiting agent is the running subagent that used one last, or
- * the Lead if there is none. With two subagents writing at once this can name the wrong one. An agent_id wins
- * if a hook sends one, as a PermissionRequest may (not captured yet). No hook says when you answer: the flag
- * clears at that agent's next event.
+ * A PermissionRequest says who is asking, the moment Claude Code asks: a subagent's has its agent_id, the
+ * Lead's has none (run 4). No hook says when you answer: the flag clears at that agent's next event.
  */
-function waiting(state: MapState, agent: AgentId, sub: string | null, at: number): Step {
+function asking(
+  before: MapState,
+  agent: AgentId,
+  sub: string | null,
+  tool: string | undefined,
+  at: number,
+): Step {
+  const state = { ...before, askSeen: true };
+  if (!sub) return { state, events: [lead('needs-you', at)] };
+  const step = act(state, sub, agent, 'needs-you', at);
+  const run = step.state.runs[sub];
+  return run
+    ? {
+        ...step,
+        state: { ...step.state, runs: { ...step.state.runs, [sub]: { ...run, asked: { tool, at } } } },
+      }
+    : step;
+}
+
+/**
+ * A permission_prompt comes 6 s after the prompt opens and doesn't say who is waiting: even for a subagent's
+ * tool it has the Lead's agent_type and no agent_id (runs 3 and 4). A PermissionRequest has named the agent by
+ * then, so once one has arrived in this session it adds nothing and never guesses. If none has (the hall started
+ * mid-wait, or an older Claude Code): Edit, Write and Bash are the tools that ask and each one's PreToolUse comes
+ * just before its prompt, so the waiting agent is the running subagent that used one last, or the Lead if none.
+ */
+function promptOpen(state: MapState, agent: AgentId, sub: string | null, at: number): Step {
   if (sub) return act(state, sub, agent, 'needs-you', at);
+  if (state.askSeen) return nothing(state);
   const writer = state.lastWriter;
   const run = writer ? state.runs[writer] : undefined;
   return writer && run && !run.stopped
@@ -245,9 +285,10 @@ function waiting(state: MapState, agent: AgentId, sub: string | null, at: number
     : { state, events: [lead('needs-you', at)] };
 }
 
+/** idle_prompt: the Lead has finished and Claude Code waits for your next message. Nothing needs approving. */
 function notified(state: MapState, input: HookInput, agent: AgentId, sub: string | null, at: number): Step {
-  if (input.notification_type === 'idle_prompt') return { state, events: [lead('needs-you', at)] };
-  return input.notification_type === 'permission_prompt' ? waiting(state, agent, sub, at) : nothing(state);
+  if (input.notification_type === 'idle_prompt') return { state, events: [{ type: 'awaiting-prompt', at }] };
+  return input.notification_type === 'permission_prompt' ? promptOpen(state, agent, sub, at) : nothing(state);
 }
 
 /**

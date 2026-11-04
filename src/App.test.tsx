@@ -278,7 +278,10 @@ describe('App', () => {
   describe('agent selection', () => {
     const agentButton = (name: RegExp) => screen.getByRole('button', { name });
     const panelHeading = () =>
-      screen.getByRole('heading', { level: 2, name: /Lead\/PM|Designer|dev|Reviewer/ });
+      screen.getByRole('heading', {
+        level: 2,
+        name: /^(Lead\/PM|Designer|Frontend dev|Backend dev|Reviewer)$/,
+      });
 
     it('starts with the Lead/PM selected and shown in the panel', () => {
       renderApp();
@@ -303,14 +306,29 @@ describe('App', () => {
       expect(designer).toHaveFocus();
     });
 
-    it("lists only the selected agent's activity", () => {
+    it('narrows the activity feed to the clicked agent, and "Show everyone" widens it again', () => {
       const app = renderApp();
       app.at(stepStart(5) + 1500);
+      const lines = () => [...document.querySelectorAll('.feed-what')].map((line) => line.textContent);
+      expect(lines()).toContain('to Frontend dev: Screens are on your desk.');
+      expect(screen.queryByRole('button', { name: 'Show everyone' })).toBeNull();
+
       fireEvent.click(agentButton(/^Backend dev, Orc/));
-      const items = screen.getAllByRole('listitem').map((li) => li.textContent);
-      expect(items).toContain('To Lead/PM: Routes are up. Hammering out the rest.');
-      expect(items).not.toContain('To Frontend dev: Screens are on your desk.');
-      expect(items).not.toContain('From Designer: Screens are on your desk.');
+      expect(lines()).toContain('to Lead/PM: Routes are up. Hammering out the rest.');
+      expect(lines()).not.toContain('to Frontend dev: Screens are on your desk.');
+
+      fireEvent.click(screen.getByRole('button', { name: 'Show everyone' }));
+      expect(lines()).toContain('to Frontend dev: Screens are on your desk.');
+      expect(panelHeading()).toHaveTextContent('Backend dev');
+    });
+
+    it("stamps each line with the time of day, not the script's own clock", () => {
+      vi.setSystemTime(new Date(2026, 10, 4, 9, 5, 0));
+      const app = renderApp();
+      app.at(stepStart(2) + 100);
+      const times = [...document.querySelectorAll('.feed-time')].map((t) => t.textContent);
+      expect(times.length).toBeGreaterThan(0);
+      for (const time of times) expect(time).toMatch(/^09:05:\d\d$/);
     });
   });
 

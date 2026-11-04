@@ -1,0 +1,27 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "44522a6c-c85e-4313-a221-32a5de3180f0",
+  "permission_mode": "default",
+  "agent_id": "ad706f94e903f5a8a",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "`server.js` is written and `node --check server.js` passed: no output, exit code 0, on Node v24.22.0. The server hasn't been started and nothing is committed. The reviewer is checking it now, and I'll send you the findings when they're back.",
+  "background_tasks": [
+    {
+      "id": "a4f688d1a0fbf42fa",
+      "type": "subagent",
+      "status": "running",
+      "description": "Review server.js",
+      "agent_type": "world-of-agents:reviewer"
+    }
+  ],
+  "session_crons": []
+}

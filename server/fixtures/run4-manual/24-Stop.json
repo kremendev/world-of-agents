@@ -1,0 +1,17 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "bdf14b99-fc35-40f0-9d9e-13abcad61180",
+  "permission_mode": "default",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "Dima, `server.js` is in the project root: a plain `node:http` server that returns \"Hello, World!\" on port 3000. `node --check server.js` passed with exit code 0 on Node v24.22.0.\nThe reviewer found no bugs, only two low-severity notes, and neither needs fixing now:\n- **Portability:** `import` with no `package.json` fails on older Node (18, 20, early 22.x), so add `\"type\": \"module\"` or rename to `.mjs` if it will run elsewhere.\n- **Security:** with no host set, it listens on all interfaces, not just localhost. That's harmless for a constant string, but use `server.listen(port, '127.0.0.1', ...)` once it serves anything real.\n\n`node --check` only tests syntax, so the server hasn't actually been run yet (`node server.js` will do that), and nothing is committed.",
+  "background_tasks": [],
+  "session_crons": []
+}

@@ -41,8 +41,10 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
                   walk.ts: spots, doors, route(), positionAt(), from the v1 design. Ask before moving a spot.
                   smalltalk.ts: rest-room lines (our flavour text, not agent output)
                   destination.ts: destinationFor(agent, office), walkers.ts: walk queue, talk.ts: bubbles
-src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap), TaskBoard,
-                  AgentPanel (details and activity of the selected agent)
+                  useStage.ts: the room the hall has, settle.ts: which labels stay when they would overlap
+src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap; Demo only), TaskBoard,
+                  AgentPanel (details of the selected agent), ActivityFeed + feed.ts (the team's activity, to the
+                  right of the hall: skips state events that change nothing), AgentText (agent text: `code` and **bold** as elements, the rest plain text)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message), useLiveHall.ts (status, office, the 5 s re-check in Demo), announce.ts (what the
                   aria-live region says, cut at the last full sentence)
@@ -63,8 +65,15 @@ docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, ru
 - **Units are art pixels.** The hall is 672 x 480 art px; the design shows it at 2 CSS px per art px (1344 x 960).
 - **Sprites** are `{ rows: string[], palette: Record<char, hex> }`. One string per row, `.` = transparent.
   `validateSprite()` and `sprite.test.ts` check every asset. Edit rows by hand; keep widths equal.
-- **Scaling** is in device pixels (`pixelScale()`): every art pixel is a whole number of screen pixels, so
-  125% / 150% Windows scaling stays sharp. Never scale the canvas with fractional CSS sizes.
+- **Scaling** is in device pixels. The whole hall must fit the first screen, under the header and status line, without
+  scrolling: `useStage` measures the room and `fitPixelScale()` takes the largest scale that fits both ways. A sharp
+  scale (every art pixel a whole number of screen pixels) within 15% of that is used instead, so 125% / 150% Windows
+  scaling stays sharp where it can; a sharp scale of 1 CSS px per art px never is, because a tiny hall is the worse
+  evil. Otherwise the canvas is stretched with `image-rendering: pixelated`: slightly uneven pixels. The width the
+  hall doesn't take goes to the activity column, which goes under the hall when beside it would cost the hall over 15%.
+- **Fonts**: Pixelify Sans only on the title, room plaques, name plates and badges, never under 14 px. Everything else
+  is the system font: body 15 px, nothing under 13 px. Sizes are in rem so they grow with browser zoom; `layout.test.ts`
+  reads the stylesheet and checks all of this.
 - **Draw order** is a list of `Drawable { z, draw }` sorted by `z` (roughly the y of an object's base).
   Surfaces (floors, walls, rugs), halos, props, station parts and agents all go into that one list.
 - **One `requestAnimationFrame` loop** in `HallView` redraws everything above the floor each frame. The
@@ -88,7 +97,10 @@ docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, ru
   are in device px (`per` per art px). The glow flickers like any halo; the mouth colour never does
   (it is the busy indicator, so it keeps changing with reduced motion too).
 - **Text** (room plaques, name plates, dashboard, furnace label, "You" sign, state and speech bubbles, "!!")
-  is HTML in `HallLabels.tsx`, positioned in art px times `--u` (CSS px per art px), so it stays sharp.
+  is HTML in `HallLabels.tsx`, positioned in art px times `--u` (CSS px per art px, not always whole), so it stays sharp.
+  Its minimum sizes are in rem, so it grows with browser zoom while the hall doesn't. `settleLabels()` then hides what
+  would overlap, by rank: needs-you and error, other working states, speech, furnace label and "You" sign, name plates,
+  idle bubbles, room plaques. The dashboard is fixed; under `--u` limits it drops its title, tiles, then count.
   The labels re-render only when an agent's tag changes, not every frame. That text is `aria-hidden`;
   the agent `<button>`s over each sprite are not (they select the agent shown in the agent panel).
 - `placements.ts` and `assets/hall.ts` were generated from the v1 design. Hand-edit them now; there is no
@@ -126,14 +138,15 @@ Do not change the look without asking. New ideas go into a later version.
 
 ## Security rules: non-negotiable
 
-- Agent output is untrusted text. Render it as React text. ESLint blocks `dangerouslySetInnerHTML`.
+- Agent output is untrusted text. Render it as React text. ESLint blocks `dangerouslySetInnerHTML`. Its only
+  formatting is `AgentText`: `code` and `strong` elements around plain strings.
 - Every event goes through `parseEvent()` before it touches state. Strict objects, enums, length limits.
 - v2 has no API key and no Agent SDK: it is observer mode. Claude Code runs on the user's own login, and the
   plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
   secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads.
 - The task bar text is user input. v1 only shows it (trimmed, capped at 500 chars, plain React text). In v2's
-  Live mode the task bar is disabled: the task is typed in Claude Code, and the page never sends anything to
+  Live mode there is no task bar: the task is typed in Claude Code, and the page never sends anything to
   an agent. The prompt-injection surface is what agents read (files, tool output), not the page: their
   prompts treat it as data, and least privilege, not the prompt, limits what a hijacked agent can do. The
   prompt and agent text that reach the hall are still untrusted text.
@@ -178,8 +191,8 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    labels the run and restarts it, and the Lead's first line quotes it: `On it: <task>. Planning the work first.`;
    v1 sends nothing anywhere), the task board, and the agent panel for the
    agent picked with the buttons over the sprites (Lead/PM by default): race, look, state, task, v2
-   model and tools, waiting note, and its own activity newest first. The reducer keeps a `log` of state
-   changes and messages (200 max) for that. An `aria-live` region reads out messages sent to you.
+   model and tools, waiting note. The reducer keeps a `log` of state changes and messages (200 max) for the
+   activity feed. An `aria-live` region reads out messages sent to you.
 
 Next:
 
@@ -191,14 +204,17 @@ Next:
    deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
    that only a new, cleared or resumed session switches it. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
-   with a tag) never reach the hall as text. A `permission_prompt` doesn't say who is waiting, so the running
-   subagent that last used Edit, Write or Bash is flagged. `PermissionRequest` is hooked and mapped the same way
-   (an `agent_id` wins), but not captured yet; docs/v2-hooks.md says how. Fixtures: run 1 (`-p`), run 2
-   (interactive, `auto`) and run 3 (interactive, `default`). Milestone 3 (Live mode in the page) is done: the page checks
+   with a tag) never reach the hall as text. `PermissionRequest` names the agent asking, at once; a
+   `permission_prompt` 6 s later names nobody and only guesses (the running subagent that last used Edit, Write or
+   Bash) in a session where no `PermissionRequest` has arrived. `idle_prompt` is not an approval wait: `awaiting-prompt`, calm text in
+   the status line. Fixtures: run 1 (`-p`), run 2 (interactive, `auto`), run 3 and run 4 (interactive, `default`). Milestone 3 (Live mode in the page) is done: the page checks
    `/api/health` on load (1 s), follows the hall over SSE, and rebuilds from the replay on reconnect, so agents stay
    put while it is offline. `VITE_LIVE=false` skips all of it. In Demo it re-checks every 5 s and offers "Go live",
    never switching on its own. An always-there status line turns into the needs-you banner, so nothing below it
-   moves. In Live a dev fetches its scroll from the Lead's room before its desk, and a waiting Lead stands on the dev
+   moves. After the first real run: the whole hall fits the first screen, the team's activity feed takes the rest of
+   the width (under the hall when narrow; clicking an agent filters it), and the task bar is Demo only. The status line
+   has no box until someone waits for approval: in a box it looked like a disabled input. `public/favicon.svg` is the
+   banner's anvil and flame at 16x16. In Live a dev fetches its scroll from the Lead's room before its desk, and a waiting Lead stands on the dev
    room carpet. `SessionEnd` sends all five idle, then `session-end`. There are no token counts in either mode.
    Tests stub `VITE_LIVE`, `fetch` and `EventSource` (src/test/fakeEventSource.ts). Milestone 4 (launcher and docs) is
    next.

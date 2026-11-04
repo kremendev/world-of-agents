@@ -1,0 +1,20 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "c6576ab1-8136-4125-b7e5-ef9991d08672",
+  "permission_mode": "default",
+  "agent_id": "a828fc4ca5bd15328",
+  "agent_type": "world-of-agents:backend",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "<redacted>",
+    "content": "<redacted>"
+  },
+  "tool_use_id": "toolu_01V93HuAALfeaPvyH6WiMVeX"
+}

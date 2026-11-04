@@ -17,13 +17,15 @@ export type PixelScale = {
   cssHeight: number;
 };
 
+const usableRatio = (dpr: number) => (Number.isFinite(dpr) && dpr > 0 ? dpr : 1);
+
 export function pixelScale(
   artWidth: number,
   artHeight: number,
   wantedCssPixelsPerArtPixel: number,
   devicePixelRatio: number,
 ): PixelScale {
-  const dpr = Number.isFinite(devicePixelRatio) && devicePixelRatio > 0 ? devicePixelRatio : 1;
+  const dpr = usableRatio(devicePixelRatio);
   const per = Math.max(1, Math.floor(wantedCssPixelsPerArtPixel * dpr + 1e-6));
   const canvasWidth = artWidth * per;
   const canvasHeight = artHeight * per;
@@ -34,4 +36,27 @@ export function pixelScale(
     cssWidth: canvasWidth / dpr,
     cssHeight: canvasHeight / dpr,
   };
+}
+
+/** How much smaller than the largest that fits a sharp scale may be, and still be worth it. */
+export const SHARP_WITHIN = 0.15;
+
+/**
+ * The biggest picture that fits both `availableCssWidth` and `availableCssHeight`. If a sharp scale is within
+ * SHARP_WITHIN of it, the sharp one. Otherwise, or if that would only be 1 CSS px per art px, the canvas is stretched
+ * to fill instead: a tiny hall is the worse evil. It then needs `image-rendering: pixelated`, and its pixels come out
+ * slightly uneven.
+ */
+export function fitPixelScale(
+  artWidth: number,
+  artHeight: number,
+  availableCssWidth: number,
+  availableCssHeight: number,
+  devicePixelRatio: number,
+): PixelScale {
+  const fit = Math.min(availableCssWidth / artWidth, availableCssHeight / artHeight);
+  const sharp = pixelScale(artWidth, artHeight, fit, usableRatio(devicePixelRatio));
+  const sharpFit = sharp.cssWidth / artWidth;
+  if (sharpFit > 1 && sharpFit >= fit * (1 - SHARP_WITHIN)) return sharp;
+  return { ...sharp, cssWidth: fit * artWidth, cssHeight: fit * artHeight };
 }

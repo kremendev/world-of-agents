@@ -101,7 +101,24 @@ describe('<task-notification> detection', () => {
   });
 });
 
-describe('PermissionRequest (not captured yet: the shape is the docs example)', () => {
+describe('PermissionRequest', () => {
+  it('from a real run: the Backend dev asks for a Write, and only who and which tool go on', () => {
+    const asks = fixtures.find((f) => f.name.endsWith(join('run4-manual', '10-PermissionRequest.json')))!;
+    const sent = allowlist(asks.payload, HOME);
+    expect(Object.keys(sent).sort()).toEqual([
+      'agent_id',
+      'agent_type',
+      'hook_event_name',
+      'session_id',
+      'tool_name',
+    ]);
+    expect(sent).toMatchObject({
+      hook_event_name: 'PermissionRequest',
+      agent_type: 'world-of-agents:backend',
+      tool_name: 'Write',
+    });
+  });
+
   const request = (more: Payload = {}): Payload => ({
     session_id: 's1',
     transcript_path: `${HOME}\\.claude\\projects\\demo\\s1.jsonl`,
@@ -275,6 +292,16 @@ describe('text()', () => {
     const out = text(`${'x'.repeat(190)} sk-ant-api03-SECRETSECRETSECRET`, 200, HOME)!;
     expect(out).toHaveLength(200);
     expect(out).not.toMatch(/sk-ant|SECRET/);
+  });
+
+  it('ends text cut at the cap with "…", which counts towards the cap', () => {
+    expect(text('x'.repeat(201), 200, HOME)).toBe(`${'x'.repeat(199)}…`);
+    expect(text('x'.repeat(201), 200, HOME)).toHaveLength(200);
+  });
+
+  it('leaves text that fits the cap whole, with no "…"', () => {
+    expect(text('x'.repeat(200), 200, HOME)).toBe('x'.repeat(200));
+    expect(text('short', 200, HOME)).toBe('short');
   });
 
   it('leaves ordinary text alone', () => {

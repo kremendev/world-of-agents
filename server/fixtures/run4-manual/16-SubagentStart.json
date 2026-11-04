@@ -1,0 +1,10 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "44522a6c-c85e-4313-a221-32a5de3180f0",
+  "agent_id": "a4f688d1a0fbf42fa",
+  "agent_type": "world-of-agents:reviewer",
+  "hook_event_name": "SubagentStart"
+}

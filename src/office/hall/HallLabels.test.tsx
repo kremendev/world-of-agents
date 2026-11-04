@@ -4,6 +4,7 @@ import type { AgentId, OfficeEvent } from '../../events/schema';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../../state/office';
 import { HallLabels, type AgentTag } from './HallLabels';
 import { hallStations } from './layout';
+import { RANK } from './settle';
 
 const stations = hallStations();
 const owners: AgentId[] = ['lead', 'designer', 'backend', 'frontend', 'reviewer', 'backend', 'frontend'];
@@ -143,5 +144,72 @@ describe('HallLabels', () => {
       }
       expect(screen.getByRole('button', { name: /^Lead\/PM/ }).closest('[aria-hidden="true"]')).toBeNull();
     });
+  });
+});
+
+describe('HallLabels at small scales, where text keeps its minimum size', () => {
+  const at = (u: number, agents: AgentTag[] = []) =>
+    render(
+      <HallLabels
+        u={u}
+        stations={stations}
+        office={INITIAL_OFFICE}
+        agents={agents}
+        selected="lead"
+        onSelect={() => {}}
+      />,
+    );
+
+  it('name plates drop the race under 1 CSS px per art px', () => {
+    const { unmount } = at(1);
+    expect(screen.getByText('Backend dev · Orc')).toBeInTheDocument();
+    unmount();
+    at(0.99);
+    expect(screen.getByText('Backend dev')).toBeInTheDocument();
+    expect(screen.queryByText('Backend dev · Orc')).toBeNull();
+  });
+
+  it('the furnace label says only how busy it is under 1.2', () => {
+    const { unmount } = at(1.2);
+    expect(screen.getByText('Furnace · cold')).toBeInTheDocument();
+    unmount();
+    at(1.19);
+    expect(screen.getByText('cold')).toBeInTheDocument();
+    expect(screen.queryByText('Furnace · cold')).toBeNull();
+  });
+
+  it('ranks every label, what you must not miss first', () => {
+    const { container } = at(2, [
+      tag(null, { id: 'lead', state: 'needs-you' }),
+      tag(null, { id: 'backend', state: 'writing' }),
+      tag('Hello', { id: 'designer', state: 'idle' }),
+      tag(null, { id: 'reviewer', state: 'error' }),
+    ]);
+    const rank = (selector: string) => Number(container.querySelector<HTMLElement>(selector)?.dataset.rank);
+    const bubble = (id: string) => rank(`.agent-tag[data-agent="${id}"] .state-bubble`);
+    expect(bubble('lead')).toBe(RANK.urgent);
+    expect(bubble('reviewer')).toBe(RANK.urgent);
+    expect(bubble('backend')).toBe(RANK.working);
+    expect(bubble('designer')).toBe(RANK.idle);
+    expect(rank('.speech')).toBe(RANK.speech);
+    expect(rank('.nameplate')).toBe(RANK.plate);
+    expect(rank('.plaque')).toBe(RANK.plaque);
+    expect(rank('.dashboard')).toBe(RANK.fixed);
+    expect(rank('.furnace-label')).toBe(RANK.sign);
+    expect(rank('.you-sign')).toBe(RANK.sign);
+  });
+
+  it('settles after each render: a label that would be covered is hidden before it shows', () => {
+    const rect = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      const hall = this.classList.contains('hall-labels');
+      const size = hall ? 1000 : 20;
+      return { left: 0, top: 0, right: size, bottom: size, width: size, height: size } as DOMRect;
+    });
+    const { container } = at(2);
+    expect(container.querySelector<HTMLElement>('.dashboard')!.style.visibility).toBe('');
+    expect(container.querySelector<HTMLElement>('.plaque')!.style.visibility).toBe('hidden');
+    rect.mockRestore();
   });
 });

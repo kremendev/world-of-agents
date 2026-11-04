@@ -1,3 +1,4 @@
+import css from '../../index.css?raw';
 import { describe, expect, it } from 'vitest';
 import { spriteSize } from '../../pixel/sprite';
 import { stationBounds } from '../stations';
@@ -48,5 +49,47 @@ describe('Forge Hall layout', () => {
     for (const s of stations) {
       for (const p of PROPS) expect(overlaps(stationBounds(s), propRect(p))).toBe(false);
     }
+  });
+});
+
+describe('text sizes and fonts', () => {
+  const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+    selector: m[1]!.trim(),
+    body: m[2]!,
+  }));
+  const sizes = rules.flatMap((r) =>
+    [...r.body.matchAll(/font-size:\s*([^;]+);/g)].map((m) => ({ selector: r.selector, size: m[1]! })),
+  );
+  const rem = (size: string) => Number(/^(?:max\()?([\d.]+)rem/.exec(size)?.[1]);
+
+  it('every size is in rem, or follows the hall from a minimum in rem: all of it grows with browser zoom', () => {
+    expect(sizes.length).toBeGreaterThan(10);
+    for (const { selector, size } of sizes) {
+      if (size === 'inherit') continue;
+      expect(rem(size), `${selector}: ${size}`).not.toBeNaN();
+    }
+  });
+
+  it('nothing is under 13 px, and the body is 15 px', () => {
+    for (const { selector, size } of sizes) {
+      if (size !== 'inherit') expect(rem(size), `${selector}: ${size}`).toBeGreaterThanOrEqual(13 / 16);
+    }
+    expect(sizes.find((s) => s.selector === 'body')?.size).toBe('0.9375rem');
+  });
+
+  it('Pixelify Sans is only on the title, room plaques, name plates and badges, never under 14 px', () => {
+    const pixel = rules.filter((r) => r.body.includes('var(--pixel-font)'));
+    expect(pixel.map((r) => r.selector).sort()).toEqual(['.badge', '.nameplate', '.plaque', 'h1']);
+    for (const r of pixel) {
+      const size = /font-size:\s*([^;]+);/.exec(r.body)?.[1] ?? '';
+      expect(rem(size), r.selector).toBeGreaterThanOrEqual(14 / 16);
+    }
+  });
+
+  it('the status line has no box until someone waits for approval: it must not look like an input', () => {
+    const line = rules.find((r) => r.selector === '.status-line')!.body;
+    expect(line).toMatch(/border: 2px solid transparent/);
+    expect(line).not.toMatch(/background/);
+    expect(rules.find((r) => r.selector === '.status-line.needs-you')!.body).toMatch(/background/);
   });
 });

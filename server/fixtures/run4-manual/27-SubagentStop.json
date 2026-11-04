@@ -1,0 +1,19 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "bdf14b99-fc35-40f0-9d9e-13abcad61180",
+  "permission_mode": "default",
+  "agent_id": "ab766c7e18c5d1f5a",
+  "agent_type": "world-of-agents:lead",
+  "effort": {
+    "level": "xhigh"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "<home>/.claude/projects/<project>/<session>/subagents/<agent>.jsonl",
+  "last_assistant_message": "We were adding a tiny hello-world `server.js`; it's written, passed `node --check`, and the review found no bugs. Next, run `node server.js` to confirm it actually responds, since it hasn't been started yet.",
+  "background_tasks": [],
+  "session_crons": []
+}

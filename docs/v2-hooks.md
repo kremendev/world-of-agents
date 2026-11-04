@@ -1,6 +1,6 @@
 # v2 hook payloads: what Claude Code really sends
 
-Recorded with Claude Code 2.1.312 on Windows 11 (native, Git Bash): runs 1 and 2 on 28 Oct 2026, run 3 on 4 Nov.
+Recorded on Windows 11 (native, Git Bash) with Claude Code 2.1.312 (runs 1 to 3) and 2.1.318 (run 4): runs 1 and 2 on 28 Oct 2026, run 3 on 4 Nov, run 4 on 4 Nov.
 Each run is redacted into `server/fixtures/` in the order its payloads arrived. The raw capture folders were
 deleted afterwards.
 
@@ -20,6 +20,11 @@ background results came back in a new form: see What run 2 changed.
 `--permission-mode default`. The Lead sent the Backend dev, which had to ask for approval, then the Reviewer.
 This run captured `permission_prompt`: see `Notification` and What run 3 changed. A stray `SessionStart` from
 another session, a week older, was in the capture folder and was left out.
+
+**Run 4** (`run4-manual/`, 28 payloads): the first run watched live, Claude Code 2.1.318, started like run 3. The
+Lead sent the Backend dev, which asked twice (a Write left waiting past the 6 s mark, a Bash answered before it), then the
+Reviewer. Then two minutes of no typing after the final report, and a quit. This run captured `PermissionRequest`
+and `idle_prompt`: see those sections and What run 4 changed.
 
 ## Fields on every event
 
@@ -160,19 +165,34 @@ after the first task notification (1 running), and once at the real end (`[]`).
 ### `SessionEnd`
 
 `reason`: `"other"` when `-p` exits, `"prompt_input_exit"` when you quit an interactive session (runs 2 and 3).
+Run 4's interactive session also ended with `"other"`, so it isn't tied to `-p`. The hall ignores the reason.
 
 ### `PermissionRequest`
 
-**Hooked, not captured yet.** The docs say it runs "when Claude Code is about to ask you for permission to use a
-tool", so it needs no 6 s wait, and it holds `tool_name`, `tool_input` and `permission_suggestions`. Their example
-has no `agent_id`, so whether it names the waiting subagent is unknown. `map.ts` treats it like `permission_prompt`:
-an `agent_id` wins, otherwise the same guess as below. This is the hook whose reply can allow or deny a tool call,
-so like every other hook it is `async`, and `send.mjs` prints nothing and drops any reply. See Still to capture.
+Run 4 captured two (rows 10 and 13). Keys: `session_id`, `transcript_path`, `cwd`, `scratchpad_dir`, `prompt_id`,
+`permission_mode`, `agent_id`, `agent_type`, `effort`, `hook_event_name`, `tool_name`, `tool_input` and
+`permission_suggestions`. No `tool_use_id`.
+
+**It says who is asking.** A subagent's request carries that subagent's `agent_id` and `agent_type`, so `map.ts`
+flags that agent, with no guessing. A request with no `agent_id` is the Lead's own (from the docs and the rule on
+every other event: the Lead has none; run 4 had no such request).
+
+**It comes at once.** It fired 18 ms and 12 ms after its tool's `PreToolUse`, and row 10 came 6.021 s before the
+`permission_prompt` for the same wait. A prompt you answer quickly now shows too: row 13's Bash sent no
+`permission_prompt` at all.
+
+**It can land before its own `PreToolUse`.** Each hook is its own process, and 12 ms is close. A `PreToolUse` for the
+same tool within 1 s after the request is treated as that tool's own and leaves the flag up. A later one, or
+another tool, means you answered.
+
+This is the hook whose reply can allow or deny a tool call, so like every other hook it is `async`, and `send.mjs`
+prints nothing and drops any reply. Only who asks and for which tool go on: its `tool_input` is the very command
+or file waiting for you.
 
 ### `Notification`
 
-Run 3 captured one `permission_prompt` (row 11). Beyond the common fields it has only `message` and
-`notification_type`:
+Run 3 captured one `permission_prompt` (row 11), run 4 one `permission_prompt` (row 11) and one `idle_prompt` (row
+26). Beyond the common fields each has only `message` and `notification_type`:
 
 ```json
 {
@@ -185,22 +205,28 @@ Run 3 captured one `permission_prompt` (row 11). Beyond the common fields it has
 
 **`permission_prompt` does not say which subagent is waiting.** The Backend dev's Write was the tool waiting
 (row 10), yet the hook has the Lead's `agent_type`, no `agent_id`, no tool name and a generic message. The docs
-list no field that would say. So `server/map.ts` works it out: Edit, Write and Bash are the tools that ask, and
-each one's `PreToolUse` comes just before its prompt (the dev's Bash only fired once its Write had finished). The
-waiting agent is the running subagent that used one last, or the Lead if there is none. With two subagents writing
-at once this can name the wrong one. An `agent_id` wins if Claude Code ever sends one.
+list no field that would say. `PermissionRequest` has named the agent by then, so once one has arrived in a session
+`server/map.ts` adds nothing for a `permission_prompt` and never guesses, even if that agent's flag has already
+cleared or it was the Lead asking. Only in a session with no `PermissionRequest` (the hall started mid-wait, or an
+older Claude Code) does it work one out: Edit, Write and Bash are the tools that ask, and each one's `PreToolUse` comes
+just before its prompt (the dev's Bash only fired once its Write had finished), so the waiting agent is the running
+subagent that used one last, or the Lead if there is none. With two subagents writing at once this can name the wrong
+one. An `agent_id` wins if Claude Code ever sends one. The cost: a single `PermissionRequest` post lost later in a
+session shows no flag for that wait, which beats naming the wrong agent. The post goes over loopback to a running
+hall, and a hall that restarts forgets the session, so the guess works again.
 
 **It comes late, or not at all.** The docs say it fires when "the prompt has waited about six seconds", and each
 keystroke defers it. Run 3 agrees: it arrived 6.0 s after the Write's `PreToolUse`, while the Bash finished 2.7 s
-after its own and sent none. So a prompt you answer quickly never shows in the hall.
+after its own and sent none. Run 4 is the same: 6.0 s, and none for the Bash answered at once.
 
 **Nothing says you answered.** No hook fires when you approve, so the flag clears at that agent's next event: its
 next tool call or its `SubagentStop`. During a long Bash command it stays up after you approved.
 
-**`idle_prompt` has not fired in any run, so `map.ts` still maps it from the docs (Lead `needs-you`).** The docs
-say "Claude finished responding about 60 seconds ago and you haven't typed since", and that a background agent
-still running suppresses it. Run 3 quit 15 s after the Lead's last turn, and run 2 at 62 s, where the typing to
-quit may have reset the timer.
+**`idle_prompt` is not a wait for approval.** It fired 60.008 s after the final `Stop` (run 4), with the Lead's
+`agent_type`, no `agent_id` and the message "Claude is waiting for your input". The docs say a background agent
+still running suppresses it. The Lead has finished and Claude Code waits for your next message, so `map.ts` sends
+`awaiting-prompt`, which flags nobody: the status line says so in calm text, with no banner, chip or announcement.
+Run 3 quit 15 s after the Lead's last turn and run 2 at 62 s, where the typing to quit may have reset the timer.
 
 **Why run 2 had no `permission_prompt`:** it ran in `auto`, which approved the Backend dev's Bash without asking.
 Since Claude Code 2.1.283, `auto` is the built-in start mode for interactive terminal and VS Code sessions, and
@@ -260,17 +286,27 @@ Before this was handled, run 2 fed through `allowlist()` and `mapHook()` replace
 3. **An Agent call and its `SubagentStart` can race.** They fired in the same millisecond. A card created or linked
    for a run that is already going now goes straight to In progress, so it can't sit at Todo while the dev works.
 
+## What run 4 changed
+
+1. **`PermissionRequest` replaces the guess.** It carries the asking subagent's `agent_id` and comes 6 s before
+   `permission_prompt`, which now adds nothing once a `PermissionRequest` has arrived in the session. Quick answers show too.
+2. **`idle_prompt` no longer flags the Lead.** It means the Lead is waiting for your next message. The Lead's
+   "needs you" wording is gone: `needs-you` now always means an approval.
+3. **Event times are the time of day.** The hall stamps events with `Date.now()` rather than ms since it started,
+   so the activity feed can show HH:MM:SS.
+4. **Free text cut at its cap ends with "…"**, which counts towards the cap.
+
 ## What `send.mjs` forwards
 
-Only these fields go to the hall server, checked against all 77 payloads of the three runs (no path, file content
+Only these fields go to the hall server, checked against all 105 payloads of the four runs (no path, file content
 or command got through):
 
 - `hook_event_name`, `session_id`, `agent_id`, `agent_type`, `tool_name`, `tool_use_id`,
   `notification_type`, `source`, `reason` (a `Notification`'s `message` stays behind: the type is all the hall
   needs)
 - Free text: `prompt` (120 characters), `last_assistant_message` (200) and the Agent call's `description`
-  (120). The Backend dev's last message quoted the full path of the file it wrote, so free text is scrubbed
-  before it is capped:
+  (120); cut text ends with "…". The Backend dev's last message quoted the full path of the file it wrote, so free
+  text is scrubbed before it is capped:
   - the home folder becomes `~` in every spelling: `C:\Users\<name>`, `C:/Users/<name>`,
     `/c/Users/<name>`, any case, whole folder names only;
   - key-shaped strings become `[redacted]`: `sk-ant-…`, `ghp_` / `gho_` / `ghu_` / `ghs_` / `ghr_…`,
@@ -308,37 +344,10 @@ world-of-agents:designer, world-of-agents:frontend, world-of-agents:reviewer`, a
 values back (each `<redacted>` becomes a unique sentinel, each placeholder path a real one under a test home
 folder) and checks that no sentinel, home folder spelling or path field comes out. It also pins the
 `<task-notification>` detection on runs 1 and 3, the hand-back detection and the tag safety net on run 2, and
-covers the home-folder and key scrubbing. `server/map.test.ts` plays all three runs through `allowlist()` and
+covers the home-folder and key scrubbing. `server/map.test.ts` plays all four runs through `allowlist()` and
 `mapHook()`.
 
 ## Still to capture
-
-**`PermissionRequest` and `idle_prompt`, in one run.** Start it in `default` as run 3 was; an interactive session
-otherwise starts in `auto`, which approves without asking. `default` is the config value (what hooks report in
-`permission_mode`); Claude Code shows it as Manual and also accepts `manual`. Use a repo with this `hooks.json`:
-
-```bash
-cd <a scratch git repo>
-WOA_CAPTURE=1 CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1 claude --plugin-dir "<repo>/plugin" --agent world-of-agents:lead --permission-mode default
-```
-
-1. Ask for run 3's task: "Ask the backend dev to create server.js with a tiny hello-world HTTP server, then run
-   node --check server.js on it."
-2. At the first approval prompt, **type nothing for 10 s**, then approve, so `permission_prompt` fires as well.
-   Each keystroke defers it. Answer any later prompt at once.
-3. Wait for the Lead's final report, with no subagent still running: a background agent suppresses `idle_prompt`.
-   Then **type nothing for two minutes**. Run 3 quit after 15 s and run 2 after 62 s.
-4. Before quitting, run `ls ~/.world-of-agents/capture` in another terminal. It should list at least one
-   `*-PermissionRequest.json` and two `*-Notification.json`. If it is empty, the plugin's hooks didn't run (check
-   `/hooks` in that session) or `WOA_CAPTURE=1` wasn't set in that shell.
-
-The capture has to answer:
-
-- Does `PermissionRequest` carry the waiting subagent's `agent_id` and `agent_type`? If it does, it replaces the
-  last-writer guess, and the later `permission_prompt` should stop guessing over it.
-- Does it land after that tool's `PreToolUse`? Each hook is its own process. If `PreToolUse` lands second, its
-  `writing` overwrites the flag until the `permission_prompt` 6 s later.
-- What does `idle_prompt` carry, and does the Lead's `needs-you` from it clear when you type?
 
 **`StopFailure`, and a `<task-notification>` other than `completed`.** These need an API error or a failed or
 killed subagent, so they may stay uncaptured. Both are mapped from the docs and hand-built tests. Whether a

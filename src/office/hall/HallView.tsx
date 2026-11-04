@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { AgentId } from '../../events/schema';
-import { pixelScale } from '../../pixel/scale';
+import { fitPixelScale, pixelScale } from '../../pixel/scale';
 import { spriteSize } from '../../pixel/sprite';
 import { workingCount, type Message, type OfficeState } from '../../state/office';
 import { ROSTER } from '../roster';
@@ -23,7 +23,7 @@ import { SPEECH_MS, clip, smallTalk } from './talk';
 import { FETCH_SPOTS } from './walk';
 import { restingWalkers, sendTo, step, walkerAt } from './walkers';
 
-/** CSS pixels per art pixel we aim for, as in the design. The real scale is rounded so pixels stay crisp. */
+/** CSS pixels per art pixel until the room is measured, as in the design. Rounded so pixels stay crisp. */
 const TARGET_SCALE = 2;
 
 function currentDpr(): number {
@@ -45,6 +45,7 @@ const prefersReducedMotion = () => window.matchMedia(REDUCED_MOTION).matches;
  * `run` changes on Restart, which puts every agent back at its rest spot at once.
  * Each agent has a button over it; `selected` is the one the agent panel shows.
  * `live`: the office comes from a real run. `hushed`: its messages are old news (a replay), so nobody says them.
+ * `room`: the CSS px the hall may fill (useStage).
  */
 export function HallView({
   office,
@@ -53,6 +54,7 @@ export function HallView({
   onSelect,
   live = false,
   hushed = false,
+  room = null,
 }: {
   office: OfficeState;
   run: number;
@@ -60,13 +62,22 @@ export function HallView({
   onSelect: (id: AgentId) => void;
   live?: boolean;
   hushed?: boolean;
+  room?: { width: number; height: number } | null;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dpr, setDpr] = useState(currentDpr);
   const reducedMotion = useSyncExternalStore(subscribeReducedMotion, prefersReducedMotion);
   const stations = useMemo(() => hallStations(), []);
   // Memoised: the frame loop restarts whenever `scale` changes, so it must only change with the screen.
-  const scale = useMemo(() => pixelScale(HALL.width, HALL.height, TARGET_SCALE, dpr), [dpr]);
+  const roomWidth = room?.width;
+  const roomHeight = room?.height;
+  const scale = useMemo(
+    () =>
+      roomWidth !== undefined && roomHeight !== undefined
+        ? fitPixelScale(HALL.width, HALL.height, roomWidth, roomHeight, dpr)
+        : pixelScale(HALL.width, HALL.height, TARGET_SCALE, dpr),
+    [roomWidth, roomHeight, dpr],
+  );
   const cssPerArtPixel = scale.cssWidth / HALL.width;
 
   // Effects write these, the frame loop reads them.

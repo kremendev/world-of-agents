@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { request, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -277,6 +277,16 @@ describe('GET /api/events', () => {
     expect(page.events).toMatchObject([{ type: 'reset' }]);
   });
 
+  it('stamps each event with the time of day: the activity feed shows it as HH:MM:SS', async () => {
+    const page = await subscribe();
+    const before = Date.now();
+    await post(first);
+    await until(() => page.events.length === 1);
+    page.close();
+    expect(page.events[0]!.at).toBeGreaterThanOrEqual(before);
+    expect(page.events[0]!.at).toBeLessThanOrEqual(Date.now());
+  });
+
   it('marks the end of the replay with a named event, which browsers do not deliver as a message', async () => {
     const raw = (): Promise<string> =>
       new Promise((done, fail) => {
@@ -358,6 +368,32 @@ describe('a new Claude Code session', () => {
     await until(() => late.events.length === 3);
     late.close();
     expect(late.events.map((e) => e.type)).toEqual(['reset', 'run', 'state']);
+  });
+});
+
+describe('the favicon', () => {
+  const REPO = join(import.meta.dirname, '..');
+  const svg = readFileSync(join(REPO, 'public', 'favicon.svg'), 'utf8');
+
+  it('is linked from the page', () => {
+    expect(readFileSync(join(REPO, 'index.html'), 'utf8')).toContain(
+      '<link rel="icon" type="image/svg+xml" href="/favicon.svg" />',
+    );
+  });
+
+  it('is small pixel art: a 16x16 grid of plain filled paths, crisp, with nothing that can run', () => {
+    expect(svg).toContain('viewBox="0 0 16 16"');
+    expect(svg).toContain('shape-rendering="crispEdges"');
+    expect(svg.length).toBeLessThan(4096);
+    expect([...new Set(svg.match(/<[a-z]+/g))].sort()).toEqual(['<path', '<svg']);
+    expect(svg).not.toMatch(/\son\w+=|href|javascript:/i);
+  });
+
+  it('is served as an SVG', async () => {
+    writeFileSync(join(dist, 'favicon.svg'), svg);
+    const reply = await call({ path: '/favicon.svg' });
+    expect(reply.status).toBe(200);
+    expect(reply.headers['content-type']).toBe('image/svg+xml');
   });
 });
 

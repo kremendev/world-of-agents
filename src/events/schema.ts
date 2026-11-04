@@ -95,6 +95,12 @@ const sessionEndEvent = z.strictObject({
   at: timestamp,
 });
 
+/** v2: the Lead has finished and Claude Code waits for your next message. Nothing needs approving. */
+const awaitingPromptEvent = z.strictObject({
+  type: z.literal('awaiting-prompt'),
+  at: timestamp,
+});
+
 export const officeEventSchema = z.discriminatedUnion('type', [
   stateEvent,
   taskEvent,
@@ -103,6 +109,7 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   resetEvent,
   runEvent,
   sessionEndEvent,
+  awaitingPromptEvent,
 ]);
 
 export type AgentId = z.infer<typeof agentId>;

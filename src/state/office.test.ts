@@ -6,7 +6,6 @@ import {
   MAX_LOG,
   MAX_TASKS,
   doneCount,
-  logFor,
   officeReducer,
   workingCount,
   type OfficeState,
@@ -189,35 +188,32 @@ describe('activity log', () => {
     expect(next.log).toHaveLength(MAX_LOG);
     expect(next.log[0]).toMatchObject({ text: 'm3' });
   });
-
-  it('gives each agent only its own events, newest first: its state changes and messages it sent or got', () => {
-    const next = apply([
-      { type: 'state', agent: 'backend', state: 'reading', at: 0 },
-      { type: 'state', agent: 'designer', state: 'writing', at: 1 },
-      say('designer', 'lead', 'Not for the backend'),
-      say('lead', 'backend', 'For the backend'),
-      say('backend', 'you', 'From the backend'),
-      { type: 'state', agent: 'backend', state: 'writing', at: 2 },
-    ]);
-    expect(logFor(next, 'backend').map((e) => (e.kind === 'state' ? e.state : e.text))).toEqual([
-      'writing',
-      'From the backend',
-      'For the backend',
-      'reading',
-    ]);
-    expect(logFor(INITIAL_OFFICE, 'backend')).toEqual([]);
-  });
-
-  it('never reorders the log it reads from', () => {
-    const next = apply([message('a'), message('b')]);
-    logFor(next, 'lead');
-    expect(next.log.map((e) => (e.kind === 'message' ? e.text : ''))).toEqual(['a', 'b']);
-  });
 });
 
 describe('doneCount', () => {
   it('counts the tasks that are done', () => {
     expect(doneCount(INITIAL_OFFICE)).toBe(0);
     expect(doneCount(apply([task('a', 'done'), task('b'), task('c', 'done')]))).toBe(2);
+  });
+});
+
+describe('officeReducer on awaiting-prompt', () => {
+  const awaiting = officeReducer(INITIAL_OFFICE, { type: 'awaiting-prompt', at: 1 });
+
+  it('starts off, and turns on without touching any agent', () => {
+    expect(INITIAL_OFFICE.awaitingPrompt).toBe(false);
+    expect(awaiting.awaitingPrompt).toBe(true);
+    expect(awaiting.agents).toBe(INITIAL_OFFICE.agents);
+    expect(awaiting.log).toBe(INITIAL_OFFICE.log);
+  });
+
+  it('turns off when the Lead does anything', () => {
+    const next = officeReducer(awaiting, { type: 'state', agent: 'lead', state: 'thinking', at: 2 });
+    expect(next.awaitingPrompt).toBe(false);
+  });
+
+  it('stays on while another agent works: the Lead is still waiting for you', () => {
+    const next = officeReducer(awaiting, { type: 'state', agent: 'backend', state: 'writing', at: 2 });
+    expect(next.awaitingPrompt).toBe(true);
   });
 });

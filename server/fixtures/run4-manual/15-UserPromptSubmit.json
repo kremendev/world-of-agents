@@ -1,0 +1,11 @@
+{
+  "session_id": "00000000-0000-4000-8000-000000000004",
+  "transcript_path": "<home>/.claude/projects/<project>/<session>.jsonl",
+  "cwd": "<project>",
+  "scratchpad_dir": "<tmp>/claude/<project>/<session>/scratchpad",
+  "prompt_id": "44522a6c-c85e-4313-a221-32a5de3180f0",
+  "permission_mode": "default",
+  "agent_type": "world-of-agents:lead",
+  "hook_event_name": "UserPromptSubmit",
+  "prompt": "<task-notification>\n<task-id>a828fc4ca5bd15328</task-id>\n<tool-use-id>toolu_016P8bZshhC2QkzZSfvn9ycs</tool-use-id>\n<output-file><redacted></output-file>\n<status>completed</status>\n<summary>Agent \"Create hello-world server.js\" finished</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n<result><redacted></result>\n<usage><subagent_tokens>11581</subagent_tokens><tool_uses>2</tool_uses><duration_ms>31763</duration_ms></usage>\n</task-notification>"
+}

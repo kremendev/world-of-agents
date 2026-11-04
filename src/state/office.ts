@@ -22,6 +22,8 @@ export type OfficeState = {
   runText: string | null;
   /** v2: the Claude Code session closed. A reset clears it. */
   sessionEnded: boolean;
+  /** v2: the Lead has finished and Claude Code waits for your next message. Anything the Lead does next clears it. */
+  awaitingPrompt: boolean;
 };
 
 /** Keeps a long run from growing the message list without limit. The oldest messages go first. */
@@ -42,6 +44,7 @@ export const INITIAL_OFFICE: OfficeState = {
   log: [],
   runText: null,
   sessionEnded: false,
+  awaitingPrompt: false,
 };
 
 const logged = (state: OfficeState, entry: LogEntry) => [...state.log, entry].slice(-MAX_LOG);
@@ -54,6 +57,7 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
       return {
         ...state,
         agents: { ...state.agents, [agent]: { state: agentState, taskId, copies } },
+        awaitingPrompt: state.awaitingPrompt && agent !== 'lead',
         log: logged(state, { kind: 'state', agent, state: agentState, taskId, at }),
       };
     }
@@ -83,18 +87,13 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
       return { ...state, runText: event.text };
     case 'session-end':
       return { ...state, sessionEnded: true };
+    case 'awaiting-prompt':
+      return { ...state, awaitingPrompt: true };
   }
 }
 
 /** How many tasks are done. */
 export const doneCount = (state: OfficeState) => state.tasks.filter((t) => t.status === 'done').length;
-
-/** One agent's activity, newest first: its own state changes and the messages it sent or got. */
-export function logFor(state: OfficeState, agent: AgentId): LogEntry[] {
-  return state.log
-    .filter((e) => (e.kind === 'state' ? e.agent === agent : e.from === agent || e.to === agent))
-    .reverse();
-}
 
 const WORKING: ReadonlySet<AgentState> = new Set(['thinking', 'reading', 'writing']);
 

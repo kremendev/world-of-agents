@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
-import { MAX_LINE, finalReport, shortLine, whoIsWaiting } from './announce';
+import { MAX_LINE, finalReport, shortLine, whoIsWaiting, withoutMarkers } from './announce';
 
 describe('shortLine', () => {
   const pad = (n: number) => 'x'.repeat(n);
@@ -111,14 +111,29 @@ describe('finalReport', () => {
   });
 });
 
+describe('withoutMarkers', () => {
+  it('takes out code and bold markers, and keeps the words', () => {
+    expect(withoutMarkers('Run `npm test` then **ship it**.')).toBe('Run npm test then ship it.');
+  });
+
+  it('takes out a marker left alone by a cut at the cap', () => {
+    expect(withoutMarkers('Line 1 is the only import, `req…')).toBe('Line 1 is the only import, req…');
+    expect(withoutMarkers('**Built-in only…')).toBe('Built-in only…');
+  });
+
+  it('leaves a single star alone', () => {
+    expect(withoutMarkers('2 * 3 = 6')).toBe('2 * 3 = 6');
+  });
+});
+
 describe('whoIsWaiting', () => {
-  it('asks for approval from a dev, and only "needs you" from the Lead', () => {
+  it('asks for approval, from the Lead as from a dev: only approval waits flag an agent', () => {
     const run = [
       { type: 'state', agent: 'lead', state: 'needs-you', at: 0 },
       { type: 'state', agent: 'backend', state: 'needs-you', at: 0 },
     ] as const;
     expect(whoIsWaiting(run.reduce(officeReducer, INITIAL_OFFICE))).toEqual([
-      'Lead/PM needs you in Claude Code',
+      'Lead/PM needs your approval in Claude Code',
       'Backend dev needs your approval in Claude Code',
     ]);
   });
