@@ -272,8 +272,9 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    prints an error every 5 s when no hall is running (a hall dying mid-stream still prints).
 
 5. v3 (docs/v3-brief.md). Milestone 0: v2 is released as the `v2.0.0` tag and GitHub release. The repo is its own
-   marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents`, and its
-   `settings.json` makes the Lead the main agent. The `v2.0.0` tag holds no marketplace file, so it can't be pinned with
-   `#v2.0.0`. Waiting for Dima's test of the install in the desktop app.
+   marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents#v2.1.0`, and
+   its `settings.json` makes the Lead the main agent. `v2.1.0` is the first release with a marketplace file; `v2.0.0` has
+   none, so it can't be pinned. Milestone 0's done-when, the install through the desktop app's Add plugins, is still
+   unconfirmed.
 
 Next: milestone 1 in docs/v3-brief.md (spike: prove the platform).

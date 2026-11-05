@@ -73,13 +73,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents
+/plugin marketplace add kremendev/world-of-agents#v2.1.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents
+claude plugin marketplace add kremendev/world-of-agents#v2.1.0
 ```
 
 **2. Install it for one project only.** Use any one of these:
