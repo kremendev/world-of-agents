@@ -101,6 +101,8 @@ prompt when it's narrower. The same pane works in the terminal and in VS Code.
   guessing from hook timing.
 - **Who needs you**, taken from the `agentId` on `tool.check`. You still answer in Claude Code's own permission prompt, which a
   mod can't change.
+- **A warning when the session runs in `auto`**, because nothing asks for your approval then. The pane only warns: it never changes
+  the mode itself.
 - **Tasks** in progress and done.
 - **Usage**: context used and plan limits. See the token ledger.
 - **Buttons**: "Open hall", mute, and a few preset prompts such as "Plan the next milestone", "Run the quality check" and "Review
@@ -253,7 +255,10 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
    - `$.audio.speak` talks on Windows;
    - `$.process.spawn` can start the hall, and a `Link` to `http://localhost:4319` opens it;
    - whether a mod can tell which account is logged in;
-   - an `Agent(...)` list really restricts a subagent, and depth 2 works.
+   - an `Agent(...)` list really restricts a subagent, and depth 2 works;
+   - whether the desktop app applies `permissions.defaultMode` set to `default` and `env` with
+     `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2` from a project's `.claude/settings.local.json`, since a plugin can set neither;
+   - whether a pane can tell a session runs in `auto`, so it can warn. It never changes the mode itself.
    - Done when: `docs/v3-spike.md` records a real answer for each, with a go or no-go per feature.
 2. **Team pane and voice.** Everything under "The team pane and voice", plus the prebuilt hall inside the plugin. Done when: from
    opening a project in the desktop app to watching a run in the hall, you never touch a terminal.
