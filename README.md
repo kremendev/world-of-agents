@@ -66,6 +66,40 @@ Type your task in Claude Code, and the hall follows it. You approve edits and co
 
 Press Ctrl+C in terminal 1 to stop the hall.
 
+## Install as a plugin
+
+`woa` is for the terminal. To use the team in the Claude desktop app, or in any Claude Code session, install the plugin. You still need the setup above and `npm run hall` running, because the plugin only reports to the hall.
+
+**1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
+
+```text
+/plugin marketplace add kremendev/world-of-agents
+```
+
+Or in a terminal:
+
+```bash
+claude plugin marketplace add kremendev/world-of-agents
+```
+
+**2. Install it for one project only.** Use any one of these:
+
+- **Desktop app:** open the project in the Code tab. Click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Browse plugins**). Select `world-of-agents` and choose the local-only scope.
+- **Claude Code session in the project:** run `/plugin install world-of-agents@world-of-agents` and choose **Install for you, in this repo only**.
+- **Terminal, in the project folder:** run `claude plugin install world-of-agents@world-of-agents --scope local`.
+
+**Don't choose user scope.** The Lead/PM becomes the main agent wherever the plugin is enabled, so every session in every project would start as the Lead and report to the hall. Project scope is only for a team: it writes to `.claude/settings.json`, which you commit, and turns the plugin on for everyone who clones the repo.
+
+**3. Check the permission mode says Manual.** The selector is under the prompt box. `woa` always starts in Manual, but an installed plugin can't choose a mode. In Auto, nothing asks for your approval, so the hall never shows "needs you".
+
+To remove the plugin, run this in the project folder:
+
+```bash
+claude plugin uninstall world-of-agents@world-of-agents --scope local
+```
+
+You can still run `woa` in a project that has the plugin. For that session, `woa`'s copy replaces the installed one, so nothing loads twice.
+
 ## What the hall shows
 
 - The Lead/PM walks to the dashboard, and each task it hands out becomes a card.
@@ -87,7 +121,7 @@ Press Ctrl+C in terminal 1 to stop the hall.
 
 The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles and capped text from your prompt and the agents' messages. It never sends file contents, commands or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
 
-Nothing is installed into your project. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login, and it is deleted when the hall stops.
+`woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login, and it is deleted when the hall stops.
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 
@@ -120,7 +154,7 @@ Hall server, 127.0.0.1:4319: checks token, Host and Origin, turns hooks into eve
 Page: checks every event, draws the hall
 ```
 
-- **Plugin** (`plugin/`): the five agents and the hooks. The Lead runs on Opus and the team on Sonnet. Each agent gets only the tools its job needs, and the Reviewer only reads.
+- **Plugin** (`plugin/`): the five agents and the hooks. The Lead runs on Opus and the team on Sonnet. Each agent gets only the tools its job needs, and the Reviewer only reads. The repo is its own marketplace (`.claude-plugin/marketplace.json`).
 - **Hook script** (`plugin/hooks/send.mjs`): uses Node built-ins only, always exits 0 and prints nothing.
 - **Hall server** (`server/`): plain `node:http`, run with `tsx`. It also serves the page.
 - **Page** (`src/`): React and TypeScript, with the hall drawn on Canvas 2D. Agent text only ever shows as plain text, and a Content-Security-Policy stops the page loading anything but its own files. The demo plays the same events from a script.

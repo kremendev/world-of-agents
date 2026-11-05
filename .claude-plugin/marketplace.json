@@ -1,0 +1,12 @@
+{
+  "name": "world-of-agents",
+  "description": "The World of Agents team: five agents, and hooks that show their work in a pixel-art hall.",
+  "owner": { "name": "Dmitriy Kremen" },
+  "plugins": [
+    {
+      "name": "world-of-agents",
+      "source": "./plugin",
+      "description": "Five agents (Lead/PM, Designer, Frontend dev, Backend dev, Reviewer) and hooks that report what each one does to the Forge Hall on 127.0.0.1."
+    }
+  ]
+}

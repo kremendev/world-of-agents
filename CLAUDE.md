@@ -4,7 +4,8 @@ A pixel-art web app where five AI agents work in a fantasy guild hall, the Forge
 ("Create a dashboard"); the Lead/PM splits it, the agents walk to their desks and visibly work, the Reviewer
 checks the result. v1 plays a scripted run with no AI calls; v2 watches real Claude Code runs: the plugin's
 hooks report what each agent does to a hall server on 127.0.0.1, which sends the page the same events.
-Single user, runs locally, portfolio project.
+v3 (started, `docs/v3-brief.md` is the source of truth) moves it into the Claude desktop app: a mod with a team pane,
+guilds of specialists, a token ledger and scouts. Single user, runs locally, portfolio project.
 
 ## Commands
 
@@ -57,14 +58,16 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
                   quiet-logger.ts: hides the dev proxy's "no hall" error. fixtures/: the recorded runs' hooks, redacted
-plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, agents/ (the five agents' prompts
-                  and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs (allowlists and
-                  scrubs each payload, then posts it to the hall with the token; send.test.ts)
+.claude-plugin/   marketplace.json: the repo is its own marketplace, listing the plugin from ./plugin
+plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
+                  (the five agents' prompts and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs
+                  (allowlists and scrubs each payload, then posts it to the hall with the token; send.test.ts).
+                  An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
                   with a fake claude
 .github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
-docs/             step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run table and security
-                  controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
+docs/             v3-brief.md (the v3 plan and milestones), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures)
 ```
 
@@ -158,6 +161,14 @@ Do not change the look without asking. New ideas go into a later version.
   Lead can start exactly the other four.
 - `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
+- Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
+  project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
+  enabled, so every session everywhere would start as the Lead and report to the hall. An installed plugin can't set a
+  permission mode or an environment variable, so only `woa` forces Manual and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
+- The same project can have the plugin and use `woa`: a `--plugin-dir` copy silently replaces an installed plugin of the
+  same name, so nothing loads twice (tested for milestone 0, with hooks counted and a real hall). Don't add a warning.
+- `version` in `plugin.json` pins installs: people on GitHub get a new copy only when that string changes. Change it with
+  every release. A marketplace added from a local folder loads `plugin/` in place, so it ignores the version.
 - The hall sends `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on every
   response. The Pages build (`VITE_LIVE=false`) carries the same policy as a meta tag, without `frame-ancestors`. Both
   come from `server/csp.ts`. Add only what the page really needs; never `unsafe-inline` or `unsafe-eval`. React's `style`
@@ -198,6 +209,11 @@ Do not change the look without asking. New ideas go into a later version.
 - `npm run check` runs files in parallel, so a busy machine makes CPU-heavy tests several times slower. Playing the whole
   demo in 50 ms slices is about 1,400 renders, which came close to Vitest's 5 s limit. A test that only looks at where a
   moment ends up should pass a bigger slice to `at()`, as App.test's "plays the demo run" does.
+- To test an install without touching the real setup, set `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE` to a temp folder.
+  With no login there, `claude -p` still fires SessionStart, UserPromptSubmit, StopFailure and SessionEnd before it stops,
+  so it spends nothing, and `WOA_CAPTURE=1` counts the hooks. SessionStart's `agent_type` shows the main agent, and
+  `--debug-file` shows which copy loaded. `marketplace add` refuses `file://`; to test the cached copy, serve a bare repo
+  over HTTP through `git http-backend`, because Claude Code clones shallow.
 - `woa.test.ts` needs Git Bash on Windows (it skips under WSL's `bash`) and skips its symlink test where the account
   can't create symlinks. `core.filemode` is false on Windows, so git can't see a lost exec bit: a test checks
   `bin/woa` is 100755 in git. A new launcher needs `git add --chmod=+x`.
@@ -255,4 +271,9 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    and may wrap, because an ellipsis could hide the link. The unused `tokens` event is gone, and the dev proxy no longer
    prints an error every 5 s when no hall is running (a hall dying mid-stream still prints).
 
-Next: milestone 5 in docs/v2-brief.md (polish, optional).
+5. v3 (docs/v3-brief.md). Milestone 0: v2 is released as the `v2.0.0` tag and GitHub release. The repo is its own
+   marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents`, and its
+   `settings.json` makes the Lead the main agent. The `v2.0.0` tag holds no marketplace file, so it can't be pinned with
+   `#v2.0.0`. Waiting for Dima's test of the install in the desktop app.
+
+Next: milestone 1 in docs/v3-brief.md (spike: prove the platform).
