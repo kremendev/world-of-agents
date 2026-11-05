@@ -281,9 +281,10 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    prints an error every 5 s when no hall is running (a hall dying mid-stream still prints).
 
 5. v3 (docs/v3-brief.md). Milestone 0: v2 is released as the `v2.0.0` tag and GitHub release. The repo is its own
-   marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents#v2.1.0`, and
+   marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents#v2.2.0`, and
    its `settings.json` makes the Lead the main agent. `v2.1.0` is the first release with a marketplace file; `v2.0.0` has
-   none, so it can't be pinned. Milestone 0's done-when, the install through the desktop app's Add plugins, is still
-   unconfirmed. The handshake came after `v2.1.0`, so people on that tag don't have it until the next release.
+   none, so it can't be pinned. `v2.2.0` is the first with the handshake. The desktop test passed: installed at local
+   scope with `claude plugin install` in the project, then run in the desktop app's Code tab, the Lead answered and the
+   hall followed the whole run (2 of 2 cards). The permission mode that run had is still to be confirmed.
 
 Next: milestone 1 in docs/v3-brief.md (spike: prove the platform).
