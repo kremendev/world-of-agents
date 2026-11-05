@@ -260,8 +260,13 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
      `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2` from a project's `.claude/settings.local.json`, since a plugin can set neither;
    - whether a pane can tell a session runs in `auto`, so it can warn. It never changes the mode itself.
    - Done when: `docs/v3-spike.md` records a real answer for each, with a go or no-go per feature.
-2. **Team pane and voice.** Everything under "The team pane and voice", plus the prebuilt hall inside the plugin. Done when: from
-   opening a project in the desktop app to watching a run in the hall, you never touch a terminal.
+2. **Team pane and voice.** Everything under "The team pane and voice", plus the prebuilt hall inside the plugin, plus:
+   - **Agents hurry.** If an agent's work starts or ends while it's still walking, it walks at about 2.5x speed.
+   - **Show the work.** At the desk, an agent shows its last working state for at least 3 s before it walks to the rest room.
+     The activity feed keeps the real times.
+   - **No links in agent text.** `AgentText` shows a Markdown link `[text](url)` as the plain "text", never a clickable link.
+   - **The Reviewer reports what it ran.** Its prompt says: report only checks you actually ran with your own tools.
+   - Done when: from opening a project in the desktop app to watching a run in the hall, you never touch a terminal.
 3. **Token ledger.** Everything under "The token ledger", plus the chest in the hall. Done when: the pane's plan-limit numbers
    match claude.ai's usage page, and the backfill test proves no transcript text is stored.
 4. **Big-project tools.** Quality gates, the backlog, plan once and approve once, the safe-command list and the setup skill. Done
