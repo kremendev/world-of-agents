@@ -122,22 +122,24 @@ describe('App', () => {
   });
 
   it('walks agents from the rest room to work and back', () => {
+    // Fine enough to catch an agent mid-walk. At 50 ms this is 1,400 renders, past Vitest's 5 s on a busy machine.
+    const SLICE = 500;
     const app = renderApp();
     for (const id of AGENT_IDS) expect(app.feet(id), id).toEqual(xy(REST_SPOTS[id]));
 
     // The Lead sets off for its desk when the task arrives, and gets there within the step.
-    app.at(stepStart(2) + 1000);
+    app.at(stepStart(2) + 1000, SLICE);
     expect(app.feet('lead')).not.toEqual(xy(REST_SPOTS.lead));
     expect(app.feet('lead')).not.toEqual(xy(SEATS.lead));
-    app.at(stepStart(3));
+    app.at(stepStart(3), SLICE);
     expect(app.feet('lead')).toEqual(xy(SEATS.lead));
 
     // Both orcs are at their desks while they write.
-    app.at(stepStart(5) + 1500);
+    app.at(stepStart(5) + 1500, SLICE);
     expect(app.feet('frontend')).toEqual(xy(SEATS.frontend));
     expect(app.feet('backend')).toEqual(xy(SEATS.backend));
 
-    app.at(stepStart(10));
+    app.at(stepStart(10), SLICE);
     for (const id of AGENT_IDS) expect(app.feet(id), id).toEqual(xy(REST_SPOTS[id]));
   });
 
