@@ -121,7 +121,7 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 
 The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles and capped text from your prompt and the agents' messages. It never sends file contents, commands or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
 
-`woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login, and it is deleted when the hall stops.
+`woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless with `woa`: the hook script posts nothing until the hall proves it holds the token. An installed plugin gets this check in the first release after v2.1.0.
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 

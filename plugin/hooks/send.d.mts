@@ -22,3 +22,9 @@ export type Forwarded = {
 export function homePattern(home: string): RegExp;
 export function text(v: unknown, max: number, home?: string): string | undefined;
 export function allowlist(p: Record<string, unknown>, home?: string): Forwarded;
+export function handshakeAnswer(token: string, nonce: string): string;
+export function deliver(
+  forwarded: Forwarded,
+  token: string,
+  options?: { hall?: string; timeoutMs?: number },
+): Promise<boolean>;

@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -15,6 +15,8 @@ export const PORT = 4319;
 export const MAX_BODY = 64 * 1024;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
+/** What send.mjs sends to the handshake: 32 random bytes as base64url. Anything else is not a handshake. */
+const NONCE = /^[A-Za-z0-9_-]{43}$/;
 
 /** Every response: never cached, never sniffed into another type, no referrer. No CORS headers, ever. */
 const BASE_HEADERS = {
@@ -69,8 +71,8 @@ function readBody(req: IncomingMessage): Promise<string | null> {
 const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLowerCase() === 'application/json';
 
 /**
- * The hall server: POST /api/hook (from send.mjs), GET /api/events (Server-Sent Events for the page),
- * GET /api/health, and the built page from `dist`. Events live in memory only; it starts and runs nothing.
+ * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), GET /api/events (Server-Sent Events for the
+ * page), GET /api/health, and the built page from `dist`. Events live in memory only; it starts and runs nothing.
  * `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
  */
 export function createHall({
@@ -100,6 +102,25 @@ export function createHall({
     const sent = /^Bearer ([A-Za-z0-9_-]+)$/.exec(header ?? '')?.[1];
     // Hashing both sides gives timingSafeEqual two buffers of the same length, whatever was sent.
     return sent !== undefined && timingSafeEqual(digest(sent), expected);
+  }
+
+  /**
+   * send.mjs asks this before it posts: only a hall that holds the token can answer HMAC-SHA256(token, nonce). It needs
+   * no token of its own, because send.mjs won't send one until it has the answer, and the answer can't give the token away.
+   */
+  async function handshake(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.headers.origin !== undefined) return reply(res, 403);
+    if (!isJson(req.headers['content-type'])) return reply(res, 415);
+    const body = await readBody(req);
+    if (body === null) return reply(res, 413);
+    let nonce: unknown;
+    try {
+      nonce = (JSON.parse(body) as { nonce?: unknown } | null)?.nonce;
+    } catch {
+      return reply(res, 400);
+    }
+    if (typeof nonce !== 'string' || !NONCE.test(nonce)) return reply(res, 400);
+    reply(res, 200, { answer: createHmac('sha256', token).update(nonce).digest('base64url') });
   }
 
   async function hook(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -161,6 +182,7 @@ export function createHall({
     if (!hosts.has(req.headers.host?.toLowerCase() ?? '')) return reply(res, 403);
     const path = new URL(req.url ?? '/', 'http://hall').pathname;
     const method = req.method ?? '';
+    if (path === '/api/handshake') return method === 'POST' ? handshake(req, res) : reply(res, 405);
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
     if (path === '/api/events') return method === 'GET' ? events(req, res) : reply(res, 405);
     if (path === '/api/health') return method === 'GET' ? reply(res, 200, { ok: true }) : reply(res, 405);

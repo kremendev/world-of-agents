@@ -5,16 +5,23 @@
 // the reply away. It prints nothing and always exits 0, so it can never send Claude Code a decision.
 // Node built-ins only, so the plugin needs no npm install. No token file or no server: it does nothing.
 //
+// A token file proves nothing about who holds the port: a shutdown can leave one behind with no hall running. So before
+// it posts, it sends a random nonce and the hall must answer HMAC-SHA256(token, nonce). Anything else on the port gets
+// that nonce and nothing more: no token, no hook text. The answer is only compared, never printed.
+//
 // WOA_CAPTURE=1 also saves the raw payload to ~/.world-of-agents/capture/ (milestone 1 only). Raw payloads
 // hold file contents and commands: redact them before they go anywhere near a repo.
 
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const HALL_URL = 'http://127.0.0.1:4319/api/hook';
+const HALL = 'http://127.0.0.1:4319';
 const TIMEOUT_MS = 800;
 const MAX_STDIN = 5 * 1024 * 1024;
+/** The hall's answer is under 100 bytes. Whatever sends more is not the hall, and must not fill the memory. */
+const MAX_ANSWER = 1024;
 const HOME_DIR = join(homedir(), '.world-of-agents');
 
 /** The only tool whose input and response fields we forward. Every other tool sends just its name. */
@@ -170,6 +177,60 @@ function readToken() {
   }
 }
 
+/** What the hall must answer for this nonce. Only something that holds the token can work it out. */
+export const handshakeAnswer = (token, nonce) =>
+  createHmac('sha256', token).update(nonce).digest('base64url');
+
+/** Does whatever holds the port know the token? The request carries only a random nonce, never the token. */
+async function hallKnowsToken(hall, token, signal) {
+  const nonce = randomBytes(32).toString('base64url');
+  const res = await fetch(`${hall}/api/handshake`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nonce }),
+    redirect: 'error',
+    signal,
+  });
+  if (!res.ok) {
+    await res.body?.cancel();
+    return false;
+  }
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of res.body ?? []) {
+    size += chunk.length;
+    if (size > MAX_ANSWER) return false;
+    chunks.push(chunk);
+  }
+  const answer = JSON.parse(Buffer.concat(chunks).toString('utf8'))?.answer;
+  if (typeof answer !== 'string') return false;
+  const got = Buffer.from(answer);
+  const expected = Buffer.from(handshakeAnswer(token, nonce));
+  return got.length === expected.length && timingSafeEqual(got, expected);
+}
+
+/**
+ * Posts to the hall once it has proved itself, and says whether it did. Never throws. Both requests share one time limit,
+ * and neither follows a redirect: a redirect would hand the hook text to wherever a server on the port points it.
+ */
+export async function deliver(forwarded, token, { hall = HALL, timeoutMs = TIMEOUT_MS } = {}) {
+  const signal = AbortSignal.timeout(timeoutMs);
+  try {
+    if (!(await hallKnowsToken(hall, token, signal))) return false;
+    const res = await fetch(`${hall}/api/hook`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(forwarded),
+      redirect: 'error',
+      signal,
+    });
+    await res.body?.cancel(); // the reply is never read
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function main() {
   const raw = await readStdin();
   if (!raw) return;
@@ -179,16 +240,10 @@ async function main() {
 
   const token = readToken();
   if (!token) return;
-  const res = await fetch(HALL_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-    body: JSON.stringify(allowlist(payload)),
-    signal: AbortSignal.timeout(TIMEOUT_MS),
-  });
-  await res.body?.cancel(); // the reply is never read
+  await deliver(allowlist(payload), token);
 }
 
-// Run only as a script, so tests can import allowlist().
+// Run only as a script, so tests can import its functions.
 if (process.argv[1]?.endsWith('send.mjs')) {
   process.on('uncaughtException', () => process.exit(0));
   process.on('unhandledRejection', () => process.exit(0));

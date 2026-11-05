@@ -1,8 +1,10 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { request, type IncomingHttpHeaders } from 'node:http';
+import { createServer as createNetServer, type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { allowlist, deliver, handshakeAnswer } from '../plugin/hooks/send.mjs';
 import { AGENT_IDS, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../src/state/office';
 import { createHall, listen, MAX_BODY, REPLAY, type Hall } from './hall';
@@ -184,8 +186,122 @@ describe('POST /api/hook', () => {
   });
 });
 
+describe('POST /api/handshake', () => {
+  const NONCE = 'n'.repeat(43);
+  const ask = (body: unknown, headers: Record<string, string> = {}) =>
+    call({
+      method: 'POST',
+      path: '/api/handshake',
+      headers: { ...json, ...headers },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+
+  it('answers HMAC-SHA256(token, nonce), with no token asked for and none given away', async () => {
+    const reply = await ask({ nonce: NONCE });
+    expect(reply.status).toBe(200);
+    expect(JSON.parse(reply.body)).toEqual({ answer: handshakeAnswer(TOKEN, NONCE) });
+    expect(reply.body).not.toContain(TOKEN);
+    expect(JSON.stringify(reply.headers)).not.toContain(TOKEN);
+  });
+
+  it('gives a different answer for a different nonce', async () => {
+    const other = await ask({ nonce: 'm'.repeat(43) });
+    expect(JSON.parse(other.body)).not.toEqual({ answer: handshakeAnswer(TOKEN, NONCE) });
+  });
+
+  it('403 with an Origin: a web page has no business asking', async () => {
+    expect((await ask({ nonce: NONCE }, { Origin: 'https://evil.example' })).status).toBe(403);
+  });
+
+  it('415 unless it is JSON', async () => {
+    const reply = await call({
+      method: 'POST',
+      path: '/api/handshake',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ nonce: NONCE }),
+    });
+    expect(reply.status).toBe(415);
+  });
+
+  it('413 over the size limit', async () => {
+    expect((await ask({ nonce: 'x'.repeat(MAX_BODY) })).status).toBe(413);
+  });
+
+  it.each<[string, unknown]>([
+    ['no nonce', {}],
+    ['a short nonce', { nonce: 'n'.repeat(42) }],
+    ['a long nonce', { nonce: 'n'.repeat(44) }],
+    ['a nonce with other characters', { nonce: `${'n'.repeat(42)}!` }],
+    ['a nonce that is not a string', { nonce: 7 }],
+    ['JSON null', null],
+    ['broken JSON', '{"nonce":'],
+  ])('400 for %s: it signs only what a handshake sends', async (_, body) => {
+    const reply = await ask(body);
+    expect(reply.status).toBe(400);
+    expect(reply.body).toBe('');
+  });
+
+  it('changes nothing: asking is not a hook', async () => {
+    const page = await subscribe();
+    await ask({ nonce: NONCE });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(page.events).toEqual([]);
+    page.close();
+  });
+});
+
+describe('send.mjs and a real hall', () => {
+  const freePort = () =>
+    new Promise<number>((done) => {
+      const probe = createNetServer().listen(0, '127.0.0.1', () => {
+        const { port: free } = probe.address() as AddressInfo;
+        probe.close(() => done(free));
+      });
+    });
+
+  /** What a page connecting now would be replayed. */
+  async function replayFrom(url: string): Promise<string> {
+    const stop = new AbortController();
+    const res = await fetch(`${url}/api/events`, { signal: stop.signal });
+    let text = '';
+    for await (const chunk of res.body!) {
+      text += Buffer.from(chunk).toString('utf8');
+      if (text.includes('event: replayed')) break;
+    }
+    stop.abort();
+    return text;
+  }
+
+  // The hall checks its Host against the port, so these listen on the port they were made for.
+  async function hallOn(token: string) {
+    const free = await freePort();
+    const other = createHall({ token, port: free, dist });
+    await listen(other, free);
+    return { url: `http://127.0.0.1:${free}`, close: () => other.close() };
+  }
+
+  it('the handshake passes, and the hook reaches the hall', async () => {
+    const real = await hallOn(TOKEN);
+    expect(await deliver(allowlist(first), TOKEN, { hall: real.url, timeoutMs: 10_000 })).toBe(true);
+    expect(await replayFrom(real.url)).toContain('"type":"reset"');
+    await real.close();
+  });
+
+  it('a token file left over from another hall: the handshake fails, and nothing is posted', async () => {
+    const real = await hallOn(newToken());
+    expect(await deliver(allowlist(first), TOKEN, { hall: real.url, timeoutMs: 10_000 })).toBe(false);
+    expect(await replayFrom(real.url)).not.toContain('"type"');
+    await real.close();
+  });
+
+  it('a post with no handshake still works on the token alone: a plugin pinned to v2.1.0 posts that way', async () => {
+    expect((await post(first)).status).toBe(204);
+  });
+});
+
 describe('every route', () => {
   const routes = [
+    ['POST', '/api/handshake'],
     ['POST', '/api/hook'],
     ['GET', '/api/events'],
     ['GET', '/api/health'],
@@ -224,6 +340,7 @@ describe('every route', () => {
       ['GET', '/api/hook'],
       ['OPTIONS', '/api/hook'],
       ['POST', '/api/events'],
+      ['GET', '/api/handshake'],
       ['DELETE', '/api/health'],
       ['POST', '/'],
     ]) {
@@ -237,6 +354,7 @@ describe('every route', () => {
       await post(first),
       await post(first, { Origin: 'https://evil.example' }),
       await call({ method: 'OPTIONS', path: '/api/hook', headers: { Origin: 'https://evil.example' } }),
+      await call({ method: 'OPTIONS', path: '/api/handshake', headers: { Origin: 'https://evil.example' } }),
       await call({ path: '/api/health' }),
       await call({ path: '/' }),
       page,
@@ -256,6 +374,12 @@ describe('every route', () => {
       health: await call({ path: '/api/health' }),
       stream: page,
       hook: await post(first),
+      handshake: await call({
+        method: 'POST',
+        path: '/api/handshake',
+        headers: json,
+        body: JSON.stringify({ nonce: 'n'.repeat(43) }),
+      }),
       noToken: await post(first, { Authorization: 'Bearer wrong' }),
       withOrigin: await post(first, { Origin: 'https://evil.example' }),
       wrongHost: await call({ path: '/', host: 'evil.example' }),

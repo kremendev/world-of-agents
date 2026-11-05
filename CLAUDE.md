@@ -53,7 +53,7 @@ src/live/         Live mode: hall.ts (health check, EventSource with its own rec
                   message), useLiveHall.ts (status, office, the 5 s re-check in Demo), announce.ts (what the
                   aria-live region says, cut at the last full sentence)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
-                  /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
+                  /api/handshake, POST /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
@@ -61,7 +61,8 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
 .claude-plugin/   marketplace.json: the repo is its own marketplace, listing the plugin from ./plugin
 plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
                   (the five agents' prompts and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs
-                  (allowlists and scrubs each payload, then posts it to the hall with the token; send.test.ts).
+                  (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with the token;
+                  send.test.ts, handshake.test.ts).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
                   with a fake claude
@@ -165,6 +166,11 @@ Do not change the look without asking. New ideas go into a later version.
   project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
   enabled, so every session everywhere would start as the Lead and report to the hall. An installed plugin can't set a
   permission mode or an environment variable, so only `woa` forces Manual and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
+- `send.mjs` doesn't trust the token file, because a PC shutdown can leave one behind with no hall running. Before each
+  post it sends a random nonce to `POST /api/handshake` and posts only if the answer is HMAC-SHA256(token, nonce), compared
+  with `timingSafeEqual`. Neither request follows a redirect, and the answer is capped. A program on the port without the
+  token gets the nonce and nothing else. The hall still checks the Bearer token on every post, so a plugin pinned to
+  `v2.1.0`, which has no handshake, keeps working with a newer hall. A new script with an old hall posts nothing.
 - The same project can have the plugin and use `woa`: a `--plugin-dir` copy silently replaces an installed plugin of the
   same name, so nothing loads twice (tested for milestone 0, with hooks counted and a real hall). Don't add a warning.
 - `version` in `plugin.json` pins installs: people on GitHub get a new copy only when that string changes. Change it with
@@ -214,6 +220,8 @@ Do not change the look without asking. New ideas go into a later version.
   so it spends nothing, and `WOA_CAPTURE=1` counts the hooks. SessionStart's `agent_type` shows the main agent, and
   `--debug-file` shows which copy loaded. `marketplace add` refuses `file://`; to test the cached copy, serve a bare repo
   over HTTP through `git http-backend`, because Claude Code clones shallow.
+- Tests never reach port 4319, where a real hall may be running. `deliver()` in `send.mjs` takes the hall's URL, and
+  `handshake.test.ts` uses real HTTP servers on free ports, including ones that don't know the token.
 - `woa.test.ts` needs Git Bash on Windows (it skips under WSL's `bash`) and skips its symlink test where the account
   can't create symlinks. `core.filemode` is false on Windows, so git can't see a lost exec bit: a test checks
   `bin/woa` is 100755 in git. A new launcher needs `git add --chmod=+x`.
@@ -275,6 +283,6 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    marketplace, so the plugin installs as `world-of-agents@world-of-agents` from `kremendev/world-of-agents#v2.1.0`, and
    its `settings.json` makes the Lead the main agent. `v2.1.0` is the first release with a marketplace file; `v2.0.0` has
    none, so it can't be pinned. Milestone 0's done-when, the install through the desktop app's Add plugins, is still
-   unconfirmed.
+   unconfirmed. The handshake came after `v2.1.0`, so people on that tag don't have it until the next release.
 
 Next: milestone 1 in docs/v3-brief.md (spike: prove the platform).

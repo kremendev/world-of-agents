@@ -1,5 +1,5 @@
 {
-  "description": "Reports what each World of Agents agent does to the Forge Hall server on 127.0.0.1. One way only: the script drops any reply, prints nothing and always exits 0.",
+  "description": "Reports what each World of Agents agent does to the Forge Hall server on 127.0.0.1. One way only: nothing the hall answers reaches Claude Code. The script prints nothing and always exits 0.",
   "hooks": {
     "SessionStart": [
       {
