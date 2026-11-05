@@ -14,7 +14,7 @@ A recorded run, played back at twice the speed:
 
 ## Requirements
 
-- **Claude Code CLI**, logged in with a Max plan or higher. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
+- **Claude Code CLI**, logged in with your Claude plan. Works on Pro. Max recommended for guild runs and scouts, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
 - **Node.js.** Tested on 24.22.0.
 - **Git Bash on Windows.** `woa` is a bash script.
 

@@ -25,12 +25,12 @@ The pixel hall stays a browser page: inside the Claude app a pane draws boxes, t
 
 ## How it fits together
 
-The mod sits inside Claude; the hall and scouts only report. Everything runs on your Max plan, through Anthropic's own app and
-cloud.
+The mod sits inside Claude; the hall and scouts only report. Everything runs on your Claude plan, through Anthropic's own app
+and cloud.
 
 ```text
 YOUR PC
-  Claude desktop app, Code tab (your Max login)  <───────────>  ANTHROPIC CLOUD: Claude models on your Max plan
+  Claude desktop app, Code tab (your login)  <───────────>  ANTHROPIC CLOUD: Claude models on your plan
     Lead/PM (main thread, Opus) ──> Guild leads (4 guilds, Sonnet) ──> Specialists (2 per guild, own skills)
                        │ events, agent states
                        ▼
@@ -53,8 +53,8 @@ Where each part lives:
 
 - `.claude-plugin/marketplace.json` at the repo root: makes the repo its own marketplace.
 - `plugin/`: the agents (guild leads and specialists), `skills/`, `settings.json` (the Lead as main agent), `hooks/`
-  (`send.mjs`, the quality gate, and the mod's module), and `hall/` (the prebuilt page plus one bundled server file, built at
-  release).
+  (`send.mjs`, `guard.mjs`, the quality gate, and the mod's module), `voice/speak.ps1`, and `hall/` (the prebuilt page plus
+  one bundled server file, built at release).
 - `server/` and `src/`: the hall's source, as in v2.
 - `docs/v3-brief.md` (this brief) and `docs/v3-spike.md` (milestone 1's findings).
 - `kremendev/woa-scouts`: a separate small repo with the scouts' prompts, skills and reports.
@@ -73,12 +73,34 @@ agent carries dozens of skills.
 | Review   | Reviewer                    | Security warden, QA tester      | OWASP checks, threat models, secret scans; Playwright end-to-end tests                |
 
 **How the levels work.** The Lead is the main thread, the guild leads are one level down, and specialists are two levels down.
-`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2` stops anything deeper.
+`CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2` stops anything deeper: at level 2 the engine withholds the `Agent` tool (milestone
+1). A plugin can't set it; the setup skill writes it into `.claude/settings.local.json`, which the desktop app applies.
 
-- Each guild lead's `Agent(...)` list names only its own specialists.
+- Who may start whom is a fixed table in the guard hook (below). An `Agent(...)` list in a subagent's file restricts
+  nothing: milestone 1 saw a guild lead start an agent its list doesn't name. Only the main thread's list is applied.
 - Specialists get no `Agent` tool.
 - Guild leads and specialists run on Sonnet. Only the Lead uses Opus.
-- Milestone 1 checks that an `Agent(...)` list really restricts a subagent, not only the main thread.
+
+**The guard.** A `PreToolUse` hook on the `Agent` tool in `plugin/hooks/hooks.json` runs `plugin/hooks/guard.mjs` before
+any agent starts another.
+
+- **A normal hook, not async.** An async hook runs in the background and can't block.
+- **Deny-only.** It prints a `PreToolUse` deny (`permissionDecision: "deny"` with a reason) or nothing, and exits 0. It
+  never prints `"allow"`, because allow skips Dima's permission prompt. A test pins this.
+- **Fail closed.** It denies an unknown caller, an unknown `subagent_type`, malformed input and any error it catches.
+  `"onFailure": "block"` (Claude Code 2.1.295 or later) also turns a Node startup failure, a crash or a timeout into a
+  block. An older Claude Code doesn't know the field, so there a startup failure or a timeout lets the call through.
+- **How it identifies the caller** (from real captured hook input, docs/v3-spike.md): the main thread's call has no
+  `agent_id` and `agent_type: "world-of-agents:lead"`, the same whether the Lead is main through `woa`'s `--agent` or only
+  through the plugin's `settings.json`. A subagent's call carries its own `agent_id` and its full `agent_type`
+  (`world-of-agents:backend`). The callee is `tool_input.subagent_type`, which the Lead always sent as the full name.
+  Anything else is an unknown caller.
+- **The table** maps caller to who it may start, exact names only. Milestone 2: the main thread (the Lead) may start
+  `world-of-agents:designer`, `world-of-agents:frontend`, `world-of-agents:backend` and `world-of-agents:reviewer`; every
+  other caller may start nobody. Built-in agents (`Explore`, `Plan`, `general-purpose`, `claude-code-guide`,
+  `statusline-setup` and any other) are denied, because some run on Haiku. Milestone 5 adds each guild lead's specialists.
+- **No network, no hall, no file writes.** It reads its input from stdin, checks the table and answers. Short timeout.
+- A deny wins over any other hook's answer: `deny` comes before `defer`, `ask` and `allow`.
 
 **Skills.** The plugin gets a `skills/` folder of skills we write or vet. An agent's `skills:` line preloads 2 to 5 of them in
 full when it starts, and it can still call any other skill when it needs one. Preloaded skills cost context on every run, so keep
@@ -93,7 +115,8 @@ The new characters need sprites and room in the hall. That's a design round befo
 ## The team pane and voice
 
 The mod draws a pane that docks beside the conversation in the desktop app when the panel is 800 px or wider, and sits above the
-prompt when it's narrower. The same pane works in the terminal and in VS Code.
+prompt when it's narrower. The same pane works in the terminal and in VS Code. It appears once the first message is sent:
+that is when the session, and with it the mod, starts (milestone 1). The README says so.
 
 **What the pane shows:**
 
@@ -102,42 +125,66 @@ prompt when it's narrower. The same pane works in the terminal and in VS Code.
 - **Who needs you**, taken from the `agentId` on `tool.check`. You still answer in Claude Code's own permission prompt, which a
   mod can't change.
 - **A warning when the session runs in `auto`**, because nothing asks for your approval then. The pane only warns: it never changes
-  the mode itself.
+  the mode itself. It reads `permission_mode` on the next prompt or subagent event; no event fires on the switch itself, so
+  the warning can come one prompt late.
 - **Tasks** in progress and done.
 - **Usage**: context used and plan limits. See the token ledger.
 - **Buttons**: "Open hall", mute, and a few preset prompts such as "Plan the next milestone", "Run the quality check" and "Review
   what changed". A preset sends its fixed text as if you had typed it.
 
-**The hall starts itself.** When a session starts, the mod checks `/api/health`, and if nothing answers it starts the hall server.
-The plugin carries a prebuilt hall (one bundled server file plus the built page), so installing it needs no `npm install`. "Open
-hall" links to `http://localhost:4319`, because the desktop app only makes `https:` and `http://localhost` links clickable.
+**The hall starts itself.** When the session starts (the first message), the mod checks `/api/health`, and if nothing answers it
+starts the hall server. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take
+the port anyway (it writes its token only after binding it). The plugin carries a prebuilt hall (one bundled server file plus the
+built page), so installing it needs no `npm install`. "Open hall" links to `http://localhost:4319`, which opened the hall from the
+desktop app in milestone 1.
 
-**Voice.** The mod speaks with `$.audio.speak` for two things only:
+A hall the mod started is the mod's child: a plugin reload kills it, and after the sessions closed it was gone too. A reload
+runs `session.start` again, so the health check brings it back. Each kill leaves the token file behind; the handshake makes that
+harmless and the next hall writes a new one. Open: with two sessions open, closing the one that started the hall stops it for
+both until the other's next start.
+
+**Voice.** `$.audio.speak` has no voice on Windows (milestone 1), so the mod speaks through Windows' own synthesizer:
+
+- A fixed script in the plugin, `plugin/voice/speak.ps1`, reads plain text from stdin and speaks it with `System.Speech`
+  (`Speak`, never SSML).
+- The mod starts it with `$.process.spawn` and exactly this argument list:
+  `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File <plugin>/voice/speak.ps1`. Never `-Command`,
+  never a shell, never a command string built from any text. `-ExecutionPolicy Bypass` is needed because Windows' default policy refuses to run any `.ps1` with `-File`
+  (checked on Dima's PC); it applies to that one process and changes nothing on the machine. A Group Policy setting overrides
+  it, and then the voice stays silent.
+- The text goes in through stdin (`$.process.spawn`'s `input`), capped at 200 characters with control characters stripped.
+  Agent names come from our fixed roster table, never from event text. One utterance at a time.
+- If `$.process.spawn` can't write stdin, the mod speaks fixed phrases only (the script maps a key from a fixed list to its
+  text) and drops "the first sentence of the Lead's report".
+- A test checks the spawn arguments are exactly the fixed list, whatever the text is.
+
+It speaks two things only:
 
 - "Backend dev needs your approval."
 - "The team is done." Then the first sentence of the Lead's report.
 
-It's on by default, the mute button is remembered between sessions, and nothing else is spoken. Milestone 1 checks that speech
-works on Windows.
+It's on by default, the mute button is remembered between sessions, and nothing else is spoken. Windows can use any installed
+voice, so a voice setting can come later.
 
 ## The token ledger
 
 The ledger answers three questions: how full is this conversation, how much of my plan is gone, and how much have I used in total.
 
-| What                | Where it comes from                                                                            | Shown as                                        |
-| ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| This session        | `$.session.usage()`: context tokens, window and percent                                        | "Context 42% of 200K"                           |
-| Plan limits         | `rateLimits` in the same call (kind, percent used, reset time), refreshed on `session.measure` | "5-hour limit 63%, resets 18:40"                |
-| All time on this PC | Each request's token usage, added to a running total in `$.store`                              | Tokens in and out, plus the value at API prices |
-| Older sessions      | An opt-in "Count my past sessions" button that reads Claude Code's local transcripts           | Added to the all-time total once                |
+| What                | Where it comes from                                                                                            | Shown as                                                            |
+| ------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| This session        | `$.session.usage()`: context tokens, window and percent                                                        | "Context 42% of 200K"                                               |
+| Plan limits         | `rateLimits` in the same call (kind, percent used, reset time), refreshed on `session.measure`                 | "5-hour limit 63%, resets 18:40"                                    |
+| All time on this PC | Each request's token usage (`turn.step`'s `usage`, per agent and model), added to a running total in `$.store` | Labelled "This PC": tokens in and out, plus the value at API prices |
+| Older sessions      | An opt-in "Count my past sessions" button that reads Claude Code's local transcripts                           | Added to the all-time total once                                    |
 
 **Rules:**
 
 - The backfill reads numbers only. It never copies or stores transcript text, which can hold anything you or an agent typed.
 - Transcripts only go back as far as Claude Code keeps them, because it cleans up old ones.
-- "Value at API prices" is what the same tokens would cost on the API, from a dated price table. On Max it isn't money you spent,
-  but it's the number we need for the desktop-app question later.
-- Milestone 1 checks whether a mod can tell which account is logged in. If it can't, the total is per PC, and the pane says so.
+- "Value at API prices" is what the same tokens would cost on the API, from a dated price table. On a subscription it isn't money
+  you spent, but it's the number we need for the desktop-app question later.
+- A mod can't tell which account is logged in: `$.session.identity()` answers only mods that managed settings install
+  (milestone 1). So the total is per PC, and the pane labels it "This PC".
 
 **What it can't see:** claude.ai chats, the mobile app, other PCs, and scouts running in the cloud. They all use the same plan. For
 the full picture of the plan, claude.ai/settings/usage is the source.
@@ -146,8 +193,9 @@ In the hall, the treasure chest in the Lead's room shows the all-time total.
 
 ## Scouts
 
-Scouts are agents that work on their own, on Anthropic's cloud scheduled tasks. They run on your Max plan even when your PC is off,
-at most once an hour. They can start on a schedule, from a GitHub event, or from an API call.
+Scouts are agents that work on their own, on Anthropic's cloud scheduled tasks. They run on your plan even when your PC is off, at
+most once an hour. They can start on a schedule, from a GitHub event, or from an API call. Works on Pro. Max recommended for guild
+runs and scouts, because they use the plan faster.
 
 **Where they live:** their own small repo, `kremendev/woa-scouts`. Each scout is a prompt plus committed skills, with its own cloud
 environment. A cloud run clones only that repo, so a scout never sees your projects or your other secrets.
@@ -187,9 +235,12 @@ step, while you still review every milestone.
   session starts and updates it at the end, so tomorrow continues today. The hall's dashboard shows it.
 - **Plan once, approve once.** At the start of a milestone the Lead plans in plan mode and writes the plan into the backlog. You
   approve it once, the team works through it, and you review at the end.
-- **A safe-command list.** A project's `.claude/settings.json` lets `npm test`, `npm run check`, `git status`, `git diff` and
-  `git log` run without asking. It always denies reading `.env` files and `git push`. A `/world-of-agents:setup-project` skill
-  writes the backlog and these settings, and you check the diff before keeping it.
+- **A safe-command list.** The `/world-of-agents:setup-project` skill (milestone 2) writes the project's
+  `.claude/settings.local.json`: `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, and a
+  list that lets `npm test`, `npm run check`, `git status`, `git diff` and `git log` run without asking and always denies
+  reading `.env` files and `git push`. It makes sure the project's `.gitignore` covers `settings.local.json`, and you check
+  the diff before keeping it. In the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the desktop
+  app applies both the mode and the env from that file. From milestone 4 the skill also writes the backlog.
 - **No two agents on one file.** Guild leads hand each specialist its own files.
 
 **Sandbox trade-off.** The desktop app on Windows has no sandbox, and its WSL sessions don't load plugins. So:
@@ -204,31 +255,38 @@ The big change from v2: a mod runs inside Claude Code with your full permissions
 approve tool calls, send prompts as you and spend your plan. So the rule is simple: our mod watches, shows and speaks. It never
 decides.
 
-| Risk                             | What could happen                                                | Control                                                                                                                                                                                                 |
-| -------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The mod does more than it should | A bug or a bad change makes it read secrets or call out          | A small mod with no remote code. A test runs `claude plugin validate --json` and fails if the list of events or mods API calls it uses grows past an expected list. Every pull request shows that list. |
-| The mod approves things          | A tool call runs that you never saw                              | No answers on `tool.call`, no decisions on `tool.check`. A test pins it.                                                                                                                                |
-| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | `asUser` prompts come only from preset buttons with fixed text. Never from agent output, files, the hall page or scouts. No `session.send`.                                                             |
-| Agent text in the pane           | A link in agent output points somewhere harmful                  | Agent text is drawn with `Text`, not `Markdown` with clickable links. The only link is our own hall on localhost.                                                                                       |
-| Starting the hall                | Something else gets started                                      | A fixed command from the plugin's own folder, with no arguments from agents or files. The hall keeps every v2 control: token, handshake, Host and Origin checks, CSP.                                   |
-| The ledger's backfill            | Transcript text leaks                                            | It reads usage numbers only and stores totals only, never text.                                                                                                                                         |
-| Skills from others               | A skill carries hidden instructions or scripts                   | Only skills we write or have read. Third-party skills are pinned to a commit, and scripts in them get reviewed like code.                                                                               |
-| Runaway delegation               | A chain of agents burns the plan                                 | Depth capped at 2. Each guild lead can start only its own specialists, and specialists can't start anyone.                                                                                              |
-| Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                     |
-| Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                              |
-| Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                           |
+| Risk                             | What could happen                                                | Control                                                                                                                                                                                                              |
+| -------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The mod does more than it should | A bug or a bad change makes it read secrets or call out          | A small mod with no remote code. A test runs `claude plugin validate --json` and fails if the list of events or mods API calls it uses grows past an expected list. Every pull request shows that list.              |
+| The mod approves things          | A tool call runs that you never saw                              | No answers on `tool.call`, no decisions on `tool.check`. A test pins it.                                                                                                                                             |
+| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | `asUser` prompts come only from preset buttons with fixed text. Never from agent output, files, the hall page or scouts. No `session.send`.                                                                          |
+| Agent text in the pane           | A link in agent output points somewhere harmful                  | Agent text is drawn with `Text`, not `Markdown` with clickable links. The only link is our own hall on localhost.                                                                                                    |
+| Starting the hall                | Something else gets started                                      | A fixed command from the plugin's own folder, with no arguments from agents or files. The hall keeps every v2 control: token, handshake, Host and Origin checks, CSP.                                                |
+| The ledger's backfill            | Transcript text leaks                                            | It reads usage numbers only and stores totals only, never text.                                                                                                                                                      |
+| Skills from others               | A skill carries hidden instructions or scripts                   | Only skills we write or have read. Third-party skills are pinned to a commit, and scripts in them get reviewed like code.                                                                                            |
+| Runaway delegation               | A chain of agents burns the plan                                 | Depth capped at 2. The guard hook lets an agent start only what its row in a fixed table names, and fails closed. Specialists can't start anyone. An `Agent(...)` list in a subagent's file is no control.           |
+| The guard approves things        | A start skips your permission prompt                             | Deny-only: it answers deny or nothing, never allow, which would skip the prompt. A test pins it.                                                                                                                     |
+| Spoken text                      | Agent text runs as a command                                     | A fixed script and a fixed argument list, no `-Command` and no shell. The text goes in on stdin, capped at 200 characters, control characters stripped. Names come from the roster table. A test pins the arguments. |
+| The setup skill's settings       | A wrong line loosens permissions                                 | Fixed content, written to the git-ignored `settings.local.json`, and Dima checks the diff before keeping it.                                                                                                         |
+| Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                  |
+| Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                                           |
+| Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                        |
 
 ## Plan and usage
 
-The v2 rules stay: Claude Code logged in with Max or higher, personal use on your own projects, and limits shared with claude.ai
-chats.
+Works on Pro. Max recommended for guild runs and scouts, because they use the plan faster. The other v2 rules stay: personal use
+on your own projects, and limits shared with claude.ai chats.
+
+Claude Code defaults to Opus 5.5 on Pro since v2.1.280 ("Changed the default model on Pro and Team Standard plans from Sonnet to
+Opus"), so the Lead on Opus works on Pro. If the ledger shows the Lead draining the 5-hour limit, switch the Lead to Sonnet.
 
 **What uses the plan faster in v3:** more agents (each specialist has its own context), quality-gate retries, and scouts, whose
 cloud runs count against the same plan.
 
 **What keeps it in check:**
 
-- Only the Lead runs on Opus. Guild leads and specialists use Sonnet, and nothing uses Haiku.
+- Only the Lead runs on Opus. Guild leads and specialists use Sonnet, and nothing uses Haiku: the guard denies the built-in
+  agents, some of which run on Haiku.
 - Depth is capped at 2, and gate retries at 3 per task.
 - Scouts run a few times a day, not hourly.
 - The mod makes no model calls of its own.
@@ -255,44 +313,59 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
    - `$.audio.speak` talks on Windows;
    - `$.process.spawn` can start the hall, and a `Link` to `http://localhost:4319` opens it;
    - whether a mod can tell which account is logged in;
-   - an `Agent(...)` list really restricts a subagent, and depth 2 works;
+   - whether an `Agent(...)` list restricts a subagent, and whether depth 2 works;
    - whether the desktop app applies `permissions.defaultMode` set to `default` and `env` with
      `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2` from a project's `.claude/settings.local.json`, since a plugin can set neither;
    - whether a pane can tell a session runs in `auto`, so it can warn. It never changes the mode itself.
-   - Done when: `docs/v3-spike.md` records a real answer for each, with a go or no-go per feature.
+   - Done when: `docs/v3-spike.md` records a real answer for each, with a go or no-go per feature. Done on 5 Nov: no voice from
+     `$.audio.speak` on Windows, no account, and an `Agent(...)` list in a subagent restricts nothing; the rest works, some
+     with limits. This brief follows from it.
 2. **Team pane and voice.** Everything under "The team pane and voice", plus the prebuilt hall inside the plugin, plus:
    - **Agents hurry.** If an agent's work starts or ends while it's still walking, it walks at about 2.5x speed.
    - **Show the work.** At the desk, an agent shows its last working state for at least 3 s before it walks to the rest room.
      The activity feed keeps the real times.
    - **No links in agent text.** `AgentText` shows a Markdown link `[text](url)` as the plain "text", never a clickable link.
    - **The Reviewer reports what it ran.** Its prompt says: report only checks you actually ran with your own tools.
+   - **The Lead's final answer in the activity feed**, scrubbed by `send.mjs`, capped, and rendered as text only.
+   - **Speech bubbles stay long enough to read:** at least 2.5 s plus 50 ms per character, at most 8 s, and a queue per agent,
+     so a new bubble waits instead of replacing the old one.
+   - **The guard hook** (see "The guard"), with its milestone 2 table.
+   - **The setup skill,** `/world-of-agents:setup-project`, moved here from milestone 4: it writes `.claude/settings.local.json`
+     (see "A safe-command list"), makes sure `.gitignore` covers it, and Dima checks the diff before keeping it.
+   - **The README says the pane appears after the first message.**
+   - **The hall comes back:** the mod checks `/api/health` at session start and restarts the hall if nothing answers, never
+     starting a second copy (see "The hall starts itself").
    - Done when: from opening a project in the desktop app to watching a run in the hall, you never touch a terminal.
 3. **Token ledger.** Everything under "The token ledger", plus the chest in the hall. Done when: the pane's plan-limit numbers
    match claude.ai's usage page, and the backfill test proves no transcript text is stored.
-4. **Big-project tools.** Quality gates, the backlog, plan once and approve once, the safe-command list and the setup skill. Done
-   when: a real task gets a failing check fixed by the agent within 3 tries, without you stepping in.
+4. **Big-project tools.** Quality gates, the backlog (the setup skill now writes `BACKLOG.md` too), and plan once and approve
+   once. Done when: a real task gets a failing check fixed by the agent within 3 tries, without you stepping in.
 5. **Guilds, skills and memory.** First a design round with Dima for the guild wings and the new characters. Then the agent files,
-   skills, memory, roster and hall changes. Done when: the Designer hands a task to a specialist, which uses its preloaded skill,
-   and the hall shows both.
+   skills, memory, roster, the guild rows in the guard's table, and the hall changes. Done when: the Designer hands a task to a
+   specialist, which uses its preloaded skill, and the hall shows both, and the guard denies a guild lead starting another
+   guild's specialist.
 6. **Scouts.** The `woa-scouts` repo, the news scout on a scheduled task, Telegram, and the rookery. Done when: a scheduled run
    posts a digest to Telegram with no connectors on the task and no secret in the repo, and the hall shows the latest report.
 
 ## Decisions
 
-The first three are Dima's answers from 5 Nov. The rest have a default so Claude Code can start; Dima changes them in the doc.
+The first three are Dima's answers from 5 Nov, and the next two come from the milestone 1 review. The rest have a default so
+Claude Code can start; Dima changes them in the doc.
 
-| Decision                   | Default                                                                       | Other option                                                 | Status |
-| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------ | ------ |
-| Platform                   | A mod in the Claude app                                                       | Your own desktop app, in v4 after a cost study               | Agreed |
-| Team shape                 | Guilds, two levels deep                                                       | Flat, or the experimental agent teams                        | Agreed |
-| Where scouts run           | Anthropic's cloud scheduled tasks                                             | Desktop scheduled tasks on your PC                           | Agreed |
-| Repo                       | Same repo, with a `v2.0.0` release tag; scouts get their own small repo       | A new repo for v3                                            | Open   |
-| Scouts repo                | Public: digests are public news and good portfolio material                   | Private, but then the hall needs a token to read the reports | Open   |
-| Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                     | Open   |
-| Voice                      | On for approvals and "the team is done"; mute is remembered                   | Off until you turn it on                                     | Open   |
-| Agent memory               | `local`, out of git                                                           | `project`, committed                                         | Open   |
-| Specialist models          | Sonnet                                                                        | Opus for the Review guild, where security matters most       | Open   |
-| Ledger backfill            | An opt-in button                                                              | Automatic on install                                         | Open   |
+| Decision                   | Default                                                                       | Other option                                                  | Status |
+| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- | ------ |
+| Platform                   | A mod in the Claude app                                                       | Your own desktop app, in v4 after a cost study                | Agreed |
+| Team shape                 | Guilds, two levels deep                                                       | Flat, or the experimental agent teams                         | Agreed |
+| Where scouts run           | Anthropic's cloud scheduled tasks                                             | Desktop scheduled tasks on your PC                            | Agreed |
+| Guild control              | Deny-only guard hook                                                          | `Agent(...)` lists, which milestone 1 showed restrict nothing | Agreed |
+| Plan                       | Works on Pro, Max recommended                                                 | Max or higher only                                            | Agreed |
+| Repo                       | Same repo, with a `v2.0.0` release tag; scouts get their own small repo       | A new repo for v3                                             | Open   |
+| Scouts repo                | Public: digests are public news and good portfolio material                   | Private, but then the hall needs a token to read the reports  | Open   |
+| Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                      | Open   |
+| Voice                      | PowerShell fixed script, on by default                                        | Off until you turn it on                                      | Open   |
+| Agent memory               | `local`, out of git                                                           | `project`, committed                                          | Open   |
+| Specialist models          | Sonnet                                                                        | Opus for the Review guild, where security matters most        | Open   |
+| Ledger backfill            | An opt-in button                                                              | Automatic on install                                          | Open   |
 
 ## Later: an own desktop app
 
@@ -301,7 +374,7 @@ There are two very different desktop apps, and only one of them costs money.
 - **An app that only watches** is free and allowed. That's the hall in its own window, with a tray icon and notifications, reading
   the same events as the page. It never talks to Claude, so it needs no key and no login.
 - **An app that talks to Claude**, where you chat inside your app and it drives the agents, has to use an API key. The terms say
-  products built on Claude "should use API key authentication", so you'd pay per token instead of using Max.
+  products built on Claude "should use API key authentication", so you'd pay per token instead of using your subscription.
 
 **How we'll price the second one:** after milestone 3, the ledger shows your real monthly tokens. We multiply them by current API
 prices. As of 27 Oct 2026, those were $4 per million input and $20 per million output tokens for Opus 5.5, and $2 and $10 for
@@ -317,7 +390,10 @@ Checked on 5 Nov 2026, except the prices (27 Oct 2026).
 - [Mods reference](https://code.claude.com/docs/en/plugins/mods/reference): events, `$.agent`, `$.session.usage()`, `$.audio`, limits
 - [Plugins overview](https://code.claude.com/docs/en/plugins): marketplaces, scopes, the desktop app and VS Code
 - [Claude Code in the desktop app](https://code.claude.com/docs/en/desktop): plugins in local sessions, none in WSL sessions
-- [Subagents](https://code.claude.com/docs/en/sub-agents): `skills`, `memory`, nesting depth
+- [Subagents](https://code.claude.com/docs/en/sub-agents): `skills`, `memory`, nesting depth, `Agent(...)` lists only on the
+  main thread
+- [Hooks](https://code.claude.com/docs/en/hooks): `PreToolUse` deny, `"onFailure": "block"`, async hooks can't block
+- [Changelog](https://code.claude.com/docs/en/changelog): 2.1.280, Opus the default on Pro
 - [Agent teams](https://code.claude.com/docs/en/agent-teams): experimental, no nested teams, higher usage
 - [Scheduled tasks](https://code.claude.com/docs/en/routines): cloud runs, triggers, connectors, network secrets, limits
 - [Legal and compliance](https://code.claude.com/docs/en/legal-and-compliance): subscription use, products on the Agent SDK
