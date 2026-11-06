@@ -254,17 +254,33 @@ step, while you still review every milestone.
   session starts and updates it at the end, so tomorrow continues today. The hall's dashboard shows it.
 - **Plan once, approve once.** At the start of a milestone the Lead plans in plan mode and writes the plan into the backlog. You
   approve it once, the team works through it, and you review at the end.
-- **A safe-command list.** The `/world-of-agents:setup-project` skill (milestone 2) gives the project's
-  `.claude/settings.local.json` `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, and
-  rules that let `npm test`, `npm run check`, `git status`, `git diff` and `git log` run without asking and deny reading
-  `.env` files and `git push`. In the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the
-  desktop app applies both the mode and the env from that file. From milestone 4 the skill also writes the backlog.
-  - **The rules come from a fixed template file in the plugin, copied by a script, never typed by the model.** The script
-    shows the result first and writes nothing; the skill then asks Dima yes or no with `AskUserQuestion`, and only a yes runs
-    the script again to write it.
+- **A safe-command list.** Two skills (milestone 2) give the project's `.claude/settings.local.json`
+  `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, rules that let `npm test` and
+  `npm run check` run without asking, and denies for reading `.env` files and for `git push`. `git status`, `git diff` and
+  `git log` need no rule: they already run without asking as Claude Code's built-in read-only commands. A rule like
+  `Bash(git diff *)` would also allow `git diff --output=<file>`, which writes a file without a prompt (checked in 2a). In
+  the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the desktop app applies both the mode
+  and the env from that file. From milestone 4 the setup also writes the backlog.
+  - **The rules come from a fixed template file in the plugin, copied by a script Claude Code runs; the model never runs it
+    and never types a rule.** `/world-of-agents:setup-project` is a dry run, and `/world-of-agents:setup-project-write`
+    writes; typing the second is Dima's yes. Both are `disable-model-invocation: true`. Each runs one fixed command through
+    an injected skill command (`` !`node '${CLAUDE_PLUGIN_ROOT}/…'` ``), pre-approved by `allowed-tools` for exactly that
+    command, so it runs in Auto and in Manual even though the Lead has no shell. The model only explains the output.
+    That also covers a disabled shell: `disableSkillShellExecution` turns the command into a notice, and the skill says
+    nothing was written and how to run the script by hand.
+  - **Injected commands skip hooks:** no `PreToolUse` fires for them, so the guard never sees one. Permission rules still
+    apply, and a matching deny aborts the skill.
+  - **The cost of the two allows:** `npm test` and `npm run check` run code the project holds, without a prompt. An agent
+    that gets any file those commands load changed can run its own code through them: `package.json`'s scripts, but also
+    test files, configs (`vite.config.ts`, `vitest` and ESLint configs) and setup files. The real control is reading every
+    edit approval in Manual mode, the same way you'd read a command.
+  - **A plugin folder whose path holds an apostrophe** (`O'Brien`) can't run the setup skills: the single-quoted path
+    breaks, and Claude Code aborts the skill with "Shell command failed … unexpected EOF while looking for matching" before
+    anything runs (checked in 2a). The script can then be run by hand.
   - **An existing file is never merged by hand.** Installing the plugin at local scope itself creates that file, holding only
     `enabledPlugins` and `extraKnownMarketplaces`. When the file holds nothing else, the script adds the template's keys and
-    leaves those two untouched. When it holds anything else, the script shows both files and stops.
+    leaves those two untouched. When it holds anything else, the script shows the template and the file's key names (never
+    its values, which can be secrets) and stops, so a second write changes nothing.
   - It makes sure the project's `.gitignore` covers `settings.local.json`.
   - **What the `.env` rule really covers:** a `Read(.env)` deny applies to Claude Code's file tools and to the file commands it
     recognizes in Bash (`cat`, `head`, `tail`, `sed`, `tee`) and their redirections. It misses `grep -r` over a folder,
@@ -285,23 +301,23 @@ The big change from v2: a mod runs inside Claude Code with your full permissions
 approve tool calls, send prompts as you and spend your plan. So the rule is simple: our mod watches, shows and speaks. It never
 decides.
 
-| Risk                             | What could happen                                                | Control                                                                                                                                                                                                              |
-| -------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The mod does more than it should | A bug or a bad change makes it read secrets or call out          | A small mod with no remote code. A test runs `claude plugin validate --json` and fails if the list of events or mods API calls it uses grows past an expected list. Every pull request shows that list.              |
-| The mod approves things          | A tool call runs that you never saw                              | No answers on `tool.call`, no decisions on `tool.check`. A test pins it.                                                                                                                                             |
-| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | `asUser` prompts come only from preset buttons with fixed text. Never from agent output, files, the hall page or scouts. No `session.send`.                                                                          |
-| Agent text in the pane           | A link in agent output points somewhere harmful                  | Agent text is drawn with `Text`, not `Markdown` with clickable links. The only link is our own hall on localhost.                                                                                                    |
-| Starting the hall                | Something else gets started                                      | A fixed command from the plugin's own folder, with no arguments from agents or files. The hall keeps every v2 control: token, handshake, Host and Origin checks, CSP.                                                |
-| The ledger's backfill            | Transcript text leaks                                            | It reads usage numbers only and stores totals only, never text.                                                                                                                                                      |
-| Skills from others               | A skill carries hidden instructions or scripts                   | Only skills we write or have read. Third-party skills are pinned to a commit, and scripts in them get reviewed like code.                                                                                            |
-| Runaway delegation               | A chain of agents burns the plan                                 | Depth capped at 2. The guard hook lets an agent start only what its row in a fixed table names, and fails closed. Specialists can't start anyone. An `Agent(...)` list in a subagent's file is no control.           |
-| The guard approves things        | A start skips your permission prompt                             | Deny-only: it answers deny or nothing, never allow, which would skip the prompt. A test pins it.                                                                                                                     |
-| Spoken text                      | Agent text runs as a command                                     | A fixed script and a fixed argument list, no `-Command` and no shell. The text goes in on stdin, capped at 200 characters, control characters stripped. Names come from the roster table. A test pins the arguments. |
-| The setup skill's settings       | A wrong line loosens permissions                                 | A fixed template copied by a script, never typed by the model. It writes only after Dima's yes, never merges a file it doesn't recognize, and the file is git-ignored.                                               |
-| Reading `.env`                   | An agent reads a secret                                          | `Read(.env)` deny rules (file tools and the file commands Claude Code recognizes in Bash) and the guard's best-effort rule on shell commands that name a `.env` file. Neither stops a determined attacker.           |
-| Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                  |
-| Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                                           |
-| Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                        |
+| Risk                             | What could happen                                                | Control                                                                                                                                                                                                                                              |
+| -------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The mod does more than it should | A bug or a bad change makes it read secrets or call out          | A small mod with no remote code. A test runs `claude plugin validate --json` and fails if the list of events or mods API calls it uses grows past an expected list. Every pull request shows that list.                                              |
+| The mod approves things          | A tool call runs that you never saw                              | No answers on `tool.call`, no decisions on `tool.check`. A test pins it.                                                                                                                                                                             |
+| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | `asUser` prompts come only from preset buttons with fixed text. Never from agent output, files, the hall page or scouts. No `session.send`.                                                                                                          |
+| Agent text in the pane           | A link in agent output points somewhere harmful                  | Agent text is drawn with `Text`, not `Markdown` with clickable links. The only link is our own hall on localhost.                                                                                                                                    |
+| Starting the hall                | Something else gets started                                      | A fixed command from the plugin's own folder, with no arguments from agents or files. The hall keeps every v2 control: token, handshake, Host and Origin checks, CSP.                                                                                |
+| The ledger's backfill            | Transcript text leaks                                            | It reads usage numbers only and stores totals only, never text.                                                                                                                                                                                      |
+| Skills from others               | A skill carries hidden instructions or scripts                   | Only skills we write or have read. Third-party skills are pinned to a commit, and scripts in them get reviewed like code. A skill's injected commands skip every hook, the guard included; only permission rules see them.                           |
+| Runaway delegation               | A chain of agents burns the plan                                 | Depth capped at 2. The guard hook lets an agent start only what its row in a fixed table names, and fails closed. Specialists can't start anyone. An `Agent(...)` list in a subagent's file is no control.                                           |
+| The guard approves things        | A start skips your permission prompt                             | Deny-only: it answers deny or nothing, never allow, which would skip the prompt. A test pins it.                                                                                                                                                     |
+| Spoken text                      | Agent text runs as a command                                     | A fixed script and a fixed argument list, no `-Command` and no shell. The text goes in on stdin, capped at 200 characters, control characters stripped. Names come from the roster table. A test pins the arguments.                                 |
+| The setup skill's settings       | A wrong line loosens permissions                                 | A fixed template copied by a script Claude Code runs, never by the model. It writes only when Dima types the write skill, never merges a file it doesn't recognize, and the file is git-ignored. No wildcard git rule, which would allow `--output`. |
+| Reading `.env`                   | An agent reads a secret                                          | `Read(.env)` deny rules (file tools and the file commands Claude Code recognizes in Bash) and the guard's best-effort rule on shell commands that name a `.env` file. Neither stops a determined attacker.                                           |
+| Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                                                  |
+| Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                                                                           |
+| Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                                                        |
 
 ## Plan and usage
 
@@ -365,8 +381,9 @@ version, 2.1.295 or later, which the guard's `onFailure` needs.
    - **Speech bubbles stay long enough to read:** at least 2.5 s plus 50 ms per character, at most 8 s, and a queue per agent,
      so a new bubble waits instead of replacing the old one.
    - **The guard hook** (see "The guard"), with its milestone 2 table.
-   - **The setup skill,** `/world-of-agents:setup-project`, moved here from milestone 4: a script copies a fixed template into
-     `.claude/settings.local.json` after Dima's yes, and makes sure `.gitignore` covers it (see "A safe-command list").
+   - **The setup skills,** `/world-of-agents:setup-project` and `/world-of-agents:setup-project-write`, moved here from
+     milestone 4: Claude Code runs a script that copies a fixed template into `.claude/settings.local.json` when Dima types
+     the write skill, and makes sure `.gitignore` covers it (see "A safe-command list").
    - Built in four parts with a stop after each; `docs/v3-m2-plan.md` has the files, tests and checks. Released as `v3.0.0`.
    - **The README says the pane appears after the first message.**
    - **The hall comes back:** the mod checks `/api/health` at session start and at the start of each turn, and restarts the

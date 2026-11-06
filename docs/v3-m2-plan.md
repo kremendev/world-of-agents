@@ -24,10 +24,12 @@ plugin installed from GitHub through the desktop app's own Plugins screen, which
 
 The marketplace name `world-of-agents` is taken in the user settings by the GitHub pin, so the working copy can't be added
 under that name. The spike's way works instead: a dev marketplace folder outside the repo, `~/Downloads/woa-dev/`, holding
-`.claude-plugin/marketplace.json` (name `woa-dev`) and `plugin`, a junction to `agent-office/plugin`. Junctions need no admin
-rights. A test project, `~/Downloads/woa-m2-test/`, installs `world-of-agents@woa-dev` at local scope. A plugin from a
-folder marketplace is read in place, so an edit plus `/reload-plugins` reaches the desktop session. If the junction doesn't
-work, the fallback is a copy refreshed by a script. In the terminal, `woa` already loads the working copy.
+`.claude-plugin/marketplace.json` (name `woa-dev`) and `plugin`, a copy of `agent-office/plugin`. A junction was tried first
+and Claude Code refuses it ("its marketplace entry path does not stay inside the marketplace directory (… link-traversing
+entry …)"), so the copy is refreshed by hand after each change (the command is in `CLAUDE.md`). A test project,
+`~/Downloads/woa-m2-test/`, installs `world-of-agents@woa-dev` at local scope. A plugin from a folder marketplace is read in
+place, so a refresh plus `/reload-plugins` reaches the desktop session. In the terminal, `woa` already loads the working
+copy.
 
 Real runs cost plan, and the plan is Pro: the checks below use the smallest tasks that show the behaviour.
 
@@ -49,14 +51,18 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
   `onFailure` `block` and a short timeout. `guard.mjs` imports only `node:` modules.
 - `src/office/roster.test.ts`: the guard's main-thread row equals the Lead's `Agent(...)` list and the roster, so the three
   can't drift.
-- `plugin/skills/setup-project/`:
-  - `SKILL.md` (new), with `disable-model-invocation: true`, so only Dima starts it;
-  - `template.json` (new): the fixed settings;
-  - `setup.mjs` (new): the script that copies them.
+- Two skills, both `disable-model-invocation: true`, so only Dima starts them:
+  - `plugin/skills/setup-project/SKILL.md`: the dry run;
+  - `plugin/skills/setup-project-write/SKILL.md`: the write; typing it is the yes.
 
-  The model only runs `setup.mjs` and asks the question; it never types a rule. Without `--write` the script writes
-  nothing. It prints where it would write and the result, or both files and why it stops. The skill then asks Dima yes or no
-  with `AskUserQuestion`, and only a yes runs `setup.mjs --write`, which checks everything again before writing.
+  Each runs one fixed command through an injected skill command, `` !`node '${CLAUDE_PLUGIN_ROOT}/skills/setup-project/setup.mjs'` ``
+  (plus `--write` in the second), pre-approved by an `allowed-tools` rule for exactly that command. Claude Code runs it
+  before the model sees anything; the model only explains the output and names the next step. The first design had the
+  model run the script and ask with `AskUserQuestion`; the desktop check showed the Lead has no shell, so it couldn't run.
+
+- `plugin/skills/setup-project/template.json` (new): the fixed settings. `setup.mjs` (new): the script that copies them.
+  Without `--write` it writes nothing. It prints where it would write and the result, or the template and the file's key
+  names and why it stops. It exits 0 whenever it printed a result, because a non-zero exit aborts the skill.
   - **No file yet:** the template, written with no overwrite allowed.
   - **A file holding only `enabledPlugins` and/or `extraKnownMarketplaces`** (what an install writes): the template's keys
     are added, and those two are kept exactly as they were.
@@ -86,14 +92,17 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
   empty or exactly the deny JSON, never a `permissionDecision` other than `deny`, and it exits 0.
 - **`onFailure` block:** `install.test.ts` pins it in the config. The engine's half (a missing or crashing script blocks the
   call) needs a model run, so it's a hand check below.
-- **The skill:**
-  - `template.json` is exactly the agreed settings;
-  - `SKILL.md` has `disable-model-invocation: true`, the two fixed commands and the `AskUserQuestion` step;
+- **The skills:**
+  - `template.json` is exactly the agreed settings, with no git rule (a git wildcard would allow `--output=<file>`);
+  - each `SKILL.md` has `disable-model-invocation: true`, exactly one injected command, an `allowed-tools` rule for exactly
+    that command, the path in single quotes, no `$ARGUMENTS` and no `AskUserQuestion`, and says what a disabled shell means;
   - `setup.mjs` in temp projects:
     - with no file, nothing is written until `--write`, and then the result is the exact template;
     - an install-only file gets the template's keys, with `enabledPlugins` and `extraKnownMarketplaces` unchanged;
-    - another key, invalid JSON or a tracked file means nothing is written, even with `--write`;
-    - the `.gitignore` line is appended once, never twice, and not when the project already covers the file.
+    - another key, invalid JSON or a tracked file means nothing is written, even with `--write`, and it exits 0;
+    - a second `--write` changes nothing;
+    - the `.gitignore` line is appended once, and not when the project already covers the file;
+    - a space in the plugin folder or the project folder works.
 
 **By hand**
 
@@ -107,11 +116,20 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - **Terminal, a normal handoff:** the Lead hands a one-word task to the Backend dev, and the guard stays silent.
 - **Terminal, the block:** a scratch copy of the plugin with `guard.mjs` missing. The Lead's handoff is blocked with "failed;
   blocking because onFailure is "block"".
+- **Terminal, the setup skills** (no login needed: the injected command runs before any model call):
+  - in Manual and in Auto, with the Lead as main agent, the dry run writes nothing, the write writes, and a second write
+    changes nothing;
+  - from a plugin copy under a folder with a space, the write works;
+  - with `disableSkillShellExecution: true`, nothing runs.
+- **Terminal, with the model:**
+  - the dry run is explained and names the write skill;
+  - asked to run the setup, the Lead can't (it has no Skill tool), and a throwaway agent that has the Skill tool is refused
+    by the engine for both skills;
+  - with shell execution disabled, the model says why nothing was written.
 - **Desktop (Dima), the test project, which starts in Auto from the user settings:**
-  - `/world-of-agents:setup-project` shows the result, asks yes or no, and writes only on yes;
-  - note whether the write also raised Claude Code's own approval;
-  - the next new session shows Manual and `.gitignore` covers the file;
-  - `git push` and reading `.env` are refused.
+  - `/world-of-agents:setup-project` shows the result and writes nothing;
+  - `/world-of-agents:setup-project-write` writes;
+  - the next new session shows Manual and `.gitignore` covers the file.
 
 ## 2b: the pane
 
@@ -213,7 +231,12 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
   It says "The team is done." and the first sentence of the Lead's answer, or "The team stopped. <role> failed." with
   roles from the roster (several failed roles are joined with "and"). Turns with no agents stay silent.
 
-- `pane.tsx`: a hall status line and the mute button. `README.md`: Node on the PATH, and the Windows voice.
+- **A Node check:** at session start the mod runs `node --version` through `$.process.run` (it worked in the desktop app in
+  milestone 1). If Node is missing or older than 20.19, the pane warns: the guard then blocks every agent start and shell
+  command ("Executable not found in $PATH: "node"", seen in 2a), and the hall can't start. The warning says how to install
+  Node or turn the plugin off.
+- `pane.tsx`: a hall status line, the Node warning and the mute button. `README.md`: the Windows voice (the Node
+  requirement is in since 2a).
 
 **Tests**
 
@@ -231,8 +254,12 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - (Vitest) The manifest-only server: `../`, `%2e%2e`, `..%2f`, a backslash path and a file not in the manifest each get a
   404, and nothing is read from outside the page folder. The page folder comes from the bundle's own location. The bundle,
   when present, imports only `node:` modules. The start id and "Hall restarted".
+- (kit) The Node check: a missing `node`, a failing `node --version` and a version under 20.19 each show the warning, and
+  a current Node shows none.
 
 **By hand (desktop)**
+
+- With Node taken off the PATH the desktop app starts from, the pane warns (and the guard blocks, as 2a showed).
 
 - The first message starts the hall with no terminal, and "Open hall" shows the live page.
 - An edit plus `/reload-plugins` kills it, and the next turn brings it back with "Hall restarted".
@@ -286,5 +313,6 @@ up. Under reduced motion agents still jump, but the 3 s at the desk is about tim
    build is proven deterministic.
 4. "The team is done" as in 2c, which keeps Dima's rule and adds one condition: the turn must end with an answer.
 5. Milestone 2 is `v3.0.0`; later milestones are minors. The README names Claude Code 2.1.295 or later.
-6. The setup skill copies a fixed template by script, merges only an install-only file, and asks with `AskUserQuestion`.
+6. The setup is two user-only skills whose injected command runs the script; it merges only an install-only file. (The
+   first design, with the model running the script and asking with `AskUserQuestion`, failed the desktop check.)
 7. The guard's best-effort `.env` rule covers `Bash` and `PowerShell`.

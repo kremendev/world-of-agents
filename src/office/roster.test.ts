@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAY_START } from '../../plugin/hooks/guard.mjs';
 import { agentById, ROSTER } from './roster';
 import type { AgentId } from '../events/schema';
 
@@ -53,5 +54,8 @@ describe('the plugin agents match the roster the page shows', () => {
     expect(sorted(started)).toEqual(
       sorted(ROSTER.filter((a) => a.id !== 'lead').map((a) => `world-of-agents:${a.id}`)),
     );
+    // The guard hook enforces the same list (a subagent's Agent(...) list restricts nothing), so the two can't drift.
+    expect(sorted([...MAY_START.main])).toEqual(sorted(started));
+    expect(MAY_START.subagents.size).toBe(0);
   });
 });

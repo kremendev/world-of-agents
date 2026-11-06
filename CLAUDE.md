@@ -59,10 +59,14 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
                   quiet-logger.ts: hides the dev proxy's "no hall" error. fixtures/: the recorded runs' hooks, redacted
 .claude-plugin/   marketplace.json: the repo is its own marketplace, listing the plugin from ./plugin
-plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
-                  (the five agents' prompts and tools), hooks/hooks.json (an async hook per event), hooks/send.mjs
-                  (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with the token;
-                  send.test.ts, handshake.test.ts).
+plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
+                  (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
+                  hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
+                  the token; send.test.ts, handshake.test.ts), hooks/guard.mjs (the deny-only PreToolUse guard on Agent,
+                  Bash and PowerShell: who may start whom, and the .env rule; guard.test.ts),
+                  skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
+                  a project's .claude/settings.local.json) and skills/setup-project-write/ (SKILL.md: the write); tested in
+                  server/setup-skill.test.ts.
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
                   with a fake claude
@@ -170,6 +174,34 @@ Do not change the look without asking. New ideas go into a later version.
   permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
   applies both (v3 spike). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
+- `guard.mjs` is the one hook that answers Claude Code, and it only denies: a test runs it over every input and fails on
+  any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
+  permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
+  not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
+  block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
+  no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`).
+  The `.env` rule is best effort; don't sell it as more. No imports, no network, no files. Failing closed means a missing
+  Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
+- A project or user agent can't take a `world-of-agents:` name: Claude Code skips any agent file whose name holds `:`
+  (checked for 2a, with an error in the debug log), so the guard's `agent_type` can't be spoofed by such a file.
+- The setup is two skills, both `disable-model-invocation: true`, so only Dima types them: `setup-project` (dry run) and
+  `setup-project-write` (typing it is the yes). Claude Code runs `setup.mjs` itself, through one injected command per skill
+  (`` !`node '${CLAUDE_PLUGIN_ROOT}/...'` ``), pre-approved by an `allowed-tools` rule for exactly that command. The model
+  runs nothing and decides nothing: the Lead has no Bash and no Skill tool, and the engine refuses either skill to a
+  model that has one. Keep the commands fixed (no `$ARGUMENTS`, nothing from the conversation) and the path in single
+  quotes: in double quotes bash would still run a `$(...)` in the plugin path. A path with an apostrophe breaks the quotes
+  and the skill aborts before anything runs (tested); the plugin path comes from the user's folders and our fixed plugin
+  names, never from the conversation. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
+  non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`.
+  When the template's keys are already there it compares them itself: an exact match says "Already set up", anything
+  else stops and names the settings that differ (so a second `--write` changes nothing). It never prints an existing
+  settings file's values (they can hold secrets, and the output goes into the conversation). The skills give the model
+  the exact `.env` caveat to repeat, so it doesn't improvise one.
+- Injected skill commands skip hooks: no `PreToolUse` fires for them, so the guard never sees one (checked for 2a).
+  Permission rules still apply (a matching deny aborts the skill). Only skills we wrote or read go in the plugin.
+- `template.json` has no git rule on purpose: `git status`, `git diff` and `git log` already run without asking as
+  built-in read-only commands, and `Bash(git diff *)` or `Bash(git log *)` would also allow `--output=<file>`, which
+  writes a file without a prompt (checked against the engine's own decisions for 2a).
 - `send.mjs` doesn't trust the token file, because a PC shutdown can leave one behind with no hall running. Before each
   post it sends a random nonce to `POST /api/handshake` and posts only if the answer is HMAC-SHA256(token, nonce), compared
   with `timingSafeEqual`. Neither request follows a redirect, and the answer is capped. A program on the port without the
@@ -225,6 +257,13 @@ Do not change the look without asking. New ideas go into a later version.
   so it spends nothing, and `WOA_CAPTURE=1` counts the hooks. SessionStart's `agent_type` shows the main agent, and
   `--debug-file` shows which copy loaded. `marketplace add` refuses `file://`; to test the cached copy, serve a bare repo
   over HTTP through `git http-backend`, because Claude Code clones shallow.
+- Desktop checks of the working copy use a dev install: `~/Downloads/woa-dev/` is a folder marketplace (`woa-dev`) holding a
+  copy of `plugin/`, installed at local scope in `~/Downloads/woa-m2-test/`. Claude Code refuses a junction or symlink there
+  (a link-traversing entry), so refresh the copy after each change, then run `/reload-plugins` in the desktop session:
+  `rm -rf ~/Downloads/woa-dev/plugin && cp -r ~/Downloads/agent-office/plugin ~/Downloads/woa-dev/plugin`.
+  The marketplace name can't be `world-of-agents`: the user settings already pin that one to GitHub.
+- `setup-skill.test.ts` runs `setup.mjs` in temp git repos. The script ignores your global git ignore on purpose
+  (`core.excludesFile` points at the null device), so the tests don't depend on it either.
 - Tests never reach port 4319, where a real hall may be running. `deliver()` in `send.mjs` takes the hall's URL, and
   `handshake.test.ts` uses real HTTP servers on free ports, including ones that don't know the token.
 - `woa.test.ts` needs Git Bash on Windows (it skips under WSL's `bash`) and skips its symlink test where the account

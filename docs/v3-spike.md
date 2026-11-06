@@ -247,9 +247,11 @@ fields the subagents' other calls carry; milestone 5 checks them on a real guild
 
 ### Other checks
 
-- **PowerShell `-File` needs `-ExecutionPolicy Bypass` on Dima's PC.** Every execution-policy scope is `Undefined`, which
-  means Restricted: `powershell.exe -NoProfile -NonInteractive -File echo.ps1` failed with exit 1. With `-ExecutionPolicy
-Bypass` added, the same script ran and read all 32 characters it was given on stdin.
+- **PowerShell `-File` needs an execution policy flag on Dima's PC.** Every execution-policy scope is `Undefined`, which
+  means Restricted: `powershell.exe -NoProfile -NonInteractive -File echo.ps1` failed with exit 1. With
+  `-ExecutionPolicy RemoteSigned` the same script ran (exit 0) and read all 32 characters it was given on stdin; marked as
+  downloaded (`Zone.Identifier`, zone 3) it was refused (exit 1). `-ExecutionPolicy Bypass` ran even the marked copy. A file
+  of the plugin as git installed it has no `Zone.Identifier` stream. The brief uses `RemoteSigned`.
 - **A failing hook can block** (hooks docs): `"onFailure": "block"` on a command hook (Claude Code 2.1.295 or later) turns a
   hook that can't start, exits with a code other than 0 or 2, times out or prints output that doesn't parse into a block of
   the `PreToolUse` call. It has no effect on async hooks. `"allow"` skips the permission prompt; `deny` wins over `defer`,
