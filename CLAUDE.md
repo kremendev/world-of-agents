@@ -67,7 +67,8 @@ plugin/           the v2 Claude Code plugin: .claude-plugin/plugin.json, setting
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
                   with a fake claude
 .github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
-docs/             v3-brief.md (the v3 plan and milestones), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
+                  really do), v3-m2-plan.md (milestone 2 in parts), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures)
 ```
@@ -159,13 +160,16 @@ Do not change the look without asking. New ideas go into a later version.
   secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads. Change a
   model or tools in both `plugin/agents/*.md` and `roster.ts`: `roster.test.ts` fails if they differ, and checks the
-  Lead can start exactly the other four.
+  Lead can start exactly the other four. An `Agent(...)` list binds only the main thread: in a subagent's file it is
+  ignored (the v3 spike saw one start an agent its list doesn't name), so who may start whom belongs in the guard hook.
 - `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
 - Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
   project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
   enabled, so every session everywhere would start as the Lead and report to the hall. An installed plugin can't set a
-  permission mode or an environment variable, so only `woa` forces Manual and `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
+  permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
+  applies both (v3 spike). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
+  `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 - `send.mjs` doesn't trust the token file, because a PC shutdown can leave one behind with no hall running. Before each
   post it sends a random nonce to `POST /api/handshake` and posts only if the answer is HMAC-SHA256(token, nonce), compared
   with `timingSafeEqual`. Neither request follows a redirect, and the answer is capped. A program on the port without the
@@ -285,6 +289,10 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    its `settings.json` makes the Lead the main agent. `v2.1.0` is the first release with a marketplace file; `v2.0.0` has
    none, so it can't be pinned. `v2.2.0` is the first with the handshake. The desktop test passed: installed at local
    scope with `claude plugin install` in the project, then run in the desktop app's Code tab, the Lead answered and the
-   hall followed the whole run (2 of 2 cards). The permission mode that run had is still to be confirmed.
+   hall followed the whole run (2 of 2 cards). That run was almost certainly in Auto: a new session in `woa-test`, whose
+   local settings set no mode, starts in Auto from the user settings. `woa-test` now runs the `v2.2.0` install.
+   Milestone 1 (the spike) is done: `docs/v3-spike.md` has the answers, and the brief follows from them. Its throwaway mod
+   is on the local `spike/mods` branch, never pushed: it is unreviewed and the repo is public.
 
-Next: milestone 1 in docs/v3-brief.md (spike: prove the platform).
+Next: milestone 2 in four parts (docs/v3-m2-plan.md, approved 6 Nov), starting with 2a: the guard hook and the setup skill.
+It ships as `v3.0.0`.

@@ -81,8 +81,8 @@ agent carries dozens of skills.
 - Specialists get no `Agent` tool.
 - Guild leads and specialists run on Sonnet. Only the Lead uses Opus.
 
-**The guard.** A `PreToolUse` hook on the `Agent` tool in `plugin/hooks/hooks.json` runs `plugin/hooks/guard.mjs` before
-any agent starts another.
+**The guard.** A `PreToolUse` hook on the `Agent`, `Bash` and `PowerShell` tools in `plugin/hooks/hooks.json` runs
+`plugin/hooks/guard.mjs` before any agent starts another, and before any shell command.
 
 - **A normal hook, not async.** An async hook runs in the background and can't block.
 - **Deny-only.** It prints a `PreToolUse` deny (`permissionDecision: "deny"` with a reason) or nothing, and exits 0. It
@@ -99,7 +99,13 @@ any agent starts another.
   `world-of-agents:designer`, `world-of-agents:frontend`, `world-of-agents:backend` and `world-of-agents:reviewer`; every
   other caller may start nobody. Built-in agents (`Explore`, `Plan`, `general-purpose`, `claude-code-guide`,
   `statusline-setup` and any other) are denied, because some run on Haiku. Milestone 5 adds each guild lead's specialists.
-- **No network, no hall, no file writes.** It reads its input from stdin, checks the table and answers. Short timeout.
+- **A best-effort `.env` rule.** It denies a `Bash` or `PowerShell` command that names a `.env` file (`.env`, `.env.local`,
+  quoted or inside a path), with the same deny-only, fail-closed rules: a command it can't read is denied. Words like
+  "environment" or `process.env` pass. It catches accidents and lazy prompt injection, not a determined attacker: a glob, a
+  variable or a script that opens the file itself gets past it. It works with the plugin alone, before the setup skill
+  has run.
+- **No network, no hall, no file writes.** It reads its input from stdin, checks the table and answers. Short timeout. It
+  starts once per agent start and per shell command, about 60 ms each.
 - A deny wins over any other hook's answer: `deny` comes before `defer`, `ask` and `allow`.
 
 **Skills.** The plugin gets a `skills/` folder of skills we write or vet. An agent's `skills:` line preloads 2 to 5 of them in
@@ -114,14 +120,16 @@ The new characters need sprites and room in the hall. That's a design round befo
 
 ## The team pane and voice
 
-The mod draws a pane that docks beside the conversation in the desktop app when the panel is 800 px or wider, and sits above the
-prompt when it's narrower. The same pane works in the terminal and in VS Code. It appears once the first message is sent:
-that is when the session, and with it the mod, starts (milestone 1). The README says so.
+The mod draws a pane beside the conversation. The surface decides where it sits, docked beside the transcript or above the
+prompt, and the mod can't choose: milestone 1 saw it docked in a wide desktop window. The same pane works in the terminal and
+in VS Code. It appears once the first message is sent: that is when the session, and with it the mod, starts (milestone 1).
+The README says so.
 
 **What the pane shows:**
 
-- **Agents by guild**, with exact states from `$.agent.list()`: pending, running, waiting, idle, completed, failed or killed. No
-  guessing from hook timing.
+- **Agents**, with exact states from `$.agent.list()`: pending, running, waiting, idle, completed, failed or killed. No
+  guessing from hook timing. There are no guilds before milestone 5: until then the pane lists the five agents, and
+  milestone 5 groups them by guild.
 - **Who needs you**, taken from the `agentId` on `tool.check`. You still answer in Claude Code's own permission prompt, which a
   mod can't change.
 - **A warning when the session runs in `auto`**, because nothing asks for your approval then. The pane only warns: it never changes
@@ -132,25 +140,32 @@ that is when the session, and with it the mod, starts (milestone 1). The README 
 - **Buttons**: "Open hall", mute, and a few preset prompts such as "Plan the next milestone", "Run the quality check" and "Review
   what changed". A preset sends its fixed text as if you had typed it.
 
-**The hall starts itself.** When the session starts (the first message), the mod checks `/api/health`, and if nothing answers it
-starts the hall server. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take
+**The hall starts itself.** When the session starts (the first message) and at the start of each main-thread turn, the mod checks
+`/api/health`, and if nothing answers it starts the hall server. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take
 the port anyway (it writes its token only after binding it). The plugin carries a prebuilt hall (one bundled server file plus the
-built page), so installing it needs no `npm install`. "Open hall" links to `http://localhost:4319`, which opened the hall from the
-desktop app in milestone 1.
+built page), so installing it needs no `npm install`. The bundle finds its page relative to its own file, never from the working
+folder, an environment variable or an argument. It serves only the files named in the build's manifest, never a path joined
+from the URL; tests try `../`, `%2e%2e` and a backslash path. `plugin/hall/` is tracked in git and rebuilt by
+`scripts/build-plugin-hall.mjs`; a freshness check rebuilds it and fails if it differs from what's committed, and every release
+runs it. "Open hall" links to `http://localhost:4319`, which opened the hall from the desktop app in milestone 1.
 
 A hall the mod started is the mod's child: a plugin reload kills it, and after the sessions closed it was gone too. A reload
 runs `session.start` again, so the health check brings it back. Each kill leaves the token file behind; the handshake makes that
-harmless and the next hall writes a new one. Open: with two sessions open, closing the one that started the hall stops it for
-both until the other's next start.
+harmless and the next hall writes a new one. With two sessions open, closing the one that started the hall costs the other at
+most one turn without it. A restarted hall starts with an empty replay, and it stays that way: no event log on disk, because
+agent text on disk would be a new leak. The page rebuilds from nothing and says "Hall restarted".
 
 **Voice.** `$.audio.speak` has no voice on Windows (milestone 1), so the mod speaks through Windows' own synthesizer:
 
 - A fixed script in the plugin, `plugin/voice/speak.ps1`, reads plain text from stdin and speaks it with `System.Speech`
   (`Speak`, never SSML).
 - The mod starts it with `$.process.spawn` and exactly this argument list:
-  `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File <plugin>/voice/speak.ps1`. Never `-Command`,
-  never a shell, never a command string built from any text. `-ExecutionPolicy Bypass` is needed because Windows' default policy refuses to run any `.ps1` with `-File`
-  (checked on Dima's PC); it applies to that one process and changes nothing on the machine. A Group Policy setting overrides
+  `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File <plugin>/voice/speak.ps1`. Never
+  `-Command`, never a shell, never a command string built from any text.
+- Why `RemoteSigned`: Windows' default policy refuses to run any `.ps1` with `-File`. `RemoteSigned` runs a local script and
+  refuses one marked as downloaded from the internet; the plugin's files, installed by git, carry no such mark (all checked on
+  Dima's PC). `Bypass` would run even a marked script, and security tools flag `powershell -ExecutionPolicy Bypass` as a
+  malware pattern. The flag applies to that one process and changes nothing on the machine. A Group Policy setting overrides
   it, and then the voice stays silent.
 - The text goes in through stdin (`$.process.spawn`'s `input`), capped at 200 characters with control characters stripped.
   Agent names come from our fixed roster table, never from event text. One utterance at a time.
@@ -160,8 +175,12 @@ both until the other's next start.
 
 It speaks two things only:
 
-- "Backend dev needs your approval."
-- "The team is done." Then the first sentence of the Lead's report.
+- "Backend dev needs your approval." The role comes from the roster table.
+- At the end of the team's work, once: at the end of a main-thread turn that ended with an answer (not interrupted, not an
+  API error), in which at least one of our agents ran, all of them are finished (completed, failed or killed) and nothing
+  waits for approval. Turns with no agents stay silent. It says "The team is done." and then the first sentence of the
+  Lead's answer, or "The team stopped. Backend dev failed." when an agent failed, with the role from the roster table
+  (several failed roles are joined with "and").
 
 It's on by default, the mute button is remembered between sessions, and nothing else is spoken. Windows can use any installed
 voice, so a voice setting can come later.
@@ -235,12 +254,23 @@ step, while you still review every milestone.
   session starts and updates it at the end, so tomorrow continues today. The hall's dashboard shows it.
 - **Plan once, approve once.** At the start of a milestone the Lead plans in plan mode and writes the plan into the backlog. You
   approve it once, the team works through it, and you review at the end.
-- **A safe-command list.** The `/world-of-agents:setup-project` skill (milestone 2) writes the project's
-  `.claude/settings.local.json`: `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, and a
-  list that lets `npm test`, `npm run check`, `git status`, `git diff` and `git log` run without asking and always denies
-  reading `.env` files and `git push`. It makes sure the project's `.gitignore` covers `settings.local.json`, and you check
-  the diff before keeping it. In the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the desktop
-  app applies both the mode and the env from that file. From milestone 4 the skill also writes the backlog.
+- **A safe-command list.** The `/world-of-agents:setup-project` skill (milestone 2) gives the project's
+  `.claude/settings.local.json` `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, and
+  rules that let `npm test`, `npm run check`, `git status`, `git diff` and `git log` run without asking and deny reading
+  `.env` files and `git push`. In the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the
+  desktop app applies both the mode and the env from that file. From milestone 4 the skill also writes the backlog.
+  - **The rules come from a fixed template file in the plugin, copied by a script, never typed by the model.** The script
+    shows the result first and writes nothing; the skill then asks Dima yes or no with `AskUserQuestion`, and only a yes runs
+    the script again to write it.
+  - **An existing file is never merged by hand.** Installing the plugin at local scope itself creates that file, holding only
+    `enabledPlugins` and `extraKnownMarketplaces`. When the file holds nothing else, the script adds the template's keys and
+    leaves those two untouched. When it holds anything else, the script shows both files and stops.
+  - It makes sure the project's `.gitignore` covers `settings.local.json`.
+  - **What the `.env` rule really covers:** a `Read(.env)` deny applies to Claude Code's file tools and to the file commands it
+    recognizes in Bash (`cat`, `head`, `tail`, `sed`, `tee`) and their redirections. It misses `grep -r` over a folder,
+    a script that opens the file itself, and commands it doesn't recognize. Manual mode doesn't catch `cat .env` either:
+    `cat` is one of Claude Code's built-in read-only commands, which run without a prompt in every mode. The guard's
+    best-effort rule (see "The guard") covers part of that gap, for `Bash` and `PowerShell`, before the skill has run.
 - **No two agents on one file.** Guild leads hand each specialist its own files.
 
 **Sandbox trade-off.** The desktop app on Windows has no sandbox, and its WSL sessions don't load plugins. So:
@@ -267,7 +297,8 @@ decides.
 | Runaway delegation               | A chain of agents burns the plan                                 | Depth capped at 2. The guard hook lets an agent start only what its row in a fixed table names, and fails closed. Specialists can't start anyone. An `Agent(...)` list in a subagent's file is no control.           |
 | The guard approves things        | A start skips your permission prompt                             | Deny-only: it answers deny or nothing, never allow, which would skip the prompt. A test pins it.                                                                                                                     |
 | Spoken text                      | Agent text runs as a command                                     | A fixed script and a fixed argument list, no `-Command` and no shell. The text goes in on stdin, capped at 200 characters, control characters stripped. Names come from the roster table. A test pins the arguments. |
-| The setup skill's settings       | A wrong line loosens permissions                                 | Fixed content, written to the git-ignored `settings.local.json`, and Dima checks the diff before keeping it.                                                                                                         |
+| The setup skill's settings       | A wrong line loosens permissions                                 | A fixed template copied by a script, never typed by the model. It writes only after Dima's yes, never merges a file it doesn't recognize, and the file is git-ignored.                                               |
+| Reading `.env`                   | An agent reads a secret                                          | `Read(.env)` deny rules (file tools and the file commands Claude Code recognizes in Bash) and the guard's best-effort rule on shell commands that name a `.env` file. Neither stops a determined attacker.           |
 | Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                  |
 | Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                                           |
 | Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                        |
@@ -297,6 +328,10 @@ cloud runs count against the same plan.
 One milestone per session. Claude Code: stop after each one for Dima's review, run `npm run check` before saying anything works,
 commit only when Dima asks, and never add Claude or Anthropic lines to commits, pull requests or release notes. Where the docs and
 real behaviour disagree, real behaviour wins: say so and fix this brief.
+
+**Releases.** Milestone 2 ships as `v3.0.0`: a major, because the guard now denies Claude Code's built-in agents, a change in
+behaviour. Each later milestone is a minor: the ledger is `v3.1.0`, and so on. The README names the minimum Claude Code
+version, 2.1.295 or later, which the guard's `onFailure` needs.
 
 0. **Release and install.**
    - Tag the current state as the `v2.0.0` release on GitHub.
@@ -330,11 +365,12 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
    - **Speech bubbles stay long enough to read:** at least 2.5 s plus 50 ms per character, at most 8 s, and a queue per agent,
      so a new bubble waits instead of replacing the old one.
    - **The guard hook** (see "The guard"), with its milestone 2 table.
-   - **The setup skill,** `/world-of-agents:setup-project`, moved here from milestone 4: it writes `.claude/settings.local.json`
-     (see "A safe-command list"), makes sure `.gitignore` covers it, and Dima checks the diff before keeping it.
+   - **The setup skill,** `/world-of-agents:setup-project`, moved here from milestone 4: a script copies a fixed template into
+     `.claude/settings.local.json` after Dima's yes, and makes sure `.gitignore` covers it (see "A safe-command list").
+   - Built in four parts with a stop after each; `docs/v3-m2-plan.md` has the files, tests and checks. Released as `v3.0.0`.
    - **The README says the pane appears after the first message.**
-   - **The hall comes back:** the mod checks `/api/health` at session start and restarts the hall if nothing answers, never
-     starting a second copy (see "The hall starts itself").
+   - **The hall comes back:** the mod checks `/api/health` at session start and at the start of each turn, and restarts the
+     hall if nothing answers, never starting a second copy (see "The hall starts itself").
    - Done when: from opening a project in the desktop app to watching a run in the hall, you never touch a terminal.
 3. **Token ledger.** Everything under "The token ledger", plus the chest in the hall. Done when: the pane's plan-limit numbers
    match claude.ai's usage page, and the backfill test proves no transcript text is stored.
