@@ -28,15 +28,17 @@ export const MAY_START = Object.freeze({
 });
 
 /**
- * A shell command that names a .env file: `.env` or `.env.<anything>`, alone, at the end of a path or quoted. Best effort:
+ * A shell command that names a .env file: `.env`, `.env.<anything>`, `.envrc` (direnv's) or `.envrc.<anything>`, alone, at
+ * the end of a path or quoted. Best effort:
  * it catches accidents and lazy prompt injection, not a determined attacker (a variable, an escape or a script that opens
  * the file itself gets past it). `process.env`, `printenv` and the word "environment" don't match.
  */
-export const ENV_FILE = /(?:^|[\s'"`=:/\\<>|;&(){}[\],])\.env(?:\.[\w.-]*)?(?=$|[\s'"`|;&()<>{}[\],:*?])/i;
+export const ENV_FILE =
+  /(?:^|[\s'"`=:/\\<>|;&(){}[\],])\.env(?:rc)?(?:\.[\w.-]*)?(?=$|[\s'"`|;&()<>{}[\],:*?])/i;
 
 export const REASONS = Object.freeze({
   agent: 'World of Agents guard: that start is not in the team table of who may start whom.',
-  env: 'World of Agents guard: this command names a .env file, and the team never reads those.',
+  env: 'World of Agents guard: this command names a .env or .envrc file, and the team never reads those.',
   input: 'World of Agents guard: this call could not be checked, so it is denied.',
 });
 

@@ -2,7 +2,7 @@
   "permissions": {
     "defaultMode": "default",
     "allow": ["Bash(npm test)", "Bash(npm run check)"],
-    "deny": ["Read(.env)", "Read(.env.*)", "Read(.envrc)", "Bash(git push *)"]
+    "deny": ["Read(.env)", "Read(.env.*)", "Read(.envrc)", "Bash(git push *)", "PowerShell(git push *)"]
   },
   "env": {
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2"

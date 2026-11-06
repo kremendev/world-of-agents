@@ -122,6 +122,11 @@ describe('the best-effort .env rule', () => {
     'cat .env;echo done',
     'cat <.env',
     'ls && cat .env.development.local',
+    'cat .envrc',
+    'cat sub/.envrc',
+    'Get-Content .envrc',
+    'source "./.envrc"',
+    'cat .envrc.md.txt',
   ])('denies %s', (command) => {
     expect(decide(shell('Bash', command))).toBe(denial(REASONS.env));
     expect(decide(shell('PowerShell', command))).toBe(denial(REASONS.env));
@@ -133,7 +138,8 @@ describe('the best-effort .env rule', () => {
     'printenv',
     'npm run env:check',
     'ls -la',
-    'cat .envrc.md.txt',
+    'cat envrc.md',
+    'cat docs/envrc.md',
     'git diff -- src/env.ts',
     'npm test',
   ])('lets %s through, by answering nothing', (command) => {
@@ -143,7 +149,9 @@ describe('the best-effort .env rule', () => {
 
   it('is the same rule the module exports', () => {
     expect(ENV_FILE.test('cat .env')).toBe(true);
+    expect(ENV_FILE.test('cat sub/.envrc')).toBe(true);
     expect(ENV_FILE.test('echo environment')).toBe(false);
+    expect(ENV_FILE.test('cat envrc.md')).toBe(false);
   });
 });
 

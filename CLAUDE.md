@@ -189,9 +189,10 @@ Do not change the look without asking. New ideas go into a later version.
   (`` !`node '${CLAUDE_PLUGIN_ROOT}/...'` ``), pre-approved by an `allowed-tools` rule for exactly that command. The model
   runs nothing and decides nothing: the Lead has no Bash and no Skill tool, and the engine refuses either skill to a
   model that has one. Keep the commands fixed (no `$ARGUMENTS`, nothing from the conversation) and the path in single
-  quotes: in double quotes bash would still run a `$(...)` in the plugin path. A path with an apostrophe breaks the quotes
-  and the skill aborts before anything runs (tested); the plugin path comes from the user's folders and our fixed plugin
-  names, never from the conversation. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
+  quotes: in double quotes bash would still run a `$(...)` in the plugin path. A path with one apostrophe breaks the
+  quotes and the skill aborts before anything runs (tested). A path with two apostrophes is unsafe: the quotes balance
+  again, so the text between them runs unquoted, and a folder named `a'$(calc)'b` would run `calc`. Accepted, because
+  only Dima's own folder names (and our fixed plugin names) reach that path, never the conversation or a cloned repo. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
   non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`.
   When the template's keys are already there it compares them itself: an exact match says "Already set up", anything
   else stops and names the settings that differ (so a second `--write` changes nothing). It never prints an existing
@@ -201,7 +202,10 @@ Do not change the look without asking. New ideas go into a later version.
   Permission rules still apply (a matching deny aborts the skill). Only skills we wrote or read go in the plugin.
 - `template.json` has no git rule on purpose: `git status`, `git diff` and `git log` already run without asking as
   built-in read-only commands, and `Bash(git diff *)` or `Bash(git log *)` would also allow `--output=<file>`, which
-  writes a file without a prompt (checked against the engine's own decisions for 2a).
+  writes a file without a prompt (checked against the engine's own decisions for 2a). It denies `git push` in both shells:
+  on Windows with Git Bash a scoped Bash deny alone turns the PowerShell tool off without a warning (tools reference), and
+  the scoped `PowerShell(git push *)` keeps it on. The engine confirmed `Read(.env)` also stops `Get-Content`, `gc`, `cat`
+  and `type` in PowerShell. The guard's `.env` rule matches `.envrc` too.
 - `send.mjs` doesn't trust the token file, because a PC shutdown can leave one behind with no hall running. Before each
   post it sends a random nonce to `POST /api/handshake` and posts only if the answer is HMAC-SHA256(token, nonce), compared
   with `timingSafeEqual`. Neither request follows a redirect, and the answer is capped. A program on the port without the

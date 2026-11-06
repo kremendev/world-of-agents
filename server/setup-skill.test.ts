@@ -43,12 +43,12 @@ const setup = (dir: string, args: string[] = [], script = SCRIPT) =>
   spawnSync(process.execPath, [script, ...args], { cwd: dir, encoding: 'utf8', timeout: 20_000 });
 
 describe('the template', () => {
-  it('is exactly the agreed settings: Manual, depth 2, two allows and four denies', () => {
+  it('is exactly the agreed settings: Manual, depth 2, two allows and five denies', () => {
     expect(TEMPLATE).toEqual({
       permissions: {
         defaultMode: 'default',
         allow: ['Bash(npm test)', 'Bash(npm run check)'],
-        deny: ['Read(.env)', 'Read(.env.*)', 'Read(.envrc)', 'Bash(git push *)'],
+        deny: ['Read(.env)', 'Read(.env.*)', 'Read(.envrc)', 'Bash(git push *)', 'PowerShell(git push *)'],
       },
       env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '2' },
     });

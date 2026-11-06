@@ -100,8 +100,8 @@ agent carries dozens of skills.
   other caller may start nobody. Built-in agents (`Explore`, `Plan`, `general-purpose`, `claude-code-guide`,
   `statusline-setup` and any other) are denied, because some run on Haiku. Milestone 5 adds each guild lead's specialists.
 - **A best-effort `.env` rule.** It denies a `Bash` or `PowerShell` command that names a `.env` file (`.env`, `.env.local`,
-  quoted or inside a path), with the same deny-only, fail-closed rules: a command it can't read is denied. Words like
-  "environment" or `process.env` pass. It catches accidents and lazy prompt injection, not a determined attacker: a glob, a
+  `.envrc`, quoted or inside a path), with the same deny-only, fail-closed rules: a command it can't read is denied. Words
+  like "environment", `process.env` or a file named `envrc.md` pass. It catches accidents and lazy prompt injection, not a determined attacker: a glob, a
   variable or a script that opens the file itself gets past it. It works with the plugin alone, before the setup skill
   has run.
 - **No network, no hall, no file writes.** It reads its input from stdin, checks the table and answers. Short timeout. It
@@ -256,11 +256,20 @@ step, while you still review every milestone.
   approve it once, the team works through it, and you review at the end.
 - **A safe-command list.** Two skills (milestone 2) give the project's `.claude/settings.local.json`
   `permissions.defaultMode` `"default"`, `env` `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, rules that let `npm test` and
-  `npm run check` run without asking, and denies for reading `.env` files and for `git push`. `git status`, `git diff` and
-  `git log` need no rule: they already run without asking as Claude Code's built-in read-only commands. A rule like
-  `Bash(git diff *)` would also allow `git diff --output=<file>`, which writes a file without a prompt (checked in 2a). In
-  the desktop app this replaces what `woa` does in the terminal; milestone 1 showed the desktop app applies both the mode
-  and the env from that file. From milestone 4 the setup also writes the backlog.
+  `npm run check` run without asking, and denies for reading `.env`, `.env.*` and `.envrc` files and for `git push` in both
+  shells (`Bash(git push *)` and `PowerShell(git push *)`). `git status`, `git diff` and `git log` need no rule: they
+  already run without asking as Claude Code's built-in read-only commands. A rule like `Bash(git diff *)` would also allow
+  `git diff --output=<file>`, which writes a file without a prompt (checked in 2a). In the desktop app this replaces what
+  `woa` does in the terminal; milestone 1 showed the desktop app applies both the mode and the env from that file. From
+  milestone 4 the setup also writes the backlog.
+  - **PowerShell, as the engine answered it (checked in 2a):** `git push` and `git push origin main` are denied through the
+    PowerShell tool by `PowerShell(git push *)`. The `Read(...)` denies stop PowerShell's file commands and their aliases
+    too: `Get-Content .env`, `gc .env`, `cat .env` and `type .env` are denied by `Read(.env)`, `Get-Content .env.local` by
+    `Read(.env.*)` and `Get-Content .envrc` by `Read(.envrc)`. `Get-Content README.md` and `git status` stay allowed.
+  - **Why the PowerShell rule matters twice:** on Windows with Git Bash, a scoped Bash deny rule like `Bash(git push *)`
+    turns the PowerShell tool off for the session without a warning, unless a scoped `PowerShell(...)` rule is present
+    (the tools reference says so; not reproduced here, because a no-login test session has PowerShell off anyway). So
+    `PowerShell(git push *)` both denies the push and keeps PowerShell working in a project the skill set up.
   - **The rules come from a fixed template file in the plugin, copied by a script Claude Code runs; the model never runs it
     and never types a rule.** `/world-of-agents:setup-project` is a dry run, and `/world-of-agents:setup-project-write`
     writes; typing the second is Dima's yes. Both are `disable-model-invocation: true`. Each runs one fixed command through
