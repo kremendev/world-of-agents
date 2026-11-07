@@ -94,6 +94,8 @@ claude plugin marketplace add kremendev/world-of-agents#v2.2.0
 
 From v3.0.0 the plugin does this for you, once per project, in two steps you type yourself. `/world-of-agents:setup-project` shows what it would write into the project's `.claude/settings.local.json`: Manual mode, subagent depth 2 and a safe-command list, plus a `.gitignore` line for that file. It writes nothing. `/world-of-agents:setup-project-write` then writes exactly that; typing it is your yes. Claude Code runs a fixed script from the plugin for both, and the model can't start either one. Run again, it says "Already set up". If the file already holds other settings, nothing changes and you're told which ones differ (names only, never values). The settings apply from the next new session. With `woa` it works now.
 
+**The team pane.** From v3.0.0 the plugin also draws a pane beside the conversation: the five agents with their state and task, who is waiting for your approval, a warning in the modes that don't ask before acting (Auto, Bypass permissions) or before edits (Accept edits), how full the context is and how much of your plan's limits is used, three preset prompts ("Plan the next milestone", "Run the quality check", "Review what changed") and an "Open hall" link. A preset sends its prompt at once, as if you had typed it; while the Lead is working the presets are dimmed and a press does nothing. It appears after you send the first message, because that is when the session, and with it the pane, starts. For now "Open hall" needs the hall started by hand with `npm run hall`. If you close the pane, `/world-of-agents:team` opens it again. Only you can run that command, and it costs no plan: the pane answers it, so it never reaches the model.
+
 The safe-command list lets `npm test` and `npm run check` run without asking, so they run whatever code the project's scripts, tests, configs and setup files hold. Read every edit approval in Manual mode as carefully as a command. If the path to the plugin's folder holds an apostrophe, the two skills can't run: Claude Code stops with "Shell command failed … unexpected EOF while looking for matching" and nothing happens.
 
 To remove the plugin, run this in the project folder:
@@ -129,6 +131,8 @@ The hook script sends the hall a short list of fields: event name, ids, agent ty
 
 One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and with Claude Code 2.1.295 or later a guard that crashes or hangs blocks the call too. `woa` has it now; an installed plugin has it from v3.0.0.
 
+The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and the only prompts it sends are the presets' fixed texts, when you press one of their buttons. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network, no files and no other programs. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
+
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 
 ## Known limits
@@ -137,6 +141,7 @@ The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, w
   - No hook says when you answered, so the flag clears at that agent's next event.
   - If a session sends no `PermissionRequest` (the hall started mid-wait, or an older Claude Code), the hall guesses after about 6 s: the running subagent that last used Edit, Write or Bash. With two writing at once it can name the wrong one.
   - Once a `PermissionRequest` has arrived in a session, the hall never guesses. If a later one gets lost, that wait shows no flag.
+- **The pane's approval list.** An approval stays listed until that call finishes, so a long command stays there while it runs after you approve it. The mode warning can come one prompt late: Claude Code says nothing when you switch modes, so the pane learns the mode from the next prompt or agent start.
 - **No token counts.** Hooks don't report them.
 - **No sandbox on native Windows.** Commands run with your user's rights, so your approval is the guard. Read each command before you approve it. Claude Code's sandbox needs macOS, Linux or WSL2.
 - **One session at a time.** The hall follows one session. Starting, clearing or resuming a session takes it over.
@@ -162,11 +167,12 @@ Page: checks every event, draws the hall
 
 - **Plugin** (`plugin/`): the five agents and the hooks. The Lead runs on Opus and the team on Sonnet. Each agent gets only the tools its job needs, and the Reviewer only reads. The repo is its own marketplace (`.claude-plugin/marketplace.json`).
 - **Hook script** (`plugin/hooks/send.mjs`): uses Node built-ins only, always exits 0 and prints nothing.
+- **Team pane** (`plugin/hooks/mod/`): a Claude Code mod in TypeScript, typed against the engine's own types for one Claude Code version (`tools/claude-code-types/`, refreshed only with `npm run types:update`) and tested with Claude Code's own kit.
 - **Hall server** (`server/`): plain `node:http`, run with `tsx`. It also serves the page.
 - **Page** (`src/`): React and TypeScript, with the hall drawn on Canvas 2D. Agent text only ever shows as plain text, and a Content-Security-Policy stops the page loading anything but its own files. The demo plays the same events from a script.
 - **Launcher** (`bin/woa`): starts Claude Code with the plugin, the Lead and approvals on.
 
-To work on the page, run `npm run dev` (http://localhost:5173). Run `npm run check` before you commit. The plan and the real hook payloads are in [docs/v2-brief.md](docs/v2-brief.md) and [docs/v2-hooks.md](docs/v2-hooks.md).
+To work on the page, run `npm run dev` (http://localhost:5173). Run `npm run check` before you commit. It needs Claude Code on PATH, because it runs the pane's tests and reads the pane with `claude plugin test` and `claude plugin validate`. The plan and the real hook payloads are in [docs/v2-brief.md](docs/v2-brief.md) and [docs/v2-hooks.md](docs/v2-hooks.md).
 
 ## Credits and license
 

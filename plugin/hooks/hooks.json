@@ -1,5 +1,6 @@
 {
-  "description": "send.mjs reports what each World of Agents agent does to the Forge Hall server on 127.0.0.1. One way only: nothing the hall answers reaches Claude Code; it prints nothing and always exits 0. guard.mjs is the one hook that answers, and it can only deny: an agent start outside the team's table, or a shell command that names a .env file. It never allows, so your permission prompt still decides.",
+  "description": "send.mjs reports what each World of Agents agent does to the Forge Hall server on 127.0.0.1. One way only: nothing the hall answers reaches Claude Code; it prints nothing and always exits 0. guard.mjs is the one hook that answers, and it can only deny: an agent start outside the team's table, or a shell command that names a .env file. It never allows, so your permission prompt still decides. mod/register.tsx is the team pane: it watches and shows, and never answers a tool call, a check or a spawn.",
+  "modules": ["./mod/register.tsx"],
   "hooks": {
     "SessionStart": [
       {

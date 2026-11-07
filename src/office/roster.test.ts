@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAY_START } from '../../plugin/hooks/guard.mjs';
+import { ROSTER as PANE_ROSTER, rosterIdOf } from '../../plugin/hooks/mod/roster';
 import { agentById, ROSTER } from './roster';
 import type { AgentId } from '../events/schema';
 
@@ -57,5 +58,28 @@ describe('the plugin agents match the roster the page shows', () => {
     // The guard hook enforces the same list (a subagent's Agent(...) list restricts nothing), so the two can't drift.
     expect(sorted([...MAY_START.main])).toEqual(sorted(started));
     expect(MAY_START.subagents.size).toBe(0);
+  });
+});
+
+// The team pane (plugin/hooks/mod) can't import the page's roster: an installed plugin holds nothing outside plugin/.
+describe("the team pane's roster matches the page's", () => {
+  it('names the same five agents, in the same order, by the same names', () => {
+    expect(PANE_ROSTER.map(({ id, name }) => ({ id, name }))).toEqual(
+      ROSTER.map(({ id, name }) => ({ id, name })),
+    );
+  });
+
+  it('knows a subagent only by its exact full type, and never takes the Lead for one', () => {
+    for (const { id } of ROSTER.filter((a) => a.id !== 'lead'))
+      expect(rosterIdOf(`world-of-agents:${id}`)).toBe(id);
+    for (const type of [
+      'world-of-agents:lead',
+      'backend',
+      'Backend dev',
+      'world-of-agents:backend ',
+      'Explore',
+    ]) {
+      expect(rosterIdOf(type)).toBeUndefined();
+    }
   });
 });

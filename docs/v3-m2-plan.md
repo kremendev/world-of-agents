@@ -141,10 +141,15 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - `plugin/hooks/mod/` (new):
   - `register.tsx`: the hooks;
   - `pane.tsx`: the drawing;
-  - `roster.ts`: names and guild of the five agents;
+  - `roster.ts`: names of the five agents (guilds come with milestone 5, decided after the build);
   - `presets.ts`: the fixed prompt texts;
   - `types.d.ts`: the state contract;
   - `*.test.tsx`: kit tests.
+- `plugin/skills/team/SKILL.md` (added after the build): `/world-of-agents:team`, `disable-model-invocation: true`, which the
+  mod answers on `command.run` by opening the pane, without `next`, so the skill's text never reaches the model. A mod's own
+  `$.command.register` can't take a `:` in its name or `disable-model-invocation`, so the command is a skill.
+- `tests/invisible.test.ts` (added after the build): no bidi controls, zero-width characters or U+FEFF in any text file git
+  tracks or would add, the generated types included.
 - **Tests apart:** `claude plugin test <dir>` runs every `*.test.ts(x)` under its folder, and Vitest takes every test file it
   finds. So `send.test.ts`, `handshake.test.ts` and `guard.test.ts` move to `tests/plugin/`, the Vitest config excludes
   `plugin/**`, and everything under `plugin/` that is a test is a kit test. `tsconfig.node.json`'s `include` follows the move.
@@ -170,13 +175,18 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - The five agents with their states from `$.agent.list()`. Names come from `roster.ts`, and an Agent call's `description`
   shows as plain `Text`. No guild grouping before milestone 5.
 - Who needs you: an `ask` on `tool.check` names the agent from its `agentId`, and the entry clears when that call resolves.
-- The Auto warning on `permission_mode` `auto`, and not on `default`.
+- The mode warning, the mode named first: "Auto: Nothing asks you before acting.", "Bypass: Nothing asks you before
+  acting." and "Accept edits: Edits aren't asked, and npm test runs whatever they change.", none on any other mode.
+- An Agent call's `description` is cut at 120 code points, so an emoji is never split.
+- `/world-of-agents:team` opens the pane and answers itself; the skill beneath never runs.
 - Context and plan limits from `session.measure`.
 - The `Link` goes exactly to `http://localhost:4319`. No `Markdown` element anywhere in the tree.
 - `tool.check` and `agent.spawn` hand back allow, ask, deny and a deny unchanged (the spike's tests, kept).
 - Each preset submits exactly its constant through `$.prompt.submit`. A source check finds `$.prompt.submit` nowhere outside
   `presets.ts`.
-- (Vitest) `roster.ts`'s names and guilds equal `src/office/roster.ts`.
+- While the Lead's own turn runs, the presets are dim and a press sends nothing; a second press before the first one's turn
+  has started sends nothing either.
+- (Vitest) `roster.ts`'s ids and names equal `src/office/roster.ts` (the page's roster has no guilds yet).
 
 **By hand (desktop, the dev install)**
 
@@ -187,8 +197,11 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
   - switching to Auto shows the warning from the next prompt.
 - Context and limits change after a turn, and each preset sends its text.
 - The link opens a hall started by hand (the mod starts none yet), and `/reload-plugins` keeps what the pane shows.
+- After closing the pane, `/world-of-agents:team` opens it again with no model turn.
 
-**Open in 2b:** `$.prompt.submit` from a desktop pane wasn't tried in the spike.
+**Open in 2b:** `$.prompt.submit` from a desktop pane wasn't tried in the spike. Answered by the desktop check on 7 Nov: it
+works (3 of 3), and it submits at once, so a preset starts a run that Esc stops only after it started. Hence decision 13.
+`$.prompt.fill` would put the text in the prompt box unsent; it isn't used.
 
 ## 2c: processes
 
@@ -220,7 +233,8 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - `plugin/hooks/mod/voice.ts` (new): the sanitizer (control characters out, 200 characters at most, never a split code point),
   the fixed argument list with `-ExecutionPolicy RemoteSigned`, a queue of one utterance at a time, and mute kept in
   `$.store`.
-- `plugin/voice/speak.ps1` (new): reads stdin, caps it again, and speaks it with `System.Speech` `Speak`.
+- `plugin/voice/speak.ps1` (new): sets `[Console]::InputEncoding` to UTF-8 before it reads stdin, so non-English text isn't
+  garbled, then caps it again and speaks it with `System.Speech` `Speak`.
 - `register.tsx`: a hall check at session start and at each main-thread `turn.start`, and a voice line on an `ask`.
 - **"The team is done"**, once at the end of a main-thread turn, under these conditions:
   - the turn ended with `answer`, which is stricter than Dima's rule: an interrupted or errored turn stays silent;
@@ -270,6 +284,10 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
   - mute silences it and is remembered.
 - Windows Security's protection history shows nothing flagged for the PowerShell call.
 - `RemoteSigned` runs `speak.ps1` from the dev install now, and from the git-installed copy after the release.
+- Carried over from 2b, whose desktop check didn't confirm them:
+  - during an approval, "needs you" names the agent ("Backend dev asks to run Bash") and clears after it;
+  - in Auto, the warning "Auto: Nothing asks you before acting." shows, and whether "needs you" flickers;
+  - during a run, the presets are dim, and a press sends nothing.
 
 **Open in 2c:** writing stdin through `$.process.spawn`'s `input` is in the types but wasn't run in the spike; the brief's
 fallback stays.
@@ -316,3 +334,27 @@ up. Under reduced motion agents still jump, but the 3 s at the desk is about tim
 6. The setup is two user-only skills whose injected command runs the script; it merges only an install-only file. (The
    first design, with the model running the script and asking with `AskUserQuestion`, failed the desktop check.)
 7. The guard's best-effort `.env` rule covers `Bash` and `PowerShell`.
+
+After the 2b build, also on 6 Nov:
+
+8. No guilds in the pane's roster until milestone 5; the surface check fails when the list shrinks too; the Lead's state
+   comes from its own turns; agent text is cleaned (control and bidi characters out, cut at 120 code points).
+9. `/world-of-agents:team` reopens the pane, as a skill with `disable-model-invocation: true`.
+10. The warning covers `bypassPermissions` and `acceptEdits` too, in the wording above.
+11. A permanent check in `npm run check` for bidi controls, zero-width characters and U+FEFF in every tracked text file.
+
+After the 2b desktop check, on 7 Nov:
+
+12. "Run the quality check" names the scripts: "Have the team run npm run check, or npm test if there's no check script, and
+    tell me what fails. If neither script exists, say so and stop. Don't fix anything yet." The old text sent the Lead
+    looking for a README to take a command from.
+13. The presets are dim while the Lead's own turn runs, and a press then sends nothing, so one click can't queue a second
+    run behind the running one.
+14. The warning names the mode first: "Auto: …", "Bypass: …", "Accept edits: …".
+15. `speak.ps1` sets `[Console]::InputEncoding` to UTF-8 before it reads stdin.
+
+## Backlog, due before v3.0.0
+
+- **An upgrade path for the setup skill.** If a project's `.claude/settings.local.json` matches an older template version
+  exactly, `/world-of-agents:setup-project-write` replaces it with the current template; anything else still stops, as now.
+  The past templates stay in the plugin for that comparison.

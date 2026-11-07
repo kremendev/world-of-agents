@@ -1,0 +1,36 @@
+{
+  "./mod/register.tsx": {
+    "hooks": [
+      "agent.spawn",
+      "classic.SubagentStart",
+      "classic.UserPromptSubmit",
+      "command.run{command=world-of-agents:team}",
+      "session.measure",
+      "session.start",
+      "tool.call",
+      "tool.check",
+      "turn.complete",
+      "turn.start",
+      "ui.render{component=Pane, requestId=world-of-agents}"
+    ],
+    "calls": [
+      "$.agent.list",
+      "$.clock.every",
+      "$.prompt.submit",
+      "$.state.get",
+      "$.state.set",
+      "$.ui.open",
+      "$.ui.resolve"
+    ],
+    "state reads": ["world-of-agents.view"],
+    "state writes": ["world-of-agents.view"],
+    "gating hook without .catch": [
+      "agent.spawn",
+      "command.run{command=world-of-agents:team}",
+      "classic.SubagentStart",
+      "classic.UserPromptSubmit",
+      "tool.call",
+      "tool.check"
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { allowlist, text } from './send.mjs';
+import { allowlist, text } from '../../plugin/hooks/send.mjs';
 
 const HOME = 'C:\\Users\\woa-tester';
 const HOME_FORMS = ['C:\\Users\\woa-tester', 'C:/Users/woa-tester', '/c/Users/woa-tester', 'woa-tester'];

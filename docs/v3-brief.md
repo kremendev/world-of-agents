@@ -132,13 +132,16 @@ The README says so.
   milestone 5 groups them by guild.
 - **Who needs you**, taken from the `agentId` on `tool.check`. You still answer in Claude Code's own permission prompt, which a
   mod can't change.
-- **A warning when the session runs in `auto`**, because nothing asks for your approval then. The pane only warns: it never changes
+- **A warning when the session runs in `auto`, `bypassPermissions` or `acceptEdits`**, the mode named first: "Auto: Nothing asks
+  you before acting.", "Bypass: Nothing asks you before acting.", "Accept edits: Edits aren't asked, and npm test runs whatever
+  they change." The pane only warns: it never changes
   the mode itself. It reads `permission_mode` on the next prompt or subagent event; no event fires on the switch itself, so
   the warning can come one prompt late.
 - **Tasks** in progress and done.
 - **Usage**: context used and plan limits. See the token ledger.
 - **Buttons**: "Open hall", mute, and a few preset prompts such as "Plan the next milestone", "Run the quality check" and "Review
-  what changed". A preset sends its fixed text as if you had typed it.
+  what changed". A preset sends its fixed text as if you had typed it, and starts a run at once. While the Lead's turn runs the
+  presets are dim and a press does nothing, so one click can't queue a second run.
 
 **The hall starts itself.** When the session starts (the first message) and at the start of each main-thread turn, the mod checks
 `/api/health`, and if nothing answers it starts the hall server. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take

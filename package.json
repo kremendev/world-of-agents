@@ -17,7 +17,10 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test"
+    "test:mod": "claude plugin test plugin",
+    "mod:surface": "node scripts/mod-surface.mjs",
+    "types:update": "node scripts/types-update.mjs",
+    "check": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run test:mod && npm run mod:surface"
   },
   "dependencies": {
     "@fontsource-variable/pixelify-sans": "^5.3.0",

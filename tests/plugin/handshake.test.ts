@@ -4,7 +4,7 @@ import { createServer, type IncomingHttpHeaders, type Server, type ServerRespons
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { deliver, handshakeAnswer } from './send.mjs';
+import { deliver, handshakeAnswer } from '../../plugin/hooks/send.mjs';
 
 const TOKEN = randomBytes(32).toString('base64url');
 const OTHER_TOKEN = randomBytes(32).toString('base64url');
@@ -141,7 +141,7 @@ describe('a server that knows the token', () => {
   });
 
   it('is compared with timingSafeEqual, which no behaviour above can tell from a plain compare', () => {
-    const source = readFileSync(join(import.meta.dirname, 'send.mjs'), 'utf8');
+    const source = readFileSync(join(import.meta.dirname, '../../plugin/hooks/send.mjs'), 'utf8');
     expect(source).toContain('timingSafeEqual(got, expected)');
   });
 

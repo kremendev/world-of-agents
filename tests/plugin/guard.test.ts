@@ -2,9 +2,9 @@ import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decide, denial, ENV_FILE, MAY_START, REASONS } from './guard.mjs';
+import { decide, denial, ENV_FILE, MAY_START, REASONS } from '../../plugin/hooks/guard.mjs';
 
-const SCRIPT = resolve(import.meta.dirname, 'guard.mjs');
+const SCRIPT = resolve(import.meta.dirname, '../../plugin/hooks/guard.mjs');
 const TEAM = ['designer', 'frontend', 'backend', 'reviewer'].map((id) => `world-of-agents:${id}`);
 const BUILT_IN = [
   'Explore',
