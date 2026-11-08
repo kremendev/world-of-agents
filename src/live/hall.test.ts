@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 import type { OfficeEvent } from '../events/schema';
-import { FakeEventSource } from '../test/fakeEventSource';
+import { FakeEventSource, HALL_START_ID } from '../test/fakeEventSource';
 import {
   HEALTH_TIMEOUT_MS,
   RECHECK_MS,
@@ -104,7 +104,7 @@ describe('connectHall', () => {
     source.send(event);
     expect(handlers.onReplay).not.toHaveBeenCalled();
     source.replayed();
-    expect(handlers.onReplay).toHaveBeenCalledExactlyOnceWith([event]);
+    expect(handlers.onReplay).toHaveBeenCalledExactlyOnceWith([event], HALL_START_ID);
     expect(handlers.onEvent).not.toHaveBeenCalled();
     source.send(later);
     expect(handlers.onEvent).toHaveBeenCalledExactlyOnceWith(later);
@@ -113,7 +113,23 @@ describe('connectHall', () => {
   it('sends an empty replay too: that is how the page knows the hall is back', () => {
     connectHall(handlers);
     FakeEventSource.latest.replayed();
-    expect(handlers.onReplay).toHaveBeenCalledExactlyOnceWith([]);
+    expect(handlers.onReplay).toHaveBeenCalledExactlyOnceWith([], HALL_START_ID);
+  });
+
+  it("hands over the hall's start id only when it is one: an older hall's `1`, or anything else, is none", () => {
+    connectHall(handlers);
+    const source = FakeEventSource.latest;
+    for (const [sent, got] of [
+      ['AbCdEfGh_-012345', 'AbCdEfGh_-012345'],
+      ['1', null],
+      ['', null],
+      ['AbCdEfGh_-0123456', null],
+      ['AbCdEfGh_-01234<', null],
+      ['{"type":"reset"}', null],
+    ] as const) {
+      source.replayed(sent);
+      expect(handlers.onReplay).toHaveBeenLastCalledWith([], got);
+    }
   });
 
   it.each([
@@ -145,7 +161,7 @@ describe('connectHall', () => {
     const second = FakeEventSource.latest;
     second.send(event);
     second.replayed();
-    expect(handlers.onReplay).toHaveBeenLastCalledWith([event]);
+    expect(handlers.onReplay).toHaveBeenLastCalledWith([event], HALL_START_ID);
   });
 
   it('keeps trying while the hall stays down', () => {

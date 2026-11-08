@@ -27,12 +27,25 @@ const run = (id: string, agent: string, status: AgentInfo['status'], description
   description,
 });
 
-/** The engine beneath the mod: a session, a pane that places, a mocked clock, and `$.agent.list()` answering `agents`. */
+/**
+ * The engine beneath the mod: a session, a pane that places, a mocked clock, `$.agent.list()` answering `agents`, and
+ * a current Node with our hall already on the port (hall.test.tsx covers the rest).
+ */
 function engine(on: On, agents: AgentInfo[]) {
   const clock = mock.clock(on);
   on('session.start', (_, e) => ({ cwd: e.cwd }));
   on('ui.open', () => ({ value: { isPlaced: true } }));
   on('agent.list', () => ({ value: agents }));
+  on('classic.PermissionRequest', () => ({}));
+  on('process.run', (_, e) => ({
+    value: {
+      exitCode: 0,
+      stdout: e.argv[1] === '--version' ? 'v24.22.0\n' : '',
+      stderr: '',
+      isStdoutTruncated: false,
+      isStderrTruncated: false,
+    },
+  }));
   return clock;
 }
 
@@ -168,6 +181,8 @@ describe('who needs you', () => {
         agentId: 'a1',
         approver: 'person',
       });
+      // Manual mode: the ask goes to a dialog, which opens at once.
+      await $.classic.PermissionRequest({ agent_id: 'a1', tool_name: e.tool, tool_input: {} });
       await approved;
       return { result: { stdout: 'ok' } };
     });
@@ -194,7 +209,9 @@ describe('who else needs you', () => {
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
 
     await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'c1', approver: 'person' });
+    await $.classic.PermissionRequest({ tool_name: 'Read', tool_input: {} });
     await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'c2', agentId: 'x1', approver: 'person' });
+    await $.classic.PermissionRequest({ agent_id: 'x1', tool_name: 'Bash', tool_input: {} });
     await clock.settle();
     expect(await ui.find({ type: 'Text', text: 'Lead/PM asks to run Read' })).toBeDefined();
     expect(await ui.find({ type: 'Text', text: 'An agent asks to run Bash' })).toBeDefined();
@@ -203,6 +220,51 @@ describe('who else needs you', () => {
     await $.turn.complete({ answer: '', durationMs: 1, isAborted: true, turnId: 't1', reason: 'aborted' });
     expect(await ui.find({ type: 'Text', text: /Lead\/PM asks/ })).toBeUndefined();
     expect(await ui.find({ type: 'Text', text: 'An agent asks to run Bash' })).toBeDefined();
+    await ui.unmount();
+  });
+
+  test('in Auto an ask goes to the classifier first: no one needs you until a dialog opens, and most never do', async ($, on) => {
+    const clock = engine(on, [run('a1', 'backend', 'running', 'Add the users API')]);
+    // The engine's own check of the call lets it through; the ask is the one the stand-in raises, as Dima's would be.
+    on('tool.check', (_, e) => ({ decision: e.approver === 'person' ? 'ask' : 'allow' }));
+    let decide = () => {};
+    let answer = () => {};
+    let dialog = false;
+    on('tool.call', async (_, e) => {
+      await $.tool.check({
+        tool: e.tool,
+        input: {},
+        tool_use_id: e.tool_use_id,
+        agentId: 'a1',
+        approver: 'person',
+      });
+      // The classifier decides; only when it hands the call to Dima does the dialog open, and he answers it.
+      await new Promise<void>((resolve) => (decide = resolve));
+      if (dialog) {
+        await $.classic.PermissionRequest({ agent_id: 'a1', tool_name: e.tool, tool_input: {} });
+        await new Promise<void>((resolve) => (answer = resolve));
+      }
+      return { result: { stdout: 'ok' } };
+    });
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+
+    const settled = $.tool.call({ tool: 'Write', file_path: 'hello.js', content: 'x', agentId: 'a1' });
+    await clock.settle();
+    expect(await ui.find({ type: 'Text', text: 'Needs you' })).toBeUndefined();
+    decide();
+    await settled;
+    expect(await ui.find({ type: 'Text', text: 'Needs you' })).toBeUndefined();
+
+    dialog = true;
+    const handed = $.tool.call({ tool: 'Bash', command: 'node hello.js', agentId: 'a1' });
+    await clock.settle();
+    expect(await ui.find({ type: 'Text', text: 'Needs you' })).toBeUndefined();
+    decide();
+    await clock.settle();
+    expect(await ui.find({ type: 'Text', text: 'Backend dev asks to run Bash' })).toBeDefined();
+    answer();
+    await handed;
+    expect(await ui.find({ type: 'Text', text: 'Needs you' })).toBeUndefined();
     await ui.unmount();
   });
 

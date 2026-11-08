@@ -246,19 +246,67 @@ describe('Hall offline and reconnecting', () => {
     expect(app.speech('lead')).toBe('All done.');
   });
 
-  it('keeps what it shows when the hall restarted and remembers nothing, until events return', async () => {
+  it('keeps what it shows when a hall that sends no start id comes back empty, until events return', async () => {
     const app = await renderLive(start);
     app.tick(WALK_MS);
     act(() => app.source().fail());
     app.tick(RETRY_MS);
-    act(() => app.source().replayed()); // an empty replay
+    act(() => app.source().replayed('1')); // an empty replay, from a hall older than the start id
     app.tick();
     expect(app.badge()).toBe('Live');
+    expect(app.status()).toBe(LIVE_NOTE);
     expect(app.feet('backend')).toEqual(xy(SEATS.backend));
     expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
 
     app.emit(state('backend', 'idle'));
     expect(app.bubble('backend')).toBe('idle');
+  });
+
+  it('a restarted hall: the page starts again from nothing and says so, until a new run starts', async () => {
+    const app = await renderLive(start);
+    app.tick(WALK_MS);
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => app.source().replayed('hall-start-id-02')); // another hall, and it holds nothing
+    app.tick();
+    expect(app.badge()).toBe('Live');
+    expect(app.status()).toBe('Live · Hall restarted. Earlier events are gone.');
+    expect(screen.queryByText(`Run: ${RUN_TEXT}`)).toBeNull();
+    expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
+    app.tick(WALK_MS);
+    expect(app.feet('backend')).toEqual(xy(REST_SPOTS.backend));
+
+    // The work goes on, but the run is still not whole: the note stays.
+    app.emit(state('backend', 'writing'));
+    expect(app.status()).toBe('Live · Hall restarted. Earlier events are gone.');
+    // A reconnect to the same new hall changes nothing.
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => {
+      app.source().send(state('backend', 'writing'));
+      app.source().replayed('hall-start-id-02');
+    });
+    app.tick();
+    expect(app.status()).toBe('Live · Hall restarted. Earlier events are gone.');
+
+    // The next prompt is a run the hall has whole.
+    app.emit({ type: 'run', text: 'Next task', at: 6 });
+    expect(app.status()).toBe(LIVE_NOTE);
+    expect(screen.getByText('Run: Next task')).toBeInTheDocument();
+  });
+
+  it('a restarted hall that has already heard a new run says nothing about the restart', async () => {
+    const app = await renderLive(start);
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => {
+      app.source().send({ type: 'run', text: 'Next task', at: 6 });
+      app.source().replayed('hall-start-id-02');
+    });
+    app.tick();
+    expect(app.status()).toBe(LIVE_NOTE);
+    expect(screen.getByText('Run: Next task')).toBeInTheDocument();
+    expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
   });
 
   it('a page that opens mid-run walks agents to work, but nobody says old messages', async () => {

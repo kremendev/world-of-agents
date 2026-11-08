@@ -2,9 +2,11 @@
   "./mod/register.tsx": {
     "hooks": [
       "agent.spawn",
+      "classic.PermissionRequest",
       "classic.SubagentStart",
       "classic.UserPromptSubmit",
       "command.run{command=world-of-agents:team}",
+      "prompt.submit",
       "session.measure",
       "session.start",
       "tool.call",
@@ -15,10 +17,15 @@
     ],
     "calls": [
       "$.agent.list",
+      "$.clock.after",
       "$.clock.every",
+      "$.process.run",
+      "$.process.spawn",
       "$.prompt.submit",
       "$.state.get",
       "$.state.set",
+      "$.store.get",
+      "$.store.set",
       "$.ui.open",
       "$.ui.resolve"
     ],
@@ -26,9 +33,11 @@
     "state writes": ["world-of-agents.view"],
     "gating hook without .catch": [
       "agent.spawn",
+      "classic.PermissionRequest",
       "command.run{command=world-of-agents:team}",
       "classic.SubagentStart",
       "classic.UserPromptSubmit",
+      "prompt.submit",
       "tool.call",
       "tool.check"
     ]

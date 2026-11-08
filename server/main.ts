@@ -1,25 +1,14 @@
 // `npm run hall`: builds the page, then serves it and the API on http://127.0.0.1:4319.
-import { rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { createHall, listen, PORT } from './hall';
-import { newToken, writeToken } from './token';
+import { PORT } from './hall';
+import { listPage } from './page';
+import { serve } from './serve';
 
-const token = newToken();
-const hall = createHall({ token, dist: resolve(import.meta.dirname, '../dist') });
+const dist = resolve(import.meta.dirname, '../dist');
 
 try {
-  const { address, port } = await listen(hall);
-  // Written only once the port is ours, so a second hall that can't start never replaces the running one's token.
-  const file = writeToken(token);
-  // The token goes with the hall. SIGHUP: the terminal closed (on Windows too). A shutdown can still leave the file
-  // behind, so send.mjs doesn't trust it: the hall has to answer its handshake before any hook text is posted.
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-    process.on(signal, () => {
-      rmSync(file, { force: true });
-      process.exit(0);
-    });
-  }
-  console.log(`Forge Hall: http://${address}:${port}\nHook token: ${file}`);
+  const { address, tokenFile } = await serve({ dir: dist, files: new Map(Object.entries(listPage(dist))) });
+  console.log(`Forge Hall: http://${address.address}:${address.port}\nHook token: ${tokenFile}`);
 } catch (error) {
   const code = (error as NodeJS.ErrnoException).code;
   console.error(

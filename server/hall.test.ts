@@ -5,9 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { allowlist, deliver, handshakeAnswer } from '../plugin/hooks/send.mjs';
-import { AGENT_IDS, type OfficeEvent } from '../src/events/schema';
+import { AGENT_IDS, hallStartId, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../src/state/office';
 import { createHall, listen, MAX_BODY, REPLAY, type Hall } from './hall';
+import { listPage, readManifest, type Page } from './page';
 import { INITIAL_MAP, mapHook } from './map';
 import { hookOf, run1, timeless } from './test-helpers';
 import { newToken } from './token';
@@ -18,6 +19,8 @@ const TOKEN = newToken();
 
 let root: string;
 let dist: string;
+/** dist/ as npm run hall serves it: every page file in it. */
+const distPage = (): Page => ({ dir: dist, files: new Map(Object.entries(listPage(dist))) });
 let hall: Hall;
 let port: number;
 
@@ -29,12 +32,13 @@ beforeAll(() => {
   writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Forge Hall</title>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'export {};');
   writeFileSync(join(dist, 'notes.txt'), 'not part of the page');
+  writeFileSync(join(dist, 'favicon.svg'), readFileSync(join(import.meta.dirname, '../public/favicon.svg')));
   writeFileSync(join(root, 'secret.js'), 'outside dist');
 });
 afterAll(() => rmSync(root, { recursive: true, force: true }));
 
 beforeEach(async () => {
-  hall = createHall({ token: TOKEN, dist });
+  hall = createHall({ token: TOKEN, page: distPage() });
   port = (await listen(hall, 0)).port;
 });
 afterEach(() => hall.close());
@@ -275,7 +279,7 @@ describe('send.mjs and a real hall', () => {
   // The hall checks its Host against the port, so these listen on the port they were made for.
   async function hallOn(token: string) {
     const free = await freePort();
-    const other = createHall({ token, port: free, dist });
+    const other = createHall({ token, port: free, page: distPage() });
     await listen(other, free);
     return { url: `http://127.0.0.1:${free}`, close: () => other.close() };
   }
@@ -454,12 +458,21 @@ describe('GET /api/events', () => {
         req.end();
       });
 
-    expect(await raw()).toBe('event: replayed\ndata: 1\n\n'); // nothing to replay, but the page must still hear it
+    // Nothing to replay, but the page must still hear it, with the start id that tells this hall from the next one.
+    expect(await raw()).toBe(`event: replayed\ndata: ${hall.startId}\n\n`);
 
     await post(first);
     const frames = (await raw()).split('\n\n');
     expect(frames[0]).toMatch(/^data: \{"type":"reset"/);
-    expect(frames[1]).toBe('event: replayed\ndata: 1');
+    expect(frames[1]).toBe(`event: replayed\ndata: ${hall.startId}`);
+  });
+
+  it('has a start id of its own: new at every start, the same for every page while it runs', () => {
+    const other = createHall({ token: TOKEN });
+    expect(hall.startId).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    expect(hallStartId.safeParse(hall.startId).success).toBe(true);
+    expect(other.startId).not.toBe(hall.startId);
+    expect(hall.startId).not.toContain(TOKEN.slice(0, 8));
   });
 
   it('replays the run so far to a page that connects later, starting at its reset', async () => {
@@ -539,7 +552,6 @@ describe('the favicon', () => {
   });
 
   it('is served as an SVG', async () => {
-    writeFileSync(join(dist, 'favicon.svg'), svg);
     const reply = await call({ path: '/favicon.svg' });
     expect(reply.status).toBe(200);
     expect(reply.headers['content-type']).toBe('image/svg+xml');
@@ -571,6 +583,100 @@ describe('the built page', () => {
     '/missing.js',
   ])('404 for %s: nothing outside dist/, and only page files', async (path) => {
     expect((await call({ path })).status).toBe(404);
+  });
+
+  it('lists only page files, by URL path, and a missing folder is an empty page', () => {
+    expect(listPage(dist)).toEqual({
+      '/assets/app.js': 'text/javascript; charset=utf-8',
+      '/favicon.svg': 'image/svg+xml',
+      '/index.html': 'text/html; charset=utf-8',
+    });
+    expect(listPage(join(root, 'no-such-folder'))).toEqual({});
+  });
+});
+
+describe("the plugin's page: only the files its manifest names", () => {
+  // page/ holds a file the manifest doesn't name, and the folder around it holds the manifest and a secret.
+  let around: string;
+  const manifest = {
+    files: {
+      '/index.html': 'text/html; charset=utf-8',
+      '/assets/app.js': 'text/javascript; charset=utf-8',
+    },
+  };
+
+  beforeAll(() => {
+    around = mkdtempSync(join(tmpdir(), 'woa-plugin-hall-'));
+    mkdirSync(join(around, 'page', 'assets'), { recursive: true });
+    writeFileSync(join(around, 'page', 'index.html'), '<!doctype html><title>Forge Hall</title>');
+    writeFileSync(join(around, 'page', 'assets', 'app.js'), 'export {};');
+    writeFileSync(join(around, 'page', 'assets', 'extra.js'), 'not in the manifest');
+    writeFileSync(join(around, 'manifest.json'), JSON.stringify(manifest));
+    writeFileSync(join(around, 'secret.js'), 'outside the page');
+  });
+  afterAll(() => rmSync(around, { recursive: true, force: true }));
+
+  beforeEach(async () => {
+    await hall.close();
+    hall = createHall({ token: TOKEN, page: { dir: join(around, 'page'), files: readManifest(manifest) } });
+    port = (await listen(hall, 0)).port;
+  });
+
+  it('serves each listed file with its type, index.html at /', async () => {
+    const index = await call({ path: '/' });
+    expect([index.status, index.headers['content-type']]).toEqual([200, 'text/html; charset=utf-8']);
+    const script = await call({ path: '/assets/app.js' });
+    expect([script.status, script.headers['content-type'], script.body]).toEqual([
+      200,
+      'text/javascript; charset=utf-8',
+      'export {};',
+    ]);
+    // Every v2 header still comes with a page file.
+    expect(script.headers['content-security-policy']).toContain("default-src 'self'");
+    expect(script.headers['x-content-type-options']).toBe('nosniff');
+  });
+
+  it.each([
+    '/../secret.js',
+    '/%2e%2e/secret.js',
+    '/%2E%2E/secret.js',
+    '/..%2fsecret.js',
+    '/%2e%2e%2fsecret.js',
+    '/assets/..%2f..%2fsecret.js',
+    '/assets/..%5c..%5csecret.js',
+    '/assets\\..\\..\\secret.js',
+    '/..\\secret.js',
+    '/assets/extra.js',
+    '/manifest.json',
+    '/page/index.html',
+    '/ASSETS/app.js',
+    '/assets/app.js/',
+    '/assets//app.js',
+    '/assets/%61pp.js',
+  ])('404 for %s: not a file the manifest names, by exact match', async (path) => {
+    expect((await call({ path })).status).toBe(404);
+  });
+
+  it.each([
+    ['a parent folder', '/../secret.js', 'text/javascript; charset=utf-8'],
+    ['an encoded parent folder', '/assets/%2e%2e/secret.js', 'text/javascript; charset=utf-8'],
+    ['a backslash', '/assets\\app.js', 'text/javascript; charset=utf-8'],
+    ['a dot folder', '/assets/./app.js', 'text/javascript; charset=utf-8'],
+    ['a hidden file', '/.env.js', 'text/javascript; charset=utf-8'],
+    ['a drive letter', '/C:/secret.js', 'text/javascript; charset=utf-8'],
+    ['no leading slash', 'assets/app.js', 'text/javascript; charset=utf-8'],
+    ['a kind the page is not made of', '/notes.txt', 'text/plain'],
+    ['a type its extension is not served as', '/app.js', 'text/html; charset=utf-8'],
+  ])('refuses a manifest that names %s', (_, path, type) => {
+    expect(() => readManifest({ files: { [path]: type } })).toThrow();
+  });
+
+  it.each([
+    ['nothing', null],
+    ['no file list', {}],
+    ['a list that is an array', { files: ['/index.html'] }],
+  ])('refuses a manifest with %s', (_, json) => {
+    expect(() => readManifest(json)).toThrow();
   });
 });
 

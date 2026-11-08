@@ -1,4 +1,4 @@
-import { parseEvent, type OfficeEvent } from '../events/schema';
+import { hallStartId, parseEvent, type OfficeEvent } from '../events/schema';
 
 export const HEALTH_TIMEOUT_MS = 1000;
 /** How long to wait before trying the stream again after losing it. */
@@ -41,8 +41,11 @@ function read(data: unknown): OfficeEvent | null {
 }
 
 export type HallHandlers = {
-  /** Everything the hall holds since its last reset, in one go. Comes on connecting and on every reconnect. */
-  onReplay: (events: OfficeEvent[]) => void;
+  /**
+   * Everything the hall holds since its last reset, in one go. Comes on connecting and on every reconnect, with the
+   * hall's start id (null from a hall that sends none).
+   */
+  onReplay: (events: OfficeEvent[], startId: string | null) => void;
   /** Each new event after the replay. */
   onEvent: (event: OfficeEvent) => void;
   /** The stream is gone. It keeps trying until the connection is closed. */
@@ -68,8 +71,9 @@ export function connectHall(handlers: HallHandlers): () => void {
       if (replay) replay.push(event);
       else handlers.onEvent(event);
     };
-    stream.addEventListener('replayed', () => {
-      handlers.onReplay(replay ?? []);
+    stream.addEventListener('replayed', (message) => {
+      const id = hallStartId.safeParse(message.data);
+      handlers.onReplay(replay ?? [], id.success ? id.data : null);
       replay = null;
     });
     stream.onerror = () => {

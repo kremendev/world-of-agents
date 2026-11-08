@@ -226,10 +226,17 @@ works (3 of 3), and it submits at once, so a preset starts a run that Esc stops 
   that the page remembers; when it reconnects to a different one, the status line says "Hall restarted". This touches
   `server/hall.ts`, `src/events/schema.ts`, `src/live/` and `App.tsx`.
 - `plugin/hooks/mod/hall.ts` (new):
-  - a health check with a short time limit;
+  - "is the hall up?" through `plugin/hooks/hall-check.mjs` (built in 2c, at Dima's word): send.mjs's own HMAC handshake,
+    not a 200 from `/api/health`, which any program on the port could send. It answers by exit code only: 0 ours, 3
+    nothing listens, 4 something else holds the port, which hides "Open hall", starts nothing and stops nothing. A Node
+    script because a mod's `crypto.subtle` has only `digest`: an HMAC in the mod would be hand-made, and the mod would need
+    the token file, the network and the home folder;
   - a start through `$.process.spawn` with exactly `['node', '<plugin>/hall/server.mjs']`, the stream read for the child's
     whole life;
   - one start in flight at a time.
+  - Every command runs with the plugin's folder as its working folder. That is a second lock: checked on 8 Nov, Claude
+    Code 2.1.318 never runs a `node.exe` planted in the project, neither for a hook (it looks on PATH only) nor for
+    `$.process.run` (it refuses one in the working folder as an unsafe location).
 - `plugin/hooks/mod/voice.ts` (new): the sanitizer (control characters out, 200 characters at most, never a split code point),
   the fixed argument list with `-ExecutionPolicy RemoteSigned`, a queue of one utterance at a time, and mute kept in
   `$.store`.
@@ -244,6 +251,10 @@ works (3 of 3), and it submits at once, so a preset starts a run that Esc stops 
 
   It says "The team is done." and the first sentence of the Lead's answer, or "The team stopped. <role> failed." with
   roles from the roster (several failed roles are joined with "and"). Turns with no agents stay silent.
+
+  "Ran in that turn", as built: every run seen since the team last went quiet. Background agents finish before the
+  notification turn that reports them, so runs started in that turn alone would almost never speak. The round ends
+  (silently, unless the turn ended with an answer) once all its runs are over and no approval is open.
 
 - **A Node check:** at session start the mod runs `node --version` through `$.process.run` (it worked in the desktop app in
   milestone 1). If Node is missing or older than 20.19, the pane warns: the guard then blocks every agent start and shell
@@ -290,7 +301,12 @@ works (3 of 3), and it submits at once, so a preset starts a run that Esc stops 
   - during a run, the presets are dim, and a press sends nothing.
 
 **Open in 2c:** writing stdin through `$.process.spawn`'s `input` is in the types but wasn't run in the spike; the brief's
-fallback stays.
+fallback stays. Answered on 7 Nov: a no-login probe on Claude Code 2.1.318 spawned `speak.ps1`'s reading half with the
+exact argument list, and `input` arrived whole, Cyrillic and an emoji included. The fallback isn't needed. Also seen there:
+`return()` on the stream ended a silent child within 14 ms.
+
+**Changed in 2c:** with a Node older than 20.19 the pane says the hall can't start, not that the guard blocks: `guard.mjs`
+needs nothing newer than Node 10, so on an old Node it runs.
 
 ## 2d: hall fixes
 
@@ -304,6 +320,12 @@ fallback stays.
 | Minimum desk time                | `walkers.ts` or `destination.ts`                                                              | work that ends 1 s after sitting down keeps the agent at its desk, showing its last working state, until 3 s; the feed keeps the real times |
 | Links as plain text              | `src/page/AgentText.tsx`                                                                      | `[text](url)` becomes "text" with no `<a>`; also code inside a link, a `javascript:` URL, a malformed link                                  |
 | The Reviewer reports what it ran | `plugin/agents/reviewer.md`                                                                   | none beyond the roster test: prompt wording is checked by hand                                                                              |
+
+**Backlog from the 2c review: Zod's locales out of the bundle, if it's a small change.** `plugin/hall/server.mjs` is 779 KB,
+and 369 KB of it is Zod's error messages in 64 languages, which the hall never shows (it only takes or refuses a hook).
+esbuild can't drop them: they hang off the `z` namespace the schemas import. A way that keeps them out without leaning on
+Zod's internal file layout goes in; one that does lean on it doesn't. `npm run check:hall` and the install tests must
+still pass.
 
 **The feed comes first, and it starts with reproducing Dima's report.** `map.ts` already turns the Lead's last message into a
 message to you on `Stop`, so the cause is somewhere else. One suspect: clicking an agent filters the feed, which hides
@@ -352,6 +374,23 @@ After the 2b desktop check, on 7 Nov:
     run behind the running one.
 14. The warning names the mode first: "Auto: …", "Bypass: …", "Accept edits: …".
 15. `speak.ps1` sets `[Console]::InputEncoding` to UTF-8 before it reads stdin.
+
+After the 2c desktop check, on 8 Nov (the run's transcript was deleted in the app; what follows is from the app's log and
+three CLI runs with a logging plugin):
+
+16. "Needs you", in the pane and the voice, starts when the permission dialog opens (`classic.PermissionRequest`), not at
+    `tool.check`, whose `ask` means "the mode's decider". In Auto the classifier settled all six asks of a run, the Lead's
+    Agent starts among them, with no dialog; each was spoken before. That was Dima's "Lead/PM needs your approval".
+17. "The team is done" also waits until the Lead has heard each run: a background run's result reaches it in a frame
+    (`<task-notification>`, or Auto's `<agent-message>` hand-back) after the run is over. In the desktop check the
+    Backend dev ended before the Lead's own turn did, so that turn spoke too early, and the next one spoke again.
+18. A list marker at the start of a line leaves the spoken sentence, as Markdown does: an Auto run's report opened with
+    "1. **What changed:**" and the voice said "The team is done. 1."
+19. In the desktop app a mode picked for a folder wins over the project's `defaultMode` in new sessions (its log says
+    `folder_pick`); the brief and the README say so.
+20. The mod reads a prompt's text only to ask whether it is a frame naming one of its own runs, and keeps none of it:
+    not the text, not an id the prompt claims. A kit test plants a fake token in prompts and frames and checks every
+    write; a source check pins the one place the text is read.
 
 ## Backlog, due before v3.0.0
 

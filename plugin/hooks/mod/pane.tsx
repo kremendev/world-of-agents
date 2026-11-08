@@ -6,9 +6,34 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
 import { nameOf, ROSTER } from './roster';
-import type { PaneAgent, PaneLimit, PaneUsage, PaneView } from './types';
+import type { PaneAgent, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
 export const HALL_URL = 'http://localhost:4319';
+
+/** What the pane says about the hall. The link to it shows only while it is `running`: proven ours by the handshake. */
+const HALL_LINES: Record<PaneHall, string> = {
+  checking: 'Hall: checking',
+  starting: 'Hall: starting',
+  running: 'Hall: running',
+  taken: 'Port 4319 is used by another program.',
+  stopped: 'Hall: not running',
+};
+
+/** Why there is no usable Node, and what it costs. Only digits and dots of what `node --version` printed show here. */
+export function nodeWarning(v: PaneView): string | undefined {
+  if (v.node === 'missing') {
+    return "Node.js not found, so the plugin's guard blocks every shell command and agent start, and the hall can't start.";
+  }
+  if (v.node === 'failed') {
+    return "Node.js didn't report its version, so the plugin's guard may block every shell command and agent start, and the hall can't start.";
+  }
+  if (v.node === 'old') return `Node.js ${v.nodeVersion ?? ''} is older than 20.19, so the hall can't start.`;
+  return undefined;
+}
+
+export const NODE_FIX =
+  'Install Node.js 20.19 or later, or turn the plugin off for this project: in the desktop app under Customize, then ' +
+  'Plugins, or with claude plugin disable world-of-agents@world-of-agents --scope local.';
 
 const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
 
@@ -56,27 +81,38 @@ export function drawPane(
   $: EngineInterface,
   e: RenderInput,
   v: PaneView,
-  onPreset: (key: PresetKey) => Promise<void>,
+  { onPreset, onMute }: { onPreset: (key: PresetKey) => Promise<void>; onMute: () => Promise<void> },
 ) {
   const { Box, Text, Button, Link } = $.ui.resolve(e);
   const warning = v.mode === null ? undefined : MODE_WARNINGS.get(v.mode);
+  const noNode = nodeWarning(v);
+  // Only an ask whose dialog is open: one the Auto classifier is still deciding asks nobody yet.
+  const waiting = v.asks.filter((ask) => ask.shown);
   // A Button has no disabled state, so the presets go dim while the Lead's turn runs, and register.tsx's press handler
   // does nothing then: a press would only queue a second run behind the running one.
   const busy = v.lead === 'running';
 
   return (
     <Box flexDirection="column" gap={1}>
+      {noNode !== undefined && (
+        <Box flexDirection="column">
+          <Text color="warning" bold>
+            {noNode}
+          </Text>
+          <Text color="warning">{NODE_FIX}</Text>
+        </Box>
+      )}
       {warning !== undefined && (
         <Text color="warning" bold>
           {warning}
         </Text>
       )}
-      {v.asks.length > 0 && (
+      {waiting.length > 0 && (
         <Box flexDirection="column">
           <Text color="permission" bold>
             Needs you
           </Text>
-          {v.asks.map((ask) => (
+          {waiting.map((ask) => (
             <Text>
               {askerName(v, ask.agentId)} asks to run {ask.tool}
             </Text>
@@ -122,7 +158,17 @@ export function drawPane(
           />
         ))}
       </Box>
-      <Link href={HALL_URL} label="Open hall" />
+      <Box flexDirection="column">
+        <Text color={v.hall === 'taken' ? 'warning' : undefined}>
+          {v.hall === 'stopped' && v.node === 'ok'
+            ? 'Hall: not running. Your next message starts it.'
+            : HALL_LINES[v.hall]}
+        </Text>
+        <Box flexDirection="row" gap={1} flexWrap="wrap">
+          {v.hall === 'running' && <Link href={HALL_URL} label="Open hall" />}
+          <Button key="mute" label={v.muted ? 'Unmute voice' : 'Mute voice'} onPress={onMute} />
+        </Box>
+      </Box>
     </Box>
   );
 }

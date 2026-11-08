@@ -1,6 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { readManifest } from './page';
 
 const REPO = resolve(import.meta.dirname, '..');
 const text = (path: string) => readFileSync(join(REPO, path), 'utf8');
@@ -77,5 +78,87 @@ describe('the plugin once installed', () => {
     for (const name of imports) expect(name).toMatch(/^node:/);
     // The guard imports nothing at all: it reads stdin and answers.
     expect(text('plugin/hooks/guard.mjs')).not.toMatch(/^\s*import\s/m);
+  });
+});
+
+// The prebuilt hall, as npm run build:plugin-hall leaves it. npm run check:hall proves it is what the source builds.
+describe('the hall the plugin carries', () => {
+  const HALL = join(REPO, 'plugin/hall');
+  const bundle = text('plugin/hall/server.mjs');
+
+  it('is one file that imports only Node built-ins, so it runs with no npm install', () => {
+    const imports = [...bundle.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
+    expect(imports.length).toBeGreaterThan(0);
+    for (const name of imports) expect(name).toMatch(/^node:/);
+    // Zod's own comments mention `import()`; the code around them must not use it, or require.
+    expect(bundle.replace(/^\s*\/\/.*$/gm, '')).not.toMatch(/\brequire\(|\bimport\(/);
+  });
+
+  it('finds its page beside its own file: never the working folder, an argument or an environment variable', () => {
+    // esbuild numbers the renamed imports (join2, join3...), so the number may change from one build to the next.
+    expect(bundle).toContain('var here = import.meta.dirname;');
+    expect(bundle).toMatch(/readFileSync\(join\d*\(here, "manifest\.json"\), "utf8"\)/);
+    expect(bundle).toMatch(/dir: join\d*\(here, "page"\)/);
+    expect(bundle).not.toMatch(/process\.(cwd|argv|env)\b/);
+  });
+
+  it('leaves without a word when another hall holds the port: never two halls', () => {
+    // A test can't run it: that needs port 4319 taken, and tests never touch 4319 (a real hall may be on it).
+    expect(bundle).toContain('if (code === "EADDRINUSE") process.exit(0);');
+    expect(bundle.match(/console\.(log|error)\(/g)).toHaveLength(2);
+  });
+
+  it('listens on 127.0.0.1 only', () => {
+    expect(bundle).toContain('var HOST = "127.0.0.1";');
+    expect(bundle).toContain('hall.server.listen(port, HOST, ');
+  });
+
+  it("names in its manifest exactly the page's files, each with the type it is served as", () => {
+    const manifest = JSON.parse(text('plugin/hall/manifest.json')) as unknown;
+    const files = [...readManifest(manifest).keys()].sort();
+    const onDisk = readdirSync(join(HALL, 'page'), { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map(
+        (entry) =>
+          `/${relative(join(HALL, 'page'), join(entry.parentPath, entry.name)).split(sep).join('/')}`,
+      )
+      .sort();
+    expect(files).toEqual(onDisk);
+    expect(files).toContain('/index.html');
+  });
+
+  it('is the Live page, with no policy of its own: the hall sends its Content-Security-Policy as a header', () => {
+    const index = text('plugin/hall/page/index.html');
+    expect(index).not.toContain('Content-Security-Policy');
+    expect(index).not.toContain('/world-of-agents/'); // the Pages base path
+  });
+});
+
+describe('the voice script', () => {
+  const script = text('plugin/voice/speak.ps1');
+  const code = script.replace(/^\s*#.*$/gm, '');
+
+  it('is ASCII only, as Windows PowerShell 5.1 reads a script without a byte order mark', () => {
+    expect([...script].every((c) => c.charCodeAt(0) < 128)).toBe(true);
+  });
+
+  it('reads stdin as UTF-8, set before anything reads it', () => {
+    const encoding = code.indexOf('[Console]::InputEncoding = [System.Text.Encoding]::UTF8');
+    const read = code.indexOf('[Console]::In.ReadToEnd()');
+    expect(encoding).toBeGreaterThanOrEqual(0);
+    expect(read).toBeGreaterThan(encoding);
+  });
+
+  it('speaks plain text with Speak, never SSML, and caps it at 200 code points', () => {
+    expect(code).toContain('$voice.Speak($text)');
+    expect(code).not.toMatch(/Ssml|SpeakAsync|PromptBuilder/i);
+    expect(code).toContain('$max = 200');
+  });
+
+  it('takes nothing from arguments or the environment, and runs nothing', () => {
+    expect(code).not.toMatch(
+      /\$args|\$env:|param\s*\(|Invoke-Expression|\biex\b|Start-Process|Invoke-Command|-Command/i,
+    );
+    expect(code).not.toMatch(/^\s*&/m);
   });
 });

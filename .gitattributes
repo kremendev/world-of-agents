@@ -4,6 +4,8 @@
 # Images must never be normalised as text: text=auto only guesses from the first 8 KB.
 *.png binary
 *.gif binary
+*.woff2 binary
+*.woff binary
 
 # The engine's mods API types, written by `npm run types:update`: generated, and too long to read in a diff.
 tools/claude-code-types/index.d.ts linguist-generated=true -diff

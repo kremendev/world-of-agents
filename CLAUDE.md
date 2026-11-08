@@ -15,6 +15,9 @@ npm run check    # typecheck + lint + prettier + Vitest + the mod's kit tests + 
 npm test         # vitest run
 npm run test:mod # the mod's kit tests: claude plugin test plugin (check needs Claude Code on PATH for this and mod:surface)
 npm run types:update  # copies the installed Claude Code's mods API types into tools/claude-code-types (on purpose only)
+npm run build:plugin-hall  # the prebuilt hall in plugin/hall/ (tracked): run after any change to server/ or the page
+npm run check:hall    # builds it again in a temp folder and fails on any difference (not in check: a build takes seconds)
+npm run release:check # check:hall, then check: before every release tag
 npm run format   # prettier --write .
 npm run hall     # builds the page, then serves it and the API on http://127.0.0.1:4319
 bin/woa          # Claude Code in the current folder, with the plugin and the Lead. bin/woa --version starts no session
@@ -52,10 +55,14 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   AgentPanel (details of the selected agent), ActivityFeed + feed.ts (the team's activity, to the
                   right of the hall: skips state events that change nothing), AgentText (agent text: `code` and **bold** as elements, the rest plain text)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
-                  message), useLiveHall.ts (status, office, the 5 s re-check in Demo), announce.ts (what the
-                  aria-live region says, cut at the last full sentence)
+                  message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
+                  Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
+                  announce.ts (what the aria-live region says, cut at the last full sentence)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
-                  /api/handshake, POST /api/hook, SSE /api/events with a 500-event replay, /api/health, serves dist/), hook-input.ts
+                  /api/handshake, POST /api/hook, SSE /api/events with a 500-event replay ended by its start id,
+                  /api/health, serves only the page files it is given, by exact match), page.ts (PAGE_TYPES, listPage()
+                  for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals),
+                  plugin-hall.ts (the plugin's hall: its page and manifest beside its own file), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
@@ -65,17 +72,23 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
-                  whom, and the .env rule), hooks/mod/ (the team pane, a mod named under `modules` in hooks.json:
-                  register.tsx the hooks and the one $.state value, pane.tsx the drawing, roster.ts, presets.ts, types.d.ts
-                  the state contract that plugin.json names; *.test.tsx are kit tests),
+                  whom, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
+                  by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/mod/ (the team pane, a mod named
+                  under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
+                  roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
+                  command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), types.d.ts
+                  the state contract that plugin.json names; *.test.tsx are kit tests), voice/speak.ps1 (the voice
+                  script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
                   a project's .claude/settings.local.json) and skills/setup-project-write/ (SKILL.md: the write); tested in
                   server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
-                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard) and the mod's source check
-                  (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every test file under it
-scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod-surface.json (the mod's expected surface)
+                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, hall-check) and the mod's
+                  source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
+                  test file under it
+scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod-surface.json (the mod's expected surface),
+                  build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx)
 tools/claude-code-types/  index.d.ts: the engine's mods API types (`claude-code`, `claude-code/testing`) for one Claude
                   Code version, generated, -diff in .gitattributes. tsconfig.mod.json type-checks the mod against it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
@@ -182,7 +195,8 @@ Do not change the look without asking. New ideas go into a later version.
   project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
   enabled, so every session everywhere would start as the Lead and report to the hall. An installed plugin can't set a
   permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
-  applies both (v3 spike). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
+  applies both (v3 spike), the mode only until one is picked for that folder in the app: from then on new sessions start
+  in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 - `guard.mjs` is the one hook that answers Claude Code, and it only denies: a test runs it over every input and fails on
   any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
@@ -223,15 +237,58 @@ Do not change the look without asking. New ideas go into a later version.
   `pressPreset` sends nothing; a flag covers a second press before the first one's turn has started. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
-  checks the source: `submit` and `asUser` only in `presets.ts`, no `send`, no `Markdown`. `scripts/mod-surface.json` lists
+  checks the source: a `submit` call and `asUser` only in `presets.ts`, no `send`, no `Markdown`, and prompt text read in one place. Two hooks see Dima's prompts (`prompt.submit`, `classic.UserPromptSubmit`): the first only asks `heardRun()` whether the prompt is a frame naming one of the mod's own runs, and that id is only compared with `unheard`; the second reads `permission_mode` only. No prompt text, not even an id a prompt claims, reaches `$.state`, `$.store`, a process, the voice or the pane: `register.test.tsx` plants a fake token in a prompt and in frames and checks every write (two planted bugs, both caught). `scripts/mod-surface.json` lists
   every event, `$` call, state key and env name it uses, as `claude plugin validate` reads them; `npm run mod:surface`
-  fails on any difference, either way, so a removed call can't come back unreviewed. No network, files or processes in 2b.
+  fails on any difference, either way, so a removed call can't come back unreviewed. No network, no files, no environment
+  variables (`mod.test.ts` checks); the processes are the fixed ones below.
   The pane warns in `auto`, `bypassPermissions` and `acceptEdits`, the mode named first ("Auto: Nothing asks you before
   acting.", "Bypass: …", "Accept edits: Edits aren't asked, and npm test runs whatever they change."), Dima's wording; it
   never changes the mode. `/world-of-agents:team` is a
   skill with `disable-model-invocation: true` (a mod's `$.command.register` takes neither a `:` nor that flag); the mod
   answers its `command.run` without `next`, opening the pane, so the skill's text reaches the model only if the mod isn't
   loaded, and then only tells Dima so.
+- The mod's processes (2c) are fixed commands, each with the plugin's own folder as `cwd`: `node --version`,
+  `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`) and the voice. A
+  `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
+  ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
+  checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
+  lock on that. No shell, no `-Command`, no argument, `env` or text from an agent, a file, the page or the environment;
+  the kit tests pin each argv and cwd, and `mod.test.ts` pins where `process.run`, `process.spawn` and `input` appear.
+  Nothing a child prints is shown or kept. The hall is started through the session's `$`, never a turn's: a child dies
+  when the dispatch it was started in is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
+  refuses a `$` kept in a variable, so register.tsx keeps a closure made in `session.start` instead.
+- "Is the hall up?" is `hall-check.mjs`: send.mjs's own handshake (no redirect, capped answer, `timingSafeEqual`), never
+  a 200 from `/api/health`. 0 is ours; 3 is a refused connection; 4 is anything else (no token file, a wrong or late
+  answer, a redirect, a closed connection). Only 0 shows "Open hall". 4 shows "Port 4319 is used by another program." and
+  starts and stops nothing. A start happens only on 3 with no start of ours alive, one check at a time; checks run at
+  session start and at each of the Lead's turns, never a subagent's. A hall that loses the race for the port exits 0
+  without a word and writes no token (checked by hand with a hall on 4319; `install.test.ts` pins the line).
+- The plugin's hall (`plugin/hall/`, written by `npm run build:plugin-hall`, tracked) finds its page with
+  `import.meta.dirname` only and serves only what `manifest.json` names, by exact match: the URL is looked up, never
+  decoded or joined into a path. `readManifest()` refuses any path with a dot segment, a backslash or an odd character, and
+  any type its extension isn't served as, so a changed manifest stops the hall from starting. It prints at most two fixed
+  lines, never hook or agent text, and keeps every v2 control. Two builds in a row are byte-identical (checked for 2c),
+  and `npm run check:hall` must pass before any release (`npm run release:check`). The build forces `VITE_LIVE=true`.
+- The voice runs exactly this, never with `Bypass` (security tools flag it):
+  `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File <plugin>/voice/speak.ps1`. The text
+  goes only to stdin (`input`), cleaned by `plain()` (control and bidi characters out) and capped at 200 code points,
+  then capped again in the script. `speak.ps1` is ASCII, sets `[Console]::InputEncoding` to UTF-8 before it reads
+  (without it Cyrillic arrives garbled, checked), and speaks with `Speak`, never SSML. Names come from the roster, else
+  "An agent". One voice at a time, at most 3 waiting (the oldest dropped), stopped after 15 s; mute is `muted` in
+  `$.store`, and muting stops the voice and the queue. It says two things only:
+  - `<name> needs your approval.` when a permission dialog opens for a recorded ask (`classic.PermissionRequest`, by agent
+    and tool). Not at `tool.check`: `ask` there means "the mode's decider", and in Auto the classifier settles most asks
+    with no dialog (an 8 Nov Auto run: six asks, no dialog, each one spoken before the fix). The pane's "needs you"
+    follows the same rule (`PaneAsk.shown`).
+  - at the end of a Lead turn that ended with an answer, once every run seen since the team last went quiet (`round`) is
+    over and heard, and no approval is open: `The team is done. <first sentence>` or `The team stopped. <roles> failed.`
+    Heard: a run the Lead started in the background (its Agent call came back `async_launched`) stays in `unheard` until
+    a frame naming it reaches the Lead (`<task-notification>…<task-id>`, or Auto's `<agent-message from>`, seen at
+    `prompt.submit`, as a turn of its own or into a running one). A background run can end before the Lead's own turn
+    does; that is how the 8 Nov desktop check heard the line twice. A lost frame means silence, never an early line.
+    The Lead's answer loses its Markdown before the first sentence is cut (`withoutMarkdown()`: `*`, `_`, backticks, `#`
+    and `>` out, a link or image keeps only its text, a list marker at a line's start goes), so no mark or link target is
+    read aloud. A bare URL in the answer would still be read.
 - No invisible characters in the repo: `tests/invisible.test.ts` fails on bidi controls (U+202A to U+202E, U+2066 to
   U+2069), zero-width characters (U+200B to U+200D, U+2060) and U+FEFF in any text file git tracks or would add. When
   writing such a range in code, use numbers (`0x202a`), not backslash-u escapes: Claude Code's tools have turned
@@ -271,14 +328,26 @@ Do not change the look without asking. New ideas go into a later version.
   `on` stand for the engine beneath the mod. A test hook's own `$` only makes the calls its module's scan lists, so a
   test hook that raises another event uses the test body's `$`. `mock.clock(on)` answers `$.clock`, and `clock.settle()`
   lets work the mod didn't await land before a check.
-- `claude plugin validate` refuses two things the types allow: a `$.state` atom used in a file other than the one that
-  declares it (so `view` lives in `register.tsx`, and `drawPane` gets the value), and a state contract with an `import`.
+- `claude plugin validate` refuses three things the types allow: a `$.state` atom used in a file other than the one that
+  declares it (so `view` lives in `register.tsx`, and `drawPane` gets the value), a state contract with an `import`, and a
+  `$` kept in a variable or read as a default value (pass it into a function, or close over it).
+- Kit stand-ins (2c): a `process.run` hook answers `{ value: ProcessRunResult }`, or `{ deny }`, which the call rejects
+  with; a `process.spawn` hook is an async generator that yields raw pieces and returns `{ value: { code, signal } }`.
+  Every `on(...)` comes before the test's first `$` call, so one engine per test, never a loop of them. The test's own `$`
+  has no `$.store`: answer `store.get` and `store.set` yourself to read what the mod kept. In the kit, `return()` on a
+  stream whose stand-in is waiting lands only at its next piece (plain generator rules); the real engine ends the child at
+  once (a no-login probe saw it gone 14 ms later), so the 15 s test lets the stand-in write a piece after the stop.
+- With no login, `claude -p --plugin-dir plugin` still runs the mod's `session.start`, and `$.process.run` and `spawn`
+  work there. A throwaway second plugin that hooks `process.run`/`process.spawn` (results arrive as `{ value }` at hook
+  level) can log what the mod runs; that is how 2c saw the real calls, cwd and exit codes. Write such logs per call: a
+  hook that sleeps in `session.start` holds every plugin's `session.start` behind it.
 - `tools/claude-code-types/index.d.ts` comes from the plugin-authoring skill's copy for the running Claude Code
   (`%TEMP%/claude/bundled-skills/<version>/`), which exists once that skill has loaded in a session of that version.
   `types:update` keeps only the two modules and refuses to write if it finds a user folder, the home path, the account
   name or an email address (example.com and its kin are allowed). Claude Code may lay its own types in
   `plugin/.claude-plugin/types/` when a session hot-reloads `plugin/` (`woa`'s `--plugin-dir`); ESLint and Prettier
-  ignore that folder, and the engine writes a `.gitignore` there (from the docs; not seen here yet).
+  ignore that folder, and the engine writes a `.gitignore` of `*` there (seen 8 Nov). It also writes `plugin/tsconfig.json`,
+  which only extends that folder and isn't ignored: delete it, never commit it.
 - jsdom has no canvas: `src/test/setup.ts` mocks `getContext` to return null; drawing code must handle that.
 - Layout tests check that props stay in the hall, agents sit in the right room, and nothing overlaps a desk.
   Add a test when you add a layout rule.
@@ -382,7 +451,7 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    is on the local `spike/mods` branch, never pushed: it is unreviewed and the repo is public.
 
 Next: milestone 2 in four parts (docs/v3-m2-plan.md, approved 6 Nov). 2a (the guard hook and the setup skills) is done.
-2b (the team pane: the mod, its toolchain and kit tests) is done, desktop-checked on 7 Nov; what that check didn't confirm
-(the "needs you" line, the Auto warning, dim presets during a run) is in 2c's desktop check. Then 2c (processes: the
-prebuilt hall, its start, voice) and 2d (hall fixes). It ships as `v3.0.0`. Backlog due before `v3.0.0`: the setup
-skill's upgrade path from an older template (docs/v3-m2-plan.md, Backlog).
+2b (the team pane: the mod, its toolchain and kit tests) is done, desktop-checked on 7 Nov. 2c (processes: the prebuilt
+hall, its start, the Node check, voice) is done, desktop-checked on 8 Nov with 2b's leftovers; that check found the
+Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). Then 2d (hall fixes). It ships as `v3.0.0`. Backlog due before `v3.0.0`: the setup skill's upgrade path from an older
+template (docs/v3-m2-plan.md, Backlog).

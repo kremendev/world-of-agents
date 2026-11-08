@@ -105,6 +105,13 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   awaitingPromptEvent,
 ]);
 
+/**
+ * v3: the id a hall picks when it starts, sent with the end of every replay (12 random bytes as base64url). Another id
+ * on a reconnect means the hall restarted and remembers nothing of the run. Anything else, such as an older hall's `1`,
+ * is no id at all.
+ */
+export const hallStartId = z.string().regex(/^[A-Za-z0-9_-]{16}$/);
+
 export type AgentId = z.infer<typeof agentId>;
 export type AgentState = z.infer<typeof agentState>;
 export type TaskStatus = z.infer<typeof taskStatus>;

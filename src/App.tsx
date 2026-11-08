@@ -40,9 +40,12 @@ function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
   if (office.sessionEnded) {
     return { kind: 'ended', label: 'Session ended', status: 'Session ended · waiting for the next one' };
   }
-  const status = office.awaitingPrompt
-    ? 'Lead/PM is waiting for your next message in Claude Code'
-    : 'Live · Type your task in Claude Code. The hall only watches.';
+  // A restarted hall knows nothing of the run before it: said until the next prompt starts a run it has whole.
+  const status = hall.restarted
+    ? 'Live · Hall restarted. Earlier events are gone.'
+    : office.awaitingPrompt
+      ? 'Lead/PM is waiting for your next message in Claude Code'
+      : 'Live · Type your task in Claude Code. The hall only watches.';
   return { kind: 'live', label: 'Live', status };
 }
 

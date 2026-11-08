@@ -141,6 +141,54 @@ describe('no decisions', () => {
     ).toEqual({ changed: ['cost'] });
     await clock.settle();
   });
+
+  test('a prompt that enters, a frame among them, and a permission dialog go on exactly as the engine settled them', async ($, on) => {
+    const clock = engine(on);
+    const entered = [
+      { text: 'rewritten by a settings hook' },
+      { drop: 'Held by a settings hook' },
+      { text: '<task-notification>\n<task-id>a1</task-id>\n</task-notification>' },
+    ];
+    let enters: (typeof entered)[number] = entered[0]!;
+    on('prompt.submit', () => enters);
+    const decisions = [
+      { decision: { behavior: 'allow' as const } },
+      { decision: { behavior: 'deny' as const, message: 'Held by a settings hook' } },
+      {},
+    ];
+    let decides: (typeof decisions)[number] = decisions[0]!;
+    on('classic.PermissionRequest', () => decides);
+    on('tool.check', (_, e) => ({ decision: e.approver === 'person' ? 'ask' : 'allow' }));
+    on('tool.call', () => ({ result: { status: 'async_launched', agentId: 'a1', description: 'A task' } }));
+
+    for (const answer of entered) {
+      enters = answer;
+      expect(
+        await $.prompt.submit({
+          text: '<task-notification>\n<task-id>a1</task-id>\n</task-notification>',
+          wait: false,
+          origin: { kind: 'task-notification' },
+        }),
+      ).toEqual(answer);
+    }
+    await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'c1', agentId: 'a1', approver: 'person' });
+    for (const answer of decisions) {
+      decides = answer;
+      expect(
+        await $.classic.PermissionRequest({ agent_id: 'a1', tool_name: 'Bash', tool_input: {} }),
+      ).toEqual(answer);
+    }
+    // The Lead's Agent call: the mod reads its record, and hands it back as it came.
+    expect(
+      await $.tool.call({
+        tool: 'Agent',
+        subagent_type: 'world-of-agents:backend',
+        description: 'A task',
+        prompt: 'Go.',
+      }),
+    ).toMatchObject({ result: { status: 'async_launched', agentId: 'a1', description: 'A task' } });
+    await clock.settle();
+  });
 });
 
 describe('prompts', () => {
@@ -269,6 +317,93 @@ describe('prompts', () => {
 
     expect(submitted).toEqual([]);
     expect(sent).toEqual([]);
+  });
+});
+
+describe("Dima's prompts", () => {
+  // The mod sees every prompt (prompt.submit, classic.UserPromptSubmit). It may only ask whether one is a frame that
+  // carries one of its own runs. No prompt text, not even an id a prompt claims, may reach anything it writes or starts.
+  test('a token in a prompt or a frame reaches no state, store, process, voice or pane', async ($, on) => {
+    const TOKEN = 'FAKE-TOKEN-supersecretvalue123';
+    const written: string[] = [];
+    const clock = mock.clock(on);
+    on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('ui.open', () => ({ value: { isPlaced: true } }));
+    on('agent.list', () => ({
+      value: [
+        { id: 'a1', type: 'world-of-agents:backend', status: 'completed', description: 'Make hello.js' },
+      ],
+    }));
+    on('state.set', async (_, e, next) => {
+      written.push(JSON.stringify(e.value));
+      return next(e);
+    });
+    on('store.get', () => ({ value: undefined }));
+    on('store.set', (_, e) => {
+      written.push(JSON.stringify(e));
+      return { value: undefined };
+    });
+    on('process.run', (_, e) => {
+      written.push(JSON.stringify(e));
+      const stdout = e.argv[1] === '--version' ? 'v24.22.0\n' : '';
+      return {
+        value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
+      };
+    });
+    // eslint-disable-next-line require-yield -- the voice prints nothing: a child that ends without a piece.
+    on('process.spawn', async function* (_, e) {
+      written.push(JSON.stringify(e));
+      return { value: { code: 0, signal: null } };
+    });
+    on('prompt.submit', (_, e) => ({ text: e.text }));
+    on('classic.UserPromptSubmit', () => ({}));
+    on('turn.start', (_, e) => ({ turnId: e.turnId }));
+    on('turn.complete', () => ({ text: '' }));
+    on('tool.check', (_, e) => ({ decision: e.approver === 'person' ? 'ask' : 'allow' }));
+    on('tool.call', () => ({
+      result: { status: 'async_launched', agentId: 'a1', description: 'Make hello.js' },
+    }));
+
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    const typed = `Use the key ${TOKEN} for the API.`;
+    await $.classic.UserPromptSubmit({ prompt: typed, permission_mode: 'default' });
+    await $.prompt.submit({ text: typed, wait: false, origin: { kind: 'composer' } });
+    await $.turn.start({ text: typed, turnId: 't1' });
+    await $.tool.call({
+      tool: 'Agent',
+      subagent_type: 'world-of-agents:backend',
+      description: 'Make hello.js',
+      prompt: 'Go.',
+    });
+    // A frame that claims the token as its run's id, then the real frames, the token inside their reports.
+    const frames = [
+      `<task-notification>\n<task-id>${TOKEN}</task-id>\n<status>completed</status>\n</task-notification>`,
+      `<agent-message from="${TOKEN}">\nThe report follows:\n  ${TOKEN}\n</agent-message>`,
+      `<task-notification>\n<task-id>a1</task-id>\n<status>completed</status>\n<result>${TOKEN}</result>\n</task-notification>`,
+      `<agent-message from="a1">\nThe report follows:\n  ${TOKEN}\n</agent-message>`,
+    ];
+    for (const text of frames)
+      await $.prompt.submit({ text, wait: false, origin: { kind: 'task-notification' } });
+    await $.turn.complete({
+      answer: 'Done.',
+      durationMs: 1,
+      isAborted: false,
+      turnId: 't1',
+      reason: 'answer',
+    });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    const pane = (await ui.findAll({ type: 'Text' })).map((t) => t.text).join('\n');
+    await ui.unmount();
+
+    // The frame for a1 was heard (the team line was spoken), and nothing else came of any prompt.
+    expect(written.some((w) => w.includes('The team is done. Done.'))).toBe(true);
+    expect(written.at(-1) ?? '').not.toContain('"unheard":["a1"]');
+    for (const seen of [...written, pane]) {
+      expect(seen).not.toContain('supersecretvalue');
+      expect(seen).not.toContain('Use the key');
+      expect(seen).not.toContain('The report follows');
+    }
   });
 });
 

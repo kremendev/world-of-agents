@@ -13,19 +13,33 @@ export type PaneAgent = {
   task: string;
 };
 
-/** A tool call waiting for Dima's approval. */
+/** A tool call put to the mode's decider: in Manual a dialog asks Dima, in Auto the classifier decides first. */
 export type PaneAsk = {
   /** The call's tool_use_id: the entry goes when that call resolves. */
   id: string;
   /** The subagent asking; absent for the main thread, the Lead. */
   agentId?: string;
   tool: string;
+  /**
+   * A dialog asks Dima now (its PermissionRequest came). Only then is it "needs you", drawn and spoken: in Auto the
+   * classifier settles most asks itself and no dialog opens (seen 8 Nov).
+   */
+  shown: boolean;
 };
 
 export type PaneLimit = { kind: string; percentUsed: number; resetsAt?: string };
 
 /** The last `session.measure`: the context window and the plan's rate-limit windows. */
 export type PaneUsage = { tokens?: number; window: number; percent?: number; limits: PaneLimit[] };
+
+/**
+ * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs), `taken` when
+ * something else holds port 4319, `stopped` when nothing runs and no start is under way.
+ */
+export type PaneHall = 'checking' | 'starting' | 'running' | 'taken' | 'stopped';
+
+/** What `node --version` said at session start: not asked yet, 20.19 or later, not found, no version, or too old. */
+export type PaneNode = 'unchecked' | 'ok' | 'missing' | 'failed' | 'old';
 
 export type PaneView = {
   /** The Lead's main-thread turn: running from its `turn.start` to its `turn.complete`. */
@@ -35,6 +49,19 @@ export type PaneView = {
   /** The last `permission_mode` a prompt or a subagent start carried; null before the first. */
   mode: string | null;
   usage: PaneUsage | null;
+  /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */
+  round: string[];
+  /**
+   * Runs the Lead started in the background whose result hasn't reached it yet: it comes in a frame (a task
+   * notification, or Auto's hand-back). "The team is done" waits for these too.
+   */
+  unheard: string[];
+  hall: PaneHall;
+  node: PaneNode;
+  /** For `old`: the version found, digits and dots only. */
+  nodeVersion: string | null;
+  /** The voice is off. Kept in $.store, so it lasts beyond the session. */
+  muted: boolean;
 };
 
 declare module 'claude-code' {

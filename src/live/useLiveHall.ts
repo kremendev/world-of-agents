@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../state/office';
 import { RECHECK_MS, checkHall, connectHall, liveEnabled } from './hall';
 
@@ -10,17 +11,24 @@ export type LiveHall = {
   office: OfficeState;
   /** This office was rebuilt from a replay: its messages are old news, not something to say out loud. */
   hushed: boolean;
+  /** The hall restarted since the page connected, and no run has started since: what it held before is gone. */
+  restarted: boolean;
   /** In the demo: a hall has appeared since. The page offers it and never switches on its own. */
   hallFound: boolean;
   goLive: () => void;
 };
 
+/** A new session or a new prompt: from here on the hall has the whole run again. */
+const startsRun = (event: OfficeEvent) => event.type === 'reset' || event.type === 'run';
+
 /** Checks for a hall on load and, if one answers, follows it through losing and finding it again. */
 export function useLiveHall(): LiveHall {
   const [status, setStatus] = useState<LiveStatus>(() => (liveEnabled() ? 'checking' : 'no-hall'));
-  const [view, setView] = useState({ office: INITIAL_OFFICE, hushed: false });
+  const [view, setView] = useState({ office: INITIAL_OFFICE, hushed: false, restarted: false });
   const [following, setFollowing] = useState(false);
   const [hallFound, setHallFound] = useState(false);
+  // The start id of the hall the page last heard from.
+  const startId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!liveEnabled()) return;
@@ -38,14 +46,29 @@ export function useLiveHall(): LiveHall {
   useEffect(() => {
     if (!following) return;
     return connectHall({
-      onReplay: (events) => {
+      onReplay: (events, id) => {
         setStatus('live');
-        // A hall that restarted remembers nothing: agents stay where they are until events return.
-        if (events.length > 0) {
-          setView({ office: events.reduce(officeReducer, INITIAL_OFFICE), hushed: true });
+        const before = startId.current;
+        if (id !== null) startId.current = id;
+        const rebuilt = events.reduce(officeReducer, INITIAL_OFFICE);
+        if (before !== null && id !== null && id !== before) {
+          // Another hall: it remembers nothing of the run, so the page starts again from what this one holds.
+          setView({ office: rebuilt, hushed: true, restarted: !events.some(startsRun) });
+        } else if (events.length > 0) {
+          setView(({ restarted }) => ({
+            office: rebuilt,
+            hushed: true,
+            restarted: restarted && !events.some(startsRun),
+          }));
         }
+        // An empty replay from a hall that sends no start id: agents stay where they are until events return.
       },
-      onEvent: (event) => setView(({ office }) => ({ office: officeReducer(office, event), hushed: false })),
+      onEvent: (event) =>
+        setView(({ office, restarted }) => ({
+          office: officeReducer(office, event),
+          hushed: false,
+          restarted: restarted && !startsRun(event),
+        })),
       onLost: () => setStatus('offline'),
     });
   }, [following]);

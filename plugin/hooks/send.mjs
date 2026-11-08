@@ -168,7 +168,8 @@ function capture(raw, event) {
   writeFileSync(join(dir, name), raw);
 }
 
-function readToken() {
+/** The hall's token, or null when there is none or it isn't token-shaped. hall-check.mjs reads it the same way. */
+export function readToken() {
   try {
     const token = readFileSync(join(HOME_DIR, 'token'), 'utf8').trim();
     return /^[A-Za-z0-9_-]{16,200}$/.test(token) ? token : null;
@@ -181,8 +182,11 @@ function readToken() {
 export const handshakeAnswer = (token, nonce) =>
   createHmac('sha256', token).update(nonce).digest('base64url');
 
-/** Does whatever holds the port know the token? The request carries only a random nonce, never the token. */
-async function hallKnowsToken(hall, token, signal) {
+/**
+ * Does whatever holds the port know the token? The request carries only a random nonce, never the token. Rejects when
+ * nothing answers (hall-check.mjs tells a refused connection from the rest).
+ */
+export async function hallKnowsToken(hall, token, signal) {
   const nonce = randomBytes(32).toString('base64url');
   const res = await fetch(`${hall}/api/handshake`, {
     method: 'POST',

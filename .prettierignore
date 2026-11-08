@@ -4,3 +4,4 @@ node_modules
 package-lock.json
 tools/claude-code-types
 plugin/.claude-plugin/types
+plugin/hall

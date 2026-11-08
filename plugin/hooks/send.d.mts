@@ -23,6 +23,8 @@ export function homePattern(home: string): RegExp;
 export function text(v: unknown, max: number, home?: string): string | undefined;
 export function allowlist(p: Record<string, unknown>, home?: string): Forwarded;
 export function handshakeAnswer(token: string, nonce: string): string;
+export function readToken(): string | null;
+export function hallKnowsToken(hall: string, token: string, signal: AbortSignal): Promise<boolean>;
 export function deliver(
   forwarded: Forwarded,
   token: string,

@@ -1,3 +1,6 @@
+/** The start id of the hall a test talks to, unless it says the hall restarted. */
+export const HALL_START_ID = 'hall-start-id-01';
+
 /** jsdom has no EventSource. This one lets a test play the hall's side of the stream. */
 export class FakeEventSource {
   static all: FakeEventSource[] = [];
@@ -8,13 +11,13 @@ export class FakeEventSource {
   onmessage: ((message: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
   closed = false;
-  private readonly named = new Map<string, () => void>();
+  private readonly named = new Map<string, (message: { data: string }) => void>();
 
   constructor(readonly url: string) {
     FakeEventSource.all.push(this);
   }
 
-  addEventListener(type: string, listener: () => void) {
+  addEventListener(type: string, listener: (message: { data: string }) => void) {
     this.named.set(type, listener);
   }
 
@@ -27,9 +30,9 @@ export class FakeEventSource {
     this.onmessage?.({ data: typeof data === 'string' ? data : JSON.stringify(data) });
   }
 
-  /** The named event the hall sends after the replay. */
-  replayed() {
-    this.named.get('replayed')?.();
+  /** The named event the hall sends after the replay, with its start id: another one means the hall restarted. */
+  replayed(startId = HALL_START_ID) {
+    this.named.get('replayed')?.({ data: startId });
   }
 
   fail() {

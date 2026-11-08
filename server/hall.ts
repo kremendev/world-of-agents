@@ -1,12 +1,13 @@
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { extname, resolve, sep } from 'node:path';
+import { join } from 'node:path';
 import type { OfficeEvent } from '../src/events/schema';
 import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
 import { INITIAL_MAP, mapHook } from './map';
+import type { Page } from './page';
 
 /** The hall only ever listens on this machine. */
 export const HOST = '127.0.0.1';
@@ -26,19 +27,7 @@ const BASE_HEADERS = {
   'Content-Security-Policy': HALL_CSP,
 };
 
-/** The kinds of file the built page is made of. Anything else in dist/ is not served. */
-const PAGE_TYPES: Record<string, string> = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.woff2': 'font/woff2',
-  '.woff': 'font/woff',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.ico': 'image/x-icon',
-};
-
-export type Hall = { server: Server; close: () => Promise<void> };
+export type Hall = { server: Server; close: () => Promise<void>; startId: string };
 
 const digest = (text: string) => createHash('sha256').update(text).digest();
 
@@ -72,21 +61,24 @@ const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLower
 
 /**
  * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), GET /api/events (Server-Sent Events for the
- * page), GET /api/health, and the built page from `dist`. Events live in memory only; it starts and runs nothing.
- * `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
+ * page), GET /api/health, and the built page: only the files `page` names. Events live in memory only; it starts and
+ * runs nothing. `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
  */
 export function createHall({
   token,
   port = PORT,
-  dist,
+  page,
 }: {
   token: string;
   port?: number;
-  dist?: string;
+  page?: Page;
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
   const pages = new Set<ServerResponse>();
+  // New at every start and sent after every replay: a page that reconnects to another one knows the hall restarted,
+  // and that it remembers nothing of the run. It says nothing else, and it is no secret.
+  const startId = randomBytes(12).toString('base64url');
   let map = INITIAL_MAP;
   let replay: OfficeEvent[] = [];
 
@@ -149,27 +141,21 @@ export function createHall({
     res.flushHeaders();
     // Everything since the last reset, then each new event as it comes: a page that (re)connects rebuilds
     // its office from a clean one. A named event marks the end of the replay, so it can do that in one go;
-    // it is not a `message`, and it carries nothing.
-    res.write(`${replay.map(frame).join('')}event: replayed\ndata: 1\n\n`);
+    // it is not a `message`, and it carries only the hall's start id.
+    res.write(`${replay.map(frame).join('')}event: replayed\ndata: ${startId}\n\n`);
     pages.add(res);
     req.on('close', () => pages.delete(res));
   }
 
-  async function page(path: string, method: string, res: ServerResponse): Promise<void> {
-    if (!dist) return reply(res, 404);
-    const root = resolve(dist);
-    let file: string;
-    try {
-      file = resolve(root, `.${decodeURIComponent(path === '/' ? '/index.html' : path)}`);
-    } catch {
-      return reply(res, 400);
-    }
-    const type = PAGE_TYPES[extname(file).toLowerCase()];
-    // Only files inside dist/ (no "..", encoded or not), and only the kinds the page is made of.
-    if (!type || !file.startsWith(root + sep)) return reply(res, 404);
+  async function servePage(path: string, method: string, res: ServerResponse): Promise<void> {
+    // Only a file the page lists, by exact match. The URL is only ever looked up, never decoded or joined into a
+    // path: the file read is the list's own entry, so "..", encoded or not, can't reach outside the page folder.
+    const listed = path === '/' ? '/index.html' : path;
+    const type = page?.files.get(listed);
+    if (!page || type === undefined) return reply(res, 404);
     let body: Buffer;
     try {
-      body = await readFile(file);
+      body = await readFile(join(page.dir, listed));
     } catch {
       return reply(res, 404);
     }
@@ -186,7 +172,7 @@ export function createHall({
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
     if (path === '/api/events') return method === 'GET' ? events(req, res) : reply(res, 405);
     if (path === '/api/health') return method === 'GET' ? reply(res, 200, { ok: true }) : reply(res, 405);
-    if (method === 'GET' || method === 'HEAD') return page(path, method, res);
+    if (method === 'GET' || method === 'HEAD') return servePage(path, method, res);
     return reply(res, 405);
   }
 
@@ -197,6 +183,7 @@ export function createHall({
 
   return {
     server,
+    startId,
     close: () =>
       new Promise((done) => {
         for (const page of pages) page.end();

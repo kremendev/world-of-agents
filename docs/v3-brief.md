@@ -130,8 +130,10 @@ The README says so.
 - **Agents**, with exact states from `$.agent.list()`: pending, running, waiting, idle, completed, failed or killed. No
   guessing from hook timing. There are no guilds before milestone 5: until then the pane lists the five agents, and
   milestone 5 groups them by guild.
-- **Who needs you**, taken from the `agentId` on `tool.check`. You still answer in Claude Code's own permission prompt, which a
-  mod can't change.
+- **Who needs you**, taken from the `agentId` on `tool.check`, and shown once the permission dialog really opens (its
+  `PermissionRequest`). An `ask` goes to the mode's decider: a dialog in Manual, but in Auto the classifier, which settled
+  every ask of a test run on 8 Nov with no dialog. You still answer in Claude Code's own permission prompt, which a mod
+  can't change.
 - **A warning when the session runs in `auto`, `bypassPermissions` or `acceptEdits`**, the mode named first: "Auto: Nothing asks
   you before acting.", "Bypass: Nothing asks you before acting.", "Accept edits: Edits aren't asked, and npm test runs whatever
   they change." The pane only warns: it never changes
@@ -143,8 +145,9 @@ The README says so.
   what changed". A preset sends its fixed text as if you had typed it, and starts a run at once. While the Lead's turn runs the
   presets are dim and a press does nothing, so one click can't queue a second run.
 
-**The hall starts itself.** When the session starts (the first message) and at the start of each main-thread turn, the mod checks
-`/api/health`, and if nothing answers it starts the hall server. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take
+**The hall starts itself.** When the session starts (the first message) and at the start of each main-thread turn, the mod asks
+what holds port 4319 with the hook script's own handshake (any program can answer `/api/health`), and if nothing answers it
+starts the hall server; if another program answers, it starts nothing and the pane says so. It never starts a second copy: it starts one only when nothing answers, and a second hall couldn't take
 the port anyway (it writes its token only after binding it). The plugin carries a prebuilt hall (one bundled server file plus the
 built page), so installing it needs no `npm install`. The bundle finds its page relative to its own file, never from the working
 folder, an environment variable or an argument. It serves only the files named in the build's manifest, never a path joined
@@ -173,7 +176,7 @@ agent text on disk would be a new leak. The page rebuilds from nothing and says 
 - The text goes in through stdin (`$.process.spawn`'s `input`), capped at 200 characters with control characters stripped.
   Agent names come from our fixed roster table, never from event text. One utterance at a time.
 - If `$.process.spawn` can't write stdin, the mod speaks fixed phrases only (the script maps a key from a fixed list to its
-  text) and drops "the first sentence of the Lead's report".
+  text) and drops "the first sentence of the Lead's report". (Not needed: on 7 Nov stdin arrived whole on the real engine.)
 - A test checks the spawn arguments are exactly the fixed list, whatever the text is.
 
 It speaks two things only:
@@ -265,6 +268,11 @@ step, while you still review every milestone.
   `git diff --output=<file>`, which writes a file without a prompt (checked in 2a). In the desktop app this replaces what
   `woa` does in the terminal; milestone 1 showed the desktop app applies both the mode and the env from that file. From
   milestone 4 the setup also writes the backlog.
+  - **The desktop app remembers a mode per folder, and that wins** (its log, 6 to 8 Nov): a new session in `woa-m2-test`
+    started in Manual from the file (`source=repo_settings_default_mode`) until Dima switched the selector to Auto there;
+    from then on new sessions started in the folder's last pick (`source=folder_pick`), Auto, over the file's `default`.
+    So "Manual by default" holds in the desktop app only until a mode is picked for that folder. The terminal (`woa`,
+    `claude`) still follows the file. The pane's mode warning is what tells Dima he is in Auto.
   - **PowerShell, as the engine answered it (checked in 2a):** `git push` and `git push origin main` are denied through the
     PowerShell tool by `PowerShell(git push *)`. The `Read(...)` denies stop PowerShell's file commands and their aliases
     too: `Get-Content .env`, `gc .env`, `cat .env` and `type .env` are denied by `Read(.env)`, `Get-Content .env.local` by
