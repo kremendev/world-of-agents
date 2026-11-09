@@ -182,10 +182,10 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 - Context and plan limits from `session.measure`.
 - The `Link` goes exactly to `http://localhost:4319`. No `Markdown` element anywhere in the tree.
 - `tool.check` and `agent.spawn` hand back allow, ask, deny and a deny unchanged (the spike's tests, kept).
-- Each preset submits exactly its constant through `$.prompt.submit`. A source check finds `$.prompt.submit` nowhere outside
-  `presets.ts`.
-- While the Lead's own turn runs, the presets are dim and a press sends nothing; a second press before the first one's turn
-  has started sends nothing either.
+- Each preset puts exactly its constant after the draft through `$.prompt.fill` (`append`), and never submits or reads the
+  box. A source check finds `$.prompt` nowhere but that one call in `presets.ts`. (Was `$.prompt.submit`, dimmed while the
+  Lead's turn ran; decision 21.)
+- When the box doesn't take the text, the pane says why in one line.
 - (Vitest) `roster.ts`'s ids and names equal `src/office/roster.ts` (the page's roster has no guilds yet).
 
 **By hand (desktop, the dev install)**
@@ -201,7 +201,7 @@ Real runs cost plan, and the plan is Pro: the checks below use the smallest task
 
 **Open in 2b:** `$.prompt.submit` from a desktop pane wasn't tried in the spike. Answered by the desktop check on 7 Nov: it
 works (3 of 3), and it submits at once, so a preset starts a run that Esc stops only after it started. Hence decision 13.
-`$.prompt.fill` would put the text in the prompt box unsent; it isn't used.
+`$.prompt.fill` would put the text in the prompt box unsent; it wasn't used then, and is since decision 21.
 
 ## 2c: processes
 
@@ -298,7 +298,7 @@ works (3 of 3), and it submits at once, so a preset starts a run that Esc stops 
 - Carried over from 2b, whose desktop check didn't confirm them:
   - during an approval, "needs you" names the agent ("Backend dev asks to run Bash") and clears after it;
   - in Auto, the warning "Auto: Nothing asks you before acting." shows, and whether "needs you" flickers;
-  - during a run, the presets are dim, and a press sends nothing.
+  - during a run, the presets are dim, and a press sends nothing (dropped by decision 21).
 
 **Open in 2c:** writing stdin through `$.process.spawn`'s `input` is in the types but wasn't run in the spike; the brief's
 fallback stays. Answered on 7 Nov: a no-login probe on Claude Code 2.1.318 spawned `speak.ps1`'s reading half with the
@@ -371,7 +371,7 @@ After the 2b desktop check, on 7 Nov:
     tell me what fails. If neither script exists, say so and stop. Don't fix anything yet." The old text sent the Lead
     looking for a README to take a command from.
 13. The presets are dim while the Lead's own turn runs, and a press then sends nothing, so one click can't queue a second
-    run behind the running one.
+    run behind the running one. Replaced by 21.
 14. The warning names the mode first: "Auto: …", "Bypass: …", "Accept edits: …".
 15. `speak.ps1` sets `[Console]::InputEncoding` to UTF-8 before it reads stdin.
 
@@ -391,6 +391,19 @@ three CLI runs with a logging plugin):
 20. The mod reads a prompt's text only to ask whether it is a frame naming one of its own runs, and keeps none of it:
     not the text, not an id the prompt claims. A kit test plants a fake token in prompts and frames and checks every
     write; a source check pins the one place the text is read.
+
+After the presets spike, on 9 Nov:
+
+21. A preset no longer sends. It puts its fixed text after Dima's draft with `$.prompt.fill` (`mode: 'append'`) and Dima
+    presses Enter, so the mod sends nothing as Dima and the brief's "Prompts sent as you" row is closed. Each text starts
+    with one space, because append adds it as it is (the spike gave `draftSpike`). No `$.prompt.read`: it would hand the
+    whole draft, a pasted token included, to the mod. When the box doesn't take the text, the pane says why in one line:
+    "This surface has no prompt box" for the engine's `no_composer`, else, a fill that throws included, "Couldn't fill the
+    prompt box". The dimming and
+    the double-press flag (13) go, since a fill queues nothing. A throwaway spike in the desktop app's Code tab (engine
+    2.1.317) found both candidates work there: fill took the text into an empty box and after a half-typed draft, which
+    it kept; `$.prompt.suggest` showed dim text that Tab took, and declined while the box held text. Fill won: one key
+    press.
 
 ## Backlog, due before v3.0.0
 

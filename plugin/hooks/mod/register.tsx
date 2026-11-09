@@ -1,16 +1,17 @@
 // The World of Agents mod: the team pane, the hall's start and the voice. It watches, shows and speaks; it never decides.
 //
 // Every hook hands back exactly what `next` resolved to: no answer on tool.call, no decision on tool.check, no change
-// to a spawn, a prompt or a turn. The one prompt it ever submits is a preset's fixed text (presets.ts). Its only
-// processes are fixed commands (hall.ts, voice.ts); it uses no network and no files. register.test.tsx, hall.test.tsx
-// and voice.test.tsx pin all of it, and scripts/mod-surface.json lists every event and $ call it uses.
+// to a spawn, a prompt or a turn. It submits no prompt: a preset only puts its fixed text after Dima's draft
+// (presets.ts). Its only processes are fixed commands (hall.ts, voice.ts); it uses no network and no files.
+// register.test.tsx, hall.test.tsx and voice.test.tsx pin all of it, and scripts/mod-surface.json lists every event and
+// $ call it uses.
 
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
 import { findNode, keepHall } from './hall';
 import { askerName, drawPane } from './pane';
-import { sendPreset } from './presets';
+import { fillPreset } from './presets';
 import type { PresetKey } from './presets';
 import { rosterIdOf } from './roster';
 import { plain } from './text';
@@ -30,10 +31,11 @@ const EMPTY: PaneView = {
   node: 'unchecked',
   nodeVersion: null,
   muted: false,
+  fillRefused: null,
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-3' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-4' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -115,17 +117,10 @@ async function toggleMute($: EngineInterface): Promise<void> {
   await $.store.set(MUTED, muted);
 }
 
-// A preset is sent only while the Lead is idle, one at a time: a press during the Lead's turn would queue a second run
-// behind it. `pressing` covers the moment between a press and its own turn's start; from then the Lead's state does.
-let pressing = false;
+/** A preset press: its text goes after Dima's draft, and the pane says why when the box didn't take it. */
 async function pressPreset($: EngineInterface, key: PresetKey): Promise<void> {
-  if (pressing) return;
-  pressing = true;
-  try {
-    if ((await read($, view)).lead === 'idle') await sendPreset($, key);
-  } finally {
-    pressing = false;
-  }
+  const fillRefused = await fillPreset($, key);
+  await set($, (v) => (v.fillRefused === fillRefused ? v : { ...v, fillRefused }));
 }
 
 export const register: Register = (on) => {

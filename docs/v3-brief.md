@@ -142,8 +142,8 @@ The README says so.
 - **Tasks** in progress and done.
 - **Usage**: context used and plan limits. See the token ledger.
 - **Buttons**: "Open hall", mute, and a few preset prompts such as "Plan the next milestone", "Run the quality check" and "Review
-  what changed". A preset sends its fixed text as if you had typed it, and starts a run at once. While the Lead's turn runs the
-  presets are dim and a press does nothing, so one click can't queue a second run.
+  what changed". A preset puts its fixed text in the prompt box, after whatever you've typed, and you send it with Enter: the
+  mod never sends a prompt itself.
 
 **The hall starts itself.** When the session starts (the first message) and at the start of each main-thread turn, the mod asks
 what holds port 4319 with the hook script's own handshake (any program can answer `/api/health`), and if nothing answers it
@@ -325,7 +325,7 @@ decides.
 | -------------------------------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The mod does more than it should | A bug or a bad change makes it read secrets or call out          | A small mod with no remote code. A test runs `claude plugin validate --json` and fails if the list of events or mods API calls it uses grows past an expected list. Every pull request shows that list.                                              |
 | The mod approves things          | A tool call runs that you never saw                              | No answers on `tool.call`, no decisions on `tool.check`. A test pins it.                                                                                                                                                                             |
-| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | `asUser` prompts come only from preset buttons with fixed text. Never from agent output, files, the hall page or scouts. No `session.send`.                                                                                                          |
+| Prompts sent as you              | Text from an agent, a file or a web page gets sent as your words | Closed: the mod sends no prompt. A preset puts its fixed text after your draft (`$.prompt.fill`, append), and you press Enter. Never text from agents, files, the hall page or scouts. It never reads the box. No `session.send`.                    |
 | Agent text in the pane           | A link in agent output points somewhere harmful                  | Agent text is drawn with `Text`, not `Markdown` with clickable links. The only link is our own hall on localhost.                                                                                                                                    |
 | Starting the hall                | Something else gets started                                      | A fixed command from the plugin's own folder, with no arguments from agents or files. The hall keeps every v2 control: token, handshake, Host and Origin checks, CSP.                                                                                |
 | The ledger's backfill            | Transcript text leaks                                            | It reads usage numbers only and stores totals only, never text.                                                                                                                                                                                      |

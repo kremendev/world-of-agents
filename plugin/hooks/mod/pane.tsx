@@ -6,7 +6,7 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
 import { nameOf, ROSTER } from './roster';
-import type { PaneAgent, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
+import type { PaneAgent, PaneFillRefusal, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
 export const HALL_URL = 'http://localhost:4319';
 
@@ -17,6 +17,12 @@ const HALL_LINES: Record<PaneHall, string> = {
   running: 'Hall: running',
   taken: 'Port 4319 is used by another program.',
   stopped: 'Hall: not running',
+};
+
+/** Why a preset's text didn't reach the prompt box, in one line. */
+const FILL_LINES: Record<PaneFillRefusal, string> = {
+  no_composer: 'This surface has no prompt box',
+  other: "Couldn't fill the prompt box",
 };
 
 /** Why there is no usable Node, and what it costs. Only digits and dots of what `node --version` printed show here. */
@@ -88,9 +94,6 @@ export function drawPane(
   const noNode = nodeWarning(v);
   // Only an ask whose dialog is open: one the Auto classifier is still deciding asks nobody yet.
   const waiting = v.asks.filter((ask) => ask.shown);
-  // A Button has no disabled state, so the presets go dim while the Lead's turn runs, and register.tsx's press handler
-  // does nothing then: a press would only queue a second run behind the running one.
-  const busy = v.lead === 'running';
 
   return (
     <Box flexDirection="column" gap={1}>
@@ -148,15 +151,13 @@ export function drawPane(
           </Box>
         )}
       </Box>
-      <Box flexDirection="row" gap={1} flexWrap="wrap">
-        {PRESETS.map((preset) => (
-          <Button
-            key={`preset-${preset.key}`}
-            label={preset.label}
-            dimColor={busy}
-            onPress={() => onPreset(preset.key)}
-          />
-        ))}
+      <Box flexDirection="column">
+        <Box flexDirection="row" gap={1} flexWrap="wrap">
+          {PRESETS.map((preset) => (
+            <Button key={`preset-${preset.key}`} label={preset.label} onPress={() => onPreset(preset.key)} />
+          ))}
+        </Box>
+        {v.fillRefused !== null && <Text color="warning">{FILL_LINES[v.fillRefused]}</Text>}
       </Box>
       <Box flexDirection="column">
         <Text color={v.hall === 'taken' ? 'warning' : undefined}>

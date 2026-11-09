@@ -4,7 +4,8 @@
 import type { AgentSpawnInput, On, ToolCallResult, ToolCheckResult } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
-import { PRESETS } from './presets';
+import { fillRefusal, PRESETS } from './presets';
+import type { PaneView } from './types';
 
 const PLUGIN = 'world-of-agents';
 const SURFACES = ['terminal', 'desktop', 'vscode'] as const;
@@ -33,6 +34,22 @@ function engine(on: On) {
   }));
   return clock;
 }
+
+/** A whole view as register.tsx keeps it, for a test that seeds `state.get` with what a press left. */
+const STORED_VIEW: PaneView = {
+  lead: 'idle',
+  agents: [],
+  asks: [],
+  mode: null,
+  usage: null,
+  round: [],
+  unheard: [],
+  hall: 'stopped',
+  node: 'ok',
+  nodeVersion: null,
+  muted: false,
+  fillRefused: null,
+};
 
 const SPAWN: AgentSpawnInput = {
   tool_use_id: 'u1',
@@ -192,90 +209,144 @@ describe('no decisions', () => {
 });
 
 describe('prompts', () => {
-  test('each preset button submits exactly its fixed text, as the person, once per press', async ($, on) => {
+  test('each preset button puts exactly its fixed text after the draft, once per press, and sends nothing', async ($, on) => {
     engine(on);
-    const sent: { text: string; origin: unknown }[] = [];
+    const filled: { text: string; mode: string; origin: unknown }[] = [];
+    let submits = 0;
+    let reads = 0;
+    on('prompt.fill', (_, e) => {
+      filled.push({ text: e.text, mode: e.mode, origin: e.origin });
+      return { isFilled: true };
+    });
     on('prompt.submit', (_, e) => {
-      sent.push({ text: e.text, origin: e.origin });
+      submits++;
       return { text: e.text };
+    });
+    on('prompt.read', () => {
+      reads++;
+      return { value: { text: 'a draft with FAKE-TOKEN-supersecretvalue123', cursor: 0 } };
     });
 
     for (const surface of SURFACES) {
       const ui = await $.ui.mount({ ...PANE, surface });
       for (const preset of PRESETS) {
-        sent.length = 0;
+        filled.length = 0;
         await ui.press({ key: `preset-${preset.key}` });
-        expect(sent).toEqual([{ text: preset.text, origin: { kind: 'plugin', name: PLUGIN, asUser: true } }]);
+        expect(filled).toEqual([
+          { text: preset.text, mode: 'append', origin: { kind: 'plugin', name: PLUGIN } },
+        ]);
       }
       await ui.unmount();
     }
+    expect(submits).toBe(0);
+    expect(reads).toBe(0);
   });
 
-  test("the presets go dim and send nothing while the Lead's turn runs; a double press sends once", async ($, on) => {
+  test('each preset text starts with exactly one space, so it never runs into a draft', async () => {
+    for (const preset of PRESETS) expect(preset.text).toMatch(/^ \S/);
+  });
+
+  test("a press fills while the Lead's turn runs too, a double press fills twice, and no preset goes dim", async ($, on) => {
     engine(on);
-    const sent: string[] = [];
-    let held: { reached: () => void; gate: Promise<void> } | undefined;
-    // The engine beneath: a submitted prompt's turn has started by the time submit resolves (PromptSubmitResult). The
-    // test can hold the next submission there, before its turn starts.
-    on('prompt.submit', async (_, e) => {
-      const turnId = `t${sent.push(e.text)}`;
-      const hold = held;
-      held = undefined;
-      if (hold) {
-        hold.reached();
-        await hold.gate;
-      }
-      await $.turn.start({ text: e.text, turnId });
-      return { text: e.text };
+    const filled: string[] = [];
+    on('prompt.fill', (_, e) => {
+      filled.push(e.text);
+      return { isFilled: true };
     });
     on('turn.start', (_, e) => ({ turnId: e.turnId }));
-    on('turn.complete', () => ({ text: '' }));
-    const endTurn = (turnId: string, agentId?: string) =>
-      $.turn.complete({ answer: '', durationMs: 1, isAborted: false, turnId, agentId, reason: 'answer' });
 
     for (const surface of SURFACES) {
       const ui = await $.ui.mount({ ...PANE, surface });
-      const dim = async () =>
-        (await ui.findAll({ type: 'Button' }))
-          .filter((button) => button.key?.startsWith('preset-'))
-          .map((button) => button.props.dimColor === true);
-      sent.length = 0;
-      expect(await dim()).toEqual([false, false, false]);
-
-      // The Lead's turn: every preset dim, and pressing one sends nothing. A subagent's turn ending changes nothing.
-      await $.turn.start({ text: 'typed by Dima', turnId: 'typed' });
-      expect(await dim()).toEqual([true, true, true]);
-      for (const preset of PRESETS) await ui.press({ key: `preset-${preset.key}` });
-      await endTurn('s1', 'a1');
-      expect(await dim()).toEqual([true, true, true]);
-      expect(sent).toEqual([]);
-      await endTurn('typed');
-      expect(await dim()).toEqual([false, false, false]);
-
-      // A second press before the first one's turn has started.
-      let reached = () => {};
-      let release = () => {};
-      const atSubmit = new Promise<void>((resolve) => (reached = resolve));
-      held = { reached, gate: new Promise<void>((resolve) => (release = resolve)) };
-      const first = ui.press({ key: 'preset-plan' });
-      await atSubmit;
-      await ui.press({ key: 'preset-review' });
-      release();
-      await first;
-      expect(sent).toEqual([PRESETS[0].text]);
-      expect(await dim()).toEqual([true, true, true]);
-      await endTurn('t1');
+      filled.length = 0;
+      await $.turn.start({ text: 'typed by Dima', turnId: `t-${surface}` });
+      expect(await ui.find({ type: 'Text', text: 'Lead/PM: running' })).toBeDefined();
+      const dim = (await ui.findAll({ type: 'Button' }))
+        .filter((button) => button.key?.startsWith('preset-'))
+        .map((button) => button.props.dimColor === true);
+      expect(dim).toEqual([false, false, false]);
+      await Promise.all([ui.press({ key: 'preset-plan' }), ui.press({ key: 'preset-plan' })]);
+      expect(filled).toEqual([PRESETS[0].text, PRESETS[0].text]);
       await ui.unmount();
     }
   });
 
-  test('nothing but a preset button submits a prompt, and nothing ever sends to another session', async ($, on) => {
+  test("the pane says in one line why the box didn't take a preset, until a press fills it", async ($, on) => {
+    engine(on);
+    let isFilled = false;
+    // A stand-in is a hook, and the engine strips a cause a hook writes, so the mod gets none here: "other".
+    on('prompt.fill', () => ({ isFilled, refusal: 'no_composer' }));
+
+    for (const surface of SURFACES) {
+      const ui = await $.ui.mount({ ...PANE, surface });
+      isFilled = false;
+      await ui.press({ key: 'preset-check' });
+      expect((await ui.findAll({ type: 'Text', text: /prompt box/ })).map((t) => t.text)).toEqual([
+        "Couldn't fill the prompt box",
+      ]);
+      isFilled = true;
+      await ui.press({ key: 'preset-check' });
+      expect(await ui.find({ type: 'Text', text: /prompt box/ })).toBeUndefined();
+      await ui.unmount();
+    }
+  });
+
+  test("a fill that throws says it couldn't fill the box, and the press doesn't fail", async ($, on) => {
+    engine(on);
+    on('prompt.fill', () => {
+      throw new Error('the box went away');
+    });
+
+    for (const surface of SURFACES) {
+      const ui = await $.ui.mount({ ...PANE, surface });
+      await ui.press({ key: 'preset-plan' });
+      expect((await ui.findAll({ type: 'Text', text: /prompt box/ })).map((t) => t.text)).toEqual([
+        "Couldn't fill the prompt box",
+      ]);
+      await ui.unmount();
+    }
+  });
+
+  test("only the engine's own no_composer means there is no box; any other refusal is 'other'", async () => {
+    expect(fillRefusal({ isFilled: true })).toBeNull();
+    expect(fillRefusal({ isFilled: false, refusal: 'no_composer' })).toBe('no_composer');
+    expect(fillRefusal({ isFilled: false, refusal: 'dialog' })).toBe('other');
+    expect(fillRefusal({ isFilled: false })).toBe('other');
+  });
+
+  test('"This surface has no prompt box" when the last press met no box', async ($, on) => {
+    engine(on);
+    // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
+    on('state.get', () => ({
+      value: {
+        value: { shape: 'view-4', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        version: 1,
+      },
+    }));
+    for (const surface of SURFACES) {
+      const ui = await $.ui.mount({ ...PANE, surface });
+      expect((await ui.findAll({ type: 'Text', text: /prompt box/ })).map((t) => t.text)).toEqual([
+        'This surface has no prompt box',
+      ]);
+      await ui.unmount();
+    }
+  });
+
+  test('nothing submits a prompt or fills the box on its own, and nothing ever sends to another session', async ($, on) => {
     const clock = engine(on);
     const submitted: string[] = [];
     const sent: unknown[] = [];
+    let touched = 0;
     on('prompt.submit', (_, e) => {
       submitted.push(e.text);
       return { text: e.text };
+    });
+    on('prompt.fill', () => {
+      touched++;
+      return { isFilled: true };
+    });
+    on('prompt.read', () => {
+      touched++;
+      return { value: { text: '', cursor: 0 } };
     });
     on('session.send', (_, e) => {
       sent.push(e);
@@ -316,6 +387,7 @@ describe('prompts', () => {
     await ui.unmount();
 
     expect(submitted).toEqual([]);
+    expect(touched).toBe(0);
     expect(sent).toEqual([]);
   });
 });

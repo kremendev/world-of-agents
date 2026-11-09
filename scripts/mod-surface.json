@@ -21,7 +21,7 @@
       "$.clock.every",
       "$.process.run",
       "$.process.spawn",
-      "$.prompt.submit",
+      "$.prompt.fill",
       "$.state.get",
       "$.state.set",
       "$.store.get",

@@ -14,7 +14,7 @@ const sources = readdirSync(MOD)
   }));
 const using = (pattern: RegExp) => sources.filter((s) => pattern.test(s.code)).map((s) => s.name);
 
-describe('the mod sends nothing as Dima but a preset', () => {
+describe('the mod sends nothing as Dima', () => {
   it('reads the files the engine loads', () => {
     expect(sources.map((s) => s.name).sort()).toEqual([
       'hall.ts',
@@ -28,16 +28,25 @@ describe('the mod sends nothing as Dima but a preset', () => {
     ]);
   });
 
-  it('submits a prompt in presets.ts only, once, and as the person only there', () => {
-    // Calls only: register.tsx watches the prompt.submit event (a frame naming a run), which submits nothing.
-    expect(using(/\bsubmit\s*\(/)).toEqual(['presets.ts']);
-    expect(using(/\bsubmit\b/)).toEqual(['presets.ts', 'register.tsx']);
+  it('submits no prompt: register.tsx only watches the prompt.submit event, which submits nothing', () => {
+    expect(using(/\bsubmit\s*\(/)).toEqual([]);
+    expect(using(/\bsubmit\b/)).toEqual(['register.tsx']);
     expect(sources.find((s) => s.name === 'register.tsx')?.code.match(/\bsubmit\b/g)).toEqual(['submit']);
     expect(sources.find((s) => s.name === 'register.tsx')?.code).toContain(
       "on('prompt.submit', async ($, e, next) => {",
     );
-    expect(sources.find((s) => s.name === 'presets.ts')?.code.match(/\bsubmit\b/g)).toHaveLength(1);
-    expect(using(/\basUser\b/)).toEqual(['presets.ts']);
+    expect(using(/\basUser\b/)).toEqual([]);
+  });
+
+  it('touches the prompt box only to append a preset, in presets.ts, and never reads it', () => {
+    // $.prompt only as $.prompt.fill: no read (the whole draft, a pasted token with it), no destructured member.
+    expect(using(/\$\.prompt\b(?!\.fill\()/)).toEqual([]);
+    expect(using(/\$\.prompt\.fill\(/)).toEqual(['presets.ts']);
+    expect(
+      sources.find((s) => s.name === 'presets.ts')?.code.match(/[^\n]*\$\.prompt\.fill\([^\n]*/g),
+    ).toEqual(["    return fillRefusal(await $.prompt.fill({ text: preset.text, mode: 'append' }));"]);
+    // Neither the call nor a hook on another plugin's read, which would hand the mod the box too.
+    expect(using(/\bprompt\s*(\.|\[\s*['"`])\s*read\b/)).toEqual([]);
   });
 
   it("reads a prompt's text in one place only: to ask which of its own runs a frame carries", () => {

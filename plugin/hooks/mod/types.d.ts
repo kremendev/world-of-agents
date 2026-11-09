@@ -41,6 +41,12 @@ export type PaneHall = 'checking' | 'starting' | 'running' | 'taken' | 'stopped'
 /** What `node --version` said at session start: not asked yet, 20.19 or later, not found, no version, or too old. */
 export type PaneNode = 'unchecked' | 'ok' | 'missing' | 'failed' | 'old';
 
+/**
+ * Why the prompt box didn't take a preset's text: `no_composer`, the engine's own word that this surface has no box the
+ * mod can write; `other` for anything else (a dialog holds the keys, a hook kept it out, a cause unknown).
+ */
+export type PaneFillRefusal = 'no_composer' | 'other';
+
 export type PaneView = {
   /** The Lead's main-thread turn: running from its `turn.start` to its `turn.complete`. */
   lead: 'running' | 'idle';
@@ -62,6 +68,8 @@ export type PaneView = {
   nodeVersion: string | null;
   /** The voice is off. Kept in $.store, so it lasts beyond the session. */
   muted: boolean;
+  /** Why the last preset press didn't fill the prompt box; null when it did, and before the first press. */
+  fillRefused: PaneFillRefusal | null;
 };
 
 declare module 'claude-code' {

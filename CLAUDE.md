@@ -231,13 +231,17 @@ Do not change the look without asking. New ideas go into a later version.
   the scoped `PowerShell(git push *)` keeps it on. The engine confirmed `Read(.env)` also stops `Get-Content`, `gc`, `cat`
   and `type` in PowerShell. The guard's `.env` rule matches `.envrc` too.
 - The team pane (`plugin/hooks/mod/`) watches and shows; it never decides. Every hook returns exactly what `next` resolved
-  to: no answer on `tool.call`, no decision on `tool.check`, no change to a spawn, a prompt or a turn. It submits a prompt
-  only from a preset button, with that preset's fixed text (`sendPreset` takes a key, not a text), and never uses
-  `session.send`. A Button has no disabled state, so while the Lead's own turn runs the presets are `dimColor` and
-  `pressPreset` sends nothing; a flag covers a second press before the first one's turn has started. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
+  to: no answer on `tool.call`, no decision on `tool.check`, no change to a spawn, a prompt or a turn. It submits no
+  prompt: a preset button puts that preset's fixed text after Dima's draft with `$.prompt.fill` (`mode: 'append'`, each
+  text starting with one space), and Dima presses Enter (`fillPreset` takes a key, not a text). It never calls
+  `$.prompt.read`, which would hand the whole draft, a pasted token included, to the mod, and never uses `session.send`.
+  When the box doesn't take the text the pane says why in one line: "This surface has no prompt box" for the engine's
+  `no_composer`, else, a fill that throws included, "Couldn't fill the prompt box". The presets spike (9 Nov) saw fill work in the desktop app's Code
+  tab, a draft kept. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
-  checks the source: a `submit` call and `asUser` only in `presets.ts`, no `send`, no `Markdown`, and prompt text read in one place. Two hooks see Dima's prompts (`prompt.submit`, `classic.UserPromptSubmit`): the first only asks `heardRun()` whether the prompt is a frame naming one of the mod's own runs, and that id is only compared with `unheard`; the second reads `permission_mode` only. No prompt text, not even an id a prompt claims, reaches `$.state`, `$.store`, a process, the voice or the pane: `register.test.tsx` plants a fake token in a prompt and in frames and checks every write (two planted bugs, both caught). `scripts/mod-surface.json` lists
+  checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
+  `prompt.read`, no `send`, no `Markdown`, and prompt text read in one place. Two hooks see Dima's prompts (`prompt.submit`, `classic.UserPromptSubmit`): the first only asks `heardRun()` whether the prompt is a frame naming one of the mod's own runs, and that id is only compared with `unheard`; the second reads `permission_mode` only. No prompt text, not even an id a prompt claims, reaches `$.state`, `$.store`, a process, the voice or the pane: `register.test.tsx` plants a fake token in a prompt and in frames and checks every write (two planted bugs, both caught). `scripts/mod-surface.json` lists
   every event, `$` call, state key and env name it uses, as `claude plugin validate` reads them; `npm run mod:surface`
   fails on any difference, either way, so a removed call can't come back unreviewed. No network, no files, no environment
   variables (`mod.test.ts` checks); the processes are the fixed ones below.
@@ -337,6 +341,9 @@ Do not change the look without asking. New ideas go into a later version.
   has no `$.store`: answer `store.get` and `store.set` yourself to read what the mod kept. In the kit, `return()` on a
   stream whose stand-in is waiting lands only at its next piece (plain generator rules); the real engine ends the child at
   once (a no-login probe saw it gone 14 ms later), so the 15 s test lets the stand-in write a piece after the stop.
+- A `prompt.fill` stand-in can't give the engine's own refusal: the engine strips a cause a hook writes, so the mod sees
+  `{ isFilled: false }` with no `refusal`. To draw what `no_composer` leaves, seed `state.get` with
+  `{ value: { value: { shape, value: view }, version } }`, as register.test.tsx does.
 - With no login, `claude -p --plugin-dir plugin` still runs the mod's `session.start`, and `$.process.run` and `spawn`
   work there. A throwaway second plugin that hooks `process.run`/`process.spawn` (results arrive as `{ value }` at hook
   level) can log what the mod runs; that is how 2c saw the real calls, cwd and exit codes. Write such logs per call: a
