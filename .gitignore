@@ -17,6 +17,10 @@ coverage
 !.env.example
 *.local
 
+# Claude Code writes this beside a mod it loads from this folder (woa's --plugin-dir). It only extends the engine's own
+# types in plugin/.claude-plugin/types/, which carry a .gitignore of their own.
+plugin/tsconfig.json
+
 # Editor and OS files
 .vscode/*
 !.vscode/extensions.json

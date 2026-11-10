@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 /**
  * What plugin/hooks/send.mjs forwards, with the same caps (docs/v2-hooks.md has the real payloads).
@@ -23,7 +23,7 @@ export const hookInputSchema = z.object({
     .object({ task_id: id.optional(), tool_use_id: id.optional(), status: word.optional() })
     .optional(),
   agent_message: z.object({ from: id }).optional(),
-  last_assistant_message: z.string().max(200).optional(),
+  last_assistant_message: z.string().max(20_000).optional(),
   tool_input: z
     .object({
       description: z.string().max(120).optional(),

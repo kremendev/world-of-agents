@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import type { AgentId } from '../../events/schema';
+import type { AgentId, AgentState } from '../../events/schema';
 import { fitPixelScale, pixelScale } from '../../pixel/scale';
 import { spriteSize } from '../../pixel/sprite';
 import { workingCount, type Message, type OfficeState } from '../../state/office';
@@ -19,9 +19,9 @@ import {
 } from './draw';
 import { HallLabels, type AgentTag } from './HallLabels';
 import { HALL, hallStations } from './layout';
-import { SPEECH_MS, clip, smallTalk } from './talk';
+import { bubbleText, say, SILENT, smallTalk, speak, type Speech } from './talk';
 import { FETCH_SPOTS } from './walk';
-import { restingWalkers, sendTo, step, walkerAt } from './walkers';
+import { isHeld, restingWalkers, sendTo, step, walkerAt } from './walkers';
 
 /** CSS pixels per art pixel until the room is measured, as in the design. Rounded so pixels stay crisp. */
 const TARGET_SCALE = 2;
@@ -83,8 +83,10 @@ export function HallView({
   // Effects write these, the frame loop reads them.
   const officeRef = useRef(office);
   const walkers = useRef(restingWalkers());
-  const speech = useRef<Partial<Record<AgentId, { text: string; until: number }>>>({});
+  const speech = useRef<Partial<Record<AgentId, Speech>>>({});
   const heard = useRef(new WeakSet<Message>());
+  // The state an agent had when its work ended while it was held at its desk: what it shows until it leaves.
+  const heldState = useRef<Partial<Record<AgentId, AgentState>>>({});
   const lastRun = useRef(run);
   // Live: the tasks whose scroll their dev has fetched from the Lead's room. Task ids never repeat.
   const fetched = useRef(new Set<string>());
@@ -106,16 +108,22 @@ export function HallView({
       walkers.current = restingWalkers();
       speech.current = {};
     }
+    const before = officeRef.current;
     officeRef.current = office;
     for (const { id } of ROSTER) {
       const to = destinationFor(id, office, live, fetched.current);
-      if (to) walkers.current[id] = sendTo(walkers.current[id], to, now, reducedMotion);
+      if (!to) continue;
+      const was = walkers.current[id];
+      walkers.current[id] = sendTo(was, to, now, reducedMotion, SEATS[id]);
+      if (!isHeld(was, now) && isHeld(walkers.current[id], now))
+        heldState.current[id] = before.agents[id].state;
     }
     for (const m of office.messages) {
       if (heard.current.has(m)) continue;
       heard.current.add(m);
       // Messages already there when the view changes (back to live, or a replay) are not news.
-      if (!newRun && !hushed) speech.current[m.from] = { text: clip(m.text), until: now + SPEECH_MS };
+      if (!newRun && !hushed)
+        speech.current[m.from] = say(speech.current[m.from] ?? SILENT, bubbleText(m.text));
     }
   }, [office, run, reducedMotion, live, hushed]);
 
@@ -147,22 +155,26 @@ export function HallView({
       const drawables = [...above, ...furnaceDrawables(workingCount(latest), per, lightAlpha)];
       const keyboardDx: Partial<Record<AgentId, number>> = {};
       const idleInRest: AgentId[] = [];
+      const said: Partial<Record<AgentId, string | null>> = {};
       const next: AgentTag[] = [];
 
       for (const agent of ROSTER) {
-        let w = step(walkers.current[agent.id], now);
+        let w = step(walkers.current[agent.id], now, reducedMotion);
         // Live: a dev that has reached its scroll takes every one waiting for it and heads for its desk.
         const scroll = FETCH_SPOTS[agent.id];
         if (live && !w.walk && w.spot === scroll) {
           if (destinationFor(agent.id, latest, live, fetched.current) === scroll) {
             for (const t of latest.tasks) if (t.owner === agent.id) fetched.current.add(t.id);
             const to = destinationFor(agent.id, latest, live, fetched.current);
-            if (to) w = sendTo(w, to, now, reducedMotion);
+            if (to) w = sendTo(w, to, now, reducedMotion, SEATS[agent.id]);
           }
         }
         walkers.current[agent.id] = w;
         const { point, walking } = walkerAt(w, now);
-        const { state } = agents[agent.id];
+        // Held at its desk, an agent still shows the work it was doing; the feed and the furnace keep the real state.
+        const state = isHeld(w, now)
+          ? (heldState.current[agent.id] ?? agents[agent.id].state)
+          : agents[agent.id].state;
         const seat = SEATS[agent.id];
         const seated = !walking && point.x === seat.x && point.y === seat.y;
         const activity = activityOf(agent, state, walking, seated);
@@ -170,6 +182,10 @@ export function HallView({
         keyboardDx[agent.id] = move.keyboardDx;
         drawables.push(agentDrawable(agent, point, { x: move.dx, y: move.dy }));
         if (!walking && state === 'idle' && w.spot.room === 'rest') idleInRest.push(agent.id);
+        // A message's bubble waits while its agent walks, and its time runs only while it shows.
+        const talk = speak(speech.current[agent.id] ?? SILENT, now, walking);
+        speech.current[agent.id] = talk.speech;
+        said[agent.id] = talk.text;
         next.push({
           id: agent.id,
           x: point.x,
@@ -184,10 +200,7 @@ export function HallView({
 
       // A message beats small talk; small talk only ever comes from an agent idling in the rest room.
       const chat = smallTalk(idleInRest, now);
-      for (const tag of next) {
-        const said = speech.current[tag.id];
-        tag.speech = said && said.until > now ? said.text : chat?.agent === tag.id ? chat.text : null;
-      }
+      for (const tag of next) tag.speech = said[tag.id] ?? (chat?.agent === tag.id ? chat.text : null);
 
       if (ctx) {
         ctx.setTransform(1, 0, 0, 1, 0, 0);

@@ -315,7 +315,7 @@ needs nothing newer than Node 10, so on an old Node it runs.
 | Fix                              | Files                                                                                         | Tests                                                                                                                                       |
 | -------------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | The Lead's answer in the feed    | first reproduced; then `server/map.ts`, `src/page/feed.ts` or the page, wherever the cause is | a replay of a Lead-only turn (prompt, answer, `Stop`) that fails before the fix and passes after                                            |
-| Bubbles stay long enough         | `src/office/hall/talk.ts`, `HallLabels.tsx`                                                   | time on screen is 2.5 s plus 50 ms per shown character, at most 8 s; a second bubble for an agent waits for the first                       |
+| Bubbles stay long enough         | `src/office/hall/talk.ts`, `HallLabels.tsx`                                                   | the first sentence, at most 90 characters; on screen 4 s plus 60 ms per shown character, at most 10 s; a second bubble waits for the first  |
 | Agents hurry                     | `src/office/hall/walkers.ts`, `walk.ts`                                                       | work starting or ending mid-walk turns the rest of the walk and the next one to 2.5x, with no jump in position; reduced motion unchanged    |
 | Minimum desk time                | `walkers.ts` or `destination.ts`                                                              | work that ends 1 s after sitting down keeps the agent at its desk, showing its last working state, until 3 s; the feed keeps the real times |
 | Links as plain text              | `src/page/AgentText.tsx`                                                                      | `[text](url)` becomes "text" with no `<a>`; also code inside a link, a `javascript:` URL, a malformed link                                  |
@@ -343,6 +343,84 @@ up. Under reduced motion agents still jump, but the 3 s at the desk is about tim
   leaves.
 - Desktop, a small v2 run: the Lead's plain answer shows in the feed, and the Reviewer's report claims only checks it ran
   with its own tools.
+
+**What 2d's desktop check changed (10 Nov)**
+
+Part 1 of the check passed the desk time and the hurrying. It failed the bubbles (still too fast, and long text didn't fit)
+and the feed (long messages cut with "…" and no way to read the rest), so these went into 2d before the release:
+
+- **Bubbles show a short version:** the first sentence (the voice's rule: the first `.`, `!` or `?` that ends one, or a
+  line break), cleaned as the voice cleans it (links as their text; marks only where they work as Markdown: every
+  backtick, `**` pairs, `__` pairs and a single `*` or `_` at word boundaries, `#`, `>` and list markers at a line's
+  start, so user_id, snake_case and "a > b" stay whole, in the voice too), at most 90 characters, cut at a word with "…". Up 4 s plus 60 ms per shown character, at most 10 s, still one
+  queue per agent.
+- **Bubbles wait while their agent walks** (from the re-check: a hurrying agent's bubble crossed the hall at 2.5x and
+  couldn't be read). The bubble's timer was already real time, `performance.now()`, never scaled by walking speed: the
+  cause was the bubble drawn over the sprite, which hurried. Now a bubble isn't shown while its agent walks: it waits in
+  the queue, and its time runs only while it is on screen, so one cut off by a walk shows the rest of its time at the
+  next stop. The feed shows the message at once.
+- **The whole text in the feed:** a message over 200 characters shows cut, with a "Show all" toggle (a real button:
+  Enter and Space, `aria-expanded`, `aria-controls`, the links' focus ring) that opens the full text, line breaks kept,
+  in a plain element after it, so it can be selected, copied and read normally by a screen reader. A click on the row
+  toggles too, but not one in that text and not one that ends a selection. Same `AgentText`. Both cuts turn links into
+  their text first (`src/page/shorten.ts`), so a cut never leaves part of a target showing. (The first try made the
+  whole row the button, which made the text impossible to select.)
+- **The cause of the "…" was `send.mjs`:** it cut `last_assistant_message` at 200 characters, and `hook-input.ts` held
+  it to 200. Both now take 20,000 (`MAX_REPORT`), still scrubbed, and so does the page's schema (4,000 before). The
+  hall's body limit went from 64 KB to 256 KB: JSON writes a control character as 6 bytes, so the largest post
+  `send.mjs` can make is about 160 KB, and a post over the limit is refused whole, with the hook's state change.
+- **Flags:** rows addressed to Dima (a message to you: only the Lead's answer at the main thread's `Stop`), approval
+  waits (`needs-you`: a permission dialog) and failures (`error`) get an accent border and a label, "To you", "Needs
+  you" or "Failed". Decided from the event's type and fields alone, never its text; a test pins that "IMPORTANT: to you"
+  in an ordinary row is not highlighted. An approval row says "Needs you" once, without the state word after it.
+  "Failed" can't be forged by an agent either: `send.mjs` takes the first
+  word-only `<status>` of a `<task-notification>`, and Claude Code writes it before the summary and the result.
+- Tests: the bubble's sentence, cut and timing, the row's cut, expansion and safe text, the flags and the bait row, the
+  caps along the whole path, and the largest post against `MAX_BODY`. 39 planted bugs, all caught; 19 more for the
+  toggle and the single "Needs you", and 14 for the bubbles' cleanup and walking rule.
+
+**What 2d found (10 Nov)**
+
+- **The Lead's answer missing from the feed.** Not the feed: the hall reset the run. The desktop app serves a session from
+  a fresh Claude Code process after it gets focus (its log: `[WarmLifecycle:preview] Warming up session`, then a
+  "temporary query" process a few seconds before the next message), and a resumed process fires `SessionStart` with
+  source `resume` and the same session id. Checked with no login on 2.1.318: `claude -p --resume` and an app-like
+  `--input-format stream-json --resume` both fire it, the second at process start, before any message. `map.ts` took
+  every `resume` as a takeover, so the run, the Lead's answer in it, went at the next message. Now a resume of the
+  session the hall already follows changes nothing; another session's resume still takes over. `map.test.ts` plays a
+  Lead-only turn, the resume and the next prompt into the feed, and failed before the fix.
+- **Zod's locales:** gone from the bundle with Zod's own recommended import, `import * as z from 'zod'`, in
+  `schema.ts` and `hook-input.ts`: esbuild then sees which members are used. `server.mjs` went from 779 KB to 210 KB,
+  with only Zod's English messages left. Nothing leans on Zod's file layout.
+
+**Measured on 10 Nov: do the app's temporary query processes start the hall?**
+
+- What they are: on every focus of a session the app starts a Claude Code process that loads every plugin, ours
+  included, and waits (`temporary query on 11 plugin(s) … --await-initialize`): 114 in the log from 30 Sep to 9 Nov, 20
+  more by 10 Nov.
+- One that gets no message doesn't start the session. On 8 Nov the hall's replay showed no reset after the 18:25:37
+  warm-up, though a `SessionStart` then would have reset it (before the fix above). So its mod's `session.start` never
+  runs, and it can't start a hall.
+- One that gets the next message becomes the session's process: on 8 and 9 Nov messages went out 3 to 4 s after a
+  warm-up (18:13:27 then 18:13:30, 16:44:27 then 16:44:31). Its mod starts as an interactive session's does.
+- The one hall start the PC still records (the token file is rewritten at every start) was at 16:42:46 on 9 Nov, 1 s
+  after a cold session start at 16:42:45, not after a temporary query.
+- So no temporary query has been seen starting a hall. What can happen instead: when the app moves a session to a new
+  process, the old one, and the hall that is its child, can go; the next Lead turn starts the hall again, and the page
+  says "Hall restarted".
+
+Options, not built:
+
+1. **Start the hall only from the interactive session.** `session.start` carries `isInteractive` and `surface`. A
+   temporary query that gets no message never runs it, so this changes nothing today; it only guards against a later
+   app that initializes its warm processes. Cheap.
+2. **Start the hall detached, with an idle timeout.** A small launcher run with `$.process.run` (fixed argv, like the
+   hall check) starts `server.mjs` detached and exits; the hall then outlives the process that started it, and exits
+   on its own after about 30 minutes with no hook post and no page connected. This also closes the two-session gap and
+   the restart after a process switch. Its costs: a hall no mod owns, so it must stop itself; the idle timer in the
+   hall; and the spike never saw whether a detached hall survives a real reload.
+
+Recommendation: 2, as its own task, since it changes how the hall lives; nothing measured shows harm today.
 
 ## Decided on 6 Nov
 
@@ -404,6 +482,21 @@ After the presets spike, on 9 Nov:
     2.1.317) found both candidates work there: fill took the text into an empty box and after a half-typed draft, which
     it kept; `$.prompt.suggest` showed dim text that Tab took, and declined while the box held text. Fill won: one key
     press.
+
+In 2d, on 10 Nov:
+
+22. A `SessionStart` with source `resume` for the session the hall already follows keeps the run: the desktop app
+    resumes the session in a fresh process after focus changes, and that wiped the Lead's answer from the feed.
+23. A bubble shows the message's first sentence, at most 90 characters, and stays up 4 s plus 60 ms per shown character,
+    at most 10 s (after the desktop check: 2.5 s plus 50 ms, at most 8 s, was too fast), and an agent's next bubble waits
+    for the one it shows. Its sentence is plain text, cleaned as the voice cleans it, and it shows only while its agent
+    stands: its time runs only on screen. Work that starts or ends mid-walk speeds the rest of the walk and the next one to 2.5x, from where the agent
+    is. An agent whose work ends less than 3 s after it sat down at its own desk stays, showing that work, until 3 s
+    after it sat; reduced motion keeps the hold, then jumps. The feed and the furnace keep the real state.
+24. `AgentText` shows a Markdown link or image as its text alone, never as a link and never with its target.
+25. `npm run dev:refresh` replaces the hand-typed `rm -rf … && cp -r …`. That `rm -rf` stops half done on a folder a
+    hall stands in (Windows, tested), and the `cp -r` after it then copies into the folder still there, as a nested
+    `plugin/plugin/` (Git Bash's `cp`, checked).
 
 ## Backlog, due before v3.0.0
 

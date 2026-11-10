@@ -16,6 +16,7 @@ npm test         # vitest run
 npm run test:mod # the mod's kit tests: claude plugin test plugin (check needs Claude Code on PATH for this and mod:surface)
 npm run types:update  # copies the installed Claude Code's mods API types into tools/claude-code-types (on purpose only)
 npm run build:plugin-hall  # the prebuilt hall in plugin/hall/ (tracked): run after any change to server/ or the page
+npm run dev:refresh   # mirrors plugin/ into the desktop dev install, ~/Downloads/woa-dev/plugin
 npm run check:hall    # builds it again in a temp folder and fails on any difference (not in check: a build takes seconds)
 npm run release:check # check:hall, then check: before every release tag
 npm run format   # prettier --write .
@@ -28,6 +29,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 ## Stack and why
 
 - React 19 + TypeScript (strict, `noUncheckedIndexedAccess`) + Vite 7, Vitest 5 + Testing Library, Zod 4.
+- Zod is imported as `import * as z from 'zod'` (Zod's own advice), never `import { z }`: with the namespace import
+  esbuild drops Zod's 64 locales from the bundled hall (779 KB to 210 KB, 2d).
 - The office is drawn on **Canvas 2D**. Switch to PixiJS only if sprite handling gets painful.
 - TypeScript is pinned to 5.9 on purpose: typescript-eslint 8 does not accept TS 6. Upgrade both together.
 - ESLint 9 and Vite 7 are also one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
@@ -53,7 +56,12 @@ src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces
 src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-char cap; Demo only, top of the
                   right-hand column), TaskBoard,
                   AgentPanel (details of the selected agent), ActivityFeed + feed.ts (the team's activity, to the
-                  right of the hall: skips state events that change nothing), AgentText (agent text: `code` and **bold** as elements, the rest plain text)
+                  right of the hall: skips state events that change nothing; a message over 200 characters shows cut
+                  with a "Show all" toggle, aria-expanded and aria-controls, that opens the full text in a plain element
+                  after it, selectable; a row click toggles too, but not in that text or when it ends a selection;
+                  flagOf(): To you, Needs you, Failed, and an approval row says "Needs you" once),
+                  AgentText (agent text: `code` and **bold** as elements, the rest plain text), shorten.ts (the cut
+                  bubbles and rows share: links as their text first, never a mark left open)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
@@ -84,11 +92,14 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
+                  dev-refresh.test.ts: npm run dev:refresh on temp folders.
                   tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, hall-check) and the mod's
                   source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
                   test file under it
 scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod-surface.json (the mod's expected surface),
-                  build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx)
+                  build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx),
+                  dev-refresh.mjs (dev:refresh: copies new and changed files, deletes the ones plugin/ no longer has,
+                  never deletes a folder, refuses a target outside ~/Downloads/woa-dev and any link)
 tools/claude-code-types/  index.d.ts: the engine's mods API types (`claude-code`, `claude-code/testing`) for one Claude
                   Code version, generated, -diff in .gitattributes. tsconfig.mod.json type-checks the mod against it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
@@ -127,6 +138,16 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
 - **Walking**: `destinationFor()` turns state + `taskId` into a spot; `walkers.ts` walks `route()` there and
   never reroutes mid-walk (it finishes, then goes to the newest destination). Reduced motion: no hop, bob or
   shake, and agents jump straight to their destination.
+- **Hurrying and desk time** (2d): a new destination mid-walk means work started or ended, so the rest of that walk
+  and the next one go at 2.5x (`HURRY_SPEED`); the walk re-anchors its start, so the agent doesn't jump. An agent whose
+  work ends less than 3 s (`MIN_DESK_MS`) after it sat down at its own desk stays until 3 s after it sat, showing the
+  state it had (`heldState` in `HallView`); reduced motion keeps the hold, then jumps. The feed and the furnace keep the
+  real state. A walker sent where it already stands is returned unchanged: every office update sends each agent its
+  destination, and a fresh `standingAt()` there would restart its desk time.
+- **Speech bubbles and walking**: a message's bubble never shows while its agent walks (a hurrying agent carried it
+  across the hall at 2.5x, unreadable, in the 10 Nov re-check); it waits in that agent's queue, and its time runs only
+  while it is on screen, in real time (`performance.now()`), so one cut off by a walk shows the rest of its time at the
+  next stop (`speak()` in `talk.ts`, every frame). The feed shows the message at once. Reduced motion has no walks.
 - **Lights**: every halo and every prop marked `flicker` (sconces, candelabras, braziers, the fireplace fire)
   steps its opacity 1 → 0.9 → 0.8 over 1.1 s (`flickerAlpha()`), each with its own phase (`lightPhase()`).
   The scenery is built once per loop; lights read the loop's `now` when drawn. Reduced motion: no flicker.
@@ -180,7 +201,17 @@ Do not change the look without asking. New ideas go into a later version.
 ## Security rules: non-negotiable
 
 - Agent output is untrusted text. Render it as React text. ESLint blocks `dangerouslySetInnerHTML`. Its only
-  formatting is `AgentText`: `code` and `strong` elements around plain strings.
+  formatting is `AgentText`: `code` and `strong` elements around plain strings. A Markdown link or image shows as its
+  text alone, never as a link and never with its target (`javascript:` ones included). A cut (bubbles, feed rows) turns
+  links into their text first, so it can't leave part of a target showing.
+- The feed's flags (To you, Needs you, Failed) come from an event's type and the fields `map.ts` sets from hook types
+  (a message to you only at the main thread's `Stop`, `needs-you` only from a permission dialog, `error` only from a
+  failure), never from agent text: otherwise a page an agent read could make its message look important. A test pins
+  that "IMPORTANT: to you" in an ordinary row stays ordinary. Keep the set to those three.
+- An agent's last message reaches the hall whole up to 20,000 characters (`MAX_REPORT` in `send.mjs`), scrubbed like
+  all free text. `hook-input.ts` and the page's schema take exactly that much, and the hall's `MAX_BODY` (256 KB) holds
+  the largest post `send.mjs` can make, with every field full of characters JSON escapes to 6 bytes (a test builds it):
+  a post over the limit is refused whole, the hook's state change with it.
 - Every event goes through `parseEvent()` before it touches state. Strict objects, enums, length limits.
 - v2 has no API key and no Agent SDK: it is observer mode. Claude Code runs on the user's own login, and the
   plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
@@ -290,9 +321,11 @@ Do not change the look without asking. New ideas go into a later version.
     a frame naming it reaches the Lead (`<task-notification>…<task-id>`, or Auto's `<agent-message from>`, seen at
     `prompt.submit`, as a turn of its own or into a running one). A background run can end before the Lead's own turn
     does; that is how the 8 Nov desktop check heard the line twice. A lost frame means silence, never an early line.
-    The Lead's answer loses its Markdown before the first sentence is cut (`withoutMarkdown()`: `*`, `_`, backticks, `#`
-    and `>` out, a link or image keeps only its text, a list marker at a line's start goes), so no mark or link target is
-    read aloud. A bare URL in the answer would still be read.
+    The Lead's answer loses its Markdown before the first sentence is cut (`withoutMarkdown()`: a link or image keeps
+    only its text; marks go only where they work as Markdown: every backtick, `**` pairs, `__` pairs and a single `*` or
+    `_` only at word boundaries, a quote's `>`, a heading's `#` and a list marker only at a line's start), so no mark or
+    link target is read aloud and user_id, snake_case and "a > b" are read whole. The hall's bubbles use the same rules
+    (`talk.ts`). A bare URL in the answer would still be read.
 - No invisible characters in the repo: `tests/invisible.test.ts` fails on bidi controls (U+202A to U+202E, U+2066 to
   U+2069), zero-width characters (U+200B to U+200D, U+2060) and U+FEFF in any text file git tracks or would add. When
   writing such a range in code, use numbers (`0x202a`), not backslash-u escapes: Claude Code's tools have turned
@@ -383,8 +416,9 @@ Do not change the look without asking. New ideas go into a later version.
   over HTTP through `git http-backend`, because Claude Code clones shallow.
 - Desktop checks of the working copy use a dev install: `~/Downloads/woa-dev/` is a folder marketplace (`woa-dev`) holding a
   copy of `plugin/`, installed at local scope in `~/Downloads/woa-m2-test/`. Claude Code refuses a junction or symlink there
-  (a link-traversing entry), so refresh the copy after each change, then run `/reload-plugins` in the desktop session:
-  `rm -rf ~/Downloads/woa-dev/plugin && cp -r ~/Downloads/agent-office/plugin ~/Downloads/woa-dev/plugin`.
+  (a link-traversing entry), so refresh the copy after each change with `npm run dev:refresh`, then run
+  `/reload-plugins` in the desktop session. Not `rm -rf … && cp -r …`: a hall started from the dev install stands in
+  `woa-dev/plugin/hall`, Windows won't remove that folder, and the copy then lands in a nested `plugin/plugin/`.
   The marketplace name can't be `world-of-agents`: the user settings already pin that one to GitHub.
 - `setup-skill.test.ts` runs `setup.mjs` in temp git repos. The script ignores your global git ignore on purpose
   (`core.excludesFile` points at the null device), so the tests don't depend on it either.
@@ -411,7 +445,9 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    in destination.test.ts). The script sends no `walking` events, and a test checks that every walk ends
    before the next step. Walking hops 1px every 150 ms, a seated orc writing jitters and shakes its keyboard
    with "!!", and busy agents bob. State bubbles over every agent (none while the state is `walking`),
-   message speech bubbles for 4 s (80 chars, plain text), and rest-room small talk every 3 s.
+   message speech bubbles (since 2d the first sentence only, cleaned of Markdown as the voice cleans it, at most 90
+   chars, up 4 s plus 60 ms per shown character and at most 10 s, never while the agent walks, and an agent's next bubble
+   waits for the one it shows), and rest-room small talk every 3 s.
 3. Lights and the page (docs/step3-brief.md). The furnace mouth goes `#5a2a10` / `#f08a3c` / `#ffb15a`
    with 0 / 1 / 2+ working, with a glow that grows up to 4; candles, braziers, the fire and every halo
    flicker (off with reduced motion). The task bar (Send trims, ignores empty, caps at 500, labels the run and
@@ -426,7 +462,9 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    docs/v2-hooks.md. Milestone 2 (the hall server, `server/`) is done: `npm run hall` builds the page and
    serves it with the API on 127.0.0.1:4319. The token in ~/.world-of-agents/token is new at every start and
    deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
-   that only a new, cleared or resumed session switches it. A card goes Done at its agent's SubagentStop; a
+   that only a new, cleared or resumed session switches it. A resume of the session it already follows keeps the run
+   (2d): the desktop app resumes a session in a fresh process after a focus change, and that wiped the Lead's answer
+   from the feed. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
    with a tag) never reach the hall as text. `PermissionRequest` names the agent asking, at once; a
    `permission_prompt` 6 s later names nobody and only guesses (the running subagent that last used Edit, Write or
@@ -460,5 +498,7 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
 Next: milestone 2 in four parts (docs/v3-m2-plan.md, approved 6 Nov). 2a (the guard hook and the setup skills) is done.
 2b (the team pane: the mod, its toolchain and kit tests) is done, desktop-checked on 7 Nov. 2c (processes: the prebuilt
 hall, its start, the Node check, voice) is done, desktop-checked on 8 Nov with 2b's leftovers; that check found the
-Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). Then 2d (hall fixes). It ships as `v3.0.0`. Backlog due before `v3.0.0`: the setup skill's upgrade path from an older
+Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). 2d (hall fixes, `dev:refresh`, Zod's
+locales out of the bundle, the temporary query measurement) is built and checked by tests and planted bugs (10 Nov); its
+desktop check waits for Dima. It ships as `v3.0.0`. Backlog due before `v3.0.0`: the setup skill's upgrade path from an older
 template (docs/v3-m2-plan.md, Backlog).

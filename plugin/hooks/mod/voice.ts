@@ -84,15 +84,21 @@ export function firstSentence(answer: string): string {
 
 /**
  * Markdown as plain words, so no marks and no link targets are read aloud: `[text](url)` (and an image's
- * `![text](url)`) becomes its text, and every `*`, `_`, backtick, `#` and `>` goes. So does a list item's marker at the
- * start of a line (`1.`, `2)`, `-`, `+`): the Lead's report often opens with "1. **What changed:**", and its "1." would
- * otherwise be the whole first sentence.
+ * `![text](url)`) becomes its text. Marks go only where they work as Markdown, so identifiers stay whole: every
+ * backtick; `**` pairs; `__` pairs and a single `*` or `_` around words only at word boundaries; and only at the start
+ * of a line a quote's `>`, a heading's `#`s and a list item's marker (`1.`, `2)`, `-`, `+`, `*`). The Lead's report often
+ * opens with "1. **What changed:**", and its "1." would otherwise be the whole first sentence. user_id, snake_case,
+ * 2*3*4 and "a > b" are read as they are. The bubbles in the hall follow the same rules (src/office/hall/talk.ts).
  */
 export function withoutMarkdown(text: string): string {
   return text
     .replace(/!?\[([^\]\n]*)\]\([^)\n]*\)/g, '$1')
-    .replace(/[*_`#>]/g, '')
-    .replace(/^[ \t]*(?:\d{1,3}[.)]|[-+])[ \t]+/gm, '');
+    .replace(/^[ \t]*(?:>[ \t]?)*(?:(?:#{1,6}|\d{1,3}[.)]|[-+*])[ \t]+)?/gm, '')
+    .replace(/`/g, '')
+    .replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, '$1')
+    .replace(/(?<!\w)__(?=\S)(.+?)(?<=\S)__(?!\w)/g, '$1')
+    .replace(/(?<![\w*])\*(?=[^\s*])(.+?)(?<=[^\s*])\*(?![\w*])/g, '$1')
+    .replace(/(?<!\w)_(?=[^\s_])(.+?)(?<=[^\s_])_(?!\w)/g, '$1');
 }
 
 /**

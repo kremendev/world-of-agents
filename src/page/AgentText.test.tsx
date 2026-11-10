@@ -42,7 +42,10 @@ describe('AgentText', () => {
     ['unclosed bold', 'a **b'],
     ['a code span over two lines', 'a `b\nc` d'],
     ['bold over two lines', 'a **b\nc** d'],
-    ['a link', '[site](https://example.com)'],
+    ['a link with no target', '[site]'],
+    ['an unclosed link', '[site](https://example.com'],
+    ['a space before the target', '[site] (https://example.com)'],
+    ['link text over two lines', '[si\nte](https://example.com)'],
     ['a heading', '# Done'],
     ['single stars', '*not bold*'],
   ])('keeps %s as plain text', (_what, input) => {
@@ -68,5 +71,33 @@ describe('AgentText', () => {
     const box = shown('`a **b** c`');
     expect(box.querySelector('strong')).toBeNull();
     expect(box.querySelector('code')).toHaveTextContent('a **b** c');
+  });
+
+  describe('links: only the text, never a link', () => {
+    it.each([
+      ['a link', 'see [the docs](https://evil.example/a.html) now', 'see the docs now'],
+      ['a javascript: target', 'press [click me](javascript:alert(1)) here', 'press click me here'],
+      ['an image', '![the chart](https://evil.example/c.png)', 'the chart'],
+      ['an empty text', 'a [](https://evil.example) b', 'a  b'],
+      ['two links', '[one](https://a.example) and [two](https://b.example)', 'one and two'],
+    ])('%s shows as its text alone', (_what, input, text) => {
+      const box = shown(input);
+      expect(box.querySelector('a, img')).toBeNull();
+      expect(box.textContent).toBe(text);
+      expect(box.innerHTML).not.toMatch(/https?:|javascript:|evil/);
+    });
+
+    it('keeps code inside a link, and a link inside bold', () => {
+      const box = shown('[`npm test`](https://evil.example) then **see [docs](https://evil.example)**');
+      expect(box.querySelector('a')).toBeNull();
+      expect(box.querySelector('code')).toHaveTextContent('npm test');
+      expect(box.querySelector('strong')).toHaveTextContent('see docs');
+      expect(box.textContent).toBe('npm test then see docs');
+    });
+
+    it('leaves a link inside a code span as it is: code is shown as written', () => {
+      const box = shown('`[x](https://example.com)`');
+      expect(box.querySelector('code')).toHaveTextContent('[x](https://example.com)');
+    });
   });
 });

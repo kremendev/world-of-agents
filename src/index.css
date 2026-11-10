@@ -718,6 +718,51 @@ p {
   font-size: 0.8125rem;
 }
 
+/*
+ * A long message: its "Show all" toggle (a .link, with its focus ring) opens the whole text in .feed-full after it,
+ * plain text that can be selected and copied. A click on the row's line toggles as well; one in the text never does.
+ */
+.feed-line.long {
+  cursor: pointer;
+}
+
+.feed-toggle {
+  margin-left: 6px;
+}
+
+.feed-full {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  cursor: text;
+}
+
+/* The rows that matter to you: an accent border and a word, so never the colour alone. Same colours as the states. */
+.feed-line.flagged {
+  padding-left: 8px;
+  border-left: 3px solid var(--flag);
+}
+
+.feed-line.to-you {
+  --flag: var(--ember-text);
+}
+
+.feed-line.needs-you {
+  --flag: #ffd97a;
+}
+
+.feed-line.failed {
+  --flag: #ffb0a8;
+}
+
+.feed-flag {
+  margin-right: 8px;
+  padding: 0 4px;
+  border: 1px solid var(--flag);
+  color: var(--flag);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
 /* A short window (high browser zoom): the hall needs every pixel the page can spare. */
 @media (max-height: 37.5rem) {
   .app,

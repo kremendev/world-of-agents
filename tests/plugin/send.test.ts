@@ -1,7 +1,10 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { allowlist, text } from '../../plugin/hooks/send.mjs';
+import { allowlist, MAX_REPORT, text } from '../../plugin/hooks/send.mjs';
+import { MAX_BODY } from '../../server/hall';
+import { hookInputSchema } from '../../server/hook-input';
+import { LIMITS } from '../../src/events/schema';
 
 const HOME = 'C:\\Users\\woa-tester';
 const HOME_FORMS = ['C:\\Users\\woa-tester', 'C:/Users/woa-tester', '/c/Users/woa-tester', 'woa-tester'];
@@ -323,5 +326,66 @@ describe('text()', () => {
     expect(sent.tool_input?.description).toBe('Fix ~/app');
     expect(sent.prompt).toBe('use [redacted]');
     expect(sent.last_assistant_message).toBe('wrote ~/app/x.js with [redacted]');
+  });
+});
+
+describe("an agent's last message: whole up to MAX_REPORT, still scrubbed", () => {
+  const stop = (message: string) =>
+    allowlist({ hook_event_name: 'SubagentStop', last_assistant_message: message }, HOME);
+
+  it('goes on whole up to 20,000 characters, and is cut there with "…"', () => {
+    expect(MAX_REPORT).toBe(20_000);
+    const whole = `All done. ${'y'.repeat(MAX_REPORT - 10)}`;
+    expect(stop(whole).last_assistant_message).toBe(whole);
+    const cut = stop(`${whole}and more`).last_assistant_message!;
+    expect(cut).toHaveLength(MAX_REPORT);
+    expect(cut.endsWith('y…')).toBe(true);
+  });
+
+  it('is scrubbed all the way through, a key near the end included', () => {
+    const sent = stop(
+      `${'z'.repeat(15_000)} at C:\\Users\\woa-tester\\app with sk-ant-api03-SECRETSECRETSECRET.`,
+    );
+    expect(sent.last_assistant_message).toMatch(/ at ~\\app with \[redacted\]\.$/);
+  });
+
+  it("is what the hall's hook schema and the page's event schema take, no less", () => {
+    const longest = 'r'.repeat(MAX_REPORT);
+    expect(
+      hookInputSchema.safeParse({ hook_event_name: 'Stop', last_assistant_message: longest }).success,
+    ).toBe(true);
+    expect(LIMITS.messageLength).toBe(MAX_REPORT);
+  });
+
+  it('makes no post the hall refuses: the largest one, every field full of 6-byte characters, fits MAX_BODY', () => {
+    const c = String.fromCodePoint(1); // JSON writes it as a 6-character escape, the most any character takes
+    const full = (n: number) => c.repeat(n);
+    const sent = allowlist(
+      {
+        hook_event_name: full(40),
+        session_id: full(100),
+        agent_id: full(100),
+        agent_type: full(100),
+        tool_name: 'Agent',
+        tool_use_id: full(100),
+        notification_type: full(40),
+        source: full(40),
+        reason: full(40),
+        prompt: full(500),
+        last_assistant_message: full(30_000),
+        tool_input: { description: full(500), subagent_type: full(100), run_in_background: true },
+        tool_response: { status: full(40), agentId: full(100) },
+        background_tasks: Array.from({ length: 30 }, () => ({
+          id: full(100),
+          type: full(40),
+          status: full(40),
+          agent_type: full(100),
+        })),
+      },
+      HOME,
+    );
+    const bytes = Buffer.byteLength(JSON.stringify(sent));
+    expect(bytes).toBeGreaterThan(64 * 1024); // the old limit would have refused it, and the whole hook with it
+    expect(bytes).toBeLessThanOrEqual(MAX_BODY);
   });
 });

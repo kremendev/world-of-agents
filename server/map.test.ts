@@ -4,6 +4,7 @@ import { INITIAL_OFFICE, officeReducer, workingCount } from '../src/state/office
 import type { HookInput } from './hook-input';
 import { INITIAL_MAP, mapHook, type MapState } from './map';
 import { finalReport, whoIsWaiting } from '../src/live/announce';
+import { feedLines } from '../src/page/feed';
 import { hookOf, run1, run2, run3, run4 } from './test-helpers';
 
 /** Freezes a state all the way down, so a mapHook that changes the state it was given throws. */
@@ -1300,6 +1301,31 @@ describe('mapHook sessions: the hall follows the first one it hears from, until 
     expect(steps.slice(2).flatMap((s) => s.events)).toEqual([]);
     expect(state.session).toBe(S);
     expect(state.cards.map((c) => c.taskId)).toEqual(['t1']);
+  });
+
+  // Dima's report: the Lead's answer missing from the feed. The desktop app serves a session from a fresh Claude Code
+  // process after a focus change (its log: a "temporary query" a few seconds before the message), and a resumed
+  // process fires SessionStart with source resume and the same session id (2.1.318, checked 10 Nov). That reset the run.
+  it('the session it follows, resumed by a fresh process: the run goes on, and the answer stays in the feed', () => {
+    const { steps, events, state } = play([
+      start,
+      byLead('UserPromptSubmit', { prompt: 'hi' }),
+      byLead('Stop', { last_assistant_message: 'Hello Dima. Tell me what to build.' }),
+      byLead('SessionStart', { source: 'resume' }),
+      byLead('UserPromptSubmit', { prompt: 'Build a server' }),
+    ]);
+    expect(steps[3]!.events).toEqual([]);
+    expect(state.session).toBe(S);
+    const office = events.reduce(officeReducer, INITIAL_OFFICE);
+    expect(office.runText).toBe('Build a server');
+    expect(feedLines(office.log, null)).toContainEqual(
+      expect.objectContaining({
+        kind: 'message',
+        from: 'lead',
+        to: 'you',
+        text: 'Hello Dima. Tell me what to build.',
+      }),
+    );
   });
 
   it('does not reset when the same session starts again after compaction', () => {

@@ -5,6 +5,7 @@ import App from './App';
 import type { AgentId, AgentState, OfficeEvent } from './events/schema';
 import { HEALTH_TIMEOUT_MS, RECHECK_MS, RETRY_MS } from './live/hall';
 import { SEATS } from './office/hall/destination';
+import { speechMs } from './office/hall/talk';
 import { CHECK_SPOT, FETCH_SPOTS, REST_SPOTS, type Point } from './office/hall/walk';
 import { createPlayer } from './script/player';
 import { FakeEventSource } from './test/fakeEventSource';
@@ -307,6 +308,41 @@ describe('Hall offline and reconnecting', () => {
     expect(app.status()).toBe(LIVE_NOTE);
     expect(screen.getByText('Run: Next task')).toBeInTheDocument();
     expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
+  });
+
+  it("a second message from the same agent waits for the first one's bubble instead of replacing it", async () => {
+    const app = await renderLive(start);
+    app.emit(say('Backend is on it.'), say('All done.'));
+    expect(app.speech('lead')).toBe('Backend is on it.');
+    app.tick(speechMs('Backend is on it.') - 100);
+    expect(app.speech('lead')).toBe('Backend is on it.');
+    app.tick(200);
+    expect(app.speech('lead')).toBe('All done.');
+    app.tick(speechMs('All done.'));
+    expect(app.speech('lead')).toBeNull();
+  });
+
+  it('a bubble waits while its agent walks, a hurrying one too, then shows its whole time once it stops', async () => {
+    const app = await renderLive(start); // the Backend dev is on its way to its scroll
+    app.emit(say('On it.', 'lead', 'backend'));
+    expect(app.speech('backend')).toBeNull();
+    expect(screen.getByText('to Lead/PM: On it.')).toBeInTheDocument(); // the feed has it at once
+    app.tick(500);
+    app.emit(state('backend', 'done')); // its work ends mid-walk, so it hurries to the rest room
+    const rest = xy(REST_SPOTS.backend);
+    const resting = () => app.feet('backend').x === rest.x && app.feet('backend').y === rest.y;
+    let walked = 0;
+    for (; walked < WALK_MS && !resting(); walked += 100) {
+      expect(app.speech('backend')).toBeNull(); // never carried across the hall
+      app.tick(100);
+    }
+    expect(resting()).toBe(true);
+    expect(walked).toBeGreaterThan(500);
+    expect(app.speech('backend')).toBe('On it.');
+    app.tick(speechMs('On it.') - 200);
+    expect(app.speech('backend')).toBe('On it.');
+    app.tick(400);
+    expect(app.speech('backend')).not.toBe('On it.');
   });
 
   it('a page that opens mid-run walks agents to work, but nobody says old messages', async () => {
@@ -651,12 +687,23 @@ describe('live region', () => {
     ]);
   });
 
-  it('cuts a long report at its last full sentence; the bubble and panel keep what was sent', async () => {
+  it('cuts a long report at its last full sentence; the bubble shows its first, the feed row all of it', async () => {
     const app = await renderLive();
     const long = `All done. ${'And then some more words '.repeat(20)}`;
     app.emit(say(long));
     expect(app.live().querySelector('p')).toHaveTextContent(/^Lead\/PM: All done\.$/);
-    expect(screen.getByText(`to you: ${long.trim()}`)).toBeInTheDocument();
+    expect(app.speech('lead')).toBe('All done.');
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(app.container.querySelector('.feed-full')).toHaveTextContent(long.trim());
+  });
+
+  it("takes a report of 20,000 characters whole, from the hall to the feed's expanded row", async () => {
+    const app = await renderLive();
+    const report = `Report. ${'x'.repeat(20_000 - 'Report. '.length - 3)}end`;
+    expect(report).toHaveLength(20_000);
+    app.emit(say(report));
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(app.container.querySelector('.feed-full')!.textContent).toBe(report);
   });
 
   it('does not say an old report again when a page reconnects', async () => {
@@ -1071,13 +1118,15 @@ describe('where the Lead stands in Live', () => {
 describe('untrusted text from a real run', () => {
   const attack = '<img src=x onerror="alert(1)">';
 
-  it('shows its `code` and **bold** as elements in the bubble, not as HTML', async () => {
+  it('shows plain text in the bubble, its Markdown marks gone as the voice drops them, never HTML', async () => {
     const app = await renderLive(start);
     app.emit(say(`${attack} \`npm test\` **now**`));
     const bubble = app.container.querySelector('.agent-tag[data-agent="lead"] .speech')!;
-    expect(bubble.querySelector('code')).toHaveTextContent('npm test');
-    expect(bubble.querySelector('strong')).toHaveTextContent('now');
+    expect(bubble.textContent).toBe(`${attack} npm test now`); // a `>` inside a line is no Markdown: it stays
+    expect(bubble.querySelector('*')).toBeNull();
     expect(app.container.querySelector('img')).toBeNull();
+    // The feed keeps the marks, as elements.
+    expect(app.container.querySelector('.feed-what code')).toHaveTextContent('npm test');
   });
 
   it('renders as text everywhere: header, speech bubble, feed, live region', async () => {

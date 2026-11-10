@@ -21,6 +21,7 @@
     "mod:surface": "node scripts/mod-surface.mjs",
     "types:update": "node scripts/types-update.mjs",
     "build:plugin-hall": "tsx scripts/build-plugin-hall.ts",
+    "dev:refresh": "node scripts/dev-refresh.mjs",
     "check:hall": "tsx scripts/build-plugin-hall.ts --check",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run test:mod && npm run mod:surface",
     "release:check": "npm run check:hall && npm run check"

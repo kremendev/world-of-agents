@@ -304,8 +304,8 @@ or command got through):
 - `hook_event_name`, `session_id`, `agent_id`, `agent_type`, `tool_name`, `tool_use_id`,
   `notification_type`, `source`, `reason` (a `Notification`'s `message` stays behind: the type is all the hall
   needs)
-- Free text: `prompt` (120 characters), `last_assistant_message` (200) and the Agent call's `description`
-  (120); cut text ends with "…". The Backend dev's last message quoted the full path of the file it wrote, so free
+- Free text: `prompt` (120 characters), `last_assistant_message` (200, and 20,000 since v3 milestone 2d, so the feed
+  can show a whole report) and the Agent call's `description` (120); cut text ends with "…". The Backend dev's last message quoted the full path of the file it wrote, so free
   text is scrubbed before it is capped:
   - the home folder becomes `~` in every spelling: `C:\Users\<name>`, `C:/Users/<name>`,
     `/c/Users/<name>`, any case, whole folder names only;

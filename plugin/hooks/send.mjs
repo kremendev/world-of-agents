@@ -27,6 +27,11 @@ const HOME_DIR = join(homedir(), '.world-of-agents');
 /** The only tool whose input and response fields we forward. Every other tool sends just its name. */
 const AGENT_TOOL = 'Agent';
 const MAX_BACKGROUND_TASKS = 20;
+/**
+ * An agent's last message (its report, or the Lead's answer) goes on whole up to this many characters, so the hall's
+ * feed can show all of it. The hall's body limit (MAX_BODY in server/hall.ts) holds the largest post this can make.
+ */
+export const MAX_REPORT = 20_000;
 
 const str = (v, max) => (typeof v === 'string' ? v.slice(0, max) : undefined);
 
@@ -104,7 +109,11 @@ function agentMessage(prompt) {
   return from ? { from } : undefined;
 }
 
-/** The fields the hall needs, and nothing else: never file contents, commands, paths or transcripts. */
+/**
+ * The fields the hall needs, and nothing else: never a tool's input or result, file contents, paths or transcripts.
+ * The free text is your prompt's start and the agents' own words, and an agent's last message can quote code or a
+ * command it wrote.
+ */
 export function allowlist(p, home = homedir()) {
   const who = {
     hook_event_name: str(p.hook_event_name, 40),
@@ -125,7 +134,7 @@ export function allowlist(p, home = homedir()) {
     prompt: framed ? undefined : text(p.prompt, 120, home),
     task_notification: taskNotification(p.prompt),
     agent_message: agentMessage(p.prompt),
-    last_assistant_message: text(p.last_assistant_message, 200, home),
+    last_assistant_message: text(p.last_assistant_message, MAX_REPORT, home),
   };
   if (p.tool_name === AGENT_TOOL) {
     const input = obj(p.tool_input);

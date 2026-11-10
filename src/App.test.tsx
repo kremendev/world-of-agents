@@ -4,12 +4,22 @@ import App from './App';
 import { AGENT_IDS, type AgentId } from './events/schema';
 import { SEATS } from './office/hall/destination';
 import { SMALL_TALK } from './office/hall/smalltalk';
+import { speechMs } from './office/hall/talk';
 import { REST_SPOTS, type Point } from './office/hall/walk';
 import { STATUS_COLOR } from './office/tasks';
 import { STEP_MS } from './script/demoRun';
 
 /** When step n of the demo run starts. stepStart(10) is the end of step 9. */
 const stepStart = (n: number) => (n - 1) * STEP_MS;
+
+/** Moves the clock on from `ms`, 50 ms at a time, until `id` shows a speech bubble, and says when that was. */
+function whenSays(app: ReturnType<typeof renderApp>, id: AgentId, ms: number): number {
+  for (let t = ms; t <= ms + STEP_MS; t += 50) {
+    app.at(t);
+    if (app.speech(id) !== null) return t;
+  }
+  throw new Error(`${id} said nothing for a whole step`);
+}
 
 const rgb = (hex: string) => {
   const n = parseInt(hex.slice(1), 16);
@@ -150,14 +160,36 @@ describe('App', () => {
     expect(app.speech('lead')).toBe(SMALL_TALK.lead[0]);
 
     app.at(stepStart(2) + 100);
-    expect(app.speech('lead')).toBe('On it: Create a dashboard. Planning the work first.');
+    // The Lead walks to its desk: its line waits in its queue until it gets there, and the feed has it at once.
     expect(app.bubble('lead')).toBe('thinking');
-    app.at(stepStart(2) + 4100);
+    expect(app.speech('lead')).toBeNull();
+    expect(
+      screen.getByText('to you: On it: Create a dashboard. Planning the work first.'),
+    ).toBeInTheDocument();
+    const leaving = app.feet('lead');
+    const arrived = whenSays(app, 'lead', stepStart(2) + 100);
+    expect(arrived).toBeGreaterThan(stepStart(2) + 1000);
+    expect(app.feet('lead')).not.toEqual(leaving);
+    // The bubble shows the first sentence only, 26 characters: up for 4 s plus 26 x 60 ms from when it stood still.
+    expect(app.speech('lead')).toBe('On it: Create a dashboard.');
+    expect(speechMs('On it: Create a dashboard.')).toBe(5560);
+    app.at(arrived + 5560 - 100);
+    expect(app.speech('lead')).toBe('On it: Create a dashboard.');
+    app.at(arrived + 5560 + 100);
     expect(app.speech('lead')).toBeNull();
 
     app.at(stepStart(5) + 1500);
     expect(app.bubble('frontend')).toBe('writing!!');
     expect(app.bubble('backend')).toBe('writing!!');
+    // The Designer sat down 0.8 s before its work ended (after a 7 s walk from the Lead's room), so it shows its work
+    // until 3 s after it sat, then it is done.
+    expect(app.bubble('designer')).toBe('writing');
+    // The feed keeps the real time: the Designer's "done" is already there, at the moment it came.
+    const designer = [...document.querySelectorAll('.feed-line')]
+      .filter((line) => line.querySelector('.feed-who')?.textContent === 'Designer')
+      .map((line) => line.querySelector('.feed-what')?.textContent);
+    expect(designer).toContain('Done · Dashboard screens and layout');
+    app.at(stepStart(5) + 2500);
     expect(app.bubble('designer')).toBe('done');
   });
 
@@ -259,21 +291,23 @@ describe('App', () => {
       const app = renderApp();
       app.at(stepStart(6));
       send('Build a forum'); // the run starts over here
-      app.at(stepStart(6) + STEP_MS + 100);
-      expect(app.speech('lead')).toBe('On it: Build a forum. Planning the work first.');
+      // The first sentence only, once the Lead has walked to its desk.
+      const restartAt = whenSays(app, 'lead', stepStart(6) + STEP_MS + 100);
+      expect(app.speech('lead')).toBe('On it: Build a forum.');
       fireEvent.click(app.button('Restart'));
-      app.at(stepStart(6) + 2 * STEP_MS + 200);
-      expect(app.speech('lead')).toBe('On it: Build a forum. Planning the work first.');
+      // Step 2 of the replayed run, once the Lead is at its desk (before that it chats in the rest room).
+      whenSays(app, 'lead', restartAt + STEP_MS + 100);
+      expect(app.speech('lead')).toBe('On it: Build a forum.');
     });
 
     it("shows the task as plain text, never as HTML: header, the Lead's line and the live region", () => {
       const app = renderApp();
       const payload = '<img src=x onerror="alert(1)">';
       send(payload);
-      app.at(stepStart(2) + 100);
+      whenSays(app, 'lead', stepStart(2) + 100);
       expect(app.container.querySelector('img')).toBeNull();
       expect(screen.getByText(`Run: ${payload}`)).toBeInTheDocument();
-      expect(app.speech('lead')).toBe(`On it: ${payload}. Planning the work first.`);
+      expect(app.speech('lead')).toBe(`On it: ${payload}.`); // as text, never an element
       expect(screen.getByText(`Lead/PM: On it: ${payload}. Planning the work first.`)).toBeInTheDocument();
     });
   });

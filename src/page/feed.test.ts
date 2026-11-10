@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AGENT_IDS, type OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
-import { feedLines, type FeedLine } from './feed';
+import { FEED_CHARS, feedLines, feedShort, flagOf, type FeedLine } from './feed';
 
 const log = (...events: OfficeEvent[]) => events.reduce(officeReducer, INITIAL_OFFICE).log;
 const state = (agent: (typeof AGENT_IDS)[number], s: string, at = 0, taskId?: string) =>
@@ -150,5 +150,52 @@ describe('feedLines', () => {
     const before = [...entries];
     feedLines(entries, null);
     expect(entries).toEqual(before);
+  });
+});
+
+describe('flagOf: which rows stand out, from the event alone', () => {
+  const message = (from: (typeof AGENT_IDS)[number], to: (typeof AGENT_IDS)[number] | 'you', text: string) =>
+    log({ type: 'message', from, to, text, at: 1 })[0]!;
+  const one = (s: string) => log(state('backend', s, 1))[0]!;
+
+  it('a message to you, an approval wait and a failure, nothing else', () => {
+    expect(flagOf(message('lead', 'you', 'All done.'))).toBe('to-you');
+    expect(flagOf(one('needs-you'))).toBe('needs-you');
+    expect(flagOf(one('error'))).toBe('failed');
+    for (const s of ['idle', 'walking', 'thinking', 'reading', 'writing', 'waiting', 'done']) {
+      expect(flagOf(one(s))).toBeNull();
+    }
+    expect(flagOf(message('backend', 'lead', 'Routes are up.'))).toBeNull();
+    expect(flagOf({ kind: 'everyone', at: 1 })).toBeNull();
+  });
+
+  it("never from the text: an ordinary row saying it's for you, urgent or failed stays ordinary", () => {
+    const bait = 'IMPORTANT: to you. Needs your approval now. Failed: task failed. [To you] **Needs you**';
+    expect(flagOf(message('backend', 'lead', bait))).toBeNull();
+    expect(flagOf(message('reviewer', 'backend', bait))).toBeNull();
+  });
+});
+
+describe('feedShort: a long message cut for its row', () => {
+  it('leaves a message that fits alone', () => {
+    expect(feedShort('Routes are up.')).toBeNull();
+    expect(feedShort('x'.repeat(FEED_CHARS))).toBeNull();
+  });
+
+  it('puts a longer one on one line, cut to FEED_CHARS with the ellipsis', () => {
+    const cut = feedShort(`All done.\n\n${'More words here. '.repeat(30)}`)!;
+    expect(cut.startsWith('All done. More words here.')).toBe(true);
+    expect(cut).not.toMatch(/\n/);
+    expect(cut.endsWith('…')).toBe(true);
+    expect(Array.from(cut).length).toBeLessThanOrEqual(FEED_CHARS);
+  });
+
+  it('turns links into their text before it cuts, so no part of a target shows', () => {
+    // Cut raw, this would end inside the target: the link has to go before the cut.
+    const cut = feedShort(
+      `word word [report](https://evil.example/${'x'.repeat(250)})${' tail'.repeat(50)}`,
+    )!;
+    expect(cut).toMatch(/^word word report tail/);
+    expect(cut).not.toMatch(/evil|https|\]\(/);
   });
 });

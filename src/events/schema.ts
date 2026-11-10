@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 // Zod's speed-up probes for `new Function`. The page's Content-Security-Policy forbids that and reports even a caught
 // attempt, so it stays off. Has to run before the first parse.
@@ -28,7 +28,8 @@ export const TASK_STATUSES = ['todo', 'in-progress', 'in-review', 'done'] as con
 export const LIMITS = {
   idLength: 64,
   titleLength: 200,
-  messageLength: 4000,
+  /** An agent's last message or the Lead's answer, whole up to this: send.mjs cuts there (MAX_REPORT). */
+  messageLength: 20_000,
   agentCopies: 20,
 } as const;
 

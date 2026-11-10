@@ -97,6 +97,22 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });
 
+  it("the feed's long rows: a visible focus ring, line breaks kept once open, flagged rows with a border", () => {
+    // The "Show all" toggle is a .link (ActivityFeed.test checks the class), so it has the links' focus ring.
+    expect(rules.find((r) => r.selector === '.link:focus-visible')!.body).toMatch(
+      /outline: 2px solid var\(--focus\)/,
+    );
+    const full = rules.find((r) => r.selector === '.feed-full')!.body;
+    expect(full).toMatch(/white-space: pre-wrap/);
+    expect(full).not.toMatch(/display/); // or it would beat the `hidden` that keeps it shut
+    expect(rules.find((r) => r.selector === '.feed-line.flagged')!.body).toMatch(
+      /border-left: 3px solid var\(--flag\)/,
+    );
+    for (const flag of ['to-you', 'needs-you', 'failed']) {
+      expect(rules.find((r) => r.selector === `.feed-line.${flag}`)!.body, flag).toMatch(/--flag:/);
+    }
+  });
+
   it('the hosted demo status line can wrap: an ellipsis could hide its link to the README', () => {
     const line = rules.find((r) => r.selector === '.status-line.hosted')!.body;
     expect(line).toMatch(/white-space: normal/);

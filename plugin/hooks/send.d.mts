@@ -19,6 +19,7 @@ export type Forwarded = {
   background_tasks?: { id?: string; type?: string; status?: string; agent_type?: string }[];
 };
 
+export const MAX_REPORT: number;
 export function homePattern(home: string): RegExp;
 export function text(v: unknown, max: number, home?: string): string | undefined;
 export function allowlist(p: Record<string, unknown>, home?: string): Forwarded;

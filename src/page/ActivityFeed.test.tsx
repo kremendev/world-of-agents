@@ -41,7 +41,7 @@ describe('ActivityFeed', () => {
   it('lists the whole team, newest first: time, name, what happened', () => {
     feed(null);
     expect(lines()).toEqual([
-      '14:30:59 | Backend dev | to you: Routes are up.',
+      '14:30:59 | Backend dev | To you | to you: Routes are up.',
       '09:06:01 | Designer | Done',
       '09:06:00 | Designer | to Frontend dev: Screens are on your desk.',
       "09:05:08 | Lead/PM | to Backend dev: How's the API coming?",
@@ -73,7 +73,7 @@ describe('ActivityFeed', () => {
     feed('backend');
     expect(screen.getByRole('heading', { name: 'Activity · Backend dev' })).toBeInTheDocument();
     expect(lines()).toEqual([
-      '14:30:59 | Backend dev | to you: Routes are up.',
+      '14:30:59 | Backend dev | To you | to you: Routes are up.',
       "09:05:08 | Lead/PM | to Backend dev: How's the API coming?",
       '09:05:07 | Backend dev | Reading · Board and item API',
     ]);
@@ -110,5 +110,161 @@ describe('ActivityFeed', () => {
     expect(container.querySelector('.feed-what')).toHaveTextContent(`to you: ${attack} npm test now`);
     expect(container.querySelector('.feed-what code')).toHaveTextContent('npm test');
     expect(container.querySelector('.feed-what strong')).toHaveTextContent('now');
+  });
+});
+
+describe('a long message: cut in its row, "Show all" opens the whole text after it', () => {
+  const report = `All done. ${'The routes are up and tested. '.repeat(20)}End with [example](https://example.com)`;
+  const longRun = office(
+    { type: 'message', from: 'reviewer', to: 'lead', text: report, at: time(9, 0, 0) },
+    { type: 'message', from: 'backend', to: 'lead', text: 'Short one.', at: time(9, 0, 1) },
+  );
+  const showAll = () => screen.getByRole('button', { name: 'Show all' });
+  const showLess = () => screen.getByRole('button', { name: 'Show less' });
+  const controlled = (toggle: HTMLElement) => document.getElementById(toggle.getAttribute('aria-controls')!)!;
+  const reviewRow = () => document.querySelector('.feed-line.long')!;
+
+  it('shows the start, ending in "…", and a "Show all" toggle: a real button, collapsed, naming what it controls', () => {
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    const toggle = showAll();
+    expect(toggle.tagName).toBe('BUTTON');
+    expect(toggle).toHaveAttribute('type', 'button');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveClass('link'); // the links' focus ring (layout.test.ts)
+    expect(controlled(toggle)).not.toBeVisible();
+    expect(controlled(toggle)).toBeEmptyDOMElement();
+    expect(reviewRow().querySelector('.feed-what')!.textContent).toMatch(
+      /^to Lead\/PM: All done\. The routes .*…$/,
+    );
+    expect(reviewRow().textContent).not.toContain('example');
+  });
+
+  it('opens the whole text in a plain element after the toggle, never inside it, and closes it again', () => {
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(showAll());
+    const toggle = showLess();
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle.textContent).toBe('Show less'); // no agent text in the button
+    const full = controlled(toggle);
+    expect(full).toBeVisible();
+    expect(full).toHaveTextContent(report.replace('[example](https://example.com)', 'example'));
+    expect(full.closest('button')).toBeNull();
+    expect(full.previousElementSibling).toBe(toggle);
+    expect(reviewRow().querySelector('.feed-what')!.textContent).toBe('to Lead/PM:'); // the cut text gives way
+    fireEvent.click(toggle);
+    expect(showAll()).toHaveAttribute('aria-expanded', 'false');
+    expect(controlled(showAll())).toBeEmptyDOMElement();
+  });
+
+  it('a click on the row toggles too, but not one in the open text, and not one that ends a selection', () => {
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(reviewRow().querySelector('.feed-who')!);
+    expect(showLess()).toBeInTheDocument();
+
+    const full = reviewRow().querySelector('.feed-full')!;
+    fireEvent.click(full);
+    expect(showLess()).toBeInTheDocument(); // reading or selecting in the text never closes it
+
+    window.getSelection()!.selectAllChildren(full);
+    fireEvent.click(reviewRow().querySelector('.feed-time')!);
+    expect(showLess()).toBeInTheDocument(); // that click ended a selection
+    window.getSelection()!.removeAllRanges();
+
+    fireEvent.click(reviewRow().querySelector('.feed-time')!);
+    expect(showAll()).toBeInTheDocument();
+  });
+
+  it('shows the whole text with the same safe AgentText: a link is its text alone, never a link or its target', () => {
+    const attack = `${'x '.repeat(110)}<img src=x onerror="alert(1)"> [click](javascript:alert(1)) ![pic](https://evil.example/p.png) \`npm test\``;
+    const { container } = render(
+      <ActivityFeed
+        office={office({ type: 'message', from: 'lead', to: 'you', text: attack, at: time(9, 0, 0) })}
+        agent={null}
+        onShowEveryone={() => {}}
+      />,
+    );
+    fireEvent.click(showAll());
+    expect(container.querySelector('a, img')).toBeNull();
+    const full = controlled(showLess());
+    expect(full.textContent).toContain('<img src=x onerror="alert(1)"> click pic npm test');
+    expect(full.textContent).not.toMatch(/javascript|evil|\]\(/);
+    expect(full.querySelector('code')).toHaveTextContent('npm test');
+  });
+
+  it('keeps short messages and state changes as plain rows, with no toggle', () => {
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(screen.getByText('to Lead/PM: Short one.')).toBeInTheDocument();
+    expect(document.querySelectorAll('.feed-line.long')).toHaveLength(1);
+  });
+
+  it('keeps a row open when new activity arrives, and opens no other', () => {
+    const { rerender } = render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(showAll());
+    const more = officeReducer(longRun, {
+      type: 'message',
+      from: 'reviewer',
+      to: 'lead',
+      text: `Second review. ${'More findings here. '.repeat(20)}`,
+      at: time(9, 1, 0),
+    });
+    rerender(<ActivityFeed office={more} agent={null} onShowEveryone={() => {}} />);
+    expect(controlled(showLess())).toHaveTextContent('All done.');
+    expect(showAll().closest('li')!.textContent).toContain('Second review.');
+  });
+});
+
+describe('the rows that matter to you stand out, with a word as well as a colour', () => {
+  const flagged = office(
+    { type: 'state', agent: 'backend', state: 'needs-you', at: time(9, 0, 0) },
+    { type: 'state', agent: 'frontend', state: 'error', at: time(9, 0, 1) },
+    {
+      type: 'message',
+      from: 'backend',
+      to: 'lead',
+      text: 'IMPORTANT: to you. Needs you. Failed.',
+      at: time(9, 0, 2),
+    },
+    { type: 'message', from: 'lead', to: 'you', text: 'All done.', at: time(9, 0, 3) },
+    { type: 'state', agent: 'reviewer', state: 'reading', at: time(9, 0, 4) },
+  );
+
+  it('a message to you, an approval wait and a failure: each with its own label', () => {
+    render(<ActivityFeed office={flagged} agent={null} onShowEveryone={() => {}} />);
+    expect(lines()).toEqual([
+      '09:00:04 | Reviewer | Reading',
+      '09:00:03 | Lead/PM | To you | to you: All done.',
+      '09:00:02 | Backend dev | to Lead/PM: IMPORTANT: to you. Needs you. Failed.',
+      '09:00:01 | Frontend dev | Failed | Error',
+      '09:00:00 | Backend dev | Needs you',
+    ]);
+    const classes = [...document.querySelectorAll('.feed-line')].map((li) => li.className);
+    expect(classes).toEqual([
+      'feed-line',
+      'feed-line flagged to-you',
+      'feed-line',
+      'feed-line flagged failed',
+      'feed-line flagged needs-you',
+    ]);
+  });
+
+  it('an approval row says "Needs you" once, then its task when it has one', () => {
+    const asking = office(api, {
+      type: 'state',
+      agent: 'backend',
+      state: 'needs-you',
+      taskId: 'api',
+      at: time(9, 0, 0),
+    });
+    render(<ActivityFeed office={asking} agent={null} onShowEveryone={() => {}} />);
+    expect(lines()).toEqual(['09:00:00 | Backend dev | Needs you | Board and item API']);
+  });
+
+  it('an ordinary row whose text says "IMPORTANT: to you" gets no flag, no border and no label', () => {
+    render(<ActivityFeed office={flagged} agent={null} onShowEveryone={() => {}} />);
+    const bait = screen.getByText(/IMPORTANT: to you/).closest('li')!;
+    expect(bait).not.toHaveClass('flagged');
+    expect(bait.querySelector('.feed-flag')).toBeNull();
+    expect(document.querySelectorAll('.feed-flag')).toHaveLength(3);
   });
 });

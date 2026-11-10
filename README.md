@@ -117,9 +117,9 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 - Agents read and write at their desks. The orcs smash their keyboards.
 - The furnace burns brighter the more agents are working.
 - When Claude Code asks for your approval, the agent shows "needs you" and an orange banner names it.
-- A finished agent shows its last message, its card moves to Done and it walks to the rest room.
+- A finished agent's card moves to Done, and it walks to the rest room, where it shows the first sentence of its last message. A bubble never rides along with a walking agent: it waits until the agent stops.
 - The Reviewer reads the work, and the Lead's report shows as a message to you.
-- The activity feed lists every step with its time. Click an agent to see only that agent.
+- The activity feed lists every step with its time. Click an agent to see only that agent. A long message shows cut: "Show all" opens the whole text under it, where you can select and copy it, and a click on the row works too. Messages to you, approval waits and failures stand out with a border and a label ("To you", "Needs you", "Failed"), decided by the kind of event, never by what the text says.
 
 ## What it never does
 
@@ -129,7 +129,7 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 - **The page only watches.** Nothing you do in the page reaches an agent.
 - **Events stay in memory on 127.0.0.1.** The hall listens on that address only, keeps the last 500 events and forgets them when it stops. Nothing goes to any other computer.
 
-The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles and capped text from your prompt and the agents' messages. It never sends file contents, commands or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
+The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles, the start of your prompt (120 characters) and the agents' last messages (up to 20,000 characters each). Those messages are the agents' own words, so they can quote code or a command an agent wrote. It never sends a tool's input or result, file contents or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
 
 `woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless: the hook script posts nothing until the hall proves it holds the token. An installed plugin has this check from v2.2.0.
 

@@ -78,8 +78,12 @@ export function mapHook(state: MapState, input: HookInput, at: number): Step {
 
 function route(state: MapState, input: HookInput, agent: AgentId, at: number): Step {
   const session = input.session_id;
-  if (input.hook_event_name === 'SessionStart' && session && TAKES_OVER.has(input.source ?? ''))
+  if (input.hook_event_name === 'SessionStart' && session && TAKES_OVER.has(input.source ?? '')) {
+    // The desktop app serves a session from a fresh process after a focus change, and that process resumes the session
+    // the hall already follows: the same conversation goes on, so the run does too. Another session's resume takes over.
+    if (input.source === 'resume' && session === state.session) return nothing(state);
     return takeOver(session, at);
+  }
   // One session at a time: hooks from another Claude Code window don't mix into this run. A hall with no
   // session yet (it started after Claude Code) follows the first one it hears from.
   const followed = state.session ?? session;

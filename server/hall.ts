@@ -12,8 +12,12 @@ import type { Page } from './page';
 /** The hall only ever listens on this machine. */
 export const HOST = '127.0.0.1';
 export const PORT = 4319;
-/** A hook post is a few hundred bytes. Anything over this is not from send.mjs. */
-export const MAX_BODY = 64 * 1024;
+/**
+ * A hook post is a few hundred bytes, or up to 20,000 characters more with an agent's last message. Its JSON can be
+ * six bytes a character (`\u0001`), about 160 KB at most with every other field full (a test builds it). Anything over
+ * this is not from send.mjs.
+ */
+export const MAX_BODY = 256 * 1024;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
 /** What send.mjs sends to the handshake: 32 random bytes as base64url. Anything else is not a handshake. */

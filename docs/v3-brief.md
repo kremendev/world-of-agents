@@ -398,8 +398,11 @@ version, 2.1.295 or later, which the guard's `onFailure` needs.
    - **No links in agent text.** `AgentText` shows a Markdown link `[text](url)` as the plain "text", never a clickable link.
    - **The Reviewer reports what it ran.** Its prompt says: report only checks you actually ran with your own tools.
    - **The Lead's final answer in the activity feed**, scrubbed by `send.mjs`, capped, and rendered as text only.
-   - **Speech bubbles stay long enough to read:** at least 2.5 s plus 50 ms per character, at most 8 s, and a queue per agent,
-     so a new bubble waits instead of replacing the old one.
+   - **Speech bubbles stay long enough to read:** the first sentence only, as plain text, at most 90 characters, up 4 s
+     plus 60 ms per character, at most 10 s, never while the agent walks, and a queue per agent, so a new bubble waits
+     instead of replacing the old one.
+   - **The whole text in the feed:** a long message's row expands to all of it (up to 20,000 characters), and messages to
+     you, approval waits and failures are flagged, from the kind of event alone.
    - **The guard hook** (see "The guard"), with its milestone 2 table.
    - **The setup skills,** `/world-of-agents:setup-project` and `/world-of-agents:setup-project-write`, moved here from
      milestone 4: Claude Code runs a script that copies a fixed template into `.claude/settings.local.json` when Dima types

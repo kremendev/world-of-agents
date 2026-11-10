@@ -229,9 +229,10 @@ describe('what the voice runs', () => {
     expect(world.said()).toEqual([
       'The team is done. "; Remove-Item -Recurse C:\\ ; "',
       'The team is done. $(Start-Process calc)',
-      // Markdown's marks are gone too (backticks, `>`), but the text is still only ever the input.
+      // Markdown's marks are gone too (the backticks), but the text is still only ever the input.
       'The team is done. calc',
-      'The team is done. <speak<audio src="http://evil.example/x.wav"/</speak',
+      // A `>` inside a line is no Markdown, so the tags arrive whole: as plain text, which Speak never reads as SSML.
+      'The team is done. <speak><audio src="http://evil.example/x.wav"/></speak>',
       'The team is done. -Command Start-Process calc',
       'The team is done. & calc.exe',
       "The team is done. '; exit; '",
@@ -275,11 +276,16 @@ describe('what the voice runs', () => {
     expect(world.said().join('\n')).not.toMatch(/https?:|evil\.example|[*_`#>[\]()]/);
   });
 
-  test('withoutMarkdown: every mark goes, and each link or image keeps only its text', () => {
+  test('withoutMarkdown: every mark that works as Markdown goes, and each link or image keeps only its text', () => {
     expect(withoutMarkdown('**bold** __bold__ *it* _it_ `code` ```fence```')).toBe(
       'bold bold it it code fence',
     );
-    expect(withoutMarkdown('# H1\n### H3\n> quote\n>> nested')).toBe(' H1\n H3\n quote\n nested');
+    expect(withoutMarkdown('# H1\n### H3\n> quote\n>> nested\n- item\n* star\n1. first')).toBe(
+      'H1\nH3\nquote\nnested\nitem\nstar\nfirst',
+    );
+    expect(withoutMarkdown('an *emphasised phrase*, a lone ` backtick and ***both***')).toBe(
+      'an emphasised phrase, a lone  backtick and both',
+    );
     expect(
       withoutMarkdown('[text](https://evil.example/a.html) and ![alt](https://evil.example/i.png)'),
     ).toBe('text and alt');
@@ -289,6 +295,18 @@ describe('what the voice runs', () => {
       'a [broken link](https://evil.example and more',
     );
     expect(withoutMarkdown('Plain text, 2 + 2 = 4.')).toBe('Plain text, 2 + 2 = 4.');
+  });
+
+  test('withoutMarkdown leaves identifiers and plain symbols whole: user_id, snake_case, "a > b"', () => {
+    for (const plainText of [
+      'Renamed user_id to snake_case, so a > b still holds.',
+      'my__private__var, trailing_ and _leading stay',
+      '2*3*4 = 24, C# and #hashtag stay, and so do a - b and x+y',
+      'a ** b ** c and a * b * c are spaced, not emphasis',
+      '#1 priority and -5 degrees stay: no space after the mark, so no heading or list',
+    ]) {
+      expect(withoutMarkdown(plainText), plainText).toBe(plainText);
+    }
   });
 
   test("the answer's first sentence: up to a sentence's end or the first line break", () => {
