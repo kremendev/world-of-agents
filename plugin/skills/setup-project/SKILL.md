@@ -16,6 +16,8 @@ Explain the output to the user in a few plain sentences, then name the next step
 
 - If it ends with "Nothing has been written.", the next step is to type `/world-of-agents:setup-project-write`, which
   writes exactly what is shown. Typing it is the yes.
+- If it says the file holds an earlier version of the template's settings, name the version and the rules the upgrade
+  adds and removes, exactly as listed, and say that every other setting stays as it is.
 - If it says "Already set up", the file already holds exactly these settings. Nothing changed and nothing is needed.
 - If it says "Stopped", nothing was changed. Say why, name the settings it lists, and say that the template's keys can be
   added to the file by hand. Don't guess at values: the script compared them and shows only names.

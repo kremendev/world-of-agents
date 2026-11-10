@@ -15,7 +15,7 @@ no command, no file edit, no agent. You decide nothing either.
 Tell the user in a few plain sentences what happened:
 
 - If it says "Written.", the settings are in place. They apply from the next new session in this project, which starts
-  in Manual mode.
+  in Manual mode. If it also says "Upgraded", name the rules the upgrade added and removed, exactly as listed.
 - If it says "Already set up", the file already holds exactly these settings. Nothing changed and nothing is needed.
 - If it says "Stopped", nothing was changed. Say why and name the settings it lists. Don't guess at values: the script
   compared them and shows only names. Running it again changes nothing.

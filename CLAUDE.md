@@ -89,7 +89,7 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   the state contract that plugin.json names; *.test.tsx are kit tests), voice/speak.ps1 (the voice
                   script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
-                  a project's .claude/settings.local.json) and skills/setup-project-write/ (SKILL.md: the write); tested in
+                  a project's .claude/settings.local.json; versions/: every earlier template.json, for the upgrade) and skills/setup-project-write/ (SKILL.md: the write); tested in
                   server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
@@ -250,9 +250,14 @@ Do not change the look without asking. New ideas go into a later version.
   again, so the text between them runs unquoted, and a folder named `a'$(calc)'b` would run `calc`. Accepted, because
   only Dima's own folder names (and our fixed plugin names) reach that path, never the conversation or a cloned repo. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
   non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`.
-  When the template's keys are already there it compares them itself: an exact match says "Already set up", anything
-  else stops and names the settings that differ (so a second `--write` changes nothing). It never prints an existing
-  settings file's values (they can hold secrets, and the output goes into the conversation). The skills give the model
+  It manages `permissions` and its own env keys, and when they are already there it compares them itself: exactly the
+  template's says "Already set up", whatever else the file holds; exactly an earlier version's (`versions/N.json`, every
+  template.json main ever had, byte for byte, checked against git history by a test) is upgraded: those settings are
+  replaced and every other setting stays where it was; anything else stops and names the settings that differ (so a
+  second `--write` changes nothing). Before changing template.json, save the committed one as the next `versions/N.json`.
+  It never prints an existing settings file's values (they can hold secrets, and the output goes into the
+  conversation); an upgrade shows only rules and values of the two template versions, which the file matched exactly,
+  and the names of the settings it keeps. The skills give the model
   the exact `.env` caveat to repeat, so it doesn't improvise one.
 - Injected skill commands skip hooks: no `PreToolUse` fires for them, so the guard never sees one (checked for 2a).
   Permission rules still apply (a matching deny aborts the skill). Only skills we wrote or read go in the plugin.
@@ -501,5 +506,5 @@ Next: milestone 2 in four parts (docs/v3-m2-plan.md, approved 6 Nov). 2a (the gu
 hall, its start, the Node check, voice) is done, desktop-checked on 8 Nov with 2b's leftovers; that check found the
 Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). 2d (hall fixes, `dev:refresh`, Zod's
 locales out of the bundle, the temporary query measurement) is built and checked by tests and planted bugs (10 Nov); its
-desktop check waits for Dima. It ships as `v3.0.0`. Backlog due before `v3.0.0`: the setup skill's upgrade path from an older
-template (docs/v3-m2-plan.md, Backlog).
+desktop check waits for Dima. It ships as `v3.0.0`. The setup skill's upgrade path from older templates, the last
+backlog item before `v3.0.0`, is built (plan decision 26); its desktop check, in `woa-m2-test`, waits for Dima too.

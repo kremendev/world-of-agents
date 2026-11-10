@@ -1,10 +1,12 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
   copyFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -16,6 +18,11 @@ const SKILLS = resolve(import.meta.dirname, '../plugin/skills');
 const SKILL = join(SKILLS, 'setup-project');
 const SCRIPT = join(SKILL, 'setup.mjs');
 const TEMPLATE = JSON.parse(readFileSync(join(SKILL, 'template.json'), 'utf8')) as Record<string, unknown>;
+const VERSIONS = join(SKILL, 'versions');
+type Template = { permissions: Record<string, unknown>; env: Record<string, string> };
+/** The earlier template versions' files, oldest first. */
+const versionFiles = () => readdirSync(VERSIONS).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+const V1 = JSON.parse(readFileSync(join(VERSIONS, '1.json'), 'utf8')) as Template;
 /** What installing the plugin at local scope writes, as the spike saw it. */
 const INSTALLED = {
   enabledPlugins: { 'world-of-agents@world-of-agents': true },
@@ -59,6 +66,42 @@ describe('the template', () => {
   it('adds no git rule: the built-in read-only check covers git, and a git wildcard would allow --output', () => {
     const rules = [...(TEMPLATE.permissions as { allow: string[] }).allow];
     expect(rules.some((rule) => rule.startsWith('Bash(git'))).toBe(false);
+  });
+});
+
+describe('the template versions', () => {
+  const git = (args: string[]) =>
+    spawnSync('git', args, {
+      cwd: resolve(SKILLS, '..', '..'),
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+
+  // An upgrade recognises an earlier version by its content, so every version main ever had must be here. Changing
+  // template.json means first saving the committed one as the next versions/N.json; this fails until that is done.
+  it('keeps every template.json the history holds, oldest first: versions/1.json, 2.json, … then template.json', (context) => {
+    const path = 'plugin/skills/setup-project/template.json';
+    if (git(['rev-parse', '--is-shallow-repository']).stdout.trim() !== 'false') context.skip(); // no history here
+    const commits = git(['log', '--reverse', '--format=%H', '--', path]).stdout.split('\n').filter(Boolean);
+    const history = commits.map((commit) => git(['show', `${commit}:${path}`]).stdout);
+    expect(history.length).toBeGreaterThanOrEqual(2);
+    const kept = [...versionFiles().map((name) => join(VERSIONS, name)), join(SKILL, 'template.json')].map(
+      (file) => readFileSync(file, 'utf8'),
+    );
+    // template.json is either the newest commit's, or a change not committed yet, after the newest commit's.
+    expect(kept.slice(0, history.length)).toEqual(history);
+    expect(kept.length - history.length).toBeLessThanOrEqual(1);
+  });
+
+  it('numbers them from 1 with no gap, and tells each from every other by the settings it manages', () => {
+    const names = versionFiles();
+    expect(names).toEqual(names.map((_, i) => `${i + 1}.json`));
+    const all = [
+      ...names.map((name) => readFileSync(join(VERSIONS, name), 'utf8')),
+      JSON.stringify(TEMPLATE),
+    ].map((text) => JSON.parse(text) as Record<string, unknown>);
+    for (const version of all) expect(Object.keys(version).sort()).toEqual(['env', 'permissions']);
+    expect(new Set(all.map((version) => JSON.stringify(version))).size).toBe(all.length);
   });
 });
 
@@ -153,19 +196,50 @@ describe('setup.mjs', () => {
     expect(read(join(dir, '.gitignore'))).toBe(ignoreBefore);
   });
 
+  it('says "Already set up" beside settings it does not manage, and names them, never their values', () => {
+    const template = TEMPLATE as Template;
+    const dir = project();
+    const text = JSON.stringify(
+      {
+        ...INSTALLED,
+        ...TEMPLATE,
+        env: { GITHUB_TOKEN: 'ghp_supersecretvalue123', ...template.env },
+        model: 'opus',
+      },
+      null,
+      2,
+    );
+    put(dir, text);
+    for (const args of [[], ['--write']]) {
+      const run = setup(dir, args);
+      expect(run.stdout).toContain('Already set up, nothing changed.');
+      expect(run.stdout).toContain(
+        'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN, model.',
+      );
+      expect(run.stdout).not.toContain('supersecretvalue');
+      expect(run.stdout).not.toContain('opus');
+    }
+    expect(read(settings(dir))).toBe(text);
+  });
+
   it('names exactly the settings that differ from the template, and never their values', () => {
-    const template = TEMPLATE as { permissions: Record<string, unknown>; env: Record<string, string> };
+    const template = TEMPLATE as Template;
     const cases: [Record<string, unknown>, string[]][] = [
       [
         { ...INSTALLED, ...TEMPLATE, permissions: { ...template.permissions, defaultMode: 'auto' } },
         ['permissions.defaultMode'],
       ],
+      [{ ...INSTALLED, permissions: template.permissions }, ['env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH']],
+      // Our env key alone is ours too: never a merge over it.
       [
-        { ...TEMPLATE, env: { ...template.env, GITHUB_TOKEN: 'ghp_supersecretvalue123' } },
-        ['env.GITHUB_TOKEN'],
+        { ...INSTALLED, env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '3' } },
+        ['permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH'],
       ],
-      [{ ...TEMPLATE, model: 'opus' }, ['model']],
-      [{ ...INSTALLED, permissions: template.permissions }, ['env']],
+      [{ ...INSTALLED, env: 'opus' }, ['env', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH']],
+      [
+        { model: 'opus', env: { GITHUB_TOKEN: 'ghp_supersecretvalue123' } },
+        ['model', 'env.GITHUB_TOKEN', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH'],
+      ],
     ];
     for (const [file, names] of cases) {
       const dir = project();
@@ -206,6 +280,176 @@ describe('setup.mjs', () => {
       expect(existsSync(join(dir, '.gitignore'))).toBe(false);
     },
   );
+
+  describe('an upgrade from an earlier template', () => {
+    /** What the 2a setup wrote next to an install: version 1, merged by that version of this script. */
+    const fromV1 = JSON.stringify({ ...INSTALLED, ...V1 }, null, 2) + '\n';
+
+    it('the dry run names the version and the rules it adds, and writes nothing', () => {
+      const dir = project();
+      put(dir, fromV1);
+      const run = setup(dir);
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain(
+        "The file holds version 1 of the template's settings. Writing upgrades them to version 2, the current one.",
+      );
+      expect(run.stdout).toContain('- adds the deny rule PowerShell(git push *)\n');
+      expect(run.stdout).not.toContain('removes');
+      expect(run.stdout).toContain(
+        'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces.',
+      );
+      expect(run.stdout).toContain('Nothing has been written.');
+      expect(read(settings(dir))).toBe(fromV1);
+      expect(existsSync(join(dir, '.gitignore'))).toBe(false);
+    });
+
+    it('--write replaces only the managed settings, then a second run says "Already set up"', () => {
+      const dir = project();
+      put(dir, fromV1);
+      const run = setup(dir, ['--write']);
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 2');
+      expect(run.stdout).toContain('Written.');
+      const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
+      expect(after).toEqual({ ...INSTALLED, ...TEMPLATE });
+      expect(Object.keys(after)).toEqual(['enabledPlugins', 'extraKnownMarketplaces', 'permissions', 'env']);
+      expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
+
+      const written = read(settings(dir));
+      const again = setup(dir, ['--write']);
+      expect(again.stdout).toContain('Already set up, nothing changed.');
+      expect(read(settings(dir))).toBe(written);
+    });
+
+    it('leaves every other setting as it was, in its place, and never prints its value', () => {
+      const dir = project();
+      const file = {
+        model: 'opus',
+        ...INSTALLED,
+        permissions: { deny: V1.permissions.deny, allow: V1.permissions.allow, defaultMode: 'default' },
+        env: { GITHUB_TOKEN: 'ghp_supersecretvalue123', ...V1.env, LANG: 'C' },
+        hooks: { Stop: [] },
+      };
+      put(dir, JSON.stringify(file));
+      for (const args of [[], ['--write']]) {
+        const run = setup(dir, args);
+        expect(run.stdout).toContain('version 1');
+        expect(run.stdout).toContain(
+          'Every other setting stays exactly as it is: model, enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN, env.LANG, hooks.',
+        );
+        expect(run.stdout).not.toContain('supersecretvalue');
+        expect(run.stdout).not.toContain('opus');
+      }
+      const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
+      expect(after).toEqual({
+        ...file,
+        permissions: TEMPLATE.permissions,
+        env: { ...file.env, ...(TEMPLATE as Template).env },
+      });
+      expect(Object.keys(after)).toEqual(Object.keys(file));
+      expect(Object.keys(after.env as object)).toEqual(Object.keys(file.env));
+    });
+
+    // The real 1 to 2 only adds one rule. A made-up version 1 in a plugin copy shows every other kind of change.
+    const template = TEMPLATE as Template & { permissions: { allow: string[]; deny: string[] } };
+    /** A plugin copy whose only earlier version is `old`; returns its setup.mjs. */
+    function withVersion1(old: object) {
+      const plugin = project({ git: false, name: 'woa-versions-' });
+      copyFileSync(SCRIPT, join(plugin, 'setup.mjs'));
+      copyFileSync(join(SKILL, 'template.json'), join(plugin, 'template.json'));
+      mkdirSync(join(plugin, 'versions'));
+      writeFileSync(join(plugin, 'versions', '1.json'), JSON.stringify(old));
+      return join(plugin, 'setup.mjs');
+    }
+
+    it('says so when a version differs only in the order of its rules', () => {
+      const old = {
+        ...TEMPLATE,
+        permissions: { ...template.permissions, deny: [...template.permissions.deny].reverse() },
+      };
+      const script = withVersion1(old);
+      const dir = project();
+      put(dir, JSON.stringify(old));
+      expect(setup(dir, [], script).stdout).toContain(
+        'The upgrade:\n- adds and removes no rule: only their order changes\n',
+      );
+    });
+
+    it('lists every change from a version, removals included, and drops an env key the template no longer has', () => {
+      const old = {
+        permissions: {
+          defaultMode: 'acceptEdits',
+          allow: [...template.permissions.allow, 'Bash(npm run lint)'],
+          deny: template.permissions.deny.slice(0, -1),
+          ask: ['Bash(rm *)'],
+        },
+        env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '3', WOA_OLD: '1' },
+      };
+      const script = withVersion1(old);
+      const dir = project();
+      put(
+        dir,
+        JSON.stringify({
+          ...INSTALLED,
+          ...old,
+          env: { ...old.env, GITHUB_TOKEN: 'ghp_supersecretvalue123' },
+        }),
+      );
+      const run = setup(dir, [], script);
+      expect(run.stdout).toContain(
+        [
+          'Writing upgrades them to version 2, the current one. The upgrade:',
+          '- sets permissions.defaultMode to "default"',
+          '- removes the allow rule Bash(npm run lint)',
+          '- adds the deny rule PowerShell(git push *)',
+          '- removes the ask rule Bash(rm *)',
+          '- sets env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH to "2"',
+          '- removes env.WOA_OLD',
+          'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN.',
+        ].join('\n'),
+      );
+      expect(run.stdout).not.toContain('supersecretvalue');
+
+      expect(setup(dir, ['--write'], script).stdout).toContain('Written.');
+      const after = JSON.parse(read(settings(dir))) as { env: Record<string, string> };
+      expect(after).toEqual({
+        ...INSTALLED,
+        ...TEMPLATE,
+        env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '2', GITHUB_TOKEN: 'ghp_supersecretvalue123' },
+      });
+      expect(Object.keys(after.env)).toEqual(['CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'GITHUB_TOKEN']);
+      expect(setup(dir, ['--write'], script).stdout).toContain('Already set up');
+    });
+
+    it('an earlier version changed in any way is no version: it stops, names the settings and writes nothing', () => {
+      const v1 = V1.permissions as { defaultMode: string; allow: string[]; deny: string[] };
+      const changed: Record<string, unknown>[] = [
+        { ...V1, permissions: { ...v1, allow: [...v1.allow, 'Bash(npm run build)'] } },
+        { ...V1, permissions: { ...v1, deny: v1.deny.slice(1) } },
+        { ...V1, permissions: { ...v1, deny: [...v1.deny].reverse() } },
+        { ...V1, permissions: { ...v1, defaultMode: 'acceptEdits' } },
+        { ...V1, permissions: { ...v1, ask: [] } },
+        { ...V1, env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '3' } },
+        { ...V1, env: {} },
+        { permissions: V1.permissions },
+      ];
+      for (const file of changed) {
+        const dir = project();
+        const text = JSON.stringify({ ...INSTALLED, ...file }, null, 2);
+        put(dir, text);
+        for (const args of [[], ['--write']]) {
+          const run = setup(dir, args);
+          expect(run.status).toBe(0);
+          expect(run.stdout).toContain('Stopped: the file holds settings that differ from the template.');
+          expect(run.stdout).not.toContain('version 1');
+          expect(run.stdout).not.toContain('acceptEdits');
+          expect(run.stdout).not.toContain('npm run build');
+          expect(run.stdout).not.toContain('"3"');
+        }
+        expect(read(settings(dir))).toBe(text);
+      }
+    });
+  });
 
   it('stops when git tracks the file, because the settings could end up in a commit', () => {
     const dir = project();
@@ -256,6 +500,7 @@ describe('setup.mjs', () => {
     const plugin = project({ git: false, name: 'woa plugin copy ' });
     copyFileSync(SCRIPT, join(plugin, 'setup.mjs'));
     copyFileSync(join(SKILL, 'template.json'), join(plugin, 'template.json'));
+    cpSync(VERSIONS, join(plugin, 'versions'), { recursive: true });
     const dir = project({ name: 'my project ' });
     const run = setup(dir, ['--write'], join(plugin, 'setup.mjs'));
     expect(run.status).toBe(0);
@@ -267,12 +512,13 @@ describe('setup.mjs', () => {
     process.platform !== 'win32' ||
     /msys|cygwin/.test(spawnSync('bash', ['-c', 'echo $OSTYPE'], { encoding: 'utf8' }).stdout ?? '');
 
-  /** A plugin copy holding just the script and template, under a folder whose name starts with `name`. */
+  /** A plugin copy holding just the script and the templates, under a folder whose name starts with `name`. */
   function pluginUnder(name: string) {
     const root = join(project({ git: false, name }), 'plugin');
     mkdirSync(join(root, 'skills', 'setup-project'), { recursive: true });
     copyFileSync(SCRIPT, join(root, 'skills', 'setup-project', 'setup.mjs'));
     copyFileSync(join(SKILL, 'template.json'), join(root, 'skills', 'setup-project', 'template.json'));
+    cpSync(VERSIONS, join(root, 'skills', 'setup-project', 'versions'), { recursive: true });
     return root;
   }
   /** The write skill's injected command with the plugin folder put in, as Claude Code does before bash runs it. */

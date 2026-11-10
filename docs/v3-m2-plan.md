@@ -498,8 +498,17 @@ In 2d, on 10 Nov:
     hall stands in (Windows, tested), and the `cp -r` after it then copies into the folder still there, as a nested
     `plugin/plugin/` (Git Bash's `cp`, checked).
 
+Before v3.0.0, on 10 Nov:
+
+26. The setup skill upgrades from older templates. `plugin/skills/setup-project/versions/` keeps every template.json main
+    ever had, oldest first and byte for byte (`1.json` is 2a's, without the PowerShell push deny; template.json is
+    version 2), and a test rebuilds that list from git history. The settings it manages are `permissions` and its own env
+    keys, recognised by content, with no version key in the file. Exactly the current template's: "Already set up",
+    whatever else the file holds (before, any other setting next to them stopped it). Exactly an earlier version's: the
+    dry run names that version and the rules the upgrade adds and removes, and `-write` replaces those settings and leaves
+    every other one where it was. Anything else stops with names only. A first setup still merges only into a file that
+    holds nothing but an install's keys.
+
 ## Backlog, due before v3.0.0
 
-- **An upgrade path for the setup skill.** If a project's `.claude/settings.local.json` matches an older template version
-  exactly, `/world-of-agents:setup-project-write` replaces it with the current template; anything else still stops, as now.
-  The past templates stay in the plugin for that comparison.
+- Nothing left.
