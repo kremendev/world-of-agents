@@ -5,7 +5,8 @@ A pixel-art web app where five AI agents work in a fantasy guild hall, the Forge
 checks the result. v1 plays a scripted run with no AI calls; v2 watches real Claude Code runs: the plugin's
 hooks report what each agent does to a hall server on 127.0.0.1, which sends the page the same events.
 v3 (started, `docs/v3-brief.md` is the source of truth) moves it into the Claude desktop app: a mod with a team pane,
-guilds of specialists, a token ledger and scouts. Single user, runs locally, portfolio project.
+guilds of specialists and a token ledger. Scouts are on hold: the news digest moved to Flint Assistant, Dima's
+separate local assistant (10 Nov). Single user, runs locally, portfolio project.
 
 ## Commands
 

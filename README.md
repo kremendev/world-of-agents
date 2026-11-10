@@ -14,7 +14,7 @@ A recorded run, played back at twice the speed:
 
 ## Requirements
 
-- **Claude Code CLI 2.1.295 or later**, logged in with your Claude plan. Older versions let the guard (see What it never does) fail open. Works on Pro. Max recommended for guild runs and scouts, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
+- **Claude Code CLI 2.1.295 or later**, logged in with your Claude plan. Older versions let the guard (see What it never does) fail open. Works on Pro. Max recommended for guild runs, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
 - **Requires Node.js 20.19 or later on PATH.** Tested on 24.22.0. The plugin's hooks run on it, and the guard fails closed: without Node, every agent start and every Bash or PowerShell command in a project with the plugin is blocked with `hook error: [node ${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs]: failed; blocking because onFailure is "block" Error occurred while executing hook command: Executable not found in $PATH: "node"`. Install Node, or turn the plugin off for that project: `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder, or switch it off in the desktop app under Customize, then Plugins.
 - **Git Bash on Windows.** `woa` is a bash script.
 

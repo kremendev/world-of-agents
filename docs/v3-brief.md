@@ -5,28 +5,29 @@ source of truth for implementation; the doc is the overview and the place decisi
 
 v3 moves World of Agents into the Claude app you already open. The plugin grows a mod: a team pane beside the conversation shows
 who is working, who needs you and how much of your plan is used, and speaks when it matters. The team grows into guilds of
-specialists with their own skills and memory, and scouts run on their own in Anthropic's cloud.
+specialists with their own skills and memory.
 
 ## Goal and scope
 
 You open a project in the Code tab of the Claude desktop app and talk to the Lead/PM as your main agent. No terminal: the mod
 starts the hall and opens it for you.
 
-| In v3                                                                       | Later                                       |
-| --------------------------------------------------------------------------- | ------------------------------------------- |
-| A mod in the plugin: team pane, voice, preset prompts, "Open hall"          | An own desktop app (v4, after a cost study) |
-| Install from the repo as a marketplace, no `--plugin-dir`                   | Voice input (mods can speak, not listen)    |
-| Guilds two levels deep, skills and memory per agent                         | Several projects in one hall                |
-| A token ledger: this session, plan limits, all time on this PC              | A Codex adapter                             |
-| Scouts on Anthropic's cloud scheduled tasks, starting with news to Telegram | Watching cloud runs live in the hall        |
-| Quality gates, backlog, safe-command list                                   | Unattended runs on your PC                  |
+| In v3                                                              | Later                                                             |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| A mod in the plugin: team pane, voice, preset prompts, "Open hall" | An own desktop app (v4, after a cost study)                       |
+| Install from the repo as a marketplace, no `--plugin-dir`          | Voice input, through Flint Assistant (mods can speak, not listen) |
+| Guilds two levels deep, skills and memory per agent                | Several projects in one hall                                      |
+| A token ledger: this session, plan limits, all time on this PC     | A Codex adapter                                                   |
+| Scouts: on hold, the news digest moved to Flint Assistant          | Watching cloud runs live in the hall                              |
+| Quality gates, backlog, safe-command list                          | Unattended runs on your PC                                        |
+|                                                                    | Tasks from Flint Assistant (see "Later: Flint Assistant")         |
 
 The pixel hall stays a browser page: inside the Claude app a pane draws boxes, text and SVG, not our canvas.
 
 ## How it fits together
 
-The mod sits inside Claude; the hall and scouts only report. Everything runs on your Claude plan, through Anthropic's own app
-and cloud.
+The mod sits inside Claude; the hall only reports. Everything runs on your Claude plan, through Anthropic's own app and
+cloud.
 
 ```text
 YOUR PC
@@ -39,15 +40,10 @@ YOUR PC
        ▼                                                  ▼
   Project folder                                     Hall server + page: 127.0.0.1:4319, pixel hall in the browser,
                                                      started by the mod
-                                                          ▲
-ANTHROPIC CLOUD                                           │ reports
-  News scout (scheduled task, own repo, no connectors,    │
-  allowlisted sites only) ──digest──> Telegram (your chat only)
-                         └──commits──> woa-scouts repo (daily reports)
 ```
 
 Claude talks to Anthropic on its own, so our code never sees your login. The mod reads the session from inside Claude Code and
-passes events to the hall. The scout runs in the cloud, and the hall only reads the reports it commits.
+passes events to the hall.
 
 Where each part lives:
 
@@ -57,7 +53,6 @@ Where each part lives:
   one bundled server file, built at release).
 - `server/` and `src/`: the hall's source, as in v2.
 - `docs/v3-brief.md` (this brief) and `docs/v3-spike.md` (milestone 1's findings).
-- `kremendev/woa-scouts`: a separate small repo with the scouts' prompts, skills and reports.
 
 ## The team: guilds, skills and memory
 
@@ -211,37 +206,22 @@ The ledger answers three questions: how full is this conversation, how much of m
 - A mod can't tell which account is logged in: `$.session.identity()` answers only mods that managed settings install
   (milestone 1). So the total is per PC, and the pane labels it "This PC".
 
-**What it can't see:** claude.ai chats, the mobile app, other PCs, and scouts running in the cloud. They all use the same plan. For
+**What it can't see:** claude.ai chats, the mobile app, other PCs, and cloud scheduled tasks. They all use the same plan. For
 the full picture of the plan, claude.ai/settings/usage is the source.
 
 In the hall, the treasure chest in the Lead's room shows the all-time total.
 
 ## Scouts
 
-Scouts are agents that work on their own, on Anthropic's cloud scheduled tasks. They run on your plan even when your PC is off, at
-most once an hour. They can start on a schedule, from a GitHub event, or from an API call. Works on Pro. Max recommended for guild
-runs and scouts, because they use the plan faster.
+**On hold since 10 Nov 2026.** The first scout, the news digest to Telegram, moved out of World of Agents into Flint Assistant,
+Dima's separate local assistant. There Dima starts it by clicking a reminder at login, instead of a cloud schedule. World of
+Agents stays a development studio. Milestone 6 waits until Dima decides whether scouts come back, and with which first scout.
 
-**Where they live:** their own small repo, `kremendev/woa-scouts`. Each scout is a prompt plus committed skills, with its own cloud
-environment. A cloud run clones only that repo, so a scout never sees your projects or your other secrets.
+If they come back, the old plan's rules stay: scouts run on Anthropic's cloud scheduled tasks, live in their own small repo
+(`kremendev/woa-scouts`) so a run never sees your projects, and have every connector removed. A new scheduled task includes all
+your connectors by default, and a scout reading untrusted pages with access to your email or calendar is how data gets stolen.
 
-**The first scout: news to Telegram.**
-
-1. A schedule fires it, for example daily at 08:07. A time just past the hour, because runs set exactly on the hour can start late.
-2. It reads only from an allowlist of sources: the environment's network access is set to Custom, with those sites and
-   `api.telegram.org`.
-3. It writes a short digest (up to 10 items: title, link, one line each) and commits it to `reports/YYYY-MM-DD.md`.
-4. It sends the digest to your Telegram chat through a bot. The bot token is stored as a network secret, so the scout can use it
-   but never read it.
-
-**One rule that matters:** a new scheduled task includes all your connectors by default, and the run can use them, including
-writes. Remove every connector from a scout. A scout reading untrusted news with access to your email or calendar is how data gets
-stolen.
-
-**In the hall:** a rookery where the scouts live as ravens, showing each scout's last run and its latest report. The hall can't
-watch cloud runs live. It reads the committed reports afterwards.
-
-**More scout ideas:**
+**Scout ideas for later:**
 
 - A dependency scout that checks security advisories for your projects' packages. That's real cybersecurity work for your
   portfolio.
@@ -336,26 +316,25 @@ decides.
 | The setup skill's settings       | A wrong line loosens permissions                                 | A fixed template copied by a script Claude Code runs, never by the model. It writes only when Dima types the write skill, never merges a file it doesn't recognize, and the file is git-ignored. No wildcard git rule, which would allow `--output`. |
 | Reading `.env`                   | An agent reads a secret                                          | `Read(.env)` deny rules (file tools and the file commands Claude Code recognizes in Bash) and the guard's best-effort rule on shell commands that name a `.env` file. Neither stops a determined attacker.                                           |
 | Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                                                  |
-| Scouts reading the web           | A news page tells the scout to do something else                 | Its own repo, no connectors, an allowlist of sites, the bot token as a network secret, a fixed chat and a capped digest. The worst case is junk in your own Telegram chat.                                                                           |
+| Scouts reading the web (on hold) | A news page tells the scout to do something else                 | On hold with milestone 6. If scouts come back: their own repo, no connectors, an allowlist of sites, and no secret in the repo.                                                                                                                      |
+| Tasks from Flint (later)         | Speech or a news page puts words in the Lead's prompt            | Not built in v3. When it is: its own key, off until Dima turns it on, a size cap and a rate limit. The pane shows exactly the text fill will put in the box, as text. Filled on Dima's click, sent by his Enter (see "Later: Flint Assistant").      |
 | Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                                                        |
 
 ## Plan and usage
 
-Works on Pro. Max recommended for guild runs and scouts, because they use the plan faster. The other v2 rules stay: personal use
+Works on Pro. Max recommended for guild runs, because they use the plan faster. The other v2 rules stay: personal use
 on your own projects, and limits shared with claude.ai chats.
 
 Claude Code defaults to Opus 5.5 on Pro since v2.1.280 ("Changed the default model on Pro and Team Standard plans from Sonnet to
 Opus"), so the Lead on Opus works on Pro. If the ledger shows the Lead draining the 5-hour limit, switch the Lead to Sonnet.
 
-**What uses the plan faster in v3:** more agents (each specialist has its own context), quality-gate retries, and scouts, whose
-cloud runs count against the same plan.
+**What uses the plan faster in v3:** more agents (each specialist has its own context) and quality-gate retries.
 
 **What keeps it in check:**
 
 - Only the Lead runs on Opus. Guild leads and specialists use Sonnet, and nothing uses Haiku: the guard denies the built-in
   agents, some of which run on Haiku.
 - Depth is capped at 2, and gate retries at 3 per task.
-- Scouts run a few times a day, not hourly.
 - The mod makes no model calls of its own.
 - The ledger shows the real numbers, so we tune with facts instead of guesses.
 
@@ -420,28 +399,53 @@ version, 2.1.295 or later, which the guard's `onFailure` needs.
    skills, memory, roster, the guild rows in the guard's table, and the hall changes. Done when: the Designer hands a task to a
    specialist, which uses its preloaded skill, and the hall shows both, and the guard denies a guild lead starting another
    guild's specialist.
-6. **Scouts.** The `woa-scouts` repo, the news scout on a scheduled task, Telegram, and the rookery. Done when: a scheduled run
-   posts a digest to Telegram with no connectors on the task and no secret in the repo, and the hall shows the latest report.
+6. **Scouts: on hold.** The news scout moved to Flint Assistant on 10 Nov, so there is nothing to build here. It waits until Dima
+   decides whether scouts come back, and with which first scout.
 
 ## Decisions
 
-The first three are Dima's answers from 5 Nov, and the next two come from the milestone 1 review. The rest have a default so
-Claude Code can start; Dima changes them in the doc.
+The first three are Dima's answers from 5 Nov, the next two come from the milestone 1 review, and the news digest row is from
+10 Nov. The rest have a default so Claude Code can start; Dima changes them in the doc.
 
-| Decision                   | Default                                                                       | Other option                                                  | Status |
-| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- | ------ |
-| Platform                   | A mod in the Claude app                                                       | Your own desktop app, in v4 after a cost study                | Agreed |
-| Team shape                 | Guilds, two levels deep                                                       | Flat, or the experimental agent teams                         | Agreed |
-| Where scouts run           | Anthropic's cloud scheduled tasks                                             | Desktop scheduled tasks on your PC                            | Agreed |
-| Guild control              | Deny-only guard hook                                                          | `Agent(...)` lists, which milestone 1 showed restrict nothing | Agreed |
-| Plan                       | Works on Pro, Max recommended                                                 | Max or higher only                                            | Agreed |
-| Repo                       | Same repo, with a `v2.0.0` release tag; scouts get their own small repo       | A new repo for v3                                             | Open   |
-| Scouts repo                | Public: digests are public news and good portfolio material                   | Private, but then the hall needs a token to read the reports  | Open   |
-| Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                      | Open   |
-| Voice                      | PowerShell fixed script, on by default                                        | Off until you turn it on                                      | Open   |
-| Agent memory               | `local`, out of git                                                           | `project`, committed                                          | Open   |
-| Specialist models          | Sonnet                                                                        | Opus for the Review guild, where security matters most        | Open   |
-| Ledger backfill            | An opt-in button                                                              | Automatic on install                                          | Open   |
+| Decision                   | Default                                                                       | Other option                                                  | Status  |
+| -------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- | ------- |
+| Platform                   | A mod in the Claude app                                                       | Your own desktop app, in v4 after a cost study                | Agreed  |
+| Team shape                 | Guilds, two levels deep                                                       | Flat, or the experimental agent teams                         | Agreed  |
+| Where scouts run           | Anthropic's cloud scheduled tasks                                             | Desktop scheduled tasks on your PC                            | On hold |
+| News digest                | In Flint Assistant, Dima's local assistant, started by a click at login       | A news scout in World of Agents                               | Agreed  |
+| Guild control              | Deny-only guard hook                                                          | `Agent(...)` lists, which milestone 1 showed restrict nothing | Agreed  |
+| Plan                       | Works on Pro, Max recommended                                                 | Max or higher only                                            | Agreed  |
+| Repo                       | Same repo, with a `v2.0.0` release tag; scouts get their own small repo       | A new repo for v3                                             | Open    |
+| Scouts repo                | Public: digests are public news and good portfolio material                   | Private, but then the hall needs a token to read the reports  | On hold |
+| Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                      | Open    |
+| Voice                      | PowerShell fixed script, on by default                                        | Off until you turn it on                                      | Open    |
+| Agent memory               | `local`, out of git                                                           | `project`, committed                                          | Open    |
+| Specialist models          | Sonnet                                                                        | Opus for the Review guild, where security matters most        | Open    |
+| Ledger backfill            | An opt-in button                                                              | Automatic on install                                          | Open    |
+
+## Later: Flint Assistant
+
+Flint Assistant is Dima's separate local voice assistant: Python and Ollama on his PC, in its own repo, started after the
+current World of Agents work. One day Dima will say "Hey Flint, ask the Lead to …". Nothing is built for it in v3, but two
+things must stay possible:
+
+- **Where a task comes in:** the hall server on `127.0.0.1:4319`, which already checks a token, the Host and the Origin. A
+  later endpoint takes a task from Flint with the same checks.
+- **How it reaches the Lead:** the pane shows it as "From Flint: …", and a button puts the text after the draft with
+  `$.prompt.fill` (append), the way presets do. Dima reads it and presses Enter. Never `$.prompt.submit`.
+
+Today the mod sends nothing as Dima and fills the box only with fixed preset text. Flint's text would be the first untrusted
+text it puts there, so when this is built, the "Prompts sent as you" rule gets a written exception with the controls in its
+Security row. Flint's text is untrusted: it comes from speech, and Flint also reads the news. Nothing in v3 may close either
+path (the hall's token checks, the fill-only presets).
+
+When the endpoint is built, these rules hold:
+
+- **Its own key:** not the hooks' token, so one leaking doesn't open the other.
+- **Off by default:** Dima turns it on.
+- **Capped:** a size cap and a rate limit.
+- **No hidden text:** the pane shows exactly the text that fill will put in the box, cleaned the same way (no control, bidi or
+  zero-width characters), with nothing hidden past the cap.
 
 ## Later: an own desktop app
 
