@@ -346,7 +346,8 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
 
 **Releases.** Milestone 2 ships as `v3.0.0`: a major, because the guard now denies Claude Code's built-in agents, a change in
 behaviour. Each later milestone is a minor: the ledger is `v3.1.0`, and so on. The README names the minimum Claude Code
-version, 2.1.295 or later, which the guard's `onFailure` needs.
+version, 2.1.299 or later: the guard's `onFailure` needs 2.1.295, and older engines refuse the mod (measured on 10 Nov,
+docs/v3-m2-plan.md decision 27).
 
 0. **Release and install.**
    - Tag the current state as the `v2.0.0` release on GitHub.

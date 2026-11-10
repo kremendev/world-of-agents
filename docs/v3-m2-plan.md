@@ -17,7 +17,7 @@ gets a review of its own.
 **The release closes the milestone: `v3.0.0`.** It's a major because the guard now denies Claude Code's built-in agents, a
 change in behaviour. Later milestones are minors (the ledger is `v3.1.0`, and so on). The release bumps `plugin.json`, runs
 the hall freshness check, tags, writes the notes and moves the README pin, all on Dima's go. The README names the minimum
-Claude Code version: 2.1.295 or later, for `onFailure`. The done-when ("you never touch a terminal") is then checked with the
+Claude Code version: 2.1.299 or later (decision 27; `onFailure` alone needs 2.1.295). The done-when ("you never touch a terminal") is then checked with the
 plugin installed from GitHub through the desktop app's own Plugins screen, which also settles milestone 0's done-when.
 
 ## How the desktop checks get the plugin (set up in 2a)
@@ -422,6 +422,35 @@ Options, not built:
 
 Recommendation: 2, as its own task, since it changes how the hall lives; nothing measured shows harm today.
 
+## Releasing v3.0.0 (Dima's steps)
+
+Prepared on 10 Nov and committed locally, nothing pushed: versions at 3.0.0, the README pinned to `#v3.0.0`, the notes in
+`docs/release-notes/v3.0.0.md`. In order:
+
+1. The combined desktop check (2d, then the upgrade path in `woa-m2-test`). A problem found there is fixed before anything
+   is pushed.
+2. `npm run release:check` from `C:\` (in Git Bash, `cd ~/Downloads/agent-office`): `check:hall`, then
+   `check`.
+3. Push: `git push origin main`. The Pages workflow rebuilds the demo.
+4. Tag, annotated like the v2 tags, and push it:
+   `git tag -a v3.0.0 -m "World of Agents v3.0.0: the team in the desktop app"`, then `git push origin v3.0.0`.
+5. Release: `gh release create v3.0.0 --title v3.0.0 --notes-file docs/release-notes/v3.0.0.md`. Check that its README
+   link opens.
+6. Install from GitHub through the desktop app, with no terminal. This settles milestone 0's done-when (installed through
+   the app's own Plugins screen) and milestone 2's ("you never touch a terminal").
+   - Move the user-level marketplace from `#v2.2.0` to `#v3.0.0`: in a Code tab session,
+     `/plugin marketplace remove world-of-agents`, then `/plugin marketplace add kremendev/world-of-agents#v3.0.0`.
+     Removing it uninstalls the plugin in every project that had it, `woa-test` too (seen with the CLI on 10 Nov). If
+     the app refuses either command, the release notes' terminal commands do the same; write down which one worked.
+   - Make an empty folder (`~/Downloads/woa-v3-test`), open it in the Code tab, click **+**, then **Add plugins** (or
+     **Plugins**, then **Browse plugins**), pick `world-of-agents` and the local-only scope.
+   - A new session: the Lead answers as the main agent, the pane appears after the first message, "Open hall" opens the
+     hall, and the hall follows a one-word task.
+   - `/world-of-agents:setup-project`, then `/world-of-agents:setup-project-write`. The folder has no git, so it says
+     there is nothing to ignore. A new session starts in Manual, unless the folder already had a mode picked.
+   - Install it again in `woa-test` the same way.
+7. Write down what happened here and in CLAUDE.md's status.
+
 ## Decided on 6 Nov
 
 1. Four parts, 2a to 2d.
@@ -509,6 +538,27 @@ Before v3.0.0, on 10 Nov:
     every other one where it was. Anything else stops with names only. A first setup still merges only into a file that
     holds nothing but an install's keys.
 
+27. The minimum Claude Code version is 2.1.299, not 2.1.295. Measured on 10 Nov with each version's own engine from npm
+    (no login, a temp config folder): 2.1.295 and 2.1.296 refuse the mod, because their validator follows `$` only into a
+    function in the same file (`keepHall` comes from `./hall`); 2.1.299, 2.1.301, 2.1.307 and 2.1.319 validate it and
+    pass all 77 kit tests, and a no-login session on 2.1.299 starts the hall. 2.1.297 and 2.1.298 aren't on npm. The
+    validators of 2.1.299 to 2.1.301 add a note that `mod:surface` reads as new surface (the `classic.*` hooks don't run
+    where an organization manages Claude Code); 2.1.307 no longer prints it.
+
 ## Backlog, due before v3.0.0
 
 - Nothing left.
+
+## Backlog for v3.1.0, after the release
+
+Written down on 10 Nov, from 2d's desktop check. Not built.
+
+- **A Review board.** Clicking the Reviewer, or a review row in the feed, opens a side drawer, not a modal, so the hall
+  stays visible. It shows the latest review as a card: the verdict, the files checked, the findings with file and line,
+  and the checks the Reviewer actually ran; under it, the earlier reviews of this run. The Reviewer ends its report with
+  fixed headings so the card can be built from them, and a report that doesn't match shows as plain text. Agent text stays
+  untrusted: text only, no links, a file and line included.
+- **The Reviewer on Opus 5.5.** A review costs about twice as much per token, so the ledger (milestone 3) shows the
+  Reviewer's share. The model changes in `plugin/agents/reviewer.md` and `roster.ts` together (`roster.test.ts`).
+- **A "For you" strip** pinned at the top of the activity feed, holding the unread flagged rows (To you, Needs you,
+  Failed) until Dima clicks them, and an **"Only for me" filter**.

@@ -12,13 +12,25 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3
+
+v3 brings the team into the Claude desktop app. Installed as a plugin in one project, it adds:
+
+- **The guard.** A hook that can only deny: an agent start outside the team's table, Claude Code's own agents included, and a shell command that names a `.env` or `.envrc` file.
+- **The setup skills.** `/world-of-agents:setup-project` shows, and `/world-of-agents:setup-project-write` writes, Manual mode, subagent depth 2 and a safe-command list for that project. A project set up by an earlier version is upgraded.
+- **The team pane.** Beside the conversation: what each agent is doing, who waits for your approval, a warning when nothing asks before acting, your context and plan limits, three preset prompts and the link to the hall.
+- **A hall that starts itself.** The plugin carries a prebuilt hall and starts it at your first message: no `npm run hall`, no clone and no `npm install`.
+- **A voice on Windows.** "Backend dev needs your approval." and "The team is done." out loud, muted with one click.
+
+The guard now denies Claude Code's built-in agents, which v2 never checked. That change in behaviour is why this is a major version. The details are in the [release notes](docs/release-notes/v3.0.0.md), and each part has its own section under [Install as a plugin](#install-as-a-plugin).
+
 ## Requirements
 
-- **Claude Code CLI 2.1.295 or later**, logged in with your Claude plan. Older versions let the guard (see What it never does) fail open. Works on Pro. Max recommended for guild runs, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
+- **Claude Code 2.1.299 or later**, the CLI or the Claude desktop app's Code tab, logged in with your Claude plan. Older versions refuse the team pane. Works on Pro. Max recommended for guild runs, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
 - **Requires Node.js 20.19 or later on PATH.** Tested on 24.22.0. The plugin's hooks run on it, and the guard fails closed: without Node, every agent start and every Bash or PowerShell command in a project with the plugin is blocked with `hook error: [node ${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs]: failed; blocking because onFailure is "block" Error occurred while executing hook command: Executable not found in $PATH: "node"`. Install Node, or turn the plugin off for that project: `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder, or switch it off in the desktop app under Customize, then Plugins.
-- **Git Bash on Windows.** `woa` is a bash script.
+- **On Windows:** Git Bash, because `woa` is a bash script. The voice uses Windows' own speech synthesizer, so it speaks on Windows only. Claude Code has no sandbox on native Windows (see Known limits).
 
-Tested on Windows 11 with Claude Code 2.1.318.
+Tested on Windows 11. Claude Code 2.1.299, 2.1.301, 2.1.307 and 2.1.319 load the plugin and pass the pane's own tests (`claude plugin validate` and `claude plugin test`), and on 2.1.299 a session starts the hall; 2.1.295 and 2.1.296 refuse the pane. The desktop app was checked with its engine at 2.1.317.
 
 ## Setup
 
@@ -73,13 +85,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v2.2.0
+/plugin marketplace add kremendev/world-of-agents#v3.0.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v2.2.0
+claude plugin marketplace add kremendev/world-of-agents#v3.0.0
 ```
 
 **2. Install it for one project only.** Use any one of these:
@@ -102,11 +114,7 @@ From v3.0.0 the plugin does this for you, once per project, in two steps you typ
 
 The safe-command list lets `npm test` and `npm run check` run without asking, so they run whatever code the project's scripts, tests, configs and setup files hold. Read every edit approval in Manual mode as carefully as a command. If the path to the plugin's folder holds an apostrophe, the two skills can't run: Claude Code stops with "Shell command failed … unexpected EOF while looking for matching" and nothing happens.
 
-To remove the plugin, run this in the project folder:
-
-```bash
-claude plugin uninstall world-of-agents@world-of-agents --scope local
-```
+To turn it off, or any one part of it, see [Turn it off](#turn-it-off).
 
 You can still run `woa` in a project that has the plugin. For that session, `woa`'s copy replaces the installed one, so nothing loads twice.
 
@@ -126,18 +134,34 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 - **No API key.** Claude Code runs on your own login. There is no key anywhere in this project.
 - **It never reads your login.** That is also why it can't check which plan you have.
 - **It never starts a run.** No endpoint starts or runs anything.
+- **It never sends anything as you.** Neither the page nor the pane sends a prompt: a preset only puts its text in your prompt box, and you press Enter.
+- **It never approves anything.** The guard can only deny, and the pane never answers a tool call, a permission check or an agent start, so your approval prompt always decides.
+- **It never reads your `.env` files.** No part of the plugin opens one. The guard denies an agent's shell command that names a `.env` or `.envrc` file, and the setup adds denies that cover Claude Code's file tools and the file commands it recognises in shell commands, like `cat`, `head` and `tail`. They don't cover `grep -r` over a folder, or a script that opens files itself. Both are best effort (see the guard below).
 - **The page only watches.** Nothing you do in the page reaches an agent.
 - **Events stay in memory on 127.0.0.1.** The hall listens on that address only, keeps the last 500 events and forgets them when it stops. Nothing goes to any other computer.
 
 The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles, the start of your prompt (120 characters) and the agents' last messages (up to 20,000 characters each). Those messages are the agents' own words, so they can quote code or a command an agent wrote. It never sends a tool's input or result, file contents or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
 
-`woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless: the hook script posts nothing until the hall proves it holds the token. An installed plugin has this check from v2.2.0.
+`woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The setup skills, only when you type them, add the settings above to that file and a line for it to `.gitignore`. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless: the hook script posts nothing until the hall proves it holds the token. An installed plugin has this check from v2.2.0.
 
-One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and with Claude Code 2.1.295 or later a guard that crashes or hangs blocks the call too. `woa` has it now; an installed plugin has it from v3.0.0.
+One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
 
 The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed, and the pane never reads what you've typed. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall) and the voice script. Nothing they print is shown or kept. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
+
+## Turn it off
+
+- **In one project:** run `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder, or switch it off in the desktop app under Customize, then Plugins. The agents, the guard, the pane, the hall and the voice all go with it. `claude plugin enable world-of-agents@world-of-agents --scope local` turns it back on.
+- **The voice only:** press **Mute voice** in the pane. It stays muted in later sessions.
+- **The pane only:** close it. `/world-of-agents:team` opens it again.
+- **The hall:** it stops when the session that started it closes or the plugin reloads. A hall you started with `npm run hall` stops with Ctrl+C.
+- **The setup's settings:** disabling or removing the plugin leaves them in the project's `.claude/settings.local.json`. Delete `permissions` and `env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` there to remove them.
+- **For good:** run this in the project folder:
+
+```bash
+claude plugin uninstall world-of-agents@world-of-agents --scope local
+```
 
 ## Known limits
 
@@ -149,8 +173,11 @@ The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, w
 - **No token counts.** Hooks don't report them.
 - **No sandbox on native Windows.** Commands run with your user's rights, so your approval is the guard. Read each command before you approve it. Claude Code's sandbox needs macOS, Linux or WSL2.
 - **One session at a time.** The hall follows one session. Starting, clearing or resuming a session takes it over.
-- **The pane's hall lives with your sessions.** A hall the pane started stops when its session closes or the plugin reloads. With two sessions open, closing the one that started it costs the other one turn without a hall. A restarted hall remembers nothing from before, and the page says "Hall restarted" until your next prompt.
+- **The desktop app's mode beats Manual.** A mode you pick in the selector sticks to that folder and wins over the setup's Manual in later sessions. Check the selector; the pane warns in Auto, Bypass permissions and Accept edits.
+- **The pane's hall lives with your sessions.** A hall the pane started stops when its session closes or the plugin reloads. With two sessions open, closing the one that started it costs the other one turn without a hall. The desktop app can also move a session to a fresh Claude Code process when you come back to it; if the old process goes, its hall goes too. The next Lead turn starts a new one. A restarted hall remembers nothing from before, and the page says "Hall restarted" until your next prompt. A later version plans a hall that runs on its own and stops itself after about 30 idle minutes.
 - **Port 4319 is fixed.** If another program holds it, the pane starts no hall.
+- **Apostrophes in the plugin's path.** The setup skills put the plugin's path in single quotes. One apostrophe in it makes them fail safely, as above. Two balance the quotes again, so the shell reads the text between them unquoted: it splits the path there, and a `$(...)` in that text would run. Only the names of your own folders reach that path, never a project's or the conversation's, so keep apostrophes out of the folders above the plugin, your user folder included.
+- **Where an organization manages Claude Code.** If its managed settings turn on `allowManagedHooksOnly`, a plugin you install yourself loads no hooks. The agents and the Lead still load, but with no guard, no team pane and no reports to the hall, so nothing denies what the guard would. Claude Code's own mods API reference (2.1.318) says so; it hasn't been tested. The validators of 2.1.299 to 2.1.301 also warned that the pane's `classic.*` hooks don't run where an organization manages Claude Code, which would leave the pane without its approval list, the approval voice and the mode warning. Later validators no longer print that warning.
 - **The voice is Windows only.** Elsewhere the pane stays quiet.
 - **Tested on Windows only.** `woa` may work on macOS and Linux, but nobody has tried it.
 

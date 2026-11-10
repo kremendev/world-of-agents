@@ -109,7 +109,8 @@ bin/              woa: the launcher, bash for Git Bash (finds the repo from its 
 docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
                   really do), v3-m2-plan.md (milestone 2 in parts), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
-                  screenshot and GIF, from a replay of run 3's redacted fixtures)
+                  screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md: the GitHub release's
+                  text, written before the tag)
 ```
 
 ## How the hall is drawn
@@ -505,6 +506,12 @@ Next: milestone 2 in four parts (docs/v3-m2-plan.md, approved 6 Nov). 2a (the gu
 2b (the team pane: the mod, its toolchain and kit tests) is done, desktop-checked on 7 Nov. 2c (processes: the prebuilt
 hall, its start, the Node check, voice) is done, desktop-checked on 8 Nov with 2b's leftovers; that check found the
 Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). 2d (hall fixes, `dev:refresh`, Zod's
-locales out of the bundle, the temporary query measurement) is built and checked by tests and planted bugs (10 Nov); its
-desktop check waits for Dima. It ships as `v3.0.0`. The setup skill's upgrade path from older templates, the last
+locales out of the bundle, the temporary query measurement) is built and checked by tests and planted bugs (10 Nov). Its
+desktop check (10 Nov) passed the desk time, the hurrying and the feed after a session switch, and changed the bubbles
+and the feed: the first sentence in a bubble, whole reports in rows that expand, flagged rows (plan, "What 2d's desktop
+check changed"); a re-check of those waits for Dima. It ships as `v3.0.0`; the v3.1.0 backlog is the plan's last section. The setup skill's upgrade path from older templates, the last
 backlog item before `v3.0.0`, is built (plan decision 26); its desktop check, in `woa-m2-test`, waits for Dima too.
+`v3.0.0` is prepared, committed locally and not pushed: versions at 3.0.0, the README pinned to `#v3.0.0`, the minimum
+Claude Code version measured as 2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. Dima's steps (the
+desktop check, push, tag, release, the install through the desktop app's Plugins screen) are in docs/v3-m2-plan.md,
+Releasing v3.0.0.
