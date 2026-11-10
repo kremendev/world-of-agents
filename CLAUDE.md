@@ -416,6 +416,10 @@ Do not change the look without asking. New ideas go into a later version.
   demo in 50 ms slices is about 1,400 renders, which came close to Vitest's 5 s limit. A test that only looks at where a
   moment ends up should pass a bigger slice to `at()`, as App.test's "plays the demo run" and "walks agents" do. Check this
   with something heavy running: a game on 6 cores made the second one time out when it looked safe at 1.4 s.
+- A skill's injected command runs through Git Bash, even with no login (a throwaway skill's marker file, 10 Nov). Git Bash
+  can't be hidden from Claude Code on a PC with Git installed: with Git off PATH, or `CLAUDE_CODE_GIT_BASH_PATH` pointing
+  elsewhere, it falls back to auto-detection and finds `C:\Program Files\Git\bin\bash.exe`. So "without Git Bash" is
+  untested, and the READMEs say the setup skills need it.
 - To test an install without touching the real setup, set `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE` to a temp folder.
   With no login there, `claude -p` still fires SessionStart, UserPromptSubmit, StopFailure and SessionEnd before it stops,
   so it spends nothing, and `WOA_CAPTURE=1` counts the hooks. SessionStart's `agent_type` shows the main agent, and

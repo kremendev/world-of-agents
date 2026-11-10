@@ -438,6 +438,7 @@ Prepared on 10 Nov and committed locally, nothing pushed: versions at 3.0.0, the
    link opens.
 6. Install from GitHub through the desktop app, with no terminal. This settles milestone 0's done-when (installed through
    the app's own Plugins screen) and milestone 2's ("you never touch a terminal").
+   - Don't enable the GitHub install and the woa-dev install in the same project: both are `world-of-agents:*`.
    - Move the user-level marketplace from `#v2.2.0` to `#v3.0.0`: in a Code tab session,
      `/plugin marketplace remove world-of-agents`, then `/plugin marketplace add kremendev/world-of-agents#v3.0.0`.
      Removing it uninstalls the plugin in every project that had it, `woa-test` too (seen with the CLI on 10 Nov). If
@@ -548,6 +549,13 @@ Before v3.0.0, on 10 Nov:
 ## Backlog, due before v3.0.0
 
 - Nothing left.
+
+## Backlog for v3.0.1
+
+- **The setup upgrade keeps "Always allow" rules.** An "Always allow" click in a set-up project adds a rule to
+  `permissions.allow` (`woa-m2-test` had `Bash(node hello.js)` and `Bash(echo "exit=$?")` on 10 Nov), and the upgrade
+  then stops and names `permissions.allow`, writing nothing. Keep the allow rules that are in no template version through
+  an upgrade, so only the template's own settings change; anything else that differs still stops it.
 
 ## Backlog for v3.1.0, after the release
 
