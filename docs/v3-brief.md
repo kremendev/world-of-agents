@@ -74,7 +74,7 @@ agent carries dozens of skills.
 - Who may start whom is a fixed table in the guard hook (below). An `Agent(...)` list in a subagent's file restricts
   nothing: milestone 1 saw a guild lead start an agent its list doesn't name. Only the main thread's list is applied.
 - Specialists get no `Agent` tool.
-- Guild leads and specialists run on Sonnet. Only the Lead uses Opus.
+- Guild leads and specialists run on Sonnet. Only the Lead and the Reviewer use Opus (the Reviewer since v3.1.0, docs/v3.1-plan.md).
 
 **The guard.** A `PreToolUse` hook on the `Agent`, `Bash` and `PowerShell` tools in `plugin/hooks/hooks.json` runs
 `plugin/hooks/guard.mjs` before any agent starts another, and before any shell command.
@@ -356,7 +356,7 @@ Opus"), so the Lead on Opus works on Pro. If the ledger shows the Lead draining 
 
 **What keeps it in check:**
 
-- Only the Lead runs on Opus. Guild leads and specialists use Sonnet, and nothing uses Haiku: the guard denies the built-in
+- Only the Lead and the Reviewer run on Opus. Guild leads and specialists use Sonnet, and nothing uses Haiku: the guard denies the built-in
   agents, some of which run on Haiku.
 - Depth is capped at 2, and gate retries at 3 per task.
 - The mod makes no model calls of its own.
@@ -447,7 +447,7 @@ The first three are Dima's answers from 5 Nov, the next two come from the milest
 | Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                      | Open    |
 | Voice                      | PowerShell fixed script, on by default                                        | Off until you turn it on                                      | Open    |
 | Agent memory               | `local`, out of git                                                           | `project`, committed                                          | Open    |
-| Specialist models          | Sonnet                                                                        | Opus for the Review guild, where security matters most        | Open    |
+| Specialist models          | Sonnet; the Reviewer on Opus (v3.1.0)                                         | Opus for the whole Review guild, where security matters most  | Open    |
 | Ledger backfill            | An opt-in button                                                              | Automatic on install                                          | Open    |
 
 ## Later: Flint Assistant

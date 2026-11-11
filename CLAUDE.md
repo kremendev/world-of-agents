@@ -82,7 +82,7 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
-                  whom, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
+                  whom, no `model` in an Agent call, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
@@ -245,7 +245,8 @@ Do not change the look without asking. New ideas go into a later version.
   not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
   block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
   no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`).
-  The `.env` rule is best effort; don't sell it as more. No imports, no network, no files. Failing closed means a missing
+  It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
+  agent file's model always wins. The `.env` rule is best effort; don't sell it as more. No imports, no network, no files. Failing closed means a missing
   Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
 - A project or user agent can't take a `world-of-agents:` name: Claude Code skips any agent file whose name holds `:`
   (checked for 2a, with an error in the debug log), so the guard's `agent_type` can't be spoofed by such a file.
@@ -548,4 +549,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    status. Each version gets a desktop checklist for Dima in docs/release-notes/<version>-check.md. Real model runs only
    where nothing else can prove a fact, tiny, in throwaway folders under ~/Downloads/woa-*, deleted after use.
    Done: 3.1a (the Reviewer's report format, its parser, the hall's Read/Grep/Glob counts on the Reviewer's report).
-   Next: 3.1b (the Reviewer on Opus, the guard's `model` rule, one tiny real run to see whether Opus follows the format).
+   3.1b (the Reviewer on Opus, the guard denies an Agent call with `model`; a terminal run showed Opus follows the format,
+   its report is a parser case). v3.1.0's desktop checklist has steps for both.
+   Next: 3.1c (the Review board).

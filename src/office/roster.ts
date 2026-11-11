@@ -83,7 +83,7 @@ export const ROSTER: readonly Agent[] = [
     sprite: SKELETON_REVIEWER,
     size: 'normal',
     monitor: 'left',
-    model: 'Sonnet',
+    model: 'Opus',
     tools: 'Read, Grep, Glob',
     look: 'Old scholar: hooded robe, spectacles, candle in hand',
     waitingFor: 'both devs to finish',

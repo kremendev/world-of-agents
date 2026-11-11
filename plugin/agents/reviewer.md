@@ -1,7 +1,7 @@
 ---
 name: reviewer
 description: Reviews the changes for bugs and security issues. Reads only and changes nothing. Started by the World of Agents Lead/PM.
-model: sonnet
+model: opus
 tools: Read, Grep, Glob
 ---
 

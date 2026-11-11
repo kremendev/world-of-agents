@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import reviewerPrompt from '../../plugin/agents/reviewer.md?raw';
+import opusReport from './fixtures/opus-review-11nov.txt?raw';
 import type { Message } from '../state/office';
 import { HEADINGS, VERDICTS, isReview, parseReview, reviewsOf } from './review';
 
@@ -188,6 +189,23 @@ describe('parseReview', () => {
       parseReview(text);
       expect(performance.now() - began, text.slice(0, 20)).toBeLessThan(100);
     }
+  });
+});
+
+describe("Opus's first real report in the format (the 3.1b probe, 11 Nov, paths cut to ~ as send.mjs does)", () => {
+  it('parses: the verdict, the file, a finding with its place and one without, the checks and what is left', () => {
+    const review = parseReview(opusReport);
+    expect(review).toMatchObject({
+      verdict: 'Changes needed',
+      files: ['hello.js'],
+      checks: ['Read hello.js', expect.stringMatching(/^Glob for/)],
+    });
+    expect(review?.summary.startsWith('I reviewed ~\\Downloads\\woa-31b-probe\\hello.js (4 lines).')).toBe(
+      true,
+    );
+    expect(review?.findings.map((f) => f.place)).toEqual([{ file: 'hello.js', line: '2' }, null]);
+    expect(review?.findings[1]?.text.startsWith('hello.js: Security: none found.')).toBe(true);
+    expect(review?.left).toHaveLength(2);
   });
 });
 

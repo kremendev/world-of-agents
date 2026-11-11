@@ -665,7 +665,8 @@ showed no warning, rightly: the switch had written the project's own file (item 
 
 ## Backlog for v3.1.0, after the release
 
-Written down on 10 Nov, from 2d's desktop check. Not built.
+Written down on 10 Nov, from 2d's desktop check. Planned in docs/v3.1-plan.md (11 Nov) and built there, except "Switch to
+Manual", which stays in the backlog.
 
 - **A Review board.** Clicking the Reviewer, or a review row in the feed, opens a side drawer, not a modal, so the hall
   stays visible. It shows the latest review as a card: the verdict, the files checked, the findings with file and line,

@@ -206,7 +206,7 @@ Hall server, 127.0.0.1:4319: checks token, Host and Origin, turns hooks into eve
 Page: checks every event, draws the hall
 ```
 
-- **Plugin** (`plugin/`): the five agents and the hooks. The Lead runs on Opus and the team on Sonnet. Each agent gets only the tools its job needs, and the Reviewer only reads. The repo is its own marketplace (`.claude-plugin/marketplace.json`).
+- **Plugin** (`plugin/`): the five agents and the hooks. The Lead and the Reviewer run on Opus, the other three on Sonnet, and an Agent call that tries to choose a model is denied. Each agent gets only the tools its job needs, and the Reviewer only reads. The repo is its own marketplace (`.claude-plugin/marketplace.json`).
 - **Hook script** (`plugin/hooks/send.mjs`): uses Node built-ins only, always exits 0 and prints nothing.
 - **Team pane** (`plugin/hooks/mod/`): a Claude Code mod in TypeScript, typed against the engine's own types for one Claude Code version (`tools/claude-code-types/`, refreshed only with `npm run types:update`) and tested with Claude Code's own kit.
 - **Hall server** (`server/`): plain `node:http`, run with `tsx`. It also serves the page: only the files the build lists, never a path taken from the URL.

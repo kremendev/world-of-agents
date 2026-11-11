@@ -40,6 +40,8 @@ export const REASONS = Object.freeze({
   agent: 'World of Agents guard: that start is not in the team table of who may start whom.',
   env: 'World of Agents guard: this command names a .env or .envrc file, and the team never reads those.',
   input: 'World of Agents guard: this call could not be checked, so it is denied.',
+  model:
+    "World of Agents guard: the team's models are set in its agent files, so an Agent call may not choose one.",
 });
 
 /** The one answer the guard ever gives. */
@@ -63,10 +65,16 @@ function rowOf(input) {
   return input.agent_type === LEAD ? MAY_START.main : undefined;
 }
 
+/**
+ * The Agent tool's `model` argument takes precedence over the model an agent file sets, so a call that names one could
+ * run the Reviewer on a weaker model, or anyone on a far dearer one. Whatever its value, a call that has it is denied:
+ * the agent file's model always wins.
+ */
 function checkAgent(input) {
-  const type = isObject(input.tool_input) ? input.tool_input.subagent_type : undefined;
-  if (typeof type !== 'string') return denial(REASONS.input);
-  return rowOf(input)?.includes(type) ? null : denial(REASONS.agent);
+  const call = isObject(input.tool_input) ? input.tool_input : undefined;
+  if (typeof call?.subagent_type !== 'string') return denial(REASONS.input);
+  if (Object.hasOwn(call, 'model')) return denial(REASONS.model);
+  return rowOf(input)?.includes(call.subagent_type) ? null : denial(REASONS.agent);
 }
 
 function checkShell(input) {

@@ -77,6 +77,37 @@ describe('who may start whom', () => {
   });
 });
 
+describe("the agent file's model always wins (v3.1, D3)", () => {
+  /** An Agent call with more in its input than byLead() puts there. */
+  const call = (more: Record<string, unknown>, caller: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      hook_event_name: 'PreToolUse',
+      agent_type: 'world-of-agents:lead',
+      tool_name: 'Agent',
+      tool_input: { subagent_type: 'world-of-agents:reviewer', prompt: 'x', ...more },
+      ...caller,
+    });
+
+  it.each(['sonnet', 'opus', 'haiku', 'fable', 'claude-opus-5-5', '', null, 0])(
+    'denies a call that sets model to %j, even a start the table allows',
+    (model) => {
+      expect(decide(call({ model }))).toBe(denial(REASONS.model));
+    },
+  );
+
+  it('denies it for a type outside the table and from a subagent too: any call with a model is denied', () => {
+    expect(decide(call({ model: 'opus', subagent_type: 'Explore' }))).not.toBeNull();
+    expect(
+      decide(call({ model: 'opus' }, { agent_id: 'a1', agent_type: 'world-of-agents:backend' })),
+    ).not.toBeNull();
+  });
+
+  it('answers nothing for a call without a model, and leaves effort and the other arguments alone', () => {
+    expect(decide(call({}))).toBeNull();
+    expect(decide(call({ effort: 'high', description: 'Review', run_in_background: true }))).toBeNull();
+  });
+});
+
 describe('fails closed on input it cannot check', () => {
   it.each([
     ['empty stdin', ''],
@@ -172,6 +203,14 @@ describe('never allow', () => {
     ...BUILT_IN.map((type): [string, boolean] => [byLead(type), false]),
     [bySub('world-of-agents:backend', 'Explore'), false],
     [bySub('main', 'world-of-agents:backend'), false],
+    [
+      JSON.stringify({
+        agent_type: 'world-of-agents:lead',
+        tool_name: 'Agent',
+        tool_input: { subagent_type: 'world-of-agents:reviewer', model: 'haiku' },
+      }),
+      false,
+    ],
     [shell('Bash', 'cat .env'), false],
     [shell('PowerShell', 'Get-Content .env.local'), false],
     [shell('Bash', 'echo environment'), true],
