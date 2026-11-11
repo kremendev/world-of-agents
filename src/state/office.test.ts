@@ -83,6 +83,24 @@ describe('officeReducer', () => {
       ]);
     });
 
+    it("keep the calls the hall saw on the Reviewer's report, and give other messages no such key (v3.1)", () => {
+      const tools = { Read: 3, Grep: 1, Glob: 0 };
+      const next = apply([
+        { type: 'message', from: 'reviewer', to: 'lead', text: 'Review', tools, at: 1 },
+        message('plain'),
+      ]);
+      expect(next.messages[0]).toEqual({ from: 'reviewer', to: 'lead', text: 'Review', tools, at: 1 });
+      expect(next.log[0]).toEqual({
+        kind: 'message',
+        from: 'reviewer',
+        to: 'lead',
+        text: 'Review',
+        tools,
+        at: 1,
+      });
+      expect(Object.keys(next.messages[1]!)).toEqual(['from', 'to', 'text', 'at']);
+    });
+
     it(`keep only the newest ${MAX_MESSAGES}`, () => {
       const many = Array.from({ length: MAX_MESSAGES + 5 }, (_, i) => message(`m${i}`));
       const next = apply(many);

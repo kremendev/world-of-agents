@@ -6101,7 +6101,9 @@ var LIMITS = {
   titleLength: 200,
   /** An agent's last message or the Lead's answer, whole up to this: send.mjs cuts there (MAX_REPORT). */
   messageLength: 2e4,
-  agentCopies: 20
+  agentCopies: 20,
+  /** The most calls of one tool the hall reports for a run: map.ts stops counting there. */
+  toolCalls: 1e4
 };
 var agentId = _enum(AGENT_IDS);
 var agentState = _enum(AGENT_STATES);
@@ -6125,11 +6127,14 @@ var taskEvent = strictObject({
   status: taskStatus,
   at: timestamp
 });
+var toolCount = number2().int().min(0).max(LIMITS.toolCalls);
+var toolCounts = strictObject({ Read: toolCount, Grep: toolCount, Glob: toolCount });
 var messageEvent = strictObject({
   type: literal("message"),
   from: agentId,
   to: union([agentId, literal("you")]),
   text: string2().min(1).max(LIMITS.messageLength),
+  tools: toolCounts.optional(),
   at: timestamp
 });
 var resetEvent = strictObject({
@@ -6176,6 +6181,8 @@ var PREFIX = "world-of-agents:";
 var REPORT_SENT = "Report sent to the Lead";
 var READING = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var WRITING = /* @__PURE__ */ new Set(["Edit", "Write", "Bash"]);
+var isReading = (tool) => READING.has(tool);
+var NO_CALLS = { Read: 0, Grep: 0, Glob: 0 };
 var LATE_PRE_TOOL_USE_MS = 1e3;
 var TAKES_OVER = /* @__PURE__ */ new Set(["startup", "clear", "resume"]);
 function agentOf(type) {
@@ -6316,12 +6323,21 @@ function act(state, id2, agent, activity, at) {
 }
 function toolUsed(state, id2, agent, tool, at) {
   const activity = !tool ? null : READING.has(tool) ? "reading" : WRITING.has(tool) ? "writing" : null;
-  if (!activity) return nothing(state);
+  if (!tool || !activity) return nothing(state);
   const run = state.runs[id2];
   const asked = run?.state === "needs-you" ? run.asked : void 0;
   const late = asked && asked.tool === tool && at - asked.at < LATE_PRE_TOOL_USE_MS;
   const step = late ? nothing(state) : act(state, id2, agent, activity, at);
-  return activity === "writing" && !run?.stopped ? { ...step, state: { ...step.state, lastWriter: id2 } } : step;
+  if (run?.stopped) return step;
+  const next = activity === "writing" ? { ...step.state, lastWriter: id2 } : counted(step.state, id2, tool);
+  return { ...step, state: next };
+}
+function counted(state, id2, tool) {
+  const run = state.runs[id2];
+  if (!run || !isReading(tool)) return state;
+  const seen = run.tools ?? NO_CALLS;
+  const tools = { ...seen, [tool]: Math.min(seen[tool] + 1, LIMITS.toolCalls) };
+  return { ...state, runs: { ...state.runs, [id2]: { ...run, tools } } };
 }
 function asking(before, agent, sub, tool, at) {
   const state = { ...before, askSeen: true };
@@ -6349,7 +6365,14 @@ function stopRun(state, id2, agent, text, at) {
   const run = { ...linked.runs[id2], stopped: true };
   let next = { ...linked, runs: { ...linked.runs, [id2]: run } };
   const events = [
-    { type: "message", from: agent, to: "lead", text: text?.trim() ? text : REPORT_SENT, at }
+    {
+      type: "message",
+      from: agent,
+      to: "lead",
+      text: text?.trim() ? text : REPORT_SENT,
+      ...agent === "reviewer" ? { tools: run.tools ?? NO_CALLS } : {},
+      at
+    }
   ];
   if (run.state === "error") return { state: next, events };
   if (run.taskId) {
@@ -6377,7 +6400,8 @@ function failed(state, taskId2, at) {
   if (!card) return nothing(state);
   const open2 = { ...card, done: false };
   const id2 = card.agentId;
-  const run = { agent: card.owner, taskId: taskId2, state: "error", stopped: true };
+  const tools = id2 ? state.runs[id2]?.tools : void 0;
+  const run = { agent: card.owner, taskId: taskId2, state: "error", stopped: true, ...tools ? { tools } : {} };
   return {
     state: {
       ...state,

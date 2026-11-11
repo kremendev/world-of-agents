@@ -1,4 +1,12 @@
-import { AGENT_IDS, parseEvent, type AgentId, type AgentState, type OfficeEvent } from '../src/events/schema';
+import {
+  AGENT_IDS,
+  LIMITS,
+  parseEvent,
+  type AgentId,
+  type AgentState,
+  type OfficeEvent,
+  type ToolCounts,
+} from '../src/events/schema';
 import type { HookInput } from './hook-input';
 
 /** A task card: one Agent call by the Lead, keyed by that call's `tool_use_id`. */
@@ -15,6 +23,8 @@ export type Run = {
   stopped: boolean;
   /** The tool its last PermissionRequest was for, and when: its own PreToolUse may still land after it. */
   asked?: { tool: string | undefined; at: number };
+  /** The Read, Grep and Glob calls the hall saw it start, before it stopped. None seen yet: undefined. */
+  tools?: ToolCounts;
 };
 
 export type MapState = {
@@ -43,6 +53,8 @@ const PREFIX = 'world-of-agents:';
 const REPORT_SENT = 'Report sent to the Lead';
 const READING: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob']);
 const WRITING: ReadonlySet<string> = new Set(['Edit', 'Write', 'Bash']);
+const isReading = (tool: string): tool is keyof ToolCounts => READING.has(tool);
+const NO_CALLS: ToolCounts = { Read: 0, Grep: 0, Glob: 0 };
 /**
  * A tool's PreToolUse fires 12 to 18 ms before its PermissionRequest (run 4), and each hook is its own process,
  * so they can land in either order. A PreToolUse for the same tool this soon after is that one, not your approval.
@@ -239,14 +251,24 @@ function act(state: MapState, id: string, agent: AgentId, activity: AgentState, 
 
 function toolUsed(state: MapState, id: string, agent: AgentId, tool: string | undefined, at: number): Step {
   const activity = !tool ? null : READING.has(tool) ? 'reading' : WRITING.has(tool) ? 'writing' : null;
-  if (!activity) return nothing(state);
+  if (!tool || !activity) return nothing(state);
   const run = state.runs[id];
   const asked = run?.state === 'needs-you' ? run.asked : undefined;
   const late = asked && asked.tool === tool && at - asked.at < LATE_PRE_TOOL_USE_MS;
   const step = late ? nothing(state) : act(state, id, agent, activity, at);
-  return activity === 'writing' && !run?.stopped
-    ? { ...step, state: { ...step.state, lastWriter: id } }
-    : step;
+  if (run?.stopped) return step;
+  // A late PreToolUse is still a call the run made: it doesn't clear the flag, but it counts.
+  const next = activity === 'writing' ? { ...step.state, lastWriter: id } : counted(step.state, id, tool);
+  return { ...step, state: next };
+}
+
+/** One more Read, Grep or Glob seen from run `id`, up to LIMITS.toolCalls, so its report still passes parseEvent(). */
+function counted(state: MapState, id: string, tool: string): MapState {
+  const run = state.runs[id];
+  if (!run || !isReading(tool)) return state;
+  const seen = run.tools ?? NO_CALLS;
+  const tools = { ...seen, [tool]: Math.min(seen[tool] + 1, LIMITS.toolCalls) };
+  return { ...state, runs: { ...state.runs, [id]: { ...run, tools } } };
 }
 
 /**
@@ -299,7 +321,9 @@ function notified(state: MapState, input: HookInput, agent: AgentId, sub: string
  * A subagent run ends: its last message to the Lead, its card Done and the agent done, even when the run
  * already counts as stopped. All three recorded runs send SubagentStop, so it is what ends a card. Run 2 (`auto`
  * mode) sent no last message (the report came in a hand-back the hall never sees), so the message then only
- * says it was sent. A run whose task already failed keeps its agent in error and its card open.
+ * says it was sent. A run whose task already failed keeps its agent in error and its card open. The Reviewer's
+ * report carries the Read, Grep and Glob calls the hall saw it start (none seen: zeros), so the review board can
+ * show them beside what the Reviewer says it ran. Only this, the Reviewer's own stop, gives a message `tools`.
  */
 function stopRun(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
   // A stop whose start never arrived still links its run to a card, and a late start is then ignored.
@@ -307,7 +331,14 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
   const run: Run = { ...linked.runs[id]!, stopped: true };
   let next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
   const events: OfficeEvent[] = [
-    { type: 'message', from: agent, to: 'lead', text: text?.trim() ? text : REPORT_SENT, at },
+    {
+      type: 'message',
+      from: agent,
+      to: 'lead',
+      text: text?.trim() ? text : REPORT_SENT,
+      ...(agent === 'reviewer' ? { tools: run.tools ?? NO_CALLS } : {}),
+      at,
+    },
   ];
   // Only failed() gives a run the error state: a failed subagent stays failed.
   if (run.state === 'error') return { state: next, events };
@@ -350,7 +381,9 @@ function failed(state: MapState, taskId: string, at: number): Step {
   if (!card) return nothing(state);
   const open = { ...card, done: false };
   const id = card.agentId;
-  const run: Run = { agent: card.owner, taskId, state: 'error', stopped: true };
+  // The calls seen so far stay: its SubagentStop may still come and report them.
+  const tools = id ? state.runs[id]?.tools : undefined;
+  const run: Run = { agent: card.owner, taskId, state: 'error', stopped: true, ...(tools ? { tools } : {}) };
   return {
     state: {
       ...state,

@@ -31,6 +31,8 @@ export const LIMITS = {
   /** An agent's last message or the Lead's answer, whole up to this: send.mjs cuts there (MAX_REPORT). */
   messageLength: 20_000,
   agentCopies: 20,
+  /** The most calls of one tool the hall reports for a run: map.ts stops counting there. */
+  toolCalls: 10_000,
 } as const;
 
 const agentId = z.enum(AGENT_IDS);
@@ -63,11 +65,20 @@ const taskEvent = z.strictObject({
   at: timestamp,
 });
 
+const toolCount = z.number().int().min(0).max(LIMITS.toolCalls);
+
+/**
+ * v3.1: how many Read, Grep and Glob calls the hall saw a run start, from its PreToolUse hooks, by tool name only.
+ * map.ts puts it on the Reviewer's report, so the review board can show it beside what the Reviewer says it ran.
+ */
+const toolCounts = z.strictObject({ Read: toolCount, Grep: toolCount, Glob: toolCount });
+
 const messageEvent = z.strictObject({
   type: z.literal('message'),
   from: agentId,
   to: z.union([agentId, z.literal('you')]),
   text: z.string().min(1).max(LIMITS.messageLength),
+  tools: toolCounts.optional(),
   at: timestamp,
 });
 
@@ -116,6 +127,7 @@ export const hallStartId = z.string().regex(/^[A-Za-z0-9_-]{16}$/);
 export type AgentId = z.infer<typeof agentId>;
 export type AgentState = z.infer<typeof agentState>;
 export type TaskStatus = z.infer<typeof taskStatus>;
+export type ToolCounts = z.infer<typeof toolCounts>;
 export type OfficeEvent = z.infer<typeof officeEventSchema>;
 
 export type ParseResult = { ok: true; event: OfficeEvent } | { ok: false; error: string };

@@ -35,6 +35,39 @@ const say = (from: AgentId, to: AgentId | 'you', text: string, at: number): Offi
   at,
 });
 
+/**
+ * The Reviewer's report to the Lead, in the format reviewer.md asks for (v3.1). Its first sentence is what its
+ * bubble shows.
+ */
+const REVIEW = [
+  'Review passed: UI and API approved. Both follow the design and the spec, and I found nothing to fix.',
+  '',
+  '## Verdict',
+  '',
+  'Approved',
+  '',
+  '## Files checked',
+  '',
+  '- src/dashboard/Dashboard.tsx',
+  '- src/dashboard/Board.tsx',
+  '- server/routes/boards.ts',
+  '- server/routes/items.ts',
+  '',
+  '## Findings',
+  '',
+  'None',
+  '',
+  '## Checks run',
+  '',
+  '- Read the dashboard screens against design/dashboard.md',
+  '- Grep for innerHTML and dangerouslySetInnerHTML in src/',
+  '- Read the board and item routes for input checks',
+  '',
+  '## Left for the Lead',
+  '',
+  "- Run the tests and the build: I can't run anything",
+].join('\n');
+
 /** The task the demo run starts with, before anyone sends their own. */
 export const DEMO_TASK = 'Create a dashboard';
 
@@ -110,7 +143,7 @@ export function demoRun(taskText: string): readonly OfficeEvent[] {
     act('backend', 'done', step(8), 'api'),
     act('reviewer', 'writing', step(8), 'review'),
     task('review', 'done', step(8) + 4000),
-    say('reviewer', 'lead', 'Review passed: UI and API approved.', step(8) + 4000),
+    say('reviewer', 'lead', REVIEW, step(8) + 4000),
 
     // 9. The Lead sends you the report and everyone rests.
     act('reviewer', 'done', step(9), 'review'),

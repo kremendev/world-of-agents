@@ -1,9 +1,10 @@
-import type { AgentId, AgentState, OfficeEvent, TaskStatus } from '../events/schema';
+import type { AgentId, AgentState, OfficeEvent, TaskStatus, ToolCounts } from '../events/schema';
 
 /** `copies` is set only while more than one copy of the agent runs (v2). */
 export type AgentStatus = { state: AgentState; taskId?: string; copies?: number };
 export type Task = { id: string; title: string; owner: AgentId; status: TaskStatus };
-export type Message = { from: AgentId; to: AgentId | 'you'; text: string; at: number };
+/** `tools`: the calls the hall saw, on the Reviewer's report only (v3.1). */
+export type Message = { from: AgentId; to: AgentId | 'you'; text: string; tools?: ToolCounts; at: number };
 
 /** One line of activity: an agent changing state, or a message between agents. */
 export type LogEntry =
@@ -71,7 +72,8 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
       };
     }
     case 'message': {
-      const message: Message = { from: event.from, to: event.to, text: event.text, at: event.at };
+      const { from, to, text, tools, at } = event;
+      const message: Message = { from, to, text, ...(tools ? { tools } : {}), at };
       return {
         ...state,
         messages: [...state.messages, message].slice(-MAX_MESSAGES),

@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parseEvent, type OfficeEvent } from '../src/events/schema';
+import { LIMITS, parseEvent, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer, workingCount } from '../src/state/office';
 import type { HookInput } from './hook-input';
 import { INITIAL_MAP, mapHook, type MapState } from './map';
 import { finalReport, whoIsWaiting } from '../src/live/announce';
 import { feedLines } from '../src/page/feed';
+import { reviewsOf } from '../src/page/review';
 import { hookOf, run1, run2, run3, run4 } from './test-helpers';
 
 /** Freezes a state all the way down, so a mapHook that changes the state it was given throws. */
@@ -1336,5 +1337,129 @@ describe('mapHook sessions: the hall follows the first one it hears from, until 
     ]);
     expect(steps[2]!.events).toEqual([]);
     expect(state.cards).toHaveLength(1);
+  });
+});
+
+describe("the Reviewer's report carries the calls the hall saw (v3.1, D10)", () => {
+  const officeAfter = (run: typeof run1) =>
+    play(run.map((hook) => hookOf(hook.n, run))).events.reduce(officeReducer, INITIAL_OFFICE);
+  const R = 'rev-1';
+  const call = (tool_name: string, id = R) => bySub('PreToolUse', 'reviewer', id, { tool_name });
+  const stop = (id = R) => bySub('SubagentStop', 'reviewer', id, { last_assistant_message: 'Done.' });
+  const messages = (events: readonly OfficeEvent[]) => events.filter((e) => e.type === 'message');
+
+  it.each([
+    ['run 1', run1, 3],
+    ['run 2', run2, 1],
+    ['run 3', run3, 1],
+    ['run 4', run4, 1],
+  ] as const)('%s: the Reviewer read %i times, and no other message carries a count', (_, run, reads) => {
+    expect(officeAfter(run).messages.filter((m) => m.tools)).toEqual([
+      expect.objectContaining({ from: 'reviewer', to: 'lead', tools: { Read: reads, Grep: 0, Glob: 0 } }),
+    ]);
+  });
+
+  it("the recorded reports predate the format: each run has one review, and it shows as written (run 2's has no text)", () => {
+    for (const run of [run1, run2, run3, run4]) {
+      const reviews = reviewsOf(officeAfter(run).messages);
+      expect(reviews).toHaveLength(1);
+      expect(reviews[0]!.review).toBeNull();
+    }
+    expect(reviewsOf(officeAfter(run2).messages)[0]!.message.text).toBe('Report sent to the Lead');
+  });
+
+  it('counts Read, Grep and Glob for each run on its own, and no other tool', () => {
+    const { events } = play([
+      start,
+      call('Read'),
+      call('Grep'),
+      call('Glob'),
+      call('Read'),
+      call('Edit'),
+      call('Bash'),
+      call('Read', 'rev-2'),
+      stop(),
+      stop('rev-2'),
+    ]);
+    expect(messages(events)).toEqual([
+      {
+        type: 'message',
+        from: 'reviewer',
+        to: 'lead',
+        text: 'Done.',
+        tools: { Read: 2, Grep: 1, Glob: 1 },
+        at: 8,
+      },
+      {
+        type: 'message',
+        from: 'reviewer',
+        to: 'lead',
+        text: 'Done.',
+        tools: { Read: 1, Grep: 0, Glob: 0 },
+        at: 9,
+      },
+    ]);
+  });
+
+  it('ignores a call that lands after the stop, so the count is "at least"', () => {
+    const { events, state } = play([start, call('Read'), stop(), call('Read')]);
+    expect(messages(events)).toMatchObject([{ tools: { Read: 1, Grep: 0, Glob: 0 } }]);
+    expect(state.runs[R]!.tools).toEqual({ Read: 1, Grep: 0, Glob: 0 });
+  });
+
+  it('reports zeros when it saw no call, so the board can say the hall saw none', () => {
+    expect(messages(play([start, stop()]).events)).toMatchObject([{ tools: { Read: 0, Grep: 0, Glob: 0 } }]);
+  });
+
+  it("puts a count on the Reviewer's report only, never on another agent's", () => {
+    const { events } = play([
+      start,
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Read' }),
+      bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'Built it.' }),
+    ]);
+    expect(messages(events)).toEqual([
+      { type: 'message', from: 'backend', to: 'lead', text: 'Built it.', at: 2 },
+    ]);
+  });
+
+  it('counts a Read that lands just after its own PermissionRequest: the call still happened', () => {
+    const { steps, events } = play([
+      start,
+      bySub('PermissionRequest', 'reviewer', R, { tool_name: 'Read' }),
+      call('Read'),
+      stop(),
+    ]);
+    expect(steps[2]!.events).toEqual([]); // the flag stays up, as before
+    expect(messages(events)).toMatchObject([{ tools: { Read: 1, Grep: 0, Glob: 0 } }]);
+  });
+
+  it("keeps the count when the Reviewer's task fails before its stop arrives", () => {
+    const { events } = play([
+      start,
+      handOut('t1', 'reviewer', 'Review'),
+      bySub('SubagentStart', 'reviewer', R),
+      returned('t1', R, 'async_launched'),
+      call('Grep'),
+      byLead('UserPromptSubmit', { task_notification: { task_id: R, tool_use_id: 't1', status: 'failed' } }),
+      stop(),
+    ]);
+    expect(messages(events)).toMatchObject([{ from: 'reviewer', tools: { Read: 0, Grep: 1, Glob: 0 } }]);
+  });
+
+  it(`stops counting at ${LIMITS.toolCalls}, so the report still passes parseEvent() and arrives`, () => {
+    const full: MapState = {
+      ...INITIAL_MAP,
+      session: S,
+      runs: {
+        [R]: {
+          agent: 'reviewer',
+          state: 'reading',
+          stopped: false,
+          tools: { Read: LIMITS.toolCalls, Grep: 0, Glob: 0 },
+        },
+      },
+    };
+    const { events } = play([call('Read'), stop()], full);
+    expect(messages(events)).toMatchObject([{ tools: { Read: LIMITS.toolCalls, Grep: 0, Glob: 0 } }]);
   });
 });

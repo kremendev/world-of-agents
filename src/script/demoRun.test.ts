@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { AGENT_IDS, parseEvent } from '../events/schema';
 import { destinationFor } from '../office/hall/destination';
+import { bubbleText } from '../office/hall/talk';
+import { reviewsOf } from '../page/review';
 import { restingWalkers, sendTo, step, walkerAt } from '../office/hall/walkers';
 import { MAX_TASK_CHARS } from '../page/task';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
@@ -100,6 +102,14 @@ describe('demo run', () => {
       ui: 'frontend',
       review: 'reviewer',
     });
+  });
+
+  it("has one review, the Reviewer's report to the Lead in the format, and its bubble still says the verdict alone", () => {
+    const reviews = reviewsOf(DEMO_RUN.reduce(officeReducer, INITIAL_OFFICE).messages);
+    expect(reviews).toHaveLength(1);
+    expect(reviews[0]!.review).toMatchObject({ verdict: 'Approved', findings: [] });
+    expect(reviews[0]!.review?.files).toHaveLength(4);
+    expect(bubbleText(reviews[0]!.message.text)).toBe('Review passed: UI and API approved.');
   });
 
   it('ends with every task done, the report sent to you and everyone resting', () => {

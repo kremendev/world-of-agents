@@ -62,7 +62,8 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   after it, selectable; a row click toggles too, but not in that text or when it ends a selection;
                   flagOf(): To you, Needs you, Failed, and an approval row says "Needs you" once),
                   AgentText (agent text: `code` and **bold** as elements, the rest plain text), shorten.ts (the cut
-                  bubbles and rows share: links as their text first, never a mark left open)
+                  bubbles and rows share: links as their text first, never a mark left open), review.ts (v3.1: the
+                  Reviewer's report format, parseReview() and reviewsOf(); a review is known by its sender, never its text)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
@@ -107,7 +108,7 @@ bin/              woa: the launcher, bash for Git Bash (finds the repo from its 
                   with a fake claude
 .github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
 docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
-                  really do), v3-m2-plan.md (milestone 2 in parts), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  really do), v3-m2-plan.md (milestone 2 in parts), v3.1-plan.md (v3.1.0, better reviews: parts 3.1a to 3.1e), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -539,5 +540,12 @@ plan's "v3.0.1: small fixes", desktop-checked 11 Nov) is released (11 Nov, tag `
 the user's rules, in a first setup too, the pane warns when the plugin is on for every project, "Written." promises no
 mode, and the minimum Claude Code version is 2.1.312, the oldest measured with the pane's `$.settings.read`.
 `woa-test` and `woa-v3-test` run it from GitHub at local scope; `woa-m2-test` stays on `woa-dev`, whose copy needs
-`npm run dev:refresh` before the next desktop check (the plan's "Releasing v3.0.1", step 6). Next: v3.1.0 (the plan's
-last section).
+`npm run dev:refresh` before the next desktop check (the plan's "Releasing v3.0.1", step 6).
+
+6. The long run, v3.1.0 to v3.4.0 (Dima's brief of 11 Nov), on the branch `v3-next`, built alone and tested by Dima at the
+   end. Commits go on `v3-next` only, one per finished part, pushed there: never `main`, never a tag or a release. After
+   each part: `npm run check` from `C:\`, `check:hall` when the hall changes, planted bugs for the new logic, and this
+   status. Each version gets a desktop checklist for Dima in docs/release-notes/<version>-check.md. Real model runs only
+   where nothing else can prove a fact, tiny, in throwaway folders under ~/Downloads/woa-*, deleted after use.
+   Done: 3.1a (the Reviewer's report format, its parser, the hall's Read/Grep/Glob counts on the Reviewer's report).
+   Next: 3.1b (the Reviewer on Opus, the guard's `model` rule, one tiny real run to see whether Opus follows the format).

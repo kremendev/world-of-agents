@@ -26,6 +26,32 @@ describe('parseEvent', () => {
     for (const n of [1, 0, LIMITS.agentCopies + 1, 2.5]) expect(copies(n).ok, String(n)).toBe(false);
   });
 
+  it(`takes the calls the hall saw on a message: Read, Grep and Glob, whole numbers 0 to ${LIMITS.toolCalls}, nothing else`, () => {
+    const withTools = (tools: unknown) =>
+      parseEvent({ type: 'message', from: 'reviewer', to: 'lead', text: 'Review', tools, at: 0 });
+    const event = {
+      type: 'message',
+      from: 'reviewer',
+      to: 'lead',
+      text: 'Review',
+      tools: { Read: 3, Grep: 0, Glob: LIMITS.toolCalls },
+      at: 0,
+    };
+    expect(parseEvent(event)).toEqual({ ok: true, event });
+    for (const tools of [
+      { Read: -1, Grep: 0, Glob: 0 },
+      { Read: 1.5, Grep: 0, Glob: 0 },
+      { Read: LIMITS.toolCalls + 1, Grep: 0, Glob: 0 },
+      { Read: '1', Grep: 0, Glob: 0 },
+      { Read: 1, Grep: 0 },
+      { Read: 1, Grep: 0, Glob: 0, Bash: 1 },
+      [1, 0, 0],
+      null,
+    ]) {
+      expect(withTools(tools).ok, JSON.stringify(tools)).toBe(false);
+    }
+  });
+
   it('rejects an empty or oversized run text, and a reset with anything else in it', () => {
     expect(parseEvent({ type: 'run', text: '', at: 0 }).ok).toBe(false);
     expect(parseEvent({ type: 'run', text: 'x'.repeat(LIMITS.titleLength + 1), at: 0 }).ok).toBe(false);
