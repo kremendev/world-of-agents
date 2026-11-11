@@ -15,7 +15,8 @@ pane feature and all the process spawning. Spawning processes (the hall, PowerSh
 gets a review of its own.
 
 **The release closes the milestone: `v3.0.0`.** It's a major because the guard now denies Claude Code's built-in agents, a
-change in behaviour. Later milestones are minors (the ledger is `v3.1.0`, and so on). The release bumps `plugin.json`, runs
+change in behaviour. Later milestones are minors (`v3.1.0` is the review release, docs/v3.1-plan.md; the ledger is
+`v3.2.0`, and so on). The release bumps `plugin.json`, runs
 the hall freshness check, tags, writes the notes and moves the README pin, all on Dima's go. The README names the minimum
 Claude Code version: 2.1.299 or later (decision 27; `onFailure` alone needs 2.1.295). The done-when ("you never touch a terminal") is then checked with the
 plugin installed from GitHub through the desktop app's own Plugins screen, which also settles milestone 0's done-when.

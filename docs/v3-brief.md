@@ -369,7 +369,8 @@ commit only when Dima asks, and never add Claude or Anthropic lines to commits, 
 real behaviour disagree, real behaviour wins: say so and fix this brief.
 
 **Releases.** Milestone 2 ships as `v3.0.0`: a major, because the guard now denies Claude Code's built-in agents, a change in
-behaviour. Each later milestone is a minor: the ledger is `v3.1.0`, and so on. The README names the minimum Claude Code
+behaviour. Each later milestone is a minor: `v3.1.0` is the review release (docs/v3.1-plan.md, 11 Nov), the ledger is
+`v3.2.0`, and so on. The README names the minimum Claude Code
 version: 2.1.299 or later for `v3.0.0` (the guard's `onFailure` needs 2.1.295, and older engines refuse the mod: measured
 on 10 Nov, docs/v3-m2-plan.md decision 27), 2.1.312 or later from `v3.0.1`, whose pane calls `$.settings.read`, measured
 on 2.1.312 and 2.1.319 only.
