@@ -12,6 +12,17 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.1
+
+Better reviews. Click the Reviewer, or "Open review" on a review in the activity feed, and a **review board** opens
+beside the hall: the verdict, the files checked, the findings with file and line, what the Reviewer says it ran and,
+on its own line, the Read, Grep and Glob calls the hall saw it make. The Reviewer now runs on Opus and ends its report
+with fixed headings, and the guard denies an Agent call that tries to choose a model or to run an agent remotely. A
+**"For you" strip** keeps
+messages to you, approval waits and failures at the top of the feed until you click them, with an **"Only for me"**
+filter, and **Copy** copies a long message or a review as the page shows it, hidden characters left out. The details
+are in the [release notes](docs/release-notes/v3.1.0.md).
+
 ## New in v3
 
 v3 brings the team into the Claude desktop app. Installed as a plugin in one project, it adds:
@@ -85,13 +96,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.0.1
+/plugin marketplace add kremendev/world-of-agents#v3.1.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.0.1
+claude plugin marketplace add kremendev/world-of-agents#v3.1.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -134,8 +145,11 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 - The furnace burns brighter the more agents are working.
 - When Claude Code asks for your approval, the agent shows "needs you" and an orange banner names it.
 - A finished agent's card moves to Done, and it walks to the rest room, where it shows the first sentence of its last message. A bubble never rides along with a walking agent: it waits until the agent stops.
-- The Reviewer reads the work, and the Lead's report shows as a message to you.
+- The Reviewer reads the work, and the Lead's report shows as a message to you. Click the Reviewer for the review
+  board: each review as a card, built from the five headings the Reviewer ends its report with, and the calls the hall
+  saw it make on a line of their own. A report that doesn't follow the headings shows as written.
 - The activity feed lists every step with its time. Click an agent to see only that agent. A long message shows cut: "Show all" opens the whole text under it, where you can select and copy it, and a click on the row works too. Messages to you, approval waits and failures stand out with a border and a label ("To you", "Needs you", "Failed"), decided by the kind of event, never by what the text says.
+- At the top of the feed, the "For you" strip holds what is for you and not yet clicked: messages to you, approval waits and failures, three at most. "Only for me" shows only those rows. Copy, on an opened row and on each review card, copies the text as the page shows it: a link as its text, invisible characters left out.
 
 ## What it never does
 
@@ -152,7 +166,7 @@ The hook script sends the hall a short list of fields: event name, ids, agent ty
 
 `woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The setup skills, only when you type them, add the settings above to that file and a line for it to `.gitignore`. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless: the hook script posts nothing until the hall proves it holds the token. An installed plugin has this check from v2.2.0.
 
-One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
+One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. From v3.1 it also denies an agent start that chooses a model (the agent's own file decides) or runs the agent anywhere but on this PC (`isolation` other than none or `"worktree"`). The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
 
 The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed. It never reads your draft. Of the messages you send, it only checks whether one carries an agent's result, and it keeps none of their text. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. Of your settings it reads one key, `enabledPlugins` in your user settings, to warn when the plugin is on for every project, and nothing else of them. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall) and the voice script. Nothing they print is shown or kept. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
 

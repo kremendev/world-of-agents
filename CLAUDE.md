@@ -578,4 +578,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    wider than the plan drafted). 3.1f (the review's fixes, 12 Nov: the guard denies `isolation` other than none or
    "worktree"; every plugin script's run check compares real paths, never a name). v3.1.0 is built; its desktop
    checklist is docs/release-notes/v3.1.0-check.md.
-   Next: prepare v3.1.0 (plugin.json 3.1.0, release notes, README), then v3.2.0 (the ledger: plan first).
+   v3.1.0 is prepared, not tagged: plugin.json and package.json 3.1.0, docs/release-notes/v3.1.0.md, the README with
+   its pins on `#v3.1.0` (a tag that exists only once Dima tags this commit after his test).
+   Next: v3.2.0, the token ledger (milestone 3): write docs/v3.2-plan.md first, then build it.
