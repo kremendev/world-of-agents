@@ -92,7 +92,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
-                  command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), types.d.ts
+                  command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
+                  readLedger(), summarize(), the dated price table, the pane's "This PC" line), types.d.ts
                   the state contract that plugin.json names; *.test.tsx are kit tests), voice/speak.ps1 (the voice
                   script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
@@ -115,7 +116,8 @@ bin/              woa: the launcher, bash for Git Bash (finds the repo from its 
                   with a fake claude
 .github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
 docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
-                  really do), v3-m2-plan.md (milestone 2 in parts), v3.1-plan.md (v3.1.0, better reviews: parts 3.1a to 3.1e), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  really do), v3-m2-plan.md (milestone 2 in parts), v3.1-plan.md (v3.1.0, better reviews: parts 3.1a to 3.1e),
+                  v3.2-plan.md (v3.2.0, the token ledger; L7, the backfill, waits for Dima), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -311,6 +313,8 @@ Do not change the look without asking. New ideas go into a later version.
   When the box doesn't take the text the pane says why in one line: "This surface has no prompt box" for the engine's
   `no_composer`, else, a fill that throws included, "Couldn't fill the prompt box". The presets spike (9 Nov) saw fill work in the desktop app's Code
   tab, a draft kept. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
+  The ledger (v3.2) keeps numbers only in `$.store` (`ledger`): the engine's four token counts per model id (ids that
+  aren't `[a-z][a-z0-9.-]{0,63}` count as `other`, at most 32), read back through `readLedger()`'s strict check.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
   checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
@@ -580,4 +584,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    checklist is docs/release-notes/v3.1.0-check.md.
    v3.1.0 is prepared, not tagged: plugin.json and package.json 3.1.0, docs/release-notes/v3.1.0.md, the README with
    its pins on `#v3.1.0` (a tag that exists only once Dima tags this commit after his test).
-   Next: v3.2.0, the token ledger (milestone 3): write docs/v3.2-plan.md first, then build it.
+   v3.2.0 (docs/v3.2-plan.md): 3.2a done (every turn's usage, the Lead's and each subagent's, from turn.complete, added
+   per model to `ledger` in $.store, one count at a time; the pane's "This PC" line with the value at the dated API
+   prices). 3.2c, past sessions, is not built: it waits for Dima on L7 (the mod would keep numbers a child prints).
+   Next: 3.2b (the total in the hall's page header: hooks/ledger-send.mjs, POST /api/ledger, a `ledger` event).

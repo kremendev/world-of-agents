@@ -5,6 +5,7 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
+import { ledgerLines } from './ledger';
 import { nameOf, ROSTER } from './roster';
 import type { PaneAgent, PaneFillRefusal, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
@@ -173,6 +174,13 @@ export function drawPane(
               <Text>{limitLine(limit)}</Text>
             ))}
           </Box>
+        )}
+        {v.ledger === null ? (
+          <Text dimColor>This PC: nothing counted yet.</Text>
+        ) : (
+          ledgerLines(v.ledger).map((line, i) =>
+            i === 0 ? <Text>{line}</Text> : <Text dimColor>{line}</Text>,
+          )
         )}
       </Box>
       <Box flexDirection="column">

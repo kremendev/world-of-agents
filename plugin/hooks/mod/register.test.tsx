@@ -42,6 +42,7 @@ const STORED_VIEW: PaneView = {
   asks: [],
   mode: null,
   usage: null,
+  ledger: null,
   round: [],
   unheard: [],
   hall: 'stopped',
@@ -319,7 +320,7 @@ describe('prompts', () => {
     // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
     on('state.get', () => ({
       value: {
-        value: { shape: 'view-5', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        value: { shape: 'view-6', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
         version: 1,
       },
     }));
@@ -511,5 +512,96 @@ describe('the team command', () => {
       text: 'the skill ran',
     });
     expect(opened).toHaveLength(1);
+  });
+});
+
+describe('the token ledger (v3.2)', () => {
+  const usage = (model: string, input: number) => ({
+    input_tokens: input,
+    output_tokens: 10,
+    cache_read_input_tokens: 100,
+    cache_creation_input_tokens: 0,
+    model,
+  });
+  const turn = (more: { agentId?: string; usage?: ReturnType<typeof usage> } = {}) => ({
+    answer: '',
+    durationMs: 1,
+    isAborted: false,
+    turnId: 't1',
+    reason: 'answer' as const,
+    ...more,
+  });
+
+  test("adds every agent's turn to the total in the store, two at once included, and the pane shows it", async ($, on) => {
+    const clock = engine(on);
+    const store = new Map<string, unknown>();
+    on('store.get', (_, e) => ({ value: store.get(e.key) }));
+    on('store.set', (_, e) => {
+      store.set(e.key, JSON.parse(JSON.stringify(e.value)));
+      return { value: undefined };
+    });
+    on('turn.complete', () => ({ text: 'The answer as the engine has it.' }));
+
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(await ui.find({ type: 'Text', text: 'This PC: nothing counted yet.' })).toBeDefined();
+    // The Lead's turn and a subagent's, ending together, then a turn that counted nothing (an interrupt).
+    const answers = await Promise.all([
+      $.turn.complete(turn({ usage: usage('claude-opus-5-5', 1000) })),
+      $.turn.complete(turn({ agentId: 'a1', usage: usage('claude-sonnet-5-5', 2000) })),
+      $.turn.complete(turn({ agentId: 'a1', usage: usage('claude-sonnet-5-5', 3000) })),
+    ]);
+    await $.turn.complete(turn({ agentId: 'a1' }));
+    await clock.settle();
+
+    expect(answers.map((a) => a.text)).toEqual(Array(3).fill('The answer as the engine has it.'));
+    expect(store.get('ledger')).toMatchObject({
+      models: {
+        'claude-opus-5-5': { inputTokens: 1000, outputTokens: 10, cacheRead: 100, cacheWrite: 0, turns: 1 },
+        'claude-sonnet-5-5': { inputTokens: 5000, outputTokens: 20, cacheRead: 200, cacheWrite: 0, turns: 2 },
+      },
+    });
+    const lines = (await ui.findAll({ type: 'Text', text: /^This PC since/ })).map((t) => t.text);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatch(/: 6K tokens in, 30 out, about \$0\.01 at API prices \(11 Nov 2026\)\.$/);
+    await ui.unmount();
+  });
+
+  test('shows the total kept from an earlier session at session start', async ($, on) => {
+    const clock = engine(on);
+    const kept = {
+      since: Date.UTC(2026, 10, 11, 12),
+      models: {
+        'claude-opus-5-5': { inputTokens: 1_000_000, outputTokens: 0, cacheRead: 0, cacheWrite: 0, turns: 4 },
+      },
+    };
+    on('store.get', (_, e) => ({ value: e.key === 'ledger' ? kept : undefined }));
+    on('store.set', () => ({ value: undefined }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+      /: 1\.0M tokens in, 0 out, about \$4\.00 at API prices/,
+    );
+    await ui.unmount();
+  });
+
+  test('a store that fails costs the count and nothing else: the turn goes on as the engine answered it', async ($, on) => {
+    const clock = engine(on);
+    on('store.get', () => {
+      throw new Error('no store');
+    });
+    on('store.set', () => {
+      throw new Error('no store');
+    });
+    on('turn.complete', () => ({ text: 'Still here.' }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    const answer = await $.turn.complete(turn({ usage: usage('claude-opus-5-5', 1000) }));
+    await clock.settle();
+    expect(answer.text).toBe('Still here.');
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(await ui.find({ type: 'Text', text: 'This PC: nothing counted yet.' })).toBeDefined();
+    await ui.unmount();
   });
 });

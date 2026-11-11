@@ -33,6 +33,19 @@ export type PaneLimit = { kind: string; percentUsed: number; resetsAt?: string }
 export type PaneUsage = { tokens?: number; window: number; percent?: number; limits: PaneLimit[] };
 
 /**
+ * The token ledger as the pane shows it (v3.2): tokens in (input, cache reads and writes) and out since `since` on this PC,
+ * their value at API prices in whole cents, and the tokens of models the price table doesn't know.
+ */
+export type PaneLedger = {
+  since: number;
+  tokensIn: number;
+  tokensOut: number;
+  cents: number;
+  pricedOn: string;
+  unpriced: { model: string; tokens: number }[];
+};
+
+/**
  * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs), `taken` when
  * something else holds port 4319, `stopped` when nothing runs and no start is under way.
  */
@@ -55,6 +68,8 @@ export type PaneView = {
   /** The last `permission_mode` a prompt or a subagent start carried; null before the first. */
   mode: string | null;
   usage: PaneUsage | null;
+  /** The ledger's total, kept in $.store across sessions; null until the first turn is counted. */
+  ledger: PaneLedger | null;
   /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */
   round: string[];
   /**

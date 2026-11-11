@@ -11,12 +11,14 @@ import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
 import { findNode, keepHall } from './hall';
+import { addTurn, LEDGER_KEY, readLedger, summarize } from './ledger';
+import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
 import { fillPreset } from './presets';
 import type { PresetKey } from './presets';
 import { rosterIdOf } from './roster';
 import { plain } from './text';
-import type { PaneAgent, PaneHall, PaneView } from './types';
+import type { PaneAgent, PaneHall, PaneLedger, PaneView } from './types';
 import { approvalLine, backgroundRun, heardRun, hush, say, teamLine } from './voice';
 
 const PANE = 'world-of-agents';
@@ -26,6 +28,7 @@ const EMPTY: PaneView = {
   asks: [],
   mode: null,
   usage: null,
+  ledger: null,
   round: [],
   unheard: [],
   hall: 'checking',
@@ -37,7 +40,7 @@ const EMPTY: PaneView = {
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-5' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-6' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -89,7 +92,14 @@ async function startUp($: EngineInterface): Promise<void> {
   } catch {
     // No store: the voice is on, as by default.
   }
-  await set($, (v) => ({ ...v, muted, hall: 'checking', node: 'unchecked', nodeVersion: null }));
+  let ledger: PaneLedger | null = null;
+  try {
+    const kept = readLedger(await $.store.get(LEDGER_KEY));
+    ledger = kept ? summarize(kept) : null;
+  } catch {
+    // No store: the pane says nothing has been counted yet.
+  }
+  await set($, (v) => ({ ...v, muted, ledger, hall: 'checking', node: 'unchecked', nodeVersion: null }));
   const found = await findNode($);
   await set($, (v) => ({ ...v, ...found }));
   if (found.node === 'ok') await keepHall($, setHall($));
@@ -125,6 +135,26 @@ async function checkHall($: EngineInterface): Promise<void> {
  * dispatch it was started in when that is abandoned, and an interrupted turn abandons its own.
  */
 let checkHallInSession: (() => Promise<void>) | undefined;
+
+/**
+ * One turn's tokens added to the ledger in $.store (v3.2), then shown. Numbers and the engine's model id only. A store
+ * that fails costs this turn's count and nothing else; two sessions ending turns at once can lose one (no atomic update).
+ */
+async function countTurn($: EngineInterface, usage: TurnUsageLike): Promise<void> {
+  const ledger = addTurn(readLedger(await $.store.get(LEDGER_KEY)), usage, Date.now());
+  await $.store.set(LEDGER_KEY, ledger);
+  const summary = summarize(ledger);
+  await set($, (v) => ({ ...v, ledger: summary }));
+}
+
+/**
+ * The counts in line, one at a time: the Lead's turn and a background run's can end together, and two counts that both
+ * read the old total would lose one of the turns.
+ */
+let counting: Promise<void> = Promise.resolve();
+function count($: EngineInterface, usage: TurnUsageLike): void {
+  counting = counting.then(() => countTurn($, usage)).catch(() => {});
+}
 
 /** Speaks a line, unless the voice is muted. */
 async function speakUp($: EngineInterface, line: string): Promise<void> {
@@ -194,6 +224,8 @@ export const register: Register = (on) => {
   });
   on('turn.complete', async ($, e, next) => {
     const completed = await next(e);
+    // Every agent's turn costs tokens: the Lead's and each subagent's.
+    if (e.usage !== undefined) count($, e.usage);
     if (e.agentId === undefined) {
       quietly(
         (async () => {

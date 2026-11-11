@@ -18,6 +18,7 @@ describe('the mod sends nothing as Dima', () => {
   it('reads the files the engine loads', () => {
     expect(sources.map((s) => s.name).sort()).toEqual([
       'hall.ts',
+      'ledger.ts',
       'pane.tsx',
       'presets.ts',
       'register.tsx',
