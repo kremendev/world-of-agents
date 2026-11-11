@@ -12,6 +12,15 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.2
+
+The token ledger. The team pane counts every turn of every agent, per session, and shows the total for this PC with
+what those tokens would cost at API prices ("about": it is an estimate), and the hall's header shows the same total.
+Only numbers are kept, in the plugin's own store. Every other Claude Code session on this PC counts too once you press
+"Recount": a fixed script reads only the token counts in Claude Code's transcripts, and each session it covers takes the
+transcript's exact count. The hall's badge names its plugin version, and the pane says so when another install's hall
+holds the port. The details are in the [release notes](docs/release-notes/v3.2.0.md).
+
 ## New in v3.1
 
 Better reviews. Click the Reviewer, or "Open review" on a review in the activity feed, and a **review board** opens
@@ -96,13 +105,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.1.0
+/plugin marketplace add kremendev/world-of-agents#v3.2.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.1.0
+claude plugin marketplace add kremendev/world-of-agents#v3.2.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -150,6 +159,7 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
   saw it make on a line of their own. A report that doesn't follow the headings shows as written.
 - The activity feed lists every step with its time. Click an agent to see only that agent. A long message shows cut: "Show all" opens the whole text under it, where you can select and copy it, and a click on the row works too. Messages to you, approval waits and failures stand out with a border and a label ("To you", "Needs you", "Failed"), decided by the kind of event, never by what the text says.
 - At the top of the feed, the "For you" strip holds what is for you and not yet clicked: messages to you, approval waits and failures, three at most. "Only for me" shows only those rows. Copy, on an opened row and on each review card, copies the text as the page shows it: a link as its text, invisible characters left out.
+- In Live, the header shows the token ledger's total for this PC: "This PC: 3.6M tokens · about $17.20 at API prices", the same total the team pane shows. Its badge names the plugin version of the hall you are looking at: "Forge Hall · v3.2.0".
 
 ## What it never does
 
@@ -168,7 +178,7 @@ The hook script sends the hall a short list of fields: event name, ids, agent ty
 
 One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. From v3.1 it also denies an agent start that chooses a model (the agent's own file decides) or runs the agent anywhere but on this PC (`isolation` other than none or `"worktree"`). The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
 
-The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed. It never reads your draft. Of the messages you send, it only checks whether one carries an agent's result, and it keeps none of their text. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. Of your settings it reads one key, `enabledPlugins` in your user settings, to warn when the plugin is on for every project, and nothing else of them. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall) and the voice script. Nothing they print is shown or kept. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
+The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed. It never reads your draft. Of the messages you send, it only checks whether one carries an agent's result, and it keeps none of their text. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. Of your settings it reads one key, `enabledPlugins` in your user settings, to warn when the plugin is on for every project, and nothing else of them. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall), `node hooks/ledger-post.mjs` (the token total, to the hall), `node hooks/ledger-past.mjs` (every session's token counts, only when you press "Recount") and the voice script. Nothing they print is shown or kept, except the version digits `node --version` prints, the hall's version `hall-check.mjs` prints, and the session ids and whole numbers `ledger-past.mjs` prints, each checked to the character and dropped whole when it isn't exactly that. Two installs on one PC share the hall's token file, so the pane links to the hall only when it states the pane's own version; another install's hall gets a line naming its version, no link and no total, and the pane never stops it. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 
@@ -192,7 +202,13 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
   - If a session sends no `PermissionRequest` (the hall started mid-wait, or an older Claude Code), the hall guesses after about 6 s: the running subagent that last used Edit, Write or Bash. With two writing at once it can name the wrong one.
   - Once a `PermissionRequest` has arrived in a session, the hall never guesses. If a later one gets lost, that wait shows no flag.
 - **The pane's approval list.** An approval stays listed until that call finishes, so a long command stays there while it runs after you approve it. The mode warning can come one prompt late: Claude Code says nothing when you switch modes, so the pane learns the mode from the next prompt or agent start.
-- **No token counts.** Hooks don't report them.
+- **The token ledger is an estimate.** It counts only sessions where the plugin runs, until you press "Recount", which
+  counts every session in Claude Code's transcripts on this PC; sessions after that are again only the plugin's, as the
+  pane says. Live counts price the Lead's cache writes at the 1-hour rate and subagents' at the 5-minute rate, which is
+  what Claude Code did on every response we measured, but the counts don't say; Recount uses each transcript's own
+  split. Fast mode is priced at the standard price. A session where a turn may still run (anything in the last 10 minutes,
+  or a tool call waiting) keeps its live count until a later Recount. Two sessions ending turns in the same moment can
+  lose one turn's count. claude.ai/settings/usage is the full picture of your plan.
 - **No sandbox on native Windows.** Commands run with your user's rights, so your approval is the guard. Read each command before you approve it. Claude Code's sandbox needs macOS, Linux or WSL2.
 - **One session at a time.** The hall follows one session. Starting, clearing or resuming a session takes it over.
 - **The desktop app's mode can beat Manual.** In our tests the app used the setup's Manual only in a git repository; in a folder without git it used your own default mode. A mode you pick in the selector also sticks to that folder and wins over the file. Check the selector in the first new session, and if it doesn't say Manual, pick Manual once: the app remembers it for that folder. The pane warns in Auto, Bypass permissions and Accept edits.

@@ -630,4 +630,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    pane names another install's hall instead of linking to it; the ledger is per session, the Lead's cache writes priced
    at 1 hour, Recount replaces each settled session's count with its transcript's, exact; billions as "1.18B".
    The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
-   Next: prepare v3.2.0, then v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.
+   v3.2.0 is prepared, not tagged (plugin.json 3.2.0, docs/release-notes/v3.2.0.md, README pins on `#v3.2.0`).
+   Next: v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.

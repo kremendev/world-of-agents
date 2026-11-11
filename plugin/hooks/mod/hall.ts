@@ -19,7 +19,7 @@ import type { PaneHall, PaneLedger, PaneNode } from './types';
  * This plugin's version, as plugin.json states it: change both together (tests/plugin/mod.test.ts checks). The hall it
  * starts reports the same; a hall that reports another one is another install's (3.2d).
  */
-export const PLUGIN_VERSION = '3.1.0';
+export const PLUGIN_VERSION = '3.2.0';
 
 export const NODE_VERSION = ['node', '--version'] as const;
 /** hooks/hall-check.mjs: send.mjs's handshake, answered with an exit code only. */
