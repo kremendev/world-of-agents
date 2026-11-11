@@ -114,10 +114,11 @@ describe('ActivityFeed', () => {
 });
 
 describe('a long message: cut in its row, "Show all" opens the whole text after it', () => {
+  // From the Backend dev: the Reviewer's report to the Lead is a review, which opens on the review board instead.
   const report = `All done. ${'The routes are up and tested. '.repeat(20)}End with [example](https://example.com)`;
   const longRun = office(
-    { type: 'message', from: 'reviewer', to: 'lead', text: report, at: time(9, 0, 0) },
-    { type: 'message', from: 'backend', to: 'lead', text: 'Short one.', at: time(9, 0, 1) },
+    { type: 'message', from: 'backend', to: 'lead', text: report, at: time(9, 0, 0) },
+    { type: 'message', from: 'designer', to: 'lead', text: 'Short one.', at: time(9, 0, 1) },
   );
   const showAll = () => screen.getByRole('button', { name: 'Show all' });
   const showLess = () => screen.getByRole('button', { name: 'Show less' });
@@ -203,7 +204,7 @@ describe('a long message: cut in its row, "Show all" opens the whole text after 
     fireEvent.click(showAll());
     const more = officeReducer(longRun, {
       type: 'message',
-      from: 'reviewer',
+      from: 'frontend',
       to: 'lead',
       text: `Second review. ${'More findings here. '.repeat(20)}`,
       at: time(9, 1, 0),
@@ -266,5 +267,85 @@ describe('the rows that matter to you stand out, with a word as well as a colour
     expect(bait).not.toHaveClass('flagged');
     expect(bait.querySelector('.feed-flag')).toBeNull();
     expect(document.querySelectorAll('.feed-flag')).toHaveLength(3);
+  });
+});
+
+describe("a review row: the Reviewer's report to the Lead opens on the review board (v3.1)", () => {
+  const REPORT = [
+    'I reviewed the routes.',
+    '## Verdict',
+    'Changes needed',
+    '## Files checked',
+    '- server/routes.ts',
+    '## Findings',
+    '- server/routes.ts:4: the id is never checked',
+    '- server/routes.ts:9: errors are swallowed',
+    '## Checks run',
+    '- Read server/routes.ts',
+    '## Left for the Lead',
+    'None',
+  ].join('\n');
+  const reviewed = (from: 'reviewer' | 'backend', text = REPORT) =>
+    office({ type: 'message', from, to: 'lead', text, at: time(10, 0, 0) });
+
+  it('reads "Review: <verdict>, <findings>", has an "Open review" button and no Show all', () => {
+    const onOpenReview = vi.fn();
+    render(
+      <ActivityFeed
+        office={reviewed('reviewer')}
+        agent={null}
+        onShowEveryone={() => {}}
+        onOpenReview={onOpenReview}
+      />,
+    );
+    expect(lines()).toEqual([
+      '10:00:00 | Reviewer | to Lead/PM: Review: Changes needed, 2 findings | Open review',
+    ]);
+    expect(screen.queryByRole('button', { name: 'Show all' })).toBeNull();
+    const open = screen.getByRole('button', { name: 'Open review' });
+    expect(open).toHaveAttribute('aria-haspopup', 'dialog');
+    fireEvent.click(open);
+    expect(onOpenReview).toHaveBeenCalledTimes(1);
+    expect(onOpenReview).toHaveBeenCalledWith(time(10, 0, 0));
+  });
+
+  it('opens on a click on the row too, but not on one that ends a selection', () => {
+    const onOpenReview = vi.fn();
+    render(
+      <ActivityFeed
+        office={reviewed('reviewer')}
+        agent={null}
+        onShowEveryone={() => {}}
+        onOpenReview={onOpenReview}
+      />,
+    );
+    const row = document.querySelector('.feed-line')!;
+    const selection = vi.spyOn(window, 'getSelection').mockReturnValue({
+      isCollapsed: false,
+      toString: () => 'Changes',
+    } as Selection);
+    fireEvent.click(row.querySelector('.feed-what')!);
+    expect(onOpenReview).not.toHaveBeenCalled();
+    selection.mockRestore();
+    fireEvent.click(row.querySelector('.feed-what')!);
+    expect(onOpenReview).toHaveBeenCalledWith(time(10, 0, 0));
+  });
+
+  it('shows a report that does not follow the format as its text, still opening on the board', () => {
+    render(
+      <ActivityFeed
+        office={reviewed('reviewer', 'Looked fine to me.')}
+        agent={null}
+        onShowEveryone={() => {}}
+      />,
+    );
+    expect(lines()).toEqual(['10:00:00 | Reviewer | to Lead/PM: Looked fine to me. | Open review']);
+  });
+
+  it('a report in perfect review shape from the Backend dev is an ordinary row: who sent it decides', () => {
+    render(<ActivityFeed office={reviewed('backend')} agent={null} onShowEveryone={() => {}} />);
+    expect(screen.queryByRole('button', { name: 'Open review' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
+    expect(document.querySelector('.feed-what')!.textContent).not.toContain('Review: Changes needed');
   });
 });

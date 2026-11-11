@@ -173,6 +173,8 @@ export function HallLabels({
         const agent = agentById(t.id);
         const { copies } = office.agents[t.id];
         const running = copies ? `, ${copies} copies running` : '';
+        // The Reviewer's button also opens the review board (v3.1, D9): the same button, nothing new to see.
+        const reviews = t.id === 'reviewer';
         return (
           <button
             key={t.id}
@@ -181,7 +183,8 @@ export function HallLabels({
             data-agent={t.id}
             style={at(t.x, t.y, t.width, t.height)}
             aria-pressed={t.id === selected}
-            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}${running}. Show details`}
+            aria-haspopup={reviews ? 'dialog' : undefined}
+            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}${running}. Show details${reviews ? ' and reviews' : ''}`}
             onClick={() => onSelect(t.id)}
           />
         );

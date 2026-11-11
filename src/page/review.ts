@@ -1,3 +1,4 @@
+import type { AgentState, ToolCounts } from '../events/schema';
 import type { Message } from '../state/office';
 
 /**
@@ -120,11 +121,37 @@ export function parseReview(text: string): Review | null {
   };
 }
 
+/** A verdict's chip takes a state chip's colours: done for Approved, needs-you for Changes needed, error otherwise. */
+export const VERDICT_STATE: Record<Verdict, AgentState> = {
+  Approved: 'done',
+  'Changes needed': 'needs-you',
+  "Couldn't review": 'error',
+};
+
+/** A review in one line, for its feed row and the board's earlier reviews: "Changes needed, 2 findings". */
+export function reviewLine(review: Review): string {
+  const n = review.findings.length;
+  return `${review.verdict}, ${n === 0 ? 'no findings' : n === 1 ? '1 finding' : `${n} findings`}`;
+}
+
+/**
+ * What the hall saw the Reviewer call, on its own line beside what the Reviewer says it ran (D10). "At least": a hook
+ * that lands after the stop isn't counted. A review from the demo, or from a hall older than v3.1, comes with no count.
+ */
+export function hallSaw(tools: ToolCounts | undefined): string {
+  return tools
+    ? `The hall saw at least: Read ${tools.Read}, Grep ${tools.Grep}, Glob ${tools.Glob}`
+    : 'The hall saw: no count came with this review';
+}
+
 /** The Reviewer's report to the Lead. Who sent it decides; text in perfect review shape from anyone else is not one. */
 export const isReview = (message: Message): boolean => message.from === 'reviewer' && message.to === 'lead';
 
+/** A review on the board: the Reviewer's message, and its parts, or null to show it as written. */
+export type ReviewEntry = { message: Message; review: Review | null };
+
 /** This run's reviews, newest first (a reset empties `messages`), each with its parts or null to show as written. */
-export function reviewsOf(messages: readonly Message[]): { message: Message; review: Review | null }[] {
+export function reviewsOf(messages: readonly Message[]): ReviewEntry[] {
   return messages
     .filter(isReview)
     .reverse()

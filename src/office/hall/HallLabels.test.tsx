@@ -118,8 +118,16 @@ describe('HallLabels', () => {
         screen.getByRole('button', { name: 'Backend dev, Orc, Writing. Show details' }),
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Reviewer, Skeleton, Needs you. Show details' }),
+        screen.getByRole('button', { name: 'Reviewer, Skeleton, Needs you. Show details and reviews' }),
       ).toBeInTheDocument();
+    });
+
+    it('says only on the Reviewer that it opens a dialog too: the review board (v3.1, D9)', () => {
+      render(labels(INITIAL_OFFICE, everyone));
+      const popups = screen.getAllByRole('button').filter((b) => b.hasAttribute('aria-haspopup'));
+      expect(popups.map((b) => [b.dataset.agent, b.getAttribute('aria-haspopup')])).toEqual([
+        ['reviewer', 'dialog'],
+      ]);
     });
 
     it('marks only the selected agent as pressed', () => {

@@ -955,7 +955,8 @@ describe('Task bar in Live', () => {
 
   it('sits at the top of the right-hand column in Demo, and the feed keeps its place in Live', async () => {
     const app = await renderLive(start);
-    const side = app.container.querySelector('.stage > .side')!;
+    // The column's content sits in .side-content, which the review board makes inert while it covers it.
+    const side = app.container.querySelector('.stage > .side > .side-content')!;
     const feed = side.querySelector('.feed');
     expect([...side.children]).toEqual([feed]);
 

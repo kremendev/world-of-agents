@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import reviewerPrompt from '../../plugin/agents/reviewer.md?raw';
 import opusReport from './fixtures/opus-review-11nov.txt?raw';
 import type { Message } from '../state/office';
-import { HEADINGS, VERDICTS, isReview, parseReview, reviewsOf } from './review';
+import {
+  HEADINGS,
+  VERDICT_STATE,
+  VERDICTS,
+  hallSaw,
+  isReview,
+  parseReview,
+  reviewLine,
+  reviewsOf,
+} from './review';
 
 const REPORT = [
   'I reviewed the new item routes. One input check is missing.',
@@ -260,5 +269,29 @@ describe('which messages are reviews: by who sent them, never by their text', ()
       { message: first, review: parseReview(REPORT) },
     ]);
     expect(reviews[1]!.review).not.toBeNull();
+  });
+});
+
+describe('what the board and the feed say about a review', () => {
+  const review = parseReview(REPORT)!;
+
+  it('sums a review up in one line: the verdict and how many findings', () => {
+    expect(reviewLine(review)).toBe('Changes needed, 2 findings');
+    expect(reviewLine({ ...review, findings: [review.findings[0]!] })).toBe('Changes needed, 1 finding');
+    expect(reviewLine({ ...review, verdict: 'Approved', findings: [] })).toBe('Approved, no findings');
+  });
+
+  it('says what the hall saw on a line of its own, as a lower bound, and says so when no count came', () => {
+    expect(hallSaw({ Read: 6, Grep: 3, Glob: 1 })).toBe('The hall saw at least: Read 6, Grep 3, Glob 1');
+    expect(hallSaw(undefined)).toBe('The hall saw: no count came with this review');
+  });
+
+  it("gives each verdict a state chip's colours: done, needs you, error", () => {
+    expect(VERDICT_STATE).toEqual({
+      Approved: 'done',
+      'Changes needed': 'needs-you',
+      "Couldn't review": 'error',
+    });
+    expect(Object.keys(VERDICT_STATE)).toEqual([...VERDICTS]);
   });
 });

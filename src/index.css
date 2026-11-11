@@ -202,11 +202,17 @@ h1 {
 
 /* The right-hand column: in Demo the task bar, then the activity feed in whatever height is left. */
 .side {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 20px;
   min-width: 0;
   min-height: 0;
+}
+
+/* What the review board covers, made inert while it is open. No box of its own: its children lay out as before. */
+.side-content {
+  display: contents;
 }
 
 .hall {
@@ -761,6 +767,103 @@ p {
   color: var(--flag);
   font-size: 0.8125rem;
   white-space: nowrap;
+}
+
+/*
+ * The review board: a drawer over the right-hand column (task bar and feed), never over the hall, so the hall keeps its
+ * place and size. No slide: nothing to switch off for reduced motion. It scrolls inside itself.
+ */
+.review-board {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.review-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-wrap: anywhere;
+}
+
+.review-card h3,
+.review-earlier-head {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.review-card h4 {
+  margin: 6px 0 0;
+  color: var(--ember-text);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* The verdict's chip can be long ("Reviewer's verdict: Couldn't review"): it wraps in a narrow column. */
+.review-card .chip {
+  white-space: normal;
+}
+
+.review-text {
+  white-space: pre-wrap;
+}
+
+/* What the hall saw, on its own line apart from the Reviewer's own word. */
+.review-saw {
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.review-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.review-card code {
+  padding: 0 3px;
+  background: #15100c;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8125rem;
+}
+
+.review-earlier {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.review-earlier .review-card {
+  margin-top: 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--line);
+}
+
+/* Headings that take the focus when the board opens or closes. */
+.review-board h2:focus-visible,
+.review-card h3:focus-visible,
+.feed h2:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* A short window (high browser zoom): the hall needs every pixel the page can spare. */

@@ -4,6 +4,14 @@ import { linksAsText, shorten } from './shorten';
 
 export type FeedLine = LogEntry | { kind: 'everyone'; at: number };
 
+const two = (n: number) => String(n).padStart(2, '0');
+
+/** A moment as local HH:MM:SS: the feed's rows and the review board's cards. */
+export function clock(at: number): string {
+  const d = new Date(at);
+  return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
+}
+
 /** The rows that stand out: what is addressed to you, an approval wait, a failure. Nothing else, ever. */
 export type Flag = 'to-you' | 'needs-you' | 'failed';
 

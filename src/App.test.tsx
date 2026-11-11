@@ -382,3 +382,74 @@ describe('App', () => {
     expect(live).toHaveTextContent('Lead/PM: Your dashboard is ready: 5 of 5 tasks done, review passed.');
   });
 });
+
+describe('the review board (v3.1)', () => {
+  const reviewer = () =>
+    screen.getByRole('button', { name: /^Reviewer, Skeleton, .*\. Show details and reviews$/ });
+  const board = () => screen.queryByRole('dialog', { name: 'Review board' });
+  const activityTitle = () => document.querySelector('.feed h2')!;
+
+  it('clicking the Reviewer selects it and filters the feed as before, and opens the board, its heading focused', () => {
+    renderApp();
+    const button = reviewer();
+    expect(button).toHaveAttribute('aria-haspopup', 'dialog');
+    button.focus();
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+    expect(activityTitle()).toHaveTextContent('Activity · Reviewer');
+    expect(board()).toBeInTheDocument();
+    expect(screen.getByText('No reviews in this run yet.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Review board' })).toHaveFocus();
+  });
+
+  it('Esc closes it from anywhere, and the focus goes back to the Reviewer', () => {
+    renderApp();
+    const button = reviewer();
+    button.focus();
+    fireEvent.click(button);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(board()).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it('its Close button closes it; opened with nothing focused, the focus goes to the Activity heading', () => {
+    renderApp();
+    fireEvent.click(reviewer());
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(board()).toBeNull();
+    expect(activityTitle()).toHaveFocus();
+  });
+
+  it('selecting another agent closes it and leaves the focus on that agent', () => {
+    renderApp();
+    fireEvent.click(reviewer());
+    const backend = screen.getByRole('button', { name: /^Backend dev, Orc/ });
+    backend.focus();
+    fireEvent.click(backend);
+    expect(board()).toBeNull();
+    expect(backend).toHaveFocus();
+  });
+
+  it("opens from the review's row at that review, covers the right-hand column only, and gives the focus back", () => {
+    const app = renderApp();
+    app.at(stepStart(9), 500);
+    const hall = app.container.querySelector('.hall')!;
+    const hallStyle = hall.getAttribute('style');
+    const open = screen.getByRole('button', { name: 'Open review' });
+    expect(open.closest('li')).toHaveTextContent('to Lead/PM: Review: Approved, no findings');
+    open.focus();
+    fireEvent.click(open);
+
+    const dialog = board()!;
+    expect(dialog.closest('.stage > .side')).not.toBeNull();
+    expect(app.container.querySelector('.scene')!.contains(dialog)).toBe(false);
+    expect(hall.getAttribute('style')).toBe(hallStyle);
+    expect(app.container.querySelector('.side-content')).toHaveAttribute('inert');
+    expect(screen.getByRole('heading', { level: 3, name: /^Review at \d\d:\d\d:\d\d$/ })).toHaveFocus();
+    expect(screen.getByText("Reviewer's verdict: Approved")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(app.container.querySelector('.side-content')).not.toHaveAttribute('inert');
+    expect(open).toHaveFocus();
+  });
+});

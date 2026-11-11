@@ -1,22 +1,16 @@
-import { useId, useState, type MouseEvent } from 'react';
+import { useId, useState, type MouseEvent, type Ref } from 'react';
 import type { AgentId } from '../events/schema';
 import { agentById } from '../office/roster';
 import { stateWords } from '../office/states';
 import type { OfficeState } from '../state/office';
 import { AgentText } from './AgentText';
-import { feedLines, feedShort, flagOf, type FeedLine, type Flag } from './feed';
+import { clock, feedLines, feedShort, flagOf, type FeedLine, type Flag } from './feed';
+import { isReview, parseReview, reviewLine } from './review';
 
 /** A flag's word, so a row never stands out by its colour alone. */
 const FLAG_WORDS: Record<Flag, string> = { 'to-you': 'To you', 'needs-you': 'Needs you', failed: 'Failed' };
 
 const nameOf = (id: AgentId | 'you') => (id === 'you' ? 'you' : agentById(id).name);
-const two = (n: number) => String(n).padStart(2, '0');
-
-/** A moment as local HH:MM:SS. */
-function clock(at: number): string {
-  const d = new Date(at);
-  return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`;
-}
 
 /** A click that ends a text selection is someone selecting, not asking the row to open or close. */
 function selecting(): boolean {
@@ -27,18 +21,22 @@ function selecting(): boolean {
 /**
  * One row. A message too long for it shows cut, with a "Show all" toggle (a real button: Enter and Space) that opens
  * the full text in a plain element after it, where it can be selected, copied and read like any text. A click on the
- * row toggles too, but not in the full text and not when it ends a selection.
+ * row toggles too, but not in the full text and not when it ends a selection. A review (the Reviewer's report to the
+ * Lead, by who sent it) has no Show all: it reads "Review: <verdict>, <findings>", and its "Open review" button, or a
+ * click on the row, opens it on the review board.
  */
 function Line({
   entry,
   office,
   open,
   onToggle,
+  onOpenReview,
 }: {
   entry: FeedLine;
   office: OfficeState;
   open: boolean;
   onToggle: () => void;
+  onOpenReview: (at: number) => void;
 }) {
   const fullId = useId();
   if (entry.kind === 'everyone') {
@@ -51,6 +49,8 @@ function Line({
     );
   }
   const flag = flagOf(entry);
+  const review = entry.kind === 'message' && isReview(entry);
+  const parsed = review ? parseReview(entry.text) : null;
   const short = entry.kind === 'message' ? feedShort(entry.text) : null;
   const task = entry.kind === 'state' ? office.tasks.find((t) => t.id === entry.taskId) : undefined;
   // An approval row's flag already says "Needs you": the state word would only say it twice.
@@ -58,19 +58,25 @@ function Line({
     entry.kind === 'message' ? (
       <>
         to {nameOf(entry.to)}:
-        {!open && (
-          <>
-            {' '}
-            <AgentText text={short ?? entry.text} />
-          </>
-        )}
+        {parsed
+          ? ` Review: ${reviewLine(parsed)}`
+          : !open && (
+              <>
+                {' '}
+                <AgentText text={short ?? entry.text} />
+              </>
+            )}
       </>
     ) : (
       [flag === 'needs-you' ? null : stateWords(entry.state), task?.title].filter(Boolean).join(' · ')
     );
-  const full = entry.kind === 'message' && short !== null ? entry.text : null;
-  const rowClick =
-    full === null
+  const full = entry.kind === 'message' && !review && short !== null ? entry.text : null;
+  const rowClick = review
+    ? (e: MouseEvent) => {
+        if (e.target instanceof Element && e.target.closest('.feed-toggle')) return;
+        if (!selecting()) onOpenReview(entry.at);
+      }
+    : full === null
       ? undefined
       : (e: MouseEvent) => {
           if (e.target instanceof Element && e.target.closest('.feed-toggle, .feed-full')) return;
@@ -78,13 +84,25 @@ function Line({
         };
   return (
     <li
-      className={['feed-line', flag && `flagged ${flag}`, full !== null && 'long'].filter(Boolean).join(' ')}
+      className={['feed-line', flag && `flagged ${flag}`, (full !== null || review) && 'long']
+        .filter(Boolean)
+        .join(' ')}
       onClick={rowClick}
     >
       <time className="feed-time">{clock(entry.at)}</time>
       <span className="feed-who">{nameOf(entry.kind === 'state' ? entry.agent : entry.from)}</span>
       {flag && <span className="feed-flag">{FLAG_WORDS[flag]}</span>}
       {what !== '' && <span className="feed-what">{what}</span>}
+      {review && (
+        <button
+          type="button"
+          className="link feed-toggle"
+          aria-haspopup="dialog"
+          onClick={() => onOpenReview(entry.at)}
+        >
+          Open review
+        </button>
+      )}
       {full !== null && (
         <>
           <button
@@ -107,16 +125,20 @@ function Line({
 
 /**
  * The whole team's activity, newest first. `agent` narrows it to one agent's own state changes and the messages
- * it sent or got.
+ * it sent or got. `headingRef` lets App put focus back on its heading when the review board closes.
  */
 export function ActivityFeed({
   office,
   agent,
   onShowEveryone,
+  onOpenReview = () => {},
+  headingRef,
 }: {
   office: OfficeState;
   agent: AgentId | null;
   onShowEveryone: () => void;
+  onOpenReview?: (at: number) => void;
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const headingId = useId();
   const log = feedLines(office.log, agent);
@@ -132,7 +154,9 @@ export function ActivityFeed({
   return (
     <section className="panel feed" aria-labelledby={headingId}>
       <div className="feed-head">
-        <h2 id={headingId}>{agent ? `Activity · ${agentById(agent).name}` : 'Activity'}</h2>
+        <h2 id={headingId} ref={headingRef} tabIndex={-1}>
+          {agent ? `Activity · ${agentById(agent).name}` : 'Activity'}
+        </h2>
         {agent && (
           <button type="button" className="link" onClick={onShowEveryone}>
             Show everyone
@@ -151,6 +175,7 @@ export function ActivityFeed({
                 office={office}
                 open={open.has(entry)}
                 onToggle={() => toggle(entry)}
+                onOpenReview={onOpenReview}
               />
             ))}
           </ul>

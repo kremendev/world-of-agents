@@ -63,7 +63,10 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   flagOf(): To you, Needs you, Failed, and an approval row says "Needs you" once),
                   AgentText (agent text: `code` and **bold** as elements, the rest plain text), shorten.ts (the cut
                   bubbles and rows share: links as their text first, never a mark left open), review.ts (v3.1: the
-                  Reviewer's report format, parseReview() and reviewsOf(); a review is known by its sender, never its text)
+                  Reviewer's report format, parseReview() and reviewsOf(); a review is known by its sender, never its text),
+                  ReviewBoard (v3.1: a non-modal dialog over the right-hand column, never the hall; App opens it from the
+                  Reviewer's button and a review row's "Open review", closes it on Esc, Close or another agent, puts the
+                  focus back after the render, and makes what it covers inert)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
@@ -551,4 +554,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    Done: 3.1a (the Reviewer's report format, its parser, the hall's Read/Grep/Glob counts on the Reviewer's report).
    3.1b (the Reviewer on Opus, the guard denies an Agent call with `model`; a terminal run showed Opus follows the format,
    its report is a parser case). v3.1.0's desktop checklist has steps for both.
-   Next: 3.1c (the Review board).
+   3.1c (the Review board: review rows in the feed, the Reviewer's button opens it, "and reviews" in its label).
+   Next: 3.1d (the "For you" strip and "Only for me").

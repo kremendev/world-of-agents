@@ -8,6 +8,8 @@ import { useStage } from './office/hall/useStage';
 import { agentById } from './office/roster';
 import { ActivityFeed } from './page/ActivityFeed';
 import { AgentPanel } from './page/AgentPanel';
+import { reviewsOf } from './page/review';
+import { ReviewBoard } from './page/ReviewBoard';
 import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
 import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
@@ -62,6 +64,13 @@ export default function App() {
   const [task, setTask] = useState(DEMO_TASK);
   const [selected, setSelected] = useState<AgentId>('lead');
   const [feedAgent, setFeedAgent] = useState<AgentId | null>(null);
+  // The review board: closed, or open at a review (`at`) or at its heading (null). `n` counts openings, and the board
+  // mounts anew for each, so each opening puts the focus where it asks.
+  const [board, setBoard] = useState<{ at: number | null; n: number } | null>(null);
+  // What opened it, for the focus to go back to, and whether a close asked for that (another agent's click doesn't).
+  const opener = useRef<HTMLElement | null>(null);
+  const focusBack = useRef(false);
+  const activityHeading = useRef<HTMLHeadingElement>(null);
   const player = useRef<Player | null>(null);
   const stage = useStage();
 
@@ -115,12 +124,51 @@ export default function App() {
     setRun((n) => n + 1);
   };
 
+  const openBoard = (at: number | null) => {
+    // Opened from inside the board (the Reviewer clicked again): keep what opened it first. Nothing focused: no opener.
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement && active.closest('.review-board'))) {
+      opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    setBoard((was) => ({ at, n: (was?.n ?? 0) + 1 }));
+  };
+
+  // Esc or Close: the focus goes back to what opened the board, or to the Activity heading if that is gone.
+  const closeBoard = () => {
+    focusBack.current = true;
+    setBoard(null);
+  };
+
+  // After the render that closed it: until then the feed is still inert, and a browser won't focus inside it.
+  useEffect(() => {
+    if (board || !focusBack.current) return;
+    focusBack.current = false;
+    const back = opener.current;
+    (back?.isConnected ? back : activityHeading.current)?.focus();
+  }, [board]);
+
+  useEffect(() => {
+    if (!board) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      focusBack.current = true;
+      setBoard(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [board]);
+
+  // Clicking the Reviewer selects it and filters the feed, as for anyone, and opens the review board too (D9).
+  // Another agent closes the board, leaving the focus on that agent.
   const select = (id: AgentId) => {
     setSelected(id);
     setFeedAgent(id);
+    if (id === 'reviewer') openBoard(null);
+    else setBoard(null);
   };
 
   const office = demo ? demoOffice : hall.office;
+  const reviews = reviewsOf(office.messages);
   const live = !demo;
   const hosted = !liveEnabled();
   const mode = modeOf(hall, demo, office);
@@ -219,9 +267,19 @@ export default function App() {
             room={stage.fit}
           />
         </section>
+        {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}
         <div className="side">
-          {demo && <TaskBar onSend={send} />}
-          <ActivityFeed office={office} agent={feedAgent} onShowEveryone={() => setFeedAgent(null)} />
+          <div className="side-content" inert={board !== null}>
+            {demo && <TaskBar onSend={send} />}
+            <ActivityFeed
+              office={office}
+              agent={feedAgent}
+              onShowEveryone={() => setFeedAgent(null)}
+              onOpenReview={openBoard}
+              headingRef={activityHeading}
+            />
+          </div>
+          {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
         </div>
       </div>
 
