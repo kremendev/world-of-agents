@@ -450,7 +450,29 @@ Prepared on 10 Nov and committed locally, nothing pushed: versions at 3.0.0, the
    - `/world-of-agents:setup-project`, then `/world-of-agents:setup-project-write`. The folder has no git, so it says
      there is nothing to ignore. A new session starts in Manual, unless the folder already had a mode picked.
    - Install it again in `woa-test` the same way.
-7. Write down what happened here and in CLAUDE.md's status.
+7. Write down what happened here and in CLAUDE.md's status. Done on 11 Nov:
+   - Steps 1 to 5, on 10 Nov: the combined desktop check passed after the bubble fixes; `release:check` passed from
+     `C:\`; `main`, the tag (`8d907c9`, on `f5f7021`) and the release went out.
+   - Step 6, the marketplace: moved to `#v3.0.0`. The `woa-dev` marketplace was removed too (14:45), which took the
+     `woa-m2-test` dev install with it; both are back, the install at local scope.
+   - Step 6, the install: **the Plugins screen installed at user scope.** It asked for no scope. The app's log shows
+     `attempting CLI install … (scope=default)` at 14:49, and `~/.claude/settings.json` got
+     `"world-of-agents@world-of-agents": true`, so every session on the PC started as the Lead, the next `agent-office`
+     session too (no shell and no edit tools, so it could only read). Dima removed it with `--scope user` and installed it
+     with `--scope local` in `woa-v3-test` and `woa-test` from a terminal. Checking the scope with `grep` over the user
+     settings proved unreliable; `claude plugin list` shows each install's scope. The README now installs from a terminal
+     and checks the list, and the release page carries a warning at the top (`gh release edit`, no new tag).
+   - Step 6, the session: the Lead answered as the main agent, the pane appeared, the hall started and "Open hall"
+     worked: pass (on that user-scope install).
+   - Step 6, the setup: the dry run and the write worked ("Written."), but the next new session in `woa-v3-test` still
+     started in Auto, from the user settings: the folder had no git. A fresh `woa-git-test` with git and the same setup
+     started in Manual. What that proves and what it doesn't is in the brief, after the `folder_pick` note.
+   - A later `woa-v3-test` session (19:39) had no World of Agents at all, and a plain Claude answered: no install
+     reached that folder from at least 19:36 until 19:45, when the Plugins screen installed it at user scope again
+     (`scope=default`), inside that session. The local install (19:48) reached the open session at 19:49.
+   - **For the next release:** install with `claude plugin install … --scope local` in the folder and check
+     `claude plugin list`, never through the Plugins screen. In the desktop app, check the selector in the first new
+     session after the setup, and pick Manual once if it isn't Manual.
 
 ## Decided on 6 Nov
 
@@ -556,6 +578,11 @@ Before v3.0.0, on 10 Nov:
   `permissions.allow` (`woa-m2-test` had `Bash(node hello.js)` and `Bash(echo "exit=$?")` on 10 Nov), and the upgrade
   then stops and names `permissions.allow`, writing nothing. Keep the allow rules that are in no template version through
   an upgrade, so only the template's own settings change; anything else that differs still stops it.
+- **A pane warning when the plugin is on for every project.** The Plugins screen made that install twice on 11 Nov (step
+  7). The pane reads one key, `$.settings.read({ key: 'enabledPlugins', source: 'user' })`, which hands it nothing else
+  of `~/.claude/settings.json`, and when a `world-of-agents@…` entry is on there, it says so and names the fix:
+  `claude plugin uninstall world-of-agents@world-of-agents --scope user`, then a local install per project. Dima picks
+  the wording. It's a new `$` call, so `mod:surface` and `mod.test.ts` change with it, in review.
 
 ## Backlog for v3.1.0, after the release
 
@@ -570,3 +597,7 @@ Written down on 10 Nov, from 2d's desktop check. Not built.
   Reviewer's share. The model changes in `plugin/agents/reviewer.md` and `roster.ts` together (`roster.test.ts`).
 - **A "For you" strip** pinned at the top of the activity feed, holding the unread flagged rows (To you, Needs you,
   Failed) until Dima clicks them, and an **"Only for me" filter**.
+- **"Switch to Manual" on the pane's mode warning, only through a direct, mode-only call.** Dima's click, and it only
+  ever switches to Manual; the pane never changes the mode on its own. Not buildable today: in the mods API types
+  (2.1.318) a mod changes the mode only with a `setMode` update inside an allow answer to a permission request, and the
+  pane never answers one. Build it when the API has a call that sets the mode and nothing else.

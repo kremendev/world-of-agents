@@ -226,10 +226,14 @@ Do not change the look without asking. New ideas go into a later version.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
 - Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
   project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
-  enabled, so every session everywhere would start as the Lead and report to the hall. An installed plugin can't set a
+  enabled, so every session everywhere would start as the Lead and report to the hall. The desktop app's Plugins screen
+  asks for no scope and installs at user scope (twice on 11 Nov, app 5.1231), so installs go through
+  `claude plugin install … --scope local`, checked with `claude plugin list`. An installed plugin can't set a
   permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
   applies both (v3 spike), the mode only until one is picked for that folder in the app: from then on new sessions start
-  in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
+  in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). So far it took the file's
+  mode only in a git repository; a folder without git got the user settings' mode (11 Nov; the brief has what that
+  proves and what it doesn't). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 - `guard.mjs` is the one hook that answers Claude Code, and it only denies: a test runs it over every input and fails on
   any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
@@ -513,9 +517,9 @@ Auto "needs you" bug and the double "team is done" (plan decisions 16 to 20). 2d
 locales out of the bundle, the temporary query measurement) is built and checked by tests and planted bugs (10 Nov). Its
 desktop check (10 Nov) passed the desk time, the hurrying and the feed after a session switch, and changed the bubbles
 and the feed: the first sentence in a bubble, whole reports in rows that expand, flagged rows (plan, "What 2d's desktop
-check changed"); a re-check of those waits for Dima. It ships as `v3.0.0`; the v3.1.0 backlog is the plan's last section. The setup skill's upgrade path from older templates, the last
-backlog item before `v3.0.0`, is built (plan decision 26); its desktop check, in `woa-m2-test`, waits for Dima too.
-`v3.0.0` is prepared, committed locally and not pushed: versions at 3.0.0, the README pinned to `#v3.0.0`, the minimum
-Claude Code version measured as 2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. Dima's steps (the
-desktop check, push, tag, release, the install through the desktop app's Plugins screen) are in docs/v3-m2-plan.md,
-Releasing v3.0.0.
+check changed"), and its re-check passed. The setup skill's upgrade path from older templates (plan decision 26)
+passed its desktop check in `woa-m2-test`. `v3.0.0` is released (10 Nov): the minimum Claude Code version measured as
+2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. The install check (11 Nov, step 7 of the plan's
+"Releasing v3.0.0") found the Plugins screen installs at user scope without asking, and the desktop app took the setup's
+mode only in a git repository; the README, the notes and the release page (edited, no new tag) say so. Next: the v3.0.1
+backlog, then v3.1.0 (the plan's last sections).

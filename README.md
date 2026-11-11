@@ -94,17 +94,25 @@ Or in a terminal:
 claude plugin marketplace add kremendev/world-of-agents#v3.0.0
 ```
 
-**2. Install it for one project only.** Use any one of these:
+**2. Install it for one project only, from a terminal.** In the project folder:
 
-- **Desktop app:** open the project in the Code tab. Click **+** next to the prompt box, then **Add plugins** (or **Plugins**, then **Browse plugins**). Select `world-of-agents` and choose the local-only scope.
-- **Claude Code session in the project:** run `/plugin install world-of-agents@world-of-agents` and choose **Install for you, in this repo only**.
-- **Terminal, in the project folder:** run `claude plugin install world-of-agents@world-of-agents --scope local`.
+```bash
+claude plugin install world-of-agents@world-of-agents --scope local
+```
 
-**Don't choose user scope.** The Lead/PM becomes the main agent wherever the plugin is enabled, so every session in every project would start as the Lead and report to the hall. Project scope is only for a team: it writes to `.claude/settings.json`, which you commit, and turns the plugin on for everyone who clones the repo.
+Don't install it through the desktop app's Plugins screen. On 11 Nov 2026 (app 5.1231) that screen asked for no scope and installed the plugin for every project, twice. Then check:
+
+```bash
+claude plugin list
+```
+
+No `world-of-agents` entry may say `Scope: user`. The list shows every project's install, each with its status in the folder you run it from. If one says `Scope: user`, run `claude plugin uninstall world-of-agents@world-of-agents --scope user`, then install it again in each project.
+
+**Never install it at user scope.** The Lead/PM becomes the main agent wherever the plugin is enabled, so every session in every project would start as the Lead and report to the hall. Project scope is only for a team: it writes to `.claude/settings.json`, which you commit, and turns the plugin on for everyone who clones the repo.
 
 **3. Check the permission mode says Manual.** The selector is under the prompt box. `woa` always starts in Manual, but an installed plugin can't choose a mode. In Auto, nothing asks for your approval, so the hall never shows "needs you".
 
-From v3.0.0 the plugin does this for you, once per project, in two steps you type yourself. `/world-of-agents:setup-project` shows what it would write into the project's `.claude/settings.local.json`: Manual mode, subagent depth 2 and a safe-command list, plus a `.gitignore` line for that file. It writes nothing. `/world-of-agents:setup-project-write` then writes exactly that; typing it is your yes. Claude Code runs a fixed script from the plugin for both, and the model can't start either one. Run again, it says "Already set up". A file set up by an earlier version of the plugin is upgraded: the dry run names the version and the rules it adds and removes, and every other setting in the file stays as it is. If the file holds anything else, nothing changes and you're told which settings differ (names only, never values). The settings apply from the next new session. With `woa` it works now. In the desktop app, a mode you pick in the selector sticks to that folder and wins over this file in later sessions, so check the selector anyway; the pane warns when it says Auto.
+From v3.0.0 the plugin does this for you, once per project, in two steps you type yourself. `/world-of-agents:setup-project` shows what it would write into the project's `.claude/settings.local.json`: Manual mode, subagent depth 2 and a safe-command list, plus a `.gitignore` line for that file. It writes nothing. `/world-of-agents:setup-project-write` then writes exactly that; typing it is your yes. Claude Code runs a fixed script from the plugin for both, and the model can't start either one. Run again, it says "Already set up". A file set up by an earlier version of the plugin is upgraded: the dry run names the version and the rules it adds and removes, and every other setting in the file stays as it is. If the file holds anything else, nothing changes and you're told which settings differ (names only, never values). The settings apply from the next new session. With `woa` it works now. In the desktop app, check the selector in the first new session after the setup. In our tests the app used this file's Manual only in a git repository; in a folder without git it started in your own default mode instead. A mode you pick in the selector also sticks to that folder and wins over the file in later sessions. If it doesn't say Manual, pick Manual once, and the app remembers it for that folder. The pane warns when it says Auto.
 
 **The team pane.** From v3.0.0 the plugin also draws a pane beside the conversation: the five agents with their state and task, who is waiting for your approval, a warning in the modes that don't ask before acting (Auto, Bypass permissions) or before edits (Accept edits), how full the context is and how much of your plan's limits is used, three preset prompts ("Plan the next milestone", "Run the quality check", "Review what changed") and an "Open hall" link. A preset puts its prompt in the prompt box, after anything you've already typed, and you send it with Enter: the pane never sends a prompt itself. It appears after you send the first message, because that is when the session, and with it the pane, starts. If you close the pane, `/world-of-agents:team` opens it again. Only you can run that command, and it costs no plan: the pane answers it, so it never reaches the model.
 
@@ -173,7 +181,7 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
 - **No token counts.** Hooks don't report them.
 - **No sandbox on native Windows.** Commands run with your user's rights, so your approval is the guard. Read each command before you approve it. Claude Code's sandbox needs macOS, Linux or WSL2.
 - **One session at a time.** The hall follows one session. Starting, clearing or resuming a session takes it over.
-- **The desktop app's mode beats Manual.** A mode you pick in the selector sticks to that folder and wins over the setup's Manual in later sessions. Check the selector; the pane warns in Auto, Bypass permissions and Accept edits.
+- **The desktop app's mode can beat Manual.** In our tests the app used the setup's Manual only in a git repository; in a folder without git it used your own default mode. A mode you pick in the selector also sticks to that folder and wins over the file. Check the selector in the first new session, and if it doesn't say Manual, pick Manual once: the app remembers it for that folder. The pane warns in Auto, Bypass permissions and Accept edits.
 - **The pane's hall lives with your sessions.** A hall the pane started stops when its session closes or the plugin reloads. With two sessions open, closing the one that started it costs the other one turn without a hall. The desktop app can also move a session to a fresh Claude Code process when you come back to it; if the old process goes, its hall goes too. The next Lead turn starts a new one. A restarted hall remembers nothing from before, and the page says "Hall restarted" until your next prompt. A later version plans a hall that runs on its own and stops itself after about 30 idle minutes.
 - **Port 4319 is fixed.** If another program holds it, the pane starts no hall.
 - **"Always allow" stops the next setup upgrade.** Clicking "Always allow" in a project you've set up adds a rule to its `.claude/settings.local.json`. The next time the setup skills upgrade that project to a newer template, they stop and name `permissions.allow` instead, and write nothing. v3.0.1 is planned to keep such rules through the upgrade.

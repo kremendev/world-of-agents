@@ -253,6 +253,18 @@ step, while you still review every milestone.
     from then on new sessions started in the folder's last pick (`source=folder_pick`), Auto, over the file's `default`.
     So "Manual by default" holds in the desktop app only until a mode is picked for that folder. The terminal (`woa`,
     `claude`) still follows the file. The pane's mode warning is what tells Dima he is in Auto.
+  - **…and so far it reads the file only in a git repository** (its log, 11 Nov). What the log proves: every session
+    that took its mode from the project's file (`source=repo_settings_default_mode`) ran in a folder the app had recorded
+    as a git repository: the two spike folders and `woa-m2-test` on 5 and 6 Nov (app 4.x), and `woa-git-test` on 11 Nov
+    (app 5.1231.2; `git init`, the plugin at local scope and the setup written before the folder was ever opened; Manual
+    before the first message). The two new sessions in `woa-v3-test` before it had git (11 Nov, app 5.1231.0) started in
+    the user settings' Auto (`source=settings_default_mode`), the second one 50 s after the setup wrote `default`. What we
+    still don't know: whether a folder without git takes the file on the current app. That rests on one folder, and the
+    app updated from 5.1231.0 to 5.1231.2 at 15:06 that day, between it and `woa-git-test`. Nor the rule itself: the main
+    process only logs a source the renderer hands it, and the installed app holds no other mention of
+    `repo_settings_default_mode`, so the rule may sit in a part that changes without an app update. A fresh folder without
+    git, set up the same way, would settle the first. Until then the docs say: check the selector in the first new
+    session, and pick Manual once if it isn't Manual.
   - **PowerShell, as the engine answered it (checked in 2a):** `git push` and `git push origin main` are denied through the
     PowerShell tool by `PowerShell(git push *)`. The `Read(...)` denies stop PowerShell's file commands and their aliases
     too: `Get-Content .env`, `gc .env`, `cat .env` and `type .env` are denied by `Read(.env)`, `Get-Content .env.local` by
