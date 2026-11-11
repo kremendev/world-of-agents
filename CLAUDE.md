@@ -535,6 +535,9 @@ passed its desktop check in `woa-m2-test`. `v3.0.0` is released (10 Nov): the mi
 2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. The install check (11 Nov, step 7 of the plan's
 "Releasing v3.0.0") found the Plugins screen installs at user scope without asking, and the desktop app took the setup's
 mode only in a git repository; the README, the notes and the release page (edited, no new tag) say so. `v3.0.1` (the
-plan's "v3.0.1: small fixes", desktop-checked 11 Nov) is released: the setup keeps the user's rules, in a first setup
-too, the pane warns when the plugin is on for every project, "Written." promises no mode, and the minimum Claude Code
-version is 2.1.312, the oldest measured with the pane's `$.settings.read`. Next: v3.1.0 (the plan's last section).
+plan's "v3.0.1: small fixes", desktop-checked 11 Nov) is released (11 Nov, tag `v3.0.1` on `bba6710`): the setup keeps
+the user's rules, in a first setup too, the pane warns when the plugin is on for every project, "Written." promises no
+mode, and the minimum Claude Code version is 2.1.312, the oldest measured with the pane's `$.settings.read`.
+`woa-test` and `woa-v3-test` run it from GitHub at local scope; `woa-m2-test` stays on `woa-dev`, whose copy needs
+`npm run dev:refresh` before the next desktop check (the plan's "Releasing v3.0.1", step 6). Next: v3.1.0 (the plan's
+last section).

@@ -649,7 +649,18 @@ showed no warning, rightly: the switch had written the project's own file (item 
    `git tag -a v3.0.1 -m "World of Agents v3.0.1: small fixes"` and `git push origin v3.0.1`.
 4. `gh release create v3.0.1 --title v3.0.1 --notes-file docs/release-notes/v3.0.1.md`.
 5. In `woa-test` and `woa-v3-test`, as the notes' "Updating from v3.0.0" says; then `claude plugin list`.
-6. Write down what happened here and in CLAUDE.md's status.
+6. Write down what happened here and in CLAUDE.md's status. Done on 11 Nov:
+   - Steps 1 to 4: the minimum is 2.1.312 in the READMEs, the notes and here. `release:check` passed from `C:\`
+     (`check:hall` matched a fresh build, 1021 Vitest tests and 1 skip, 84 kit tests, the surface matched). `main` went
+     out with `28ed875` and `bba6710`, the annotated tag `v3.0.1` (`8abac40`, on `bba6710`) after it, and the release
+     from the notes at 21:23. It is the latest release, and its README link opens. The Pages run for `bba6710` passed.
+   - Step 5, with the CLI: `marketplace remove world-of-agents`, then `marketplace add kremendev/world-of-agents#v3.0.1`,
+     then `install … --scope local` in each folder. `claude plugin list` shows both at 3.0.1 (from `bba6710`),
+     `Scope: local`, enabled in their own folders, and no row with `Scope: user`; user `enabledPlugins` is `{}`.
+     `woa-v3-test` kept its setup. The removal also deleted the plugin's saved data where it could, so a "Mute voice"
+     from before is gone in those two. The hall on 4319 then was `woa-dev`'s, so nothing held the old cache.
+   - `woa-m2-test` stays on `woa-dev`. Its copy was refreshed after `28ed875`, so it lacks `bba6710`'s first setup with
+     gathered rules: run `npm run dev:refresh` before the next desktop check there.
 
 ## Backlog for v3.1.0, after the release
 
