@@ -11,11 +11,14 @@
 //
 // It writes only into a file it fully understands: none yet, or one holding nothing but what a local-scope plugin install
 // puts there (enabledPlugins, extraKnownMarketplaces), which it keeps exactly as it is. The settings it manages are
-// `permissions` and its own env keys. When the file's managed settings are exactly those of an earlier template version
-// (versions/), it replaces them with the current template and leaves every other setting as it is. Anything else, and it
-// shows the template and the settings' names and stops. It never prints an existing file's values: settings can hold
-// secrets in env, and this output goes into the conversation. An upgrade shows only rules and values from the two
-// template versions, which the file matched exactly.
+// `permissions` and its own env keys. A rule in permissions.allow, deny or ask is ours when any template version has it
+// in that list; any other rule is one the user added (an "Always allow" click adds one), and it stays where it is. When
+// the file's managed settings, its own rules aside, are exactly those of an earlier template version (versions/), it
+// replaces them with the current template, keeps the user's rules after the template's, and leaves every other setting
+// as it is. Anything else, and it shows the template and the settings' names and stops. It never prints an existing
+// file's values: settings can hold secrets in env, and this output goes into the conversation. It shows rules only: the
+// two template versions' rules, which the file matched exactly, and the user's own, quoted, with control, bidi and
+// zero-width characters escaped, because an "Always allow" rule can hold text an agent chose.
 
 import { execFileSync } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,6 +31,10 @@ const VERSIONS = join(import.meta.dirname, 'versions');
 const RELATIVE = '.claude/settings.local.json';
 /** What installing the plugin at local scope writes into the file, and nothing else. */
 const INSTALL_KEYS = new Set(['enabledPlugins', 'extraKnownMarketplaces']);
+/** The permission lists that hold rules. */
+const RULE_LISTS = ['allow', 'deny', 'ask'];
+/** The longest a user's rule shows in the output, in code points. */
+const MAX_RULE = 200;
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 const pretty = (value) => `${JSON.stringify(value, null, 2)}\n`;
@@ -107,12 +114,64 @@ function otherNames(settings, ours) {
   });
 }
 
-/** The file with its managed settings replaced by the template's, every other setting where it was. */
-function upgraded(settings, template, ours) {
+/** Every rule any template version has, by list. */
+const ourRules = (versions) =>
+  Object.fromEntries(
+    RULE_LISTS.map((list) => [list, new Set(versions.flatMap((version) => version.permissions[list] ?? []))]),
+  );
+
+/**
+ * The file's permissions in two parts: ours (every rule a template version has in that list, in its place, and every
+ * setting that isn't a rule list) and the rules the user added, by list, in their order. A list holding only the user's
+ * rules is theirs alone, so it leaves ours. A rule that isn't a string stays in ours, where it can't match a template.
+ */
+function split(permissions, rules) {
+  if (!isObject(permissions)) return { ours: permissions, added: [] };
+  const ours = { ...permissions };
+  const added = [];
+  for (const list of RULE_LISTS) {
+    if (!Array.isArray(permissions[list])) continue;
+    const theirs = permissions[list].filter((rule) => typeof rule === 'string' && !rules[list].has(rule));
+    if (theirs.length === 0) continue;
+    added.push(...theirs.map((rule) => ({ list, rule })));
+    const left = permissions[list].filter((rule) => !theirs.includes(rule));
+    if (left.length > 0) ours[list] = left;
+    else delete ours[list];
+  }
+  return { ours, added };
+}
+
+/** Control, bidi and zero-width characters, and U+FEFF: what could hide or disguise part of a rule. */
+const hidden = (n) =>
+  n < 0x20 ||
+  (n >= 0x7f && n <= 0x9f) ||
+  (n >= 0x200b && n <= 0x200f) ||
+  (n >= 0x202a && n <= 0x202e) ||
+  (n >= 0x2060 && n <= 0x2069) ||
+  n === 0xfeff;
+
+/** A user's rule as the output shows it: quoted, hidden characters as escapes, cut at MAX_RULE code points. */
+function shown(rule) {
+  const points = [...rule];
+  const cut = points.length > MAX_RULE ? [...points.slice(0, MAX_RULE), '…'] : points;
+  const text = cut
+    .map((c) => {
+      const n = c.codePointAt(0) ?? 0;
+      if (c === '"' || c === '\\') return `\\${c}`;
+      return hidden(n) ? `\\u${n.toString(16).padStart(4, '0')}` : c;
+    })
+    .join('');
+  return `"${text}"`;
+}
+
+/** The file with its managed settings replaced by the template's, the user's rules after the template's own. */
+function upgraded(settings, template, ours, added) {
   const env = isObject(settings.env) ? { ...settings.env } : {};
   for (const key of ours) if (!Object.hasOwn(template.env, key)) delete env[key];
   Object.assign(env, template.env);
-  return { ...settings, permissions: template.permissions, env };
+  const permissions = { ...template.permissions };
+  for (const { list, rule } of added) permissions[list] = [...(permissions[list] ?? []), rule];
+  return { ...settings, permissions, env };
 }
 
 /** What going from one template version to another changes. Template values only, never the file's. */
@@ -145,6 +204,7 @@ function plan(root) {
   const template = JSON.parse(readFileSync(TEMPLATE, 'utf8'));
   const past = pastTemplates();
   const ours = [...new Set([...past, template].flatMap((version) => Object.keys(version.env)))];
+  const rules = ourRules([...past, template]);
   const target = resolve(root, RELATIVE);
   const stop = (reason, keys = []) => ({ status: 'stop', reason, target, template, keys });
 
@@ -183,10 +243,13 @@ function plan(root) {
       ignore: ignoreState(root),
     };
   }
-  // Our settings are there: they must be exactly the current template's, or exactly an earlier version's. Never a merge.
-  const have = managed(current, ours);
+  // Our settings are there: the user's own rules aside, they must be exactly the current template's, or exactly an
+  // earlier version's. Never a merge.
+  const { ours: ourPermissions, added } = split(current.permissions, rules);
+  const have = managed({ ...current, permissions: ourPermissions }, ours);
   const differ = managedDifferences(want, have);
-  if (differ.length === 0) return { status: 'done', target, template, others, ignore: ignoreState(root) };
+  if (differ.length === 0)
+    return { status: 'done', target, template, others, added, ignore: ignoreState(root) };
   const from = past.findIndex((version) => managedDifferences(managed(version, ours), have).length === 0);
   if (from === -1) return stop('the file holds settings that differ from the template', differ);
   return {
@@ -198,7 +261,8 @@ function plan(root) {
     to: past.length + 1,
     changes: changes(past[from], template),
     others,
-    result: upgraded(current, template, ours),
+    added,
+    result: upgraded(current, template, ours, added),
     ignore: ignoreState(root),
   };
 }
@@ -230,9 +294,13 @@ function report(p, root, writing) {
   const lines = ['World of Agents project setup', `Settings file: ${p.target}`, ''];
   const kept = (others) =>
     others.length > 0 ? [`Every other setting stays exactly as it is: ${others.join(', ')}.`] : [];
+  const yours = (added) =>
+    added.length > 0
+      ? ['Rules you added stay as they are:', ...added.map(({ list, rule }) => `- ${list} ${shown(rule)}`)]
+      : [];
   if (p.status === 'done') {
     lines.push('Already set up, nothing changed. The file already holds exactly the template settings.');
-    lines.push(...kept(p.others));
+    lines.push(...yours(p.added), ...kept(p.others));
     if (p.ignore === 'add')
       lines.push(`.gitignore doesn't cover the file: add the line ${RELATIVE} by hand.`);
     return lines.join('\n');
@@ -256,6 +324,7 @@ function report(p, root, writing) {
         ? `Upgraded the settings from version ${p.from} of the template to version ${p.to}, the current one. The upgrade:`
         : `The file holds version ${p.from} of the template's settings. Writing upgrades them to version ${p.to}, the current one. The upgrade:`,
       ...p.changes.map((change) => `- ${change}`),
+      ...yours(p.added),
       ...kept(p.others),
     );
   else
@@ -274,7 +343,9 @@ function report(p, root, writing) {
   lines.push(
     '',
     writing
-      ? 'Written. New sessions in this project start in Manual mode with subagent depth 2.'
+      ? 'Written. Manual mode and subagent depth 2 apply from the next new session in this project. In the desktop ' +
+          'app, check the mode selector then: a mode picked for this folder wins over this file, and in our tests the ' +
+          'app used this file only in a git repository.'
       : 'Nothing has been written.',
   );
   return lines.join('\n');

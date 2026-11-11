@@ -3,6 +3,7 @@
 
 import type { AgentInfo, On } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
+import type { Engine } from 'claude-code/testing';
 
 const PLUGIN = 'world-of-agents';
 const SURFACES = ['terminal', 'desktop', 'vscode'] as const;
@@ -391,4 +392,104 @@ describe('a stored value', () => {
     expect(await ui.find({ type: 'Text', text: 'Lead/PM: idle' })).toBeDefined();
     await ui.unmount();
   });
+});
+
+describe('on for every project', () => {
+  const HEADLINE = 'World of Agents is on for every project.';
+  const FIX = (id: string) => `claude plugin disable ${id} --scope user`;
+
+  /** The settings beneath the mod: what each source holds, and every source a read asked for. */
+  function settings(on: On, user: Record<string, unknown> | 'fails') {
+    const asked: (string | undefined)[] = [];
+    on('settings.read', (_, e) => {
+      asked.push(e.source);
+      if (user === 'fails') return { deny: 'settings unavailable' };
+      return {
+        value: e.source === 'user' ? user : { enabledPlugins: { 'world-of-agents@world-of-agents': true } },
+      };
+    });
+    return asked;
+  }
+
+  async function shown($: Engine, surface: (typeof SURFACES)[number]) {
+    const ui = await $.ui.mount({ ...PANE, surface });
+    const texts = (await ui.findAll({ type: 'Text' })).map((t) => t.text);
+    await ui.unmount();
+    return texts;
+  }
+
+  test('warns when the user settings turn it on, and gives the command that turns it off there', async ($, on) => {
+    const clock = engine(on, []);
+    const asked = settings(on, {
+      model: 'opus',
+      enabledPlugins: { 'world-of-agents@world-of-agents': true, 'other@somewhere': true },
+    });
+    await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    // One read, of the user's own settings: never the merged ones, never another source.
+    expect(asked).toEqual(['user']);
+
+    for (const surface of SURFACES) {
+      const texts = await shown($, surface);
+      expect(texts[0]).toBe(HEADLINE);
+      expect(texts).toContain(FIX('world-of-agents@world-of-agents'));
+      expect(texts.join('\n')).not.toMatch(/other@somewhere|opus/);
+    }
+  });
+
+  test('says nothing when only the project turns it on, or the user settings turn it off', async ($, on) => {
+    const clock = engine(on, []);
+    // On in the project (the stand-in's other sources), off or not a plain true in the user's.
+    settings(on, {
+      enabledPlugins: { 'world-of-agents@world-of-agents': false, 'world-of-agents@woa-dev': 'true' },
+    });
+    await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const texts = await shown($, 'desktop');
+    expect(texts).not.toContain(HEADLINE);
+    expect(texts.join('\n')).not.toContain('--scope user');
+    expect(texts).toContain('Lead/PM: idle');
+  });
+
+  test('names only ids of our shape, at most three, each as plain text', async ($, on) => {
+    const clock = engine(on, []);
+    // Written as numbers: see CLAUDE.md on typed escapes. A right-to-left override in a key.
+    const odd = `world-of-agents@evil${String.fromCodePoint(0x202e)}`;
+    settings(on, {
+      enabledPlugins: {
+        [odd]: true,
+        'world-of-agents@has space': true,
+        'world-of-agents@a': true,
+        'world-of-agents@woa-dev': true,
+        'world-of-agents@c.d_e': true,
+        'world-of-agents@fourth': true,
+      },
+    });
+    await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const texts = await shown($, 'desktop');
+    expect(texts.filter((t) => t.startsWith('claude plugin disable'))).toEqual([
+      FIX('world-of-agents@a'),
+      FIX('world-of-agents@woa-dev'),
+      FIX('world-of-agents@c.d_e'),
+    ]);
+    expect(texts.join('\n')).not.toMatch(/evil|has space|fourth/);
+  });
+
+  for (const [name, user] of [
+    ['fails', 'fails'],
+    ['holds no plugins', {}],
+    ['holds something else', { enabledPlugins: ['world-of-agents@world-of-agents'] }],
+  ] as const) {
+    test(`a read that ${name} shows no warning, and the pane works as before`, async ($, on) => {
+      const clock = engine(on, []);
+      settings(on, user);
+      await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true });
+      await clock.settle();
+      const texts = await shown($, 'desktop');
+      expect(texts).not.toContain(HEADLINE);
+      expect(texts).toContain('Lead/PM: idle');
+      expect(texts).toContain('Hall: running');
+    });
+  }
 });

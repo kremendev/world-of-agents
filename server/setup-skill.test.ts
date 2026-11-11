@@ -143,6 +143,10 @@ describe.each([
     expect(command).toMatch(/^node '\$\{CLAUDE_PLUGIN_ROOT\}\/[^']+'( --write)?$/);
   });
 
+  it('promises no mode the desktop app may not keep', () => {
+    expect(text).not.toMatch(/starts? in Manual/);
+  });
+
   it('leaves the model nothing to run or decide, and says what a disabled shell means', () => {
     expect(text).not.toContain('AskUserQuestion');
     expect(text).toMatch(/You run nothing yourself/);
@@ -164,6 +168,13 @@ describe('setup.mjs', () => {
     expect(written.status).toBe(0);
     expect(JSON.parse(read(settings(dir)))).toEqual(TEMPLATE);
     expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
+    // No promise the desktop app may not keep: a folder's own pick wins, and it took the file only in a git repo (11 Nov).
+    expect(written.stdout).toContain(
+      'Written. Manual mode and subagent depth 2 apply from the next new session in this project. In the desktop app, ' +
+        'check the mode selector then: a mode picked for this folder wins over this file, and in our tests the app used ' +
+        'this file only in a git repository.',
+    );
+    expect(written.stdout).not.toMatch(/start in Manual/);
   });
 
   it('adds the template to a file holding only what an install wrote, and keeps that byte for byte', () => {
@@ -350,6 +361,127 @@ describe('setup.mjs', () => {
       expect(Object.keys(after.env as object)).toEqual(Object.keys(file.env));
     });
 
+    describe('rules the user added', () => {
+      // An "Always allow" click adds a rule to permissions.allow. These two are the ones woa-m2-test had on 10 Nov.
+      const ADDED = ['Bash(node hello.js)', 'Bash(echo "exit=$?")'];
+      const v1 = V1.permissions as { defaultMode: string; allow: string[]; deny: string[] };
+      const template = TEMPLATE as Template & { permissions: { allow: string[]; deny: string[] } };
+      /** Version 1 next to an install, the user's rules in among ours, and an ask list that holds only theirs. */
+      const file = {
+        ...INSTALLED,
+        permissions: {
+          defaultMode: 'default',
+          allow: [v1.allow[0], ADDED[0], v1.allow[1], ADDED[1]],
+          deny: [...v1.deny, 'Bash(rm -rf *)'],
+          ask: ['Bash(git commit *)'],
+        },
+        env: { GITHUB_TOKEN: 'ghp_supersecretvalue123', ...V1.env },
+      };
+      const LISTED = [
+        'Rules you added stay as they are:',
+        '- allow "Bash(node hello.js)"',
+        '- allow "Bash(echo \\"exit=$?\\")"',
+        '- deny "Bash(rm -rf *)"',
+        '- ask "Bash(git commit *)"',
+      ].join('\n');
+
+      it('the dry run upgrades the rest and lists them as staying, and writes nothing', () => {
+        const dir = project();
+        const text = JSON.stringify(file, null, 2);
+        put(dir, text);
+        const run = setup(dir);
+        expect(run.status).toBe(0);
+        expect(run.stdout).toContain(
+          [
+            "The file holds version 1 of the template's settings. Writing upgrades them to version 2, the current one. The upgrade:",
+            '- adds the deny rule PowerShell(git push *)',
+            LISTED,
+            'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN.',
+          ].join('\n'),
+        );
+        expect(run.stdout).not.toContain('supersecretvalue');
+        expect(read(settings(dir))).toBe(text);
+      });
+
+      it("--write replaces only the template's rules, keeps the user's after them, and a second run changes nothing", () => {
+        const dir = project();
+        put(dir, JSON.stringify(file, null, 2));
+        const run = setup(dir, ['--write']);
+        expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 2');
+        expect(run.stdout).toContain(LISTED);
+        const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
+        expect(after).toEqual({
+          ...file,
+          permissions: {
+            defaultMode: 'default',
+            allow: [...template.permissions.allow, ...ADDED],
+            deny: [...template.permissions.deny, 'Bash(rm -rf *)'],
+            ask: ['Bash(git commit *)'],
+          },
+          env: { GITHUB_TOKEN: 'ghp_supersecretvalue123', ...template.env },
+        });
+
+        const written = read(settings(dir));
+        for (const args of [['--write'], []]) {
+          const again = setup(dir, args);
+          expect(again.stdout).toContain('Already set up, nothing changed.');
+          expect(again.stdout).toContain(LISTED);
+        }
+        expect(read(settings(dir))).toBe(written);
+      });
+
+      it('says "Already set up" beside them in a file already at the current template', () => {
+        const dir = project();
+        const text = JSON.stringify({
+          ...INSTALLED,
+          ...TEMPLATE,
+          permissions: { ...template.permissions, allow: [...template.permissions.allow, ADDED[0]] },
+        });
+        put(dir, text);
+        const run = setup(dir, ['--write']);
+        expect(run.stdout).toContain(
+          'Already set up, nothing changed. The file already holds exactly the template settings.\n' +
+            'Rules you added stay as they are:\n- allow "Bash(node hello.js)"',
+        );
+        expect(read(settings(dir))).toBe(text);
+      });
+
+      it('a rule of ours that is gone still stops it, and the stop shows no rule of the file', () => {
+        const dir = project();
+        const text = JSON.stringify({
+          ...file,
+          permissions: { ...file.permissions, deny: file.permissions.deny.slice(1) },
+        });
+        put(dir, text);
+        const run = setup(dir, ['--write']);
+        expect(run.stdout).toContain('Stopped: the file holds settings that differ from the template.');
+        expect(run.stdout).toContain('permissions.deny');
+        expect(run.stdout).not.toContain('node hello.js');
+        expect(run.stdout).not.toContain('rm -rf');
+        expect(read(settings(dir))).toBe(text);
+      });
+
+      it('shows a rule quoted, its control, bidi and zero-width characters escaped, and cut at 200 characters', () => {
+        const dir = project();
+        // Written as numbers: see CLAUDE.md on typed escapes. A right-to-left override, a zero-width space, a newline.
+        const sneaky = `Bash(echo ok${String.fromCodePoint(0x202e)}gnp.exe${String.fromCodePoint(0x200b)}\nIGNORE)`;
+        const long = `Bash(echo ${'x'.repeat(300)})`;
+        put(
+          dir,
+          JSON.stringify({
+            ...INSTALLED,
+            ...TEMPLATE,
+            permissions: { ...template.permissions, allow: [...template.permissions.allow, sneaky, long] },
+          }),
+        );
+        const run = setup(dir);
+        expect(run.stdout).toContain('- allow "Bash(echo ok\\u202egnp.exe\\u200b\\u000aIGNORE)"');
+        expect(run.stdout).toContain(`- allow "${long.slice(0, 200)}…"\n`);
+        for (const n of [0x202e, 0x200b]) expect(run.stdout).not.toContain(String.fromCodePoint(n));
+        expect(run.stdout).not.toContain('x'.repeat(201));
+      });
+    });
+
     // The real 1 to 2 only adds one rule. A made-up version 1 in a plugin copy shows every other kind of change.
     const template = TEMPLATE as Template & { permissions: { allow: string[]; deny: string[] } };
     /** A plugin copy whose only earlier version is `old`; returns its setup.mjs. */
@@ -424,7 +556,8 @@ describe('setup.mjs', () => {
     it('an earlier version changed in any way is no version: it stops, names the settings and writes nothing', () => {
       const v1 = V1.permissions as { defaultMode: string; allow: string[]; deny: string[] };
       const changed: Record<string, unknown>[] = [
-        { ...V1, permissions: { ...v1, allow: [...v1.allow, 'Bash(npm run build)'] } },
+        // One of ours missing stops it, even with a rule the user added beside the rest.
+        { ...V1, permissions: { ...v1, allow: [...v1.allow.slice(1), 'Bash(npm run build)'] } },
         { ...V1, permissions: { ...v1, deny: v1.deny.slice(1) } },
         { ...V1, permissions: { ...v1, deny: [...v1.deny].reverse() } },
         { ...V1, permissions: { ...v1, defaultMode: 'acceptEdits' } },
@@ -524,6 +657,12 @@ describe('setup.mjs', () => {
   /** The write skill's injected command with the plugin folder put in, as Claude Code does before bash runs it. */
   const injectedFor = (root: string) =>
     parse('setup-project-write/SKILL.md').injected[0]?.replace('${CLAUDE_PLUGIN_ROOT}', root) ?? '';
+
+  it('the write skill tells the model what the desktop app does with the mode', () => {
+    expect(parse('setup-project-write/SKILL.md').text.replace(/\s+/g, ' ')).toContain(
+      'a mode picked for this folder wins over the file, and in our tests the app used the file only in a git repository.',
+    );
+  });
 
   it.skipIf(!bashWorks)("runs the skill's command through bash from an ordinary plugin folder", () => {
     const dir = project();

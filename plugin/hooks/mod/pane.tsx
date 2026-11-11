@@ -37,9 +37,21 @@ export function nodeWarning(v: PaneView): string | undefined {
   return undefined;
 }
 
+// Not the desktop app's switch under Customize, then Plugins: its code writes the user settings unless the screen names
+// the project, so it isn't proven to be per project (checked 11 Nov in the app's 5.1231.2 bundle).
 export const NODE_FIX =
-  'Install Node.js 20.19 or later, or turn the plugin off for this project: in the desktop app under Customize, then ' +
-  'Plugins, or with claude plugin disable world-of-agents@world-of-agents --scope local.';
+  'Install Node.js 20.19 or later, or turn the plugin off for this project: in a terminal in its folder, run ' +
+  'claude plugin disable world-of-agents@world-of-agents --scope local.';
+
+/**
+ * The plugin is on in every project (user settings): what that costs, and the fix, one command per id. `disable`, not
+ * `uninstall`: uninstall --scope user fails when the user settings turn it on with no user-scope install behind them
+ * ("installed in local scope, not user"), and disable works either way. Checked with the CLI in a temp config, 11 Nov.
+ */
+export const EVERY_PROJECT = 'World of Agents is on for every project.';
+const EVERY_PROJECT_WHY =
+  'Every session in every project starts as the Lead/PM. To turn that off, run in a terminal:';
+const EVERY_PROJECT_THEN = 'Projects where you installed it with --scope local keep it.';
 
 const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
 
@@ -97,6 +109,18 @@ export function drawPane(
 
   return (
     <Box flexDirection="column" gap={1}>
+      {v.everyProject.length > 0 && (
+        <Box flexDirection="column">
+          <Text color="warning" bold>
+            {EVERY_PROJECT}
+          </Text>
+          <Text color="warning">{EVERY_PROJECT_WHY}</Text>
+          {v.everyProject.map((id) => (
+            <Text color="warning">{`claude plugin disable ${id} --scope user`}</Text>
+          ))}
+          <Text color="warning">{EVERY_PROJECT_THEN}</Text>
+        </Box>
+      )}
       {noNode !== undefined && (
         <Box flexDirection="column">
           <Text color="warning" bold>

@@ -109,8 +109,8 @@ bin/              woa: the launcher, bash for Git Bash (finds the repo from its 
 docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
                   really do), v3-m2-plan.md (milestone 2 in parts), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
-                  screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md: the GitHub release's
-                  text, written before the tag)
+                  screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
+                  GitHub release's text, written before the tag)
 ```
 
 ## How the hall is drawn
@@ -228,7 +228,9 @@ Do not change the look without asking. New ideas go into a later version.
   project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
   enabled, so every session everywhere would start as the Lead and report to the hall. The desktop app's Plugins screen
   asks for no scope and installs at user scope (twice on 11 Nov, app 5.1231), so installs go through
-  `claude plugin install … --scope local`, checked with `claude plugin list`. An installed plugin can't set a
+  `claude plugin install … --scope local`, checked with `claude plugin list`. Its switch under Customize, then Plugins,
+  writes the settings file the screen's level names, the user's when it names none (app code, 5.1231.2), so it isn't
+  proven per project: turning it off for one project is `claude plugin disable … --scope local`. An installed plugin can't set a
   permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
   applies both (v3 spike), the mode only until one is picked for that folder in the app: from then on new sessions start
   in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). So far it took the file's
@@ -255,14 +257,18 @@ Do not change the look without asking. New ideas go into a later version.
   again, so the text between them runs unquoted, and a folder named `a'$(calc)'b` would run `calc`. Accepted, because
   only Dima's own folder names (and our fixed plugin names) reach that path, never the conversation or a cloned repo. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
   non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`.
-  It manages `permissions` and its own env keys, and when they are already there it compares them itself: exactly the
-  template's says "Already set up", whatever else the file holds; exactly an earlier version's (`versions/N.json`, every
+  It manages `permissions` and its own env keys, and when they are already there it compares them itself. A rule in
+  `allow`, `deny` or `ask` is ours when any template version has it in that list; any other rule is the user's (an
+  "Always allow" click adds one) and is set aside first (v3.0.1). What is left: exactly the template's says "Already
+  set up", whatever else the file holds; exactly an earlier version's (`versions/N.json`, every
   template.json main ever had, byte for byte, checked against git history by a test) is upgraded: those settings are
-  replaced and every other setting stays where it was; anything else stops and names the settings that differ (so a
-  second `--write` changes nothing). Before changing template.json, save the committed one as the next `versions/N.json`.
-  It never prints an existing settings file's values (they can hold secrets, and the output goes into the
-  conversation); an upgrade shows only rules and values of the two template versions, which the file matched exactly,
-  and the names of the settings it keeps. The skills give the model
+  replaced, the user's rules follow the template's, and every other setting stays where it was; anything else stops and
+  names the settings that differ (so a second `--write` changes nothing). Before changing template.json, save the
+  committed one as the next `versions/N.json`. It never prints an existing settings file's values (they can hold
+  secrets, and the output goes into the conversation); it shows the two template versions' rules and values, which the
+  file matched exactly, the user's own rules, quoted, with control, bidi and zero-width characters escaped and cut at
+  200 code points (an "Always allow" rule is a command an agent proposed), and the names of the settings it keeps. Its
+  "Written." promises no mode: a folder's pick wins in the desktop app. The skills give the model
   the exact `.env` caveat to repeat, so it doesn't improvise one.
 - Injected skill commands skip hooks: no `PreToolUse` fires for them, so the guard never sees one (checked for 2a).
   Permission rules still apply (a matching deny aborts the skill). Only skills we wrote or read go in the plugin.
@@ -286,7 +292,11 @@ Do not change the look without asking. New ideas go into a later version.
   `prompt.read`, no `send`, no `Markdown`, and prompt text read in one place. Two hooks see Dima's prompts (`prompt.submit`, `classic.UserPromptSubmit`): the first only asks `heardRun()` whether the prompt is a frame naming one of the mod's own runs, and that id is only compared with `unheard`; the second reads `permission_mode` only. No prompt text, not even an id a prompt claims, reaches `$.state`, `$.store`, a process, the voice or the pane: `register.test.tsx` plants a fake token in a prompt and in frames and checks every write (two planted bugs, both caught). `scripts/mod-surface.json` lists
   every event, `$` call, state key and env name it uses, as `claude plugin validate` reads them; `npm run mod:surface`
   fails on any difference, either way, so a removed call can't come back unreviewed. No network, no files, no environment
-  variables (`mod.test.ts` checks); the processes are the fixed ones below.
+  variables (`mod.test.ts` checks); the processes are the fixed ones below. Of the settings it reads one key, at session
+  start: `$.settings.read({ key: 'enabledPlugins', source: 'user' })`, whose answer is that key alone. Our ids that are
+  `true` there (at most three, `world-of-agents@<marketplace>` of plain characters) draw "World of Agents is on for every
+  project." with `claude plugin disable <id> --scope user`: `uninstall --scope user` fails when no user-scope install
+  is behind the setting (CLI, temp config, 11 Nov). `mod.test.ts` pins that one line (v3.0.1).
   The pane warns in `auto`, `bypassPermissions` and `acceptEdits`, the mode named first ("Auto: Nothing asks you before
   acting.", "Bypass: …", "Accept edits: Edits aren't asked, and npm test runs whatever they change."), Dima's wording; it
   never changes the mode. `/world-of-agents:team` is a
@@ -521,5 +531,8 @@ check changed"), and its re-check passed. The setup skill's upgrade path from ol
 passed its desktop check in `woa-m2-test`. `v3.0.0` is released (10 Nov): the minimum Claude Code version measured as
 2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. The install check (11 Nov, step 7 of the plan's
 "Releasing v3.0.0") found the Plugins screen installs at user scope without asking, and the desktop app took the setup's
-mode only in a git repository; the README, the notes and the release page (edited, no new tag) say so. Next: the v3.0.1
-backlog, then v3.1.0 (the plan's last sections).
+mode only in a git repository; the README, the notes and the release page (edited, no new tag) say so. `v3.0.1` (the
+plan's "v3.0.1: small fixes") is built and committed locally, not pushed or tagged: upgrades keep the user's rules, the
+pane warns when the plugin is on for every project, "Written." promises no mode, and one project is turned off with the
+CLI only. Before the tag: Dima's desktop check, and the minimum Claude Code version (2.1.312 measured with the new
+`$.settings.read`, 2.1.299 not). Then v3.1.0 (the plan's last section).

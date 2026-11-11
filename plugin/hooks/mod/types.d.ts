@@ -70,6 +70,11 @@ export type PaneView = {
   muted: boolean;
   /** Why the last preset press didn't fill the prompt box; null when it did, and before the first press. */
   fillRefused: PaneFillRefusal | null;
+  /**
+   * The World of Agents ids the user settings turn on, read once at session start: the plugin is then on in every
+   * project. Only ids shaped like `world-of-agents@<marketplace>`, at most three.
+   */
+  everyProject: string[];
 };
 
 declare module 'claude-code' {

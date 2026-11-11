@@ -232,9 +232,10 @@ describe('the hall', () => {
 });
 
 describe('Node', () => {
+  // Only the command: the desktop app's switch isn't proven to be per project.
   const FIX =
-    'Install Node.js 20.19 or later, or turn the plugin off for this project: in the desktop app under Customize, then ' +
-    'Plugins, or with claude plugin disable world-of-agents@world-of-agents --scope local.';
+    'Install Node.js 20.19 or later, or turn the plugin off for this project: in a terminal in its folder, run ' +
+    'claude plugin disable world-of-agents@world-of-agents --scope local.';
   const cases = [
     [
       'missing',

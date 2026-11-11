@@ -572,17 +572,71 @@ Before v3.0.0, on 10 Nov:
 
 - Nothing left.
 
-## Backlog for v3.0.1
+## v3.0.1: small fixes
 
-- **The setup upgrade keeps "Always allow" rules.** An "Always allow" click in a set-up project adds a rule to
-  `permissions.allow` (`woa-m2-test` had `Bash(node hello.js)` and `Bash(echo "exit=$?")` on 10 Nov), and the upgrade
-  then stops and names `permissions.allow`, writing nothing. Keep the allow rules that are in no template version through
-  an upgrade, so only the template's own settings change; anything else that differs still stops it.
-- **A pane warning when the plugin is on for every project.** The Plugins screen made that install twice on 11 Nov (step
-  7). The pane reads one key, `$.settings.read({ key: 'enabledPlugins', source: 'user' })`, which hands it nothing else
-  of `~/.claude/settings.json`, and when a `world-of-agents@…` entry is on there, it says so and names the fix:
-  `claude plugin uninstall world-of-agents@world-of-agents --scope user`, then a local install per project. Dima picks
-  the wording. It's a new `$` call, so `mod:surface` and `mod.test.ts` change with it, in review.
+Asked for on 11 Nov after the install check, built the same day and committed locally; not pushed or tagged.
+
+1. **The setup upgrade keeps rules the user added.** An "Always allow" click adds a rule to `permissions.allow`
+   (`woa-m2-test` had `Bash(node hello.js)` and `Bash(echo "exit=$?")` on 10 Nov), and v3.0.0's upgrade then stopped.
+   Now a rule in `allow`, `deny` or `ask` is ours when any template version has it in that list, and any other rule is
+   the user's. The file's own rules, the user's aside, must still be exactly one version's, order included, so one of
+   ours missing or changed stops it as before. An upgrade writes the template's rules, then the user's in their order; a
+   list that holds only the user's rules (`ask`) stays as it is. "Already set up" lists them too. The output shows each
+   user rule quoted, with control, bidi and zero-width characters escaped and cut at 200 code points: an "Always allow"
+   rule is a command an agent proposed, and this output goes to the model. A first setup over a file whose only
+   permissions are the user's still stops, as before: not asked for.
+2. **A pane warning when the plugin is on for every project.** At session start the mod reads
+   `$.settings.read({ key: 'enabledPlugins', source: 'user' })`, keeps our ids that are `true` there (shaped
+   `world-of-agents@<marketplace>`, at most three) and draws "World of Agents is on for every project.", why, one command
+   per id and "Projects where you installed it with --scope local keep it." The command is
+   `claude plugin disable <id> --scope user`, not the `uninstall` this backlog first named: in a temp config the CLI's
+   `uninstall --scope user` fails when no user-scope install is behind the setting ("installed in local scope, not
+   user"), and `disable --scope user` works in both cases, a project's local install staying on (checked 11 Nov). The
+   wording is a draft for Dima. The view's shape tag is now `view-5`. Kit tests: six; `mod.test.ts` pins the one call;
+   `mod-surface.json` grows by `$.settings.read` only.
+3. **No promise of Manual.** `setup.mjs`'s "Written." and the write skill say Manual applies from the next new session,
+   and that in the desktop app a mode picked for the folder wins and the file was used only in a git repository in our
+   tests. A test pins it in both skills.
+4. **Turning it off for one project.** The desktop app's switch under Customize, then Plugins, isn't proven to be per
+   project. Its handler (`LocalPlugins setPluginEnabled`, app 5.1231.2) writes `enabledPlugins` into the file a settings
+   level names: `project` and `local` the project's files, anything else, no level included, the user's
+   `settings.json`. The level comes from the screen, and the same screen's install sent none on 11 Nov
+   (`scope=default`, twice). A user-level `false` would also lose to a project's local `true`. So the README, the
+   plugin's README and the pane's Node warning name `claude plugin disable world-of-agents@world-of-agents --scope local`
+   in the project folder only. The plugin's README also got the terminal install that the main README has had since 11
+   Nov.
+5. **`woa-git-test` removed:** its local install uninstalled, then the folder deleted. It held only the setup's file,
+   `.gitignore` and an empty repository.
+
+**The minimum Claude Code version needs a look before the tag.** The pane now calls `$.settings.read`, which the 2.1.299
+measurement (decision 27) never saw. The local 2.1.312 validates the plugin, passes all 84 kit tests and matches the
+surface. Downloading 2.1.299 with `npm pack`, as on 10 Nov, was refused by the session's auto-mode check, so 2.1.299 to
+2.1.311 are unmeasured. Either measure 2.1.299 again or raise the minimum to 2.1.312: Dima's call.
+
+**The desktop check**, in `woa-m2-test` with the dev install (refreshed with `npm run dev:refresh` after the commit),
+then `/reload-plugins` or a new session:
+
+1. A new session, "hi": the pane shows no "on for every project" warning. If the selector doesn't say Manual, pick it.
+2. "Have the Backend dev run node hello.js and tell me what it prints." At the dialog for it, pick the option that
+   doesn't ask again: an "Always allow" rule.
+3. `/world-of-agents:setup-project`: version 1 to 2, "adds the deny rule PowerShell(git push *)", and under "Rules you
+   added stay as they are:" the rule that click wrote.
+4. `/world-of-agents:setup-project-write`: "Upgraded…", the same kept rule, and the new "Written." text.
+5. Customize, then Plugins: switch World of Agents off, then on again. (This tells which file the switch writes.)
+6. A new session in `woa-m2-test`: if the switch wrote the user settings, the pane says "World of Agents is on for
+   every project." with `claude plugin disable world-of-agents@woa-dev --scope user`. Run that in Git Bash right away:
+   until then every new session anywhere starts as the Lead.
+7. Another new session: no warning, and the team still works in `woa-m2-test`.
+
+**Releasing v3.0.1**, after the desktop check:
+
+1. The minimum version, as above.
+2. `npm run release:check` from `C:\`.
+3. Push `main`, then the annotated tag:
+   `git tag -a v3.0.1 -m "World of Agents v3.0.1: small fixes"` and `git push origin v3.0.1`.
+4. `gh release create v3.0.1 --title v3.0.1 --notes-file docs/release-notes/v3.0.1.md`.
+5. In `woa-test` and `woa-v3-test`, as the notes' "Updating from v3.0.0" says; then `claude plugin list`.
+6. Write down what happened here and in CLAUDE.md's status.
 
 ## Backlog for v3.1.0, after the release
 

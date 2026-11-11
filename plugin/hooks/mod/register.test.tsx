@@ -49,6 +49,7 @@ const STORED_VIEW: PaneView = {
   nodeVersion: null,
   muted: false,
   fillRefused: null,
+  everyProject: [],
 };
 
 const SPAWN: AgentSpawnInput = {
@@ -318,7 +319,7 @@ describe('prompts', () => {
     // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
     on('state.get', () => ({
       value: {
-        value: { shape: 'view-4', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        value: { shape: 'view-5', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
         version: 1,
       },
     }));

@@ -2,7 +2,8 @@
 //
 // Every hook hands back exactly what `next` resolved to: no answer on tool.call, no decision on tool.check, no change
 // to a spawn, a prompt or a turn. It submits no prompt: a preset only puts its fixed text after Dima's draft
-// (presets.ts). Its only processes are fixed commands (hall.ts, voice.ts); it uses no network and no files.
+// (presets.ts). Its only processes are fixed commands (hall.ts, voice.ts); it uses no network and no files. Of the
+// settings it reads one key, the user's own enabledPlugins (checkScope).
 // register.test.tsx, hall.test.tsx and voice.test.tsx pin all of it, and scripts/mod-surface.json lists every event and
 // $ call it uses.
 
@@ -32,10 +33,11 @@ const EMPTY: PaneView = {
   nodeVersion: null,
   muted: false,
   fillRefused: null,
+  everyProject: [],
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-4' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-5' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -94,6 +96,25 @@ async function startUp($: EngineInterface): Promise<void> {
   else await setHall($)('stopped');
 }
 
+/** One of our ids as a settings key holds it: our name, then a marketplace name of plain characters. */
+const OUR_ID = /^world-of-agents@[A-Za-z0-9._-]{1,64}$/;
+
+/**
+ * Is the plugin on for every project? One key of the user's own settings, `enabledPlugins`, and nothing else of them:
+ * our ids that are on there, at most three. The Plugins screen made exactly that install on 11 Nov.
+ */
+async function checkScope($: EngineInterface): Promise<void> {
+  const enabled = await $.settings.read({ key: 'enabledPlugins', source: 'user' });
+  const on =
+    enabled !== null && typeof enabled === 'object' && !Array.isArray(enabled)
+      ? Object.entries(enabled).filter(([id, value]) => OUR_ID.test(id) && value === true)
+      : [];
+  const everyProject = on.map(([id]) => id).slice(0, 3);
+  await set($, (v) =>
+    JSON.stringify(v.everyProject) === JSON.stringify(everyProject) ? v : { ...v, everyProject },
+  );
+}
+
 /** Is the hall still there? Not before Node has been found at session start. */
 async function checkHall($: EngineInterface): Promise<void> {
   if ((await read($, view)).node === 'ok') await keepHall($, setHall($));
@@ -130,6 +151,7 @@ export const register: Register = (on) => {
     quietly($.ui.open({ id: PANE, title: 'World of Agents' }));
     $.clock.every(POLL_MS, () => quietly(refreshAgents($)));
     quietly(startUp($));
+    quietly(checkScope($));
     return started;
   });
 

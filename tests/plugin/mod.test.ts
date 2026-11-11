@@ -92,4 +92,12 @@ describe('the processes the mod starts', () => {
   it('uses no network, no files and no environment variables', () => {
     expect(using(/\$\.(http|fs|env)\b/)).toEqual([]);
   });
+
+  it("reads one setting only: enabledPlugins from the user's own settings, in register.tsx", () => {
+    // A read of the whole settings, or of the merged ones, would hand the mod env values and every other key.
+    expect(using(/\bsettings\s*(\.|\[)/)).toEqual(['register.tsx']);
+    expect(code('register.tsx').match(/[^\n]*\bsettings\s*(\.|\[)[^\n]*/g)).toEqual([
+      "  const enabled = await $.settings.read({ key: 'enabledPlugins', source: 'user' });",
+    ]);
+  });
 });

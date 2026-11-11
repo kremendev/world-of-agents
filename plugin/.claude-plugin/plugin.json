@@ -1,6 +1,6 @@
 {
   "name": "world-of-agents",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "The World of Agents team (Lead/PM, Designer, Frontend dev, Backend dev, Reviewer) and hooks that report what each one does to the Forge Hall on 127.0.0.1.",
   "author": { "name": "Dima" },
   "types": "./hooks/mod/types.d.ts"
