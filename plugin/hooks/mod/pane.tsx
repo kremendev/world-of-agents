@@ -37,8 +37,8 @@ export function nodeWarning(v: PaneView): string | undefined {
   return undefined;
 }
 
-// Not the desktop app's switch under Customize, then Plugins: its code writes the user settings unless the screen names
-// the project, so it isn't proven to be per project (checked 11 Nov in the app's 5.1231.2 bundle).
+// The command works on every surface. (In the desktop app the switch under Customize, then Plugins, also turned a local
+// install off for its project alone, writing that project's settings.local.json: seen 11 Nov, app 5.1231.2.)
 export const NODE_FIX =
   'Install Node.js 20.19 or later, or turn the plugin off for this project: in a terminal in its folder, run ' +
   'claude plugin disable world-of-agents@world-of-agents --scope local.';

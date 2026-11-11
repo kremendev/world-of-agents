@@ -10,7 +10,8 @@
 // file with the template itself and says "Already set up" or names the settings that differ, never their values.
 //
 // It writes only into a file it fully understands: none yet, or one holding nothing but what a local-scope plugin install
-// puts there (enabledPlugins, extraKnownMarketplaces), which it keeps exactly as it is. The settings it manages are
+// puts there (enabledPlugins, extraKnownMarketplaces), which it keeps exactly as it is, and maybe permission rule lists
+// the project gathered before (allow, deny and ask alone, nothing else under permissions). The settings it manages are
 // `permissions` and its own env keys. A rule in permissions.allow, deny or ask is ours when any template version has it
 // in that list; any other rule is one the user added (an "Always allow" click adds one), and it stays where it is. When
 // the file's managed settings, its own rules aside, are exactly those of an earlier template version (versions/), it
@@ -141,6 +142,28 @@ function split(permissions, rules) {
   return { ours, added };
 }
 
+/**
+ * Whether the file's permissions hold rule lists alone (allow, deny and ask, each an array of strings): the rules a
+ * project gathered before its first setup, such as "Always allow" clicks. Each rule is the user's, or one the current
+ * template has in that list already. Anything else under permissions, defaultMode included, is no first setup; nor is
+ * a rule only an earlier template had, which writing the template would drop without a word.
+ */
+function onlyRules(permissions, rules, template) {
+  return (
+    isObject(permissions) &&
+    Object.entries(permissions).every(
+      ([list, value]) =>
+        RULE_LISTS.includes(list) &&
+        Array.isArray(value) &&
+        value.every(
+          (rule) =>
+            typeof rule === 'string' &&
+            (!rules[list].has(rule) || (template.permissions[list] ?? []).includes(rule)),
+        ),
+    )
+  );
+}
+
 /** Control, bidi and zero-width characters, and U+FEFF: what could hide or disguise part of a rule. */
 const hidden = (n) =>
   n < 0x20 ||
@@ -223,23 +246,38 @@ function plan(root) {
   if (!isObject(current)) return stop('the file is not a JSON object');
   const others = otherNames(current, ours);
   const want = managed(template, ours);
-  const present =
-    Object.hasOwn(current, 'permissions') ||
-    (isObject(current.env) && ours.some((key) => Object.hasOwn(current.env, key)));
+  const ourEnv = isObject(current.env) && ours.some((key) => Object.hasOwn(current.env, key));
+  // Our env key makes it ours whatever permissions holds: never a first setup then.
+  const gathered = Object.hasOwn(current, 'permissions') && onlyRules(current.permissions, rules, template);
+  const present = ourEnv || (Object.hasOwn(current, 'permissions') && !gathered);
   if (!present) {
-    // None of our settings yet: add them only to a file that holds nothing but what an install wrote.
+    // None of our settings yet: add them only to a file that holds nothing but what an install wrote, and rules the
+    // project gathered before, which stay after the template's own.
     const blocking = others.filter((name) => !INSTALL_KEYS.has(name));
     if (blocking.length > 0)
       return stop('the file holds settings that differ from the template', [
         ...blocking,
         ...managedDifferences(want, managed(current, ours)),
       ]);
+    if (!gathered)
+      return {
+        status: 'merge',
+        target,
+        template,
+        raw,
+        result: { ...current, ...template },
+        ignore: ignoreState(root),
+      };
+    const { added } = split(current.permissions, rules);
     return {
       status: 'merge',
+      gathered: true,
       target,
       template,
       raw,
-      result: { ...current, ...template },
+      others,
+      added,
+      result: upgraded(current, template, ours, added),
       ignore: ignoreState(root),
     };
   }
@@ -325,6 +363,15 @@ function report(p, root, writing) {
         : `The file holds version ${p.from} of the template's settings. Writing upgrades them to version ${p.to}, the current one. The upgrade:`,
       ...p.changes.map((change) => `- ${change}`),
       ...yours(p.added),
+      ...kept(p.others),
+    );
+  else if (p.gathered)
+    // Never the whole file: it would show the user's rules unescaped.
+    lines.push(
+      'The file holds only what installing the plugin put there and permission rules gathered before it.',
+      "The template's settings go in beside them:",
+      pretty(p.template).trimEnd(),
+      ...(p.added.length > 0 ? yours(p.added) : ['Every rule it holds is in the template already.']),
       ...kept(p.others),
     );
   else

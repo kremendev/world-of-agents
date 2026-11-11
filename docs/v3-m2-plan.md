@@ -574,7 +574,7 @@ Before v3.0.0, on 10 Nov:
 
 ## v3.0.1: small fixes
 
-Asked for on 11 Nov after the install check, built the same day and committed locally; not pushed or tagged.
+Asked for on 11 Nov after the install check, built and desktop-checked the same day, then released as `v3.0.1`.
 
 1. **The setup upgrade keeps rules the user added.** An "Always allow" click adds a rule to `permissions.allow`
    (`woa-m2-test` had `Bash(node hello.js)` and `Bash(echo "exit=$?")` on 10 Nov), and v3.0.0's upgrade then stopped.
@@ -583,8 +583,14 @@ Asked for on 11 Nov after the install check, built the same day and committed lo
    ours missing or changed stops it as before. An upgrade writes the template's rules, then the user's in their order; a
    list that holds only the user's rules (`ask`) stays as it is. "Already set up" lists them too. The output shows each
    user rule quoted, with control, bidi and zero-width characters escaped and cut at 200 code points: an "Always allow"
-   rule is a command an agent proposed, and this output goes to the model. A first setup over a file whose only
-   permissions are the user's still stops, as before: not asked for.
+   rule is a command an agent proposed, and this output goes to the model. After the desktop check (Dima, 11 Nov), a
+   first setup keeps them too: projects used before World of Agents usually have "Always allow" rules, and the first
+   setup used to stop on them. It works like the upgrade when the file holds the install keys and a `permissions` of
+   `allow`, `deny` and `ask` arrays alone, and none of our env keys. Its dry run shows the template and the user's
+   rules, escaped, never the whole file, which would show them raw. A rule the current template has already is kept
+   once. A rule only an earlier template had stops it, because writing the template would drop it without a word (none
+   exists today: version 1's rules are all in version 2). `defaultMode` or any other key under `permissions` stops it,
+   as before.
 2. **A pane warning when the plugin is on for every project.** At session start the mod reads
    `$.settings.read({ key: 'enabledPlugins', source: 'user' })`, keeps our ids that are `true` there (shaped
    `world-of-agents@<marketplace>`, at most three) and draws "World of Agents is on for every project.", why, one command
@@ -597,21 +603,24 @@ Asked for on 11 Nov after the install check, built the same day and committed lo
 3. **No promise of Manual.** `setup.mjs`'s "Written." and the write skill say Manual applies from the next new session,
    and that in the desktop app a mode picked for the folder wins and the file was used only in a git repository in our
    tests. A test pins it in both skills.
-4. **Turning it off for one project.** The desktop app's switch under Customize, then Plugins, isn't proven to be per
-   project. Its handler (`LocalPlugins setPluginEnabled`, app 5.1231.2) writes `enabledPlugins` into the file a settings
+4. **Turning it off for one project.** At first the desktop app's switch under Customize, then Plugins, wasn't proven to
+   be per project. Its handler (`LocalPlugins setPluginEnabled`, app 5.1231.2) writes `enabledPlugins` into the file a settings
    level names: `project` and `local` the project's files, anything else, no level included, the user's
    `settings.json`. The level comes from the screen, and the same screen's install sent none on 11 Nov
    (`scope=default`, twice). A user-level `false` would also lose to a project's local `true`. So the README, the
    plugin's README and the pane's Node warning name `claude plugin disable world-of-agents@world-of-agents --scope local`
-   in the project folder only. The plugin's README also got the terminal install that the main README has had since 11
-   Nov.
+   in the project folder only. The desktop check then settled it for a local install: switched off and on in
+   `woa-m2-test` (21:12:56 and 21:12:58), it wrote that project's `settings.local.json` (its time is the second write's)
+   and left the user's `settings.json` alone (untouched since 20:02). The READMEs say so; the pane's Node warning keeps
+   the command, which works on every surface. The plugin's README also got the terminal install that the main README has
+   had since 11 Nov.
 5. **`woa-git-test` removed:** its local install uninstalled, then the folder deleted. It held only the setup's file,
    `.gitignore` and an empty repository.
 
-**The minimum Claude Code version needs a look before the tag.** The pane now calls `$.settings.read`, which the 2.1.299
+**The minimum Claude Code version is 2.1.312** (Dima, 11 Nov). The pane now calls `$.settings.read`, which the 2.1.299
 measurement (decision 27) never saw. The local 2.1.312 validates the plugin, passes all 84 kit tests and matches the
-surface. Downloading 2.1.299 with `npm pack`, as on 10 Nov, was refused by the session's auto-mode check, so 2.1.299 to
-2.1.311 are unmeasured. Either measure 2.1.299 again or raise the minimum to 2.1.312: Dima's call.
+surface. Downloading 2.1.299 with `npm pack`, as on 10 Nov, was refused by the session's auto-mode check, and older
+engines aren't downloaded again.
 
 **The desktop check**, in `woa-m2-test` with the dev install (refreshed with `npm run dev:refresh` after the commit),
 then `/reload-plugins` or a new session:
@@ -628,9 +637,13 @@ then `/reload-plugins` or a new session:
    until then every new session anywhere starts as the Lead.
 7. Another new session: no warning, and the team still works in `woa-m2-test`.
 
+Result (11 Nov, desktop engine 2.1.321): every step passed. The click saved `Bash(node hello.js)` and
+`Bash(echo "EXIT:$?")`; the dry run and the write listed both, escaped, and the new "Written." text showed. Step 6
+showed no warning, rightly: the switch had written the project's own file (item 4).
+
 **Releasing v3.0.1**, after the desktop check:
 
-1. The minimum version, as above.
+1. The minimum version, as above: 2.1.312.
 2. `npm run release:check` from `C:\`.
 3. Push `main`, then the annotated tag:
    `git tag -a v3.0.1 -m "World of Agents v3.0.1: small fixes"` and `git push origin v3.0.1`.

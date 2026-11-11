@@ -292,6 +292,121 @@ describe('setup.mjs', () => {
     },
   );
 
+  describe('a first setup beside rules the project gathered before', () => {
+    // A project used before World of Agents has "Always allow" rules. These two are the ones woa-m2-test got on 11 Nov.
+    const ADDED = ['Bash(node hello.js)', 'Bash(echo "EXIT:$?")'];
+    const template = TEMPLATE as Template & { permissions: { allow: string[]; deny: string[] } };
+    const file = {
+      ...INSTALLED,
+      permissions: { allow: ADDED, deny: ['Bash(rm -rf *)'], ask: ['Bash(git commit *)'] },
+    };
+    const LISTED = [
+      'Rules you added stay as they are:',
+      '- allow "Bash(node hello.js)"',
+      '- allow "Bash(echo \\"EXIT:$?\\")"',
+      '- deny "Bash(rm -rf *)"',
+      '- ask "Bash(git commit *)"',
+      'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces.',
+    ].join('\n');
+
+    it('the dry run shows the template and lists the rules as staying, and writes nothing', () => {
+      const dir = project();
+      const text = JSON.stringify(file, null, 2);
+      put(dir, text);
+      const run = setup(dir);
+      expect(run.status).toBe(0);
+      expect(run.stdout).toContain(
+        [
+          'The file holds only what installing the plugin put there and permission rules gathered before it.',
+          "The template's settings go in beside them:",
+          JSON.stringify(TEMPLATE, null, 2),
+          LISTED,
+        ].join('\n'),
+      );
+      expect(run.stdout).toContain('Nothing has been written.');
+      expect(read(settings(dir))).toBe(text);
+      expect(existsSync(join(dir, '.gitignore'))).toBe(false);
+    });
+
+    it("--write puts the template's rules first, the project's after them, and a second run changes nothing", () => {
+      const dir = project();
+      put(dir, JSON.stringify(file, null, 2));
+      const run = setup(dir, ['--write']);
+      expect(run.stdout).toContain(LISTED);
+      expect(run.stdout).toContain('Written.');
+      const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
+      expect(after).toEqual({
+        ...INSTALLED,
+        permissions: {
+          defaultMode: 'default',
+          allow: [...template.permissions.allow, ...ADDED],
+          deny: [...template.permissions.deny, 'Bash(rm -rf *)'],
+          ask: ['Bash(git commit *)'],
+        },
+        env: template.env,
+      });
+      expect(Object.keys(after)).toEqual(['enabledPlugins', 'extraKnownMarketplaces', 'permissions', 'env']);
+      expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
+
+      const written = read(settings(dir));
+      const again = setup(dir, ['--write']);
+      expect(again.stdout).toContain('Already set up, nothing changed.');
+      expect(again.stdout).toContain('- allow "Bash(echo \\"EXIT:$?\\")"');
+      expect(read(settings(dir))).toBe(written);
+    });
+
+    it('a rule the template has already is kept once and not listed as yours', () => {
+      const dir = project();
+      put(dir, JSON.stringify({ permissions: { allow: ['Bash(npm test)', ADDED[0]] } }));
+      const run = setup(dir, ['--write']);
+      expect(run.stdout).toContain('Rules you added stay as they are:\n- allow "Bash(node hello.js)"\n');
+      expect(run.stdout).not.toContain('- allow "Bash(npm test)"');
+      const after = JSON.parse(read(settings(dir))) as { permissions: { allow: string[] } };
+      expect(after.permissions.allow).toEqual([...template.permissions.allow, ADDED[0]]);
+
+      const only = project();
+      put(only, JSON.stringify({ permissions: { allow: ['Bash(npm test)'] } }));
+      expect(setup(only).stdout).toContain('Every rule it holds is in the template already.');
+    });
+
+    it('shows each rule escaped, never the whole file', () => {
+      const dir = project();
+      // Written as numbers: see CLAUDE.md on typed escapes. A right-to-left override and a zero-width space.
+      const sneaky = `Bash(echo ok${String.fromCodePoint(0x202e)}gnp.exe${String.fromCodePoint(0x200b)})`;
+      put(dir, JSON.stringify({ ...INSTALLED, permissions: { allow: [sneaky] } }));
+      for (const args of [[], ['--write']]) {
+        const run = setup(dir, args);
+        expect(run.stdout).toContain('- allow "Bash(echo ok\\u202egnp.exe\\u200b)"');
+        for (const n of [0x202e, 0x200b]) expect(run.stdout).not.toContain(String.fromCodePoint(n));
+      }
+    });
+
+    it('anything else under permissions, or beside it, stops as before, and no rule is shown', () => {
+      const user = ADDED[0];
+      const cases: Record<string, unknown>[] = [
+        { ...INSTALLED, permissions: { defaultMode: 'default', allow: [user] } },
+        { ...INSTALLED, permissions: { allow: [user], additionalDirectories: ['../elsewhere'] } },
+        { ...INSTALLED, permissions: { allow: [user, 3] } },
+        { ...INSTALLED, permissions: { allow: user } },
+        { ...INSTALLED, permissions: { allow: [user] }, env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '2' } },
+        { ...INSTALLED, permissions: { allow: [user] }, model: 'opus' },
+      ];
+      for (const file of cases) {
+        const dir = project();
+        const text = JSON.stringify(file);
+        put(dir, text);
+        for (const args of [[], ['--write']]) {
+          const run = setup(dir, args);
+          expect(run.status).toBe(0);
+          expect(run.stdout).toContain('Stopped: the file holds settings that differ from the template.');
+          expect(run.stdout).not.toContain('node hello.js');
+          expect(run.stdout).not.toContain('elsewhere');
+        }
+        expect(read(settings(dir))).toBe(text);
+      }
+    });
+  });
+
   describe('an upgrade from an earlier template', () => {
     /** What the 2a setup wrote next to an install: version 1, merged by that version of this script. */
     const fromV1 = JSON.stringify({ ...INSTALLED, ...V1 }, null, 2) + '\n';
@@ -493,6 +608,23 @@ describe('setup.mjs', () => {
       writeFileSync(join(plugin, 'versions', '1.json'), JSON.stringify(old));
       return join(plugin, 'setup.mjs');
     }
+
+    it('a first setup stops on a rule only an earlier template had: writing the template would drop it unseen', () => {
+      const old = { ...TEMPLATE, permissions: { ...template.permissions, deny: ['Read(secrets.txt)'] } };
+      const script = withVersion1(old);
+      const dir = project();
+      const text = JSON.stringify({
+        ...INSTALLED,
+        permissions: { deny: ['Read(secrets.txt)', 'Bash(rm -rf *)'] },
+      });
+      put(dir, text);
+      const run = setup(dir, ['--write'], script);
+      expect(run.stdout).toContain('Stopped: the file holds settings that differ from the template.');
+      expect(read(settings(dir))).toBe(text);
+      // The same file without that rule is a first setup.
+      put(dir, JSON.stringify({ ...INSTALLED, permissions: { deny: ['Bash(rm -rf *)'] } }));
+      expect(setup(dir, [], script).stdout).toContain('- deny "Bash(rm -rf *)"');
+    });
 
     it('says so when a version differs only in the order of its rules', () => {
       const old = {

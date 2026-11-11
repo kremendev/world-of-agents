@@ -256,7 +256,8 @@ step, while you still review every milestone.
   `woa` does in the terminal; milestone 1 showed the desktop app applies both the mode and the env from that file. From
   milestone 4 the setup also writes the backlog. From v3.0.1 an upgrade keeps the rules the user added: a rule in
   `allow`, `deny` or `ask` is ours when any template version has it in that list, and any other rule (an "Always allow"
-  click adds one) stays, after the template's own. The output shows those rules quoted, with control, bidi and
+  click adds one) stays, after the template's own, and a first setup keeps such rules the same way when `permissions`
+  holds nothing but those three lists. The output shows those rules quoted, with control, bidi and
   zero-width characters escaped, because an "Always allow" rule can hold text an agent chose.
   - **The desktop app remembers a mode per folder, and that wins** (its log, 6 to 8 Nov): a new session in `woa-m2-test`
     started in Manual from the file (`source=repo_settings_default_mode`) until Dima switched the selector to Auto there;
@@ -369,8 +370,9 @@ real behaviour disagree, real behaviour wins: say so and fix this brief.
 
 **Releases.** Milestone 2 ships as `v3.0.0`: a major, because the guard now denies Claude Code's built-in agents, a change in
 behaviour. Each later milestone is a minor: the ledger is `v3.1.0`, and so on. The README names the minimum Claude Code
-version, 2.1.299 or later: the guard's `onFailure` needs 2.1.295, and older engines refuse the mod (measured on 10 Nov,
-docs/v3-m2-plan.md decision 27).
+version: 2.1.299 or later for `v3.0.0` (the guard's `onFailure` needs 2.1.295, and older engines refuse the mod: measured
+on 10 Nov, docs/v3-m2-plan.md decision 27), 2.1.312 or later from `v3.0.1`, whose pane calls `$.settings.read`, measured
+on 2.1.312 and 2.1.319 only.
 
 0. **Release and install.**
    - Tag the current state as the `v2.0.0` release on GitHub.

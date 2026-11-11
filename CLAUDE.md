@@ -229,8 +229,9 @@ Do not change the look without asking. New ideas go into a later version.
   enabled, so every session everywhere would start as the Lead and report to the hall. The desktop app's Plugins screen
   asks for no scope and installs at user scope (twice on 11 Nov, app 5.1231), so installs go through
   `claude plugin install … --scope local`, checked with `claude plugin list`. Its switch under Customize, then Plugins,
-  writes the settings file the screen's level names, the user's when it names none (app code, 5.1231.2), so it isn't
-  proven per project: turning it off for one project is `claude plugin disable … --scope local`. An installed plugin can't set a
+  writes the settings file the screen's level names, the user's when it names none (app code, 5.1231.2); for a local
+  install it wrote the project's `settings.local.json` (desktop check, 11 Nov), so it is per project there, like
+  `claude plugin disable … --scope local`. An installed plugin can't set a
   permission mode or an environment variable, but a project's `.claude/settings.local.json` can, and the desktop app
   applies both (v3 spike), the mode only until one is picked for that folder in the app: from then on new sessions start
   in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). So far it took the file's
@@ -256,7 +257,9 @@ Do not change the look without asking. New ideas go into a later version.
   quotes and the skill aborts before anything runs (tested). A path with two apostrophes is unsafe: the quotes balance
   again, so the text between them runs unquoted, and a folder named `a'$(calc)'b` would run `calc`. Accepted, because
   only Dima's own folder names (and our fixed plugin names) reach that path, never the conversation or a cloned repo. `setup.mjs` exits 0 whenever it printed a result, a stop included, because a
-  non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`.
+  non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`,
+  and maybe a `permissions` of `allow`, `deny` and `ask` arrays alone: rules the project gathered before, kept after the
+  template's like an upgrade's (v3.0.1); a rule only an earlier template had stops that, and so does any other key.
   It manages `permissions` and its own env keys, and when they are already there it compares them itself. A rule in
   `allow`, `deny` or `ask` is ours when any template version has it in that list; any other rule is the user's (an
   "Always allow" click adds one) and is set aside first (v3.0.1). What is left: exactly the template's says "Already
@@ -532,7 +535,6 @@ passed its desktop check in `woa-m2-test`. `v3.0.0` is released (10 Nov): the mi
 2.1.299 (plan decision 27), the notes in docs/release-notes/v3.0.0.md. The install check (11 Nov, step 7 of the plan's
 "Releasing v3.0.0") found the Plugins screen installs at user scope without asking, and the desktop app took the setup's
 mode only in a git repository; the README, the notes and the release page (edited, no new tag) say so. `v3.0.1` (the
-plan's "v3.0.1: small fixes") is built and committed locally, not pushed or tagged: upgrades keep the user's rules, the
-pane warns when the plugin is on for every project, "Written." promises no mode, and one project is turned off with the
-CLI only. Before the tag: Dima's desktop check, and the minimum Claude Code version (2.1.312 measured with the new
-`$.settings.read`, 2.1.299 not). Then v3.1.0 (the plan's last section).
+plan's "v3.0.1: small fixes", desktop-checked 11 Nov) is released: the setup keeps the user's rules, in a first setup
+too, the pane warns when the plugin is on for every project, "Written." promises no mode, and the minimum Claude Code
+version is 2.1.312, the oldest measured with the pane's `$.settings.read`. Next: v3.1.0 (the plan's last section).
