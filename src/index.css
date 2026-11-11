@@ -874,6 +874,14 @@ p {
   font-weight: 600;
 }
 
+.review-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
 .review-card h4 {
   margin: 6px 0 0;
   color: var(--ember-text);

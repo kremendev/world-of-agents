@@ -4,6 +4,7 @@ import { agentById } from '../office/roster';
 import { stateWords } from '../office/states';
 import type { OfficeState } from '../state/office';
 import { AgentText } from './AgentText';
+import { CopyButton } from './CopyButton';
 import {
   clock,
   feedLines,
@@ -142,6 +143,7 @@ function Line({
           >
             {open ? 'Show less' : 'Show all'}
           </button>
+          {open && <CopyButton text={full} what="the message" className="feed-toggle" />}
           <div id={fullId} className="feed-full" hidden={!open}>
             {open && <AgentText text={full} />}
           </div>

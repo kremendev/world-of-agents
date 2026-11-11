@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
 import { ActivityFeed } from './ActivityFeed';
@@ -152,7 +152,13 @@ describe('a long message: cut in its row, "Show all" opens the whole text after 
     expect(full).toBeVisible();
     expect(full).toHaveTextContent(report.replace('[example](https://example.com)', 'example'));
     expect(full.closest('button')).toBeNull();
-    expect(full.previousElementSibling).toBe(toggle);
+    // After the toggle, with only the open row's Copy button and its status between them (v3.1).
+    const between: Element[] = [];
+    for (let el = toggle.nextElementSibling; el && el !== full; el = el.nextElementSibling) between.push(el);
+    expect(between.map((el) => [el.tagName, el.textContent])).toEqual([
+      ['BUTTON', 'Copy the message'],
+      ['SPAN', ''],
+    ]);
     expect(reviewRow().querySelector('.feed-what')!.textContent).toBe('to Lead/PM:'); // the cut text gives way
     fireEvent.click(toggle);
     expect(showAll()).toHaveAttribute('aria-expanded', 'false');
@@ -453,5 +459,37 @@ describe('the "For you" strip and "Only for me" (v3.1)', () => {
     ]);
     rerender(<ActivityFeed office={forYouRun} agent="designer" onShowEveryone={() => {}} />);
     expect(screen.getByText('Nothing for you yet.')).toBeInTheDocument();
+  });
+});
+
+describe('Copy on an opened row (v3.1)', () => {
+  const longText = `Long report. ${'More words here. '.repeat(20)}See [the fix](javascript:alert(1)).`;
+  const longRun = office(
+    { type: 'message', from: 'backend', to: 'lead', text: longText, at: time(9, 0, 0) },
+    { type: 'message', from: 'designer', to: 'lead', text: 'Short one.', at: time(9, 0, 1) },
+    { type: 'message', from: 'reviewer', to: 'lead', text: longText, at: time(9, 0, 2) },
+  );
+  const copyButtons = () => screen.queryAllByRole('button', { name: /^Copy/ });
+
+  afterEach(() => Reflect.deleteProperty(navigator, 'clipboard'));
+
+  it('shows only on a row that is open: not on a closed one, a short one or a review row', () => {
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    expect(copyButtons()).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    expect(copyButtons().map((b) => b.closest('li')?.textContent?.slice(0, 30))).toEqual([
+      expect.stringContaining('Backend dev'),
+    ]);
+  });
+
+  it('copies the whole message with links as their text, and does not close the row', async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Show all' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy the message' }));
+    await act(async () => {});
+    expect(writeText).toHaveBeenCalledWith(longText.replace('[the fix](javascript:alert(1))', 'the fix'));
+    expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
   });
 });

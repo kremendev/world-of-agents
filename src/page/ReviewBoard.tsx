@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { STATE_STYLE } from '../office/states';
 import { AgentText } from './AgentText';
+import { CopyButton } from './CopyButton';
 import { clock } from './feed';
 import { hallSaw, reviewLine, VERDICT_STATE, type ReviewEntry } from './review';
 
@@ -34,9 +35,12 @@ function ReviewCard({
   const chip = review ? STATE_STYLE[VERDICT_STATE[review.verdict]] : null;
   return (
     <article className="review-card" aria-labelledby={headingId}>
-      <h3 id={headingId} ref={headingRef} tabIndex={-1}>
-        Review at {clock(message.at)}
-      </h3>
+      <div className="review-card-head">
+        <h3 id={headingId} ref={headingRef} tabIndex={-1}>
+          Review at {clock(message.at)}
+        </h3>
+        <CopyButton text={message.text} what="the report" />
+      </div>
       {review && chip ? (
         <>
           <p>

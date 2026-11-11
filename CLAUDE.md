@@ -68,7 +68,8 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   Reviewer's button and a review row's "Open review", closes it on Esc, Close or another agent, puts the
                   focus back after the render, and makes what it covers inert), readMarks.ts (v3.1: the "For you"
                   strip's read marks: flag|agent|at keys only, in localStorage per hall start, newest 500, every access in
-                  a try/catch; memory only in the demo)
+                  a try/catch; memory only in the demo), copy.ts and CopyButton (v3.1: Copy on an opened row and on each
+                  review card: links as their text, every Cc and Cf character but tab and line breaks left out, and said)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
@@ -212,6 +213,11 @@ Do not change the look without asking. New ideas go into a later version.
   formatting is `AgentText`: `code` and `strong` elements around plain strings. A Markdown link or image shows as its
   text alone, never as a link and never with its target (`javascript:` ones included). A cut (bubbles, feed rows) turns
   links into their text first, so it can't leave part of a target showing.
+- Copy (v3.1) puts agent text on the clipboard as the page shows it: links as their text, never a target the page hid
+  (Dima, 11 Nov), and every control (Cc) and format (Cf) character but tab and line breaks left out: bidi controls and
+  marks, zero-width characters, the byte order mark and the tag characters, which can spell out an instruction no one
+  sees. Hidden characters go before links turn to text, so taking one out never makes a working link. The button says
+  how many it removed, every time. `forCopy()` in `copy.ts`; plain `writeText`, never HTML.
 - The feed's flags (To you, Needs you, Failed) come from an event's type and the fields `map.ts` sets from hook types
   (a message to you only at the main thread's `Stop`, `needs-you` only from a permission dialog, `error` only from a
   failure), never from agent text: otherwise a page an agent read could make its message look important. A test pins
@@ -559,4 +565,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    3.1c (the Review board: review rows in the feed, the Reviewer's button opens it, "and reviews" in its label).
    3.1d (the "For you" strip: unread To you, Needs you and Failed rows above the feed, whatever the agent filter, read
    marks kept per hall start; "Only for me"; useLiveHall now gives the page the hall's start id).
-   Next: 3.1e (Copy on an opened row and the review card: links as their text, invisible characters removed).
+   3.1e (Copy on an opened row and each review card; it removes every Cc and Cf character, tag characters included,
+   wider than the plan drafted). v3.1.0 is built; its desktop checklist is docs/release-notes/v3.1.0-check.md.
+   Next: prepare v3.1.0 (plugin.json 3.1.0, release notes, README), then v3.2.0 (the ledger: plan first).

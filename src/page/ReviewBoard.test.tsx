@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { STATE_STYLE } from '../office/states';
 import type { Message } from '../state/office';
 import { reviewsOf } from './review';
@@ -192,5 +192,26 @@ describe('ReviewBoard', () => {
     expect(container.textContent).not.toContain('example.com');
     expect(container.textContent).toContain('<img src=x onerror=alert(1)> in a comment');
     expect(container.textContent).toContain('<script>alert(1)</script> x');
+  });
+});
+
+describe('Copy on a review card (v3.1)', () => {
+  afterEach(() => Reflect.deleteProperty(navigator, 'clipboard'));
+
+  it("copies the report's text, not the card's layout, with links as their text", async () => {
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const text = report('Changes needed', '- a.ts:1: see [the fix](javascript:alert(1))');
+    board([review(text, time(9, 0, 0))]);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy the report' }));
+    await act(async () => {});
+    expect(writeText).toHaveBeenCalledWith(text.replace('[the fix](javascript:alert(1))', 'the fix'));
+  });
+
+  it('has one on every card, an earlier one opened included', () => {
+    board([review(report('Approved'), time(9, 0, 0)), latest]);
+    expect(screen.getAllByRole('button', { name: 'Copy the report' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Show' }));
+    expect(screen.getAllByRole('button', { name: 'Copy the report' })).toHaveLength(2);
   });
 });
