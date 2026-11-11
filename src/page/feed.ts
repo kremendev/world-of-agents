@@ -28,6 +28,34 @@ export function flagOf(line: FeedLine): Flag | null {
   return null;
 }
 
+/**
+ * A flagged row's read mark: `<flag>|<agent>|<at>`, from the event's own fields, never its text (v3.1, D6). The same
+ * events come back in a reconnect's replay, so a mark outlives it. Null for a row with no flag.
+ */
+export function flagKey(line: FeedLine): string | null {
+  const flag = flagOf(line);
+  if (!flag || line.kind === 'everyone') return null;
+  return `${flag}|${line.kind === 'message' ? line.from : line.agent}|${line.at}`;
+}
+
+/** The "For you" strip: the flagged rows not yet read, in feed order (newest first). Give it the unfiltered feed. */
+export const forYou = (lines: readonly FeedLine[], read: ReadonlySet<string>): FeedLine[] =>
+  lines.filter((line) => {
+    const key = flagKey(line);
+    return key !== null && !read.has(key);
+  });
+
+/** "Only for me": the flagged rows alone, read or not (D7). */
+export const onlyFlagged = (lines: readonly FeedLine[]): FeedLine[] =>
+  lines.filter((line) => flagOf(line) !== null);
+
+/** The strip's line for a message to you: on one line, links as their text, at most this many characters. */
+export const STRIP_CHARS = 80;
+
+/** A message cut for the strip, the way feedShort() cuts a row. */
+export const stripShort = (text: string): string =>
+  shorten(linksAsText(text).replace(/\s+/g, ' ').trim(), STRIP_CHARS);
+
 /** A message row longer than this many characters shows cut, and expands to the whole text on a click. */
 export const FEED_CHARS = 200;
 

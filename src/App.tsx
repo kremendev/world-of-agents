@@ -277,6 +277,7 @@ export default function App() {
               onShowEveryone={() => setFeedAgent(null)}
               onOpenReview={openBoard}
               headingRef={activityHeading}
+              readScope={demo ? null : hall.start}
             />
           </div>
           {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}

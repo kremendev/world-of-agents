@@ -1163,3 +1163,41 @@ describe('untrusted text from a real run', () => {
     expect(app.badge()).toBe('Live');
   });
 });
+
+describe('the "For you" strip in Live (v3.1, D6)', () => {
+  const report = say('Server is up.');
+  const item = () => screen.queryByRole('button', { name: /^To you/ });
+
+  beforeEach(() => localStorage.clear());
+
+  it("keeps what was read through a reconnect's replay and a reload; a restarted hall starts clean", async () => {
+    const app = await renderLive([...start, report]);
+    expect(item()).not.toBeNull();
+    fireEvent.click(item()!);
+    expect(item()).toBeNull();
+
+    // The same hall again: its replay brings the same events, with the same keys.
+    act(() => app.source().fail());
+    app.tick(RETRY_MS);
+    act(() => {
+      for (const event of [...start, report]) app.source().send(event);
+      app.source().replayed();
+    });
+    app.tick();
+    expect(item()).toBeNull();
+
+    // A reload: a new page, the same hall start.
+    app.unmount();
+    await renderLive([...start, report]);
+    expect(item()).toBeNull();
+
+    // Another hall start: what this one sends is new, read or not before.
+    act(() => FakeEventSource.latest.fail());
+    vi.advanceTimersByTime(RETRY_MS);
+    act(() => {
+      FakeEventSource.latest.send(report);
+      FakeEventSource.latest.replayed('hall-start-id-02');
+    });
+    expect(item()).not.toBeNull();
+  });
+});

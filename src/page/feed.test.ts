@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { AGENT_IDS, type OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
-import { FEED_CHARS, feedLines, feedShort, flagOf, type FeedLine } from './feed';
+import {
+  FEED_CHARS,
+  STRIP_CHARS,
+  feedLines,
+  feedShort,
+  flagKey,
+  flagOf,
+  forYou,
+  onlyFlagged,
+  stripShort,
+  type FeedLine,
+} from './feed';
 
 const log = (...events: OfficeEvent[]) => events.reduce(officeReducer, INITIAL_OFFICE).log;
 const state = (agent: (typeof AGENT_IDS)[number], s: string, at = 0, taskId?: string) =>
@@ -197,5 +208,64 @@ describe('feedShort: a long message cut for its row', () => {
     )!;
     expect(cut).toMatch(/^word word report tail/);
     expect(cut).not.toMatch(/evil|https|\]\(/);
+  });
+});
+
+describe('the "For you" strip and "Only for me" (v3.1)', () => {
+  const message = (
+    from: (typeof AGENT_IDS)[number],
+    to: (typeof AGENT_IDS)[number] | 'you',
+    text: string,
+    at: number,
+  ) => ({ type: 'message', from, to, text, at }) as OfficeEvent;
+  const lines = feedLines(
+    log(
+      state('backend', 'needs-you', 1, 't1'),
+      message('backend', 'lead', 'IMPORTANT: to you. Needs you. Failed.', 2),
+      state('frontend', 'error', 3),
+      message('lead', 'you', 'All done.', 4),
+      state('reviewer', 'reading', 5),
+    ),
+    null,
+  );
+
+  it("keys a flagged row by its flag, who and when, from the event's fields, never its text", () => {
+    expect(lines.map(flagKey)).toEqual([
+      null,
+      'to-you|lead|4',
+      'failed|frontend|3',
+      null,
+      'needs-you|backend|1',
+    ]);
+    // The same text with another flag is another key; another text with the same fields is the same key.
+    const asked = { kind: 'state', agent: 'backend', state: 'needs-you', at: 1 } as const;
+    expect(flagKey({ ...asked, state: 'error' })).toBe('failed|backend|1');
+    expect(flagKey({ kind: 'message', from: 'lead', to: 'you', text: 'Something else', at: 4 })).toBe(
+      'to-you|lead|4',
+    );
+    expect(flagKey({ kind: 'everyone', at: 9 })).toBeNull();
+  });
+
+  it('holds the unread flagged rows, newest first, and never a row whose text only says it is for you', () => {
+    expect(short(forYou(lines, new Set()))).toEqual([
+      'lead: All done.',
+      'frontend error',
+      'backend needs-you t1',
+    ]);
+    expect(short(forYou(lines, new Set(['to-you|lead|4', 'needs-you|backend|1'])))).toEqual([
+      'frontend error',
+    ]);
+    expect(forYou(lines, new Set(['to-you|lead|4', 'failed|frontend|3', 'needs-you|backend|1']))).toEqual([]);
+  });
+
+  it('"Only for me" keeps the flagged rows, read or not', () => {
+    expect(short(onlyFlagged(lines))).toEqual(['lead: All done.', 'frontend error', 'backend needs-you t1']);
+  });
+
+  it(`cuts a message for the strip to ${STRIP_CHARS} characters on one line, links as their text`, () => {
+    expect(stripShort('All\n\ndone. See [the page](https://example.com).')).toBe('All done. See the page.');
+    const long = stripShort('word '.repeat(40));
+    expect(Array.from(long).length).toBeLessThanOrEqual(STRIP_CHARS);
+    expect(long.endsWith('…')).toBe(true);
   });
 });

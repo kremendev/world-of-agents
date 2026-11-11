@@ -66,7 +66,9 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   Reviewer's report format, parseReview() and reviewsOf(); a review is known by its sender, never its text),
                   ReviewBoard (v3.1: a non-modal dialog over the right-hand column, never the hall; App opens it from the
                   Reviewer's button and a review row's "Open review", closes it on Esc, Close or another agent, puts the
-                  focus back after the render, and makes what it covers inert)
+                  focus back after the render, and makes what it covers inert), readMarks.ts (v3.1: the "For you"
+                  strip's read marks: flag|agent|at keys only, in localStorage per hall start, newest 500, every access in
+                  a try/catch; memory only in the demo)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
@@ -555,4 +557,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    3.1b (the Reviewer on Opus, the guard denies an Agent call with `model`; a terminal run showed Opus follows the format,
    its report is a parser case). v3.1.0's desktop checklist has steps for both.
    3.1c (the Review board: review rows in the feed, the Reviewer's button opens it, "and reviews" in its label).
-   Next: 3.1d (the "For you" strip and "Only for me").
+   3.1d (the "For you" strip: unread To you, Needs you and Failed rows above the feed, whatever the agent filter, read
+   marks kept per hall start; "Only for me"; useLiveHall now gives the page the hall's start id).
+   Next: 3.1e (Copy on an opened row and the review card: links as their text, invisible characters removed).

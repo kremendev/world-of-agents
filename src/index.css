@@ -748,16 +748,84 @@ p {
   border-left: 3px solid var(--flag);
 }
 
-.feed-line.to-you {
+.feed-line.to-you,
+.for-you-item.to-you {
   --flag: var(--ember-text);
 }
 
-.feed-line.needs-you {
+.feed-line.needs-you,
+.for-you-item.needs-you {
   --flag: #ffd97a;
 }
 
-.feed-line.failed {
+.feed-line.failed,
+.for-you-item.failed {
   --flag: #ffb0a8;
+}
+
+/* A flagged row the "For you" strip moved the focus to. */
+.feed-line[tabindex='-1']:focus {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.feed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+/* "Only for me" while on: a tick and bold as well as the pressed state, so never the colour alone. */
+.feed-filter[aria-pressed='true'] {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.feed-filter[aria-pressed='true']::before {
+  content: '✓ ';
+}
+
+/* The "For you" strip: unread items for you, above the scrolling list, gone when there are none. */
+.for-you {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.for-you-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.for-you-item {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--flag);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.for-you-item .feed-time {
+  margin-right: 8px;
+}
+
+.for-you-item:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.for-you-more {
+  font-size: 0.875rem;
 }
 
 .feed-flag {

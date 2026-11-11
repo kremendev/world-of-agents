@@ -108,8 +108,11 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.feed-line.flagged')!.body).toMatch(
       /border-left: 3px solid var\(--flag\)/,
     );
+    // The "For you" strip's items share each flag's colour with its row.
     for (const flag of ['to-you', 'needs-you', 'failed']) {
-      expect(rules.find((r) => r.selector === `.feed-line.${flag}`)!.body, flag).toMatch(/--flag:/);
+      const rule = rules.find((r) => r.selector.split(/,\s*/).includes(`.feed-line.${flag}`))!;
+      expect(rule.body, flag).toMatch(/--flag:/);
+      expect(rule.selector.split(/,\s*/), flag).toContain(`.for-you-item.${flag}`);
     }
   });
 

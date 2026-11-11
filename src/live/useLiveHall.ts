@@ -15,6 +15,8 @@ export type LiveHall = {
   restarted: boolean;
   /** In the demo: a hall has appeared since. The page offers it and never switches on its own. */
   hallFound: boolean;
+  /** The start id of the hall the page follows, once a replay has named one: the read marks are kept per start. */
+  start: string | null;
   goLive: () => void;
 };
 
@@ -27,8 +29,9 @@ export function useLiveHall(): LiveHall {
   const [view, setView] = useState({ office: INITIAL_OFFICE, hushed: false, restarted: false });
   const [following, setFollowing] = useState(false);
   const [hallFound, setHallFound] = useState(false);
-  // The start id of the hall the page last heard from.
+  // The start id of the hall the page last heard from: a ref for the replay to compare, state for the page.
   const startId = useRef<string | null>(null);
+  const [start, setStart] = useState<string | null>(null);
 
   useEffect(() => {
     if (!liveEnabled()) return;
@@ -49,7 +52,10 @@ export function useLiveHall(): LiveHall {
       onReplay: (events, id) => {
         setStatus('live');
         const before = startId.current;
-        if (id !== null) startId.current = id;
+        if (id !== null) {
+          startId.current = id;
+          setStart(id);
+        }
         const rebuilt = events.reduce(officeReducer, INITIAL_OFFICE);
         if (before !== null && id !== null && id !== before) {
           // Another hall: it remembers nothing of the run, so the page starts again from what this one holds.
@@ -93,5 +99,5 @@ export function useLiveHall(): LiveHall {
     setFollowing(true);
   };
 
-  return { status, ...view, hallFound, goLive };
+  return { status, ...view, hallFound, start, goLive };
 }

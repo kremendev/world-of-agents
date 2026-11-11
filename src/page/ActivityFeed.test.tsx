@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
 import { ActivityFeed } from './ActivityFeed';
@@ -64,9 +64,11 @@ describe('ActivityFeed', () => {
     expect(lines()).toEqual(['09:01:00 | Everyone | is resting', '09:00:00 | Backend dev | Writing']);
   });
 
-  it('has no numbers: a plain list', () => {
+  it('has no numbers: plain lists, the feed and the "For you" strip alike', () => {
     feed(null);
-    expect(screen.getByRole('list').tagName).toBe('UL');
+    const lists = screen.getAllByRole('list');
+    expect(lists.map((list) => list.className)).toEqual(['for-you-list', 'feed-list']);
+    for (const list of lists) expect(list.tagName).toBe('UL');
   });
 
   it('narrows to one agent: its own states and what it sent or got', () => {
@@ -194,7 +196,7 @@ describe('a long message: cut in its row, "Show all" opens the whole text after 
 
   it('keeps short messages and state changes as plain rows, with no toggle', () => {
     render(<ActivityFeed office={longRun} agent={null} onShowEveryone={() => {}} />);
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    expect(within(document.querySelector<HTMLElement>('.feed-list')!).getAllByRole('button')).toHaveLength(1);
     expect(screen.getByText('to Lead/PM: Short one.')).toBeInTheDocument();
     expect(document.querySelectorAll('.feed-line.long')).toHaveLength(1);
   });
@@ -266,7 +268,11 @@ describe('the rows that matter to you stand out, with a word as well as a colour
     const bait = screen.getByText(/IMPORTANT: to you/).closest('li')!;
     expect(bait).not.toHaveClass('flagged');
     expect(bait.querySelector('.feed-flag')).toBeNull();
-    expect(document.querySelectorAll('.feed-flag')).toHaveLength(3);
+    expect(document.querySelectorAll('.feed-list .feed-flag')).toHaveLength(3);
+    // Nor does it reach the "For you" strip (v3.1): the strip holds the three flagged rows and nothing else.
+    const strip = [...document.querySelectorAll('.for-you-item')].map((item) => item.textContent);
+    expect(strip).toHaveLength(3);
+    for (const item of strip) expect(item).not.toContain('IMPORTANT');
   });
 });
 
@@ -347,5 +353,105 @@ describe("a review row: the Reviewer's report to the Lead opens on the review bo
     expect(screen.queryByRole('button', { name: 'Open review' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Show all' })).toBeInTheDocument();
     expect(document.querySelector('.feed-what')!.textContent).not.toContain('Review: Changes needed');
+  });
+});
+
+describe('the "For you" strip and "Only for me" (v3.1)', () => {
+  const forYouRun = office(
+    api,
+    { type: 'state', agent: 'backend', state: 'needs-you', taskId: 'api', at: time(9, 0, 0) },
+    { type: 'state', agent: 'frontend', state: 'error', at: time(9, 0, 1) },
+    {
+      type: 'message',
+      from: 'lead',
+      to: 'you',
+      text: 'All done. See [the report](https://example.com).',
+      at: time(9, 0, 2),
+    },
+    { type: 'message', from: 'designer', to: 'lead', text: 'Screens ready.', at: time(9, 0, 3) },
+  );
+  const items = () => [...document.querySelectorAll('.for-you-item')].map((item) => item.textContent);
+  const row = (key: string) => document.querySelector<HTMLElement>(`.feed-list [data-key="${key}"]`)!;
+
+  beforeEach(() => localStorage.clear());
+
+  it('holds the unread items for you, newest first: flag, who, time and a short line', () => {
+    render(<ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} />);
+    expect(screen.getByRole('region', { name: 'For you' })).toBeInTheDocument();
+    expect(items()).toEqual([
+      'To youLead/PM09:00:02All done. See the report.',
+      'FailedFrontend dev09:00:01Frontend dev failed',
+      'Needs youBackend dev09:00:00Backend dev needs your approval',
+    ]);
+    for (const item of document.querySelectorAll('.for-you-item')) expect(item.tagName).toBe('BUTTON');
+  });
+
+  it('a click marks the item read and moves the focus to its row; the strip goes when nothing is unread', () => {
+    render(<ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: /^Failed/ }));
+    expect(row('failed|frontend|' + time(9, 0, 1))).toHaveFocus();
+    expect(items()).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', { name: /^To you/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Needs you/ }));
+    expect(screen.queryByRole('region', { name: 'For you' })).toBeNull();
+    expect(document.querySelector('.for-you')).toBeNull();
+  });
+
+  it('a click on a flagged row itself marks it read too', () => {
+    render(<ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} />);
+    fireEvent.click(row('needs-you|backend|' + time(9, 0, 0)));
+    expect(items()).toHaveLength(2);
+    expect(items().join()).not.toContain('Backend dev');
+  });
+
+  it('ignores the agent filter, and shows everyone when the filter hides the row it opens', () => {
+    const onShowEveryone = vi.fn();
+    render(<ActivityFeed office={forYouRun} agent="designer" onShowEveryone={onShowEveryone} />);
+    expect(items()).toHaveLength(3);
+    fireEvent.click(screen.getByRole('button', { name: /^To you/ }));
+    expect(onShowEveryone).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows three at most, and says how many more', () => {
+    const many = office(
+      ...Array.from({ length: 5 }, (_, i): OfficeEvent => ({
+        type: 'message',
+        from: 'lead',
+        to: 'you',
+        text: `Report ${i}`,
+        at: time(9, 0, i),
+      })),
+    );
+    render(<ActivityFeed office={many} agent={null} onShowEveryone={() => {}} />);
+    expect(items()).toHaveLength(3);
+    expect(screen.getByText('and 2 more')).toBeInTheDocument();
+  });
+
+  it('keeps what was read for the same hall start, after a new render (a reload)', () => {
+    const first = render(
+      <ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} readScope="hall-start-id-01" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /^To you/ }));
+    first.unmount();
+    render(
+      <ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} readScope="hall-start-id-01" />,
+    );
+    expect(items()).toHaveLength(2);
+  });
+
+  it('"Only for me" is a pressed toggle that keeps the flagged rows, read or not, with the agent filter applied', () => {
+    const { rerender } = render(<ActivityFeed office={forYouRun} agent={null} onShowEveryone={() => {}} />);
+    const toggle = screen.getByRole('button', { name: 'Only for me' });
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: /^To you/ }));
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(lines()).toEqual([
+      '09:00:02 | Lead/PM | To you | to you: All done. See the report.',
+      '09:00:01 | Frontend dev | Failed | Error',
+      '09:00:00 | Backend dev | Needs you | Board and item API',
+    ]);
+    rerender(<ActivityFeed office={forYouRun} agent="designer" onShowEveryone={() => {}} />);
+    expect(screen.getByText('Nothing for you yet.')).toBeInTheDocument();
   });
 });
