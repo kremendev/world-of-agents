@@ -35,6 +35,11 @@ export class FakeEventSource {
     this.named.get('replayed')?.({ data: startId });
   }
 
+  /** Any other named event, its data as the hall writes it (v3.2: `ledger`). */
+  emit(type: string, data: string) {
+    this.named.get(type)?.({ data });
+  }
+
   fail() {
     this.onerror?.();
   }

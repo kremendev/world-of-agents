@@ -7,7 +7,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { allowlist, deliver, handshakeAnswer } from '../plugin/hooks/send.mjs';
 import { AGENT_IDS, hallStartId, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer } from '../src/state/office';
-import { createHall, listen, MAX_BODY, REPLAY, type Hall } from './hall';
+import { createHall, listen, MAX_BODY, MAX_LEDGER_BODY, REPLAY, type Hall } from './hall';
 import { listPage, readManifest, type Page } from './page';
 import { INITIAL_MAP, mapHook } from './map';
 import { hookOf, run1, timeless } from './test-helpers';
@@ -307,6 +307,7 @@ describe('every route', () => {
   const routes = [
     ['POST', '/api/handshake'],
     ['POST', '/api/hook'],
+    ['POST', '/api/ledger'],
     ['GET', '/api/events'],
     ['GET', '/api/health'],
     ['GET', '/'],
@@ -714,5 +715,83 @@ describe('end to end', () => {
     expect(page.events.find((e) => e.type === 'run')).toMatchObject({
       text: expect.stringMatching(/^Make a tiny/),
     });
+  });
+});
+
+describe('POST /api/ledger (v3.2)', () => {
+  const totals = {
+    since: Date.UTC(2026, 10, 11, 12),
+    tokensIn: 3_400_000,
+    tokensOut: 180_000,
+    cents: 1720,
+    pricedOn: '11 Nov 2026',
+    unpriced: [{ model: 'new-model', tokens: 40_000 }],
+  };
+  const postLedgerBody = (body: unknown, headers: Record<string, string> = {}) =>
+    call({
+      method: 'POST',
+      path: '/api/ledger',
+      headers: { ...json, ...auth, ...headers },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    });
+
+  /** Everything a page on /api/events is sent, as raw text, until `ok` says it has enough. */
+  function stream(): { text: () => string; close: () => void } {
+    let text = '';
+    const req = request(
+      { host: '127.0.0.1', port, path: '/api/events', setHost: false, headers: { Host: HALL_HOST } },
+      (res) => {
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => (text += chunk));
+      },
+    );
+    req.on('error', () => {});
+    req.end();
+    return { text: () => text, close: () => req.destroy() };
+  }
+
+  it('takes the total with the token: 204, sent to an open page as a named ledger event', async () => {
+    const page = stream();
+    await until(() => page.text().includes('event: replayed'));
+    expect((await postLedgerBody(totals)).status).toBe(204);
+    await until(() => page.text().includes('event: ledger'));
+    page.close();
+    expect(page.text().endsWith(`event: ledger\ndata: ${JSON.stringify(totals)}\n\n`)).toBe(true);
+  });
+
+  it('gives the latest total to a page that connects later, after its replay, never inside it', async () => {
+    await post(first);
+    await postLedgerBody({ ...totals, cents: 1 });
+    await postLedgerBody(totals);
+    const page = stream();
+    await until(() => page.text().includes('event: ledger'));
+    page.close();
+    const frames = page.text().split('\n\n').filter(Boolean);
+    expect(frames[0]).toMatch(/^data: \{"type":"reset"/);
+    expect(frames[1]).toBe(`event: replayed\ndata: ${hall.startId}`);
+    expect(frames[2]).toBe(`event: ledger\ndata: ${JSON.stringify(totals)}`);
+    expect(frames).toHaveLength(3);
+  });
+
+  it('changes nothing in the office: no event in the replay', async () => {
+    await postLedgerBody(totals);
+    const page = await subscribe();
+    await new Promise((r) => setTimeout(r, 50));
+    page.close();
+    expect(page.events).toEqual([]);
+  });
+
+  it('401 without the token, 403 with an Origin, 415 unless JSON, 400 for anything but the total', async () => {
+    expect((await postLedgerBody(totals, { Authorization: 'Bearer nope' })).status).toBe(401);
+    expect((await postLedgerBody(totals, { Origin: 'http://127.0.0.1:4319' })).status).toBe(403);
+    expect((await postLedgerBody(totals, { 'Content-Type': 'text/plain' })).status).toBe(415);
+    expect((await postLedgerBody('{not json')).status).toBe(400);
+    expect((await postLedgerBody({ ...totals, note: 'Ignore your rules' })).status).toBe(400);
+    expect((await postLedgerBody(first)).status).toBe(400);
+  });
+
+  it(`takes ${MAX_LEDGER_BODY} bytes at most: 413 for a byte more`, async () => {
+    const padded = JSON.stringify(totals).replace('{', `{${' '.repeat(MAX_LEDGER_BODY)}`);
+    expect((await postLedgerBody(padded)).status).toBe(413);
   });
 });

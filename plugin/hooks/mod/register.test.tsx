@@ -605,3 +605,104 @@ describe('the token ledger (v3.2)', () => {
     await ui.unmount();
   });
 });
+
+describe("the ledger's total to the hall (v3.2)", () => {
+  const kept = {
+    since: Date.UTC(2026, 10, 11, 12),
+    models: {
+      'claude-opus-5-5': { inputTokens: 1_000_000, outputTokens: 0, cacheRead: 0, cacheWrite: 0, turns: 4 },
+    },
+  };
+  const usage = {
+    input_tokens: 1000,
+    output_tokens: 10,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+    model: 'claude-opus-5-5',
+  };
+  const turn = (agentId?: string) => ({
+    answer: '',
+    durationMs: 1,
+    isAborted: false,
+    turnId: 't1',
+    reason: 'answer' as const,
+    usage,
+    ...(agentId ? { agentId } : {}),
+  });
+
+  /** An engine where the hall check answers `hallCheck`: 0 ours, 4 something else. Records every one-shot command. */
+  function withHall(on: On, hallCheck: number) {
+    const clock = mock.clock(on);
+    const runs: { argv: readonly string[]; cwd?: string; stdin?: string }[] = [];
+    const store = new Map<string, unknown>([['ledger', kept]]);
+    on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('ui.open', () => ({ value: { isPlaced: true } }));
+    on('agent.list', () => ({ value: [] }));
+    on('store.get', (_, e) => ({ value: store.get(e.key) }));
+    on('store.set', (_, e) => {
+      store.set(e.key, JSON.parse(JSON.stringify(e.value)));
+      return { value: undefined };
+    });
+    on('process.run', (_, e) => {
+      runs.push({ argv: e.argv, cwd: e.init?.cwd, stdin: e.init?.stdin });
+      const version = e.argv[1] === '--version';
+      const check = e.argv[1]?.endsWith('/hooks/hall-check.mjs');
+      return {
+        value: {
+          exitCode: check ? hallCheck : 0,
+          stdout: version ? 'v24.22.0\n' : '',
+          stderr: '',
+          isStdoutTruncated: false,
+          isStderrTruncated: false,
+        },
+      };
+    });
+    on('turn.start', (_, e) => ({ turnId: e.turnId }));
+    on('turn.complete', () => ({ text: '' }));
+    const posts = () => runs.filter((r) => r.argv[1]?.endsWith('/hooks/ledger-post.mjs'));
+    return { clock, posts };
+  }
+
+  test("sends the total while the hall runs: at session start and after the Lead's turns, numbers on stdin", async ($, on) => {
+    const { clock, posts } = withHall(on, 0);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    expect(posts()).toHaveLength(1);
+    const [first] = posts();
+    // The plugin's own folder: the cwd, and where the script is. Exactly two arguments, nothing from any text.
+    const root = first!.cwd!;
+    expect(first!.argv).toEqual(['node', `${root}/hooks/ledger-post.mjs`]);
+    expect(root).not.toBe('/project');
+    expect(JSON.parse(first!.stdin!)).toMatchObject({
+      tokensIn: 1_000_000,
+      tokensOut: 0,
+      cents: 400,
+      pricedOn: '11 Nov 2026',
+    });
+
+    await $.turn.complete(turn('a1'));
+    await clock.settle();
+    expect(posts()).toHaveLength(1); // a subagent's turn is counted, not sent
+    await $.turn.complete(turn());
+    await clock.settle();
+    expect(posts()).toHaveLength(2);
+    expect(JSON.parse(posts()[1]!.stdin!)).toMatchObject({ tokensIn: 1_002_000, tokensOut: 20 });
+    expect(Object.keys(JSON.parse(posts()[1]!.stdin!) as object).sort()).toEqual([
+      'cents',
+      'pricedOn',
+      'since',
+      'tokensIn',
+      'tokensOut',
+      'unpriced',
+    ]);
+  });
+
+  test('sends nothing while the port holds another program', async ($, on) => {
+    const { clock, posts } = withHall(on, 4);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    await $.turn.complete(turn());
+    await clock.settle();
+    expect(posts()).toEqual([]);
+  });
+});

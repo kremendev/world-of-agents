@@ -78,6 +78,7 @@ describe('the processes the mod starts', () => {
     expect(code('hall.ts')).toContain("export const NODE_VERSION = ['node', '--version'] as const;");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-check.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hall/server.mjs`]");
+    expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-post.mjs`]");
     expect(code('voice.ts')).toContain('`${root}/voice/speak.ps1`');
     // Never a command string: no -Command, no encoded command, no shell as a command or an option.
     expect(
@@ -87,6 +88,11 @@ describe('the processes the mod starts', () => {
 
   it("gives a process text only as the voice's input, and never an environment of its own", () => {
     expect(using(/\binput\s*:/)).toEqual(['voice.ts']);
+    // v3.2: the ledger's numbers, on a one-shot command's stdin, and nothing else.
+    expect(using(/\bstdin\s*:/)).toEqual(['hall.ts']);
+    expect(code('hall.ts').match(/[^\n]*\bstdin\s*:[^\n]*/g)).toEqual([
+      '      stdin: JSON.stringify(totals),',
+    ]);
     expect(using(/\benv\s*:/)).toEqual([]);
   });
 

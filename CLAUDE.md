@@ -68,14 +68,15 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   Reviewer's button and a review row's "Open review", closes it on Esc, Close or another agent, puts the
                   focus back after the render, and makes what it covers inert), readMarks.ts (v3.1: the "For you"
                   strip's read marks: flag|agent|at keys only, in localStorage per hall start, newest 500, every access in
-                  a try/catch; memory only in the demo), copy.ts and CopyButton (v3.1: Copy on an opened row and on each
+                  a try/catch; memory only in the demo), ledgerText.ts (v3.2: the header's "This PC" line, Live only), copy.ts and CopyButton (v3.1: Copy on an opened row and on each
                   review card: links as their text, every Cc and Cf character but tab and line breaks left out, and said)
 src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
                   announce.ts (what the aria-live region says, cut at the last full sentence)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
-                  /api/handshake, POST /api/hook, SSE /api/events with a 500-event replay ended by its start id,
+                  /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
+                  named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id,
                   /api/health, serves only the page files it is given, by exact match), page.ts (PAGE_TYPES, listPage()
                   for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals),
                   plugin-hall.ts (the plugin's hall: its page and manifest beside its own file), hook-input.ts
@@ -89,7 +90,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
                   whom, no `model` in an Agent call, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
-                  by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/mod/ (the team pane, a mod named
+                  by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/ledger-post.mjs (v3.2: the ledger's
+                  totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
                   command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
@@ -333,7 +335,9 @@ Do not change the look without asking. New ideas go into a later version.
   answers its `command.run` without `next`, opening the pane, so the skill's text reaches the model only if the mod isn't
   loaded, and then only tells Dima so.
 - The mod's processes (2c) are fixed commands, each with the plugin's own folder as `cwd`: `node --version`,
-  `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`) and the voice. A
+  `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`), the voice, and from v3.2
+  `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
+  counts, never text), run at session start and after each of the Lead's turns while the hall is `running`. A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
@@ -587,4 +591,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    v3.2.0 (docs/v3.2-plan.md): 3.2a done (every turn's usage, the Lead's and each subagent's, from turn.complete, added
    per model to `ledger` in $.store, one count at a time; the pane's "This PC" line with the value at the dated API
    prices). 3.2c, past sessions, is not built: it waits for Dima on L7 (the mod would keep numbers a child prints).
-   Next: 3.2b (the total in the hall's page header: hooks/ledger-send.mjs, POST /api/ledger, a `ledger` event).
+   3.2b done (the total in the hall's page header: hooks/ledger-post.mjs; POST /api/ledger; a named `ledger` SSE event
+   through parseLedger()).
+   The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
+   Next: prepare v3.2.0, then v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.

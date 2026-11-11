@@ -7,6 +7,7 @@ import { HallView } from './office/hall/HallView';
 import { useStage } from './office/hall/useStage';
 import { agentById } from './office/roster';
 import { ActivityFeed } from './page/ActivityFeed';
+import { ledgerText } from './page/ledgerText';
 import { AgentPanel } from './page/AgentPanel';
 import { reviewsOf } from './page/review';
 import { ReviewBoard } from './page/ReviewBoard';
@@ -196,6 +197,7 @@ export default function App() {
           <span>
             Tasks done: {doneCount(office)} of {office.tasks.length}
           </span>
+          {live && hall.ledger && <span className="run-ledger">{ledgerText(hall.ledger)}</span>}
         </div>
         {demo && (
           <div className="run-controls" role="group" aria-label="Demo run">

@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
-import type { OfficeEvent } from '../src/events/schema';
+import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
 import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
 import { INITIAL_MAP, mapHook } from './map';
@@ -18,6 +18,8 @@ export const PORT = 4319;
  * this is not from send.mjs.
  */
 export const MAX_BODY = 256 * 1024;
+/** The ledger's total is a few hundred bytes (v3.2). */
+export const MAX_LEDGER_BODY = 4096;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
 /** What send.mjs sends to the handshake: 32 random bytes as base64url. Anything else is not a handshake. */
@@ -47,16 +49,16 @@ function reply(res: ServerResponse, status: number, body?: unknown): void {
   res.end(json);
 }
 
-/** The body as text, or null when it is over MAX_BODY. It is read to the end either way, so the reply arrives. */
-function readBody(req: IncomingMessage): Promise<string | null> {
+/** The body as text, or null when it is over `limit`. It is read to the end either way, so the reply arrives. */
+function readBody(req: IncomingMessage, limit = MAX_BODY): Promise<string | null> {
   return new Promise((done, fail) => {
     const chunks: Buffer[] = [];
     let size = 0;
     req.on('data', (chunk: Buffer) => {
       size += chunk.length;
-      if (size <= MAX_BODY) chunks.push(chunk);
+      if (size <= limit) chunks.push(chunk);
     });
-    req.on('end', () => done(size > MAX_BODY ? null : Buffer.concat(chunks).toString('utf8')));
+    req.on('end', () => done(size > limit ? null : Buffer.concat(chunks).toString('utf8')));
     req.on('error', fail);
   });
 }
@@ -64,7 +66,7 @@ function readBody(req: IncomingMessage): Promise<string | null> {
 const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLowerCase() === 'application/json';
 
 /**
- * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), GET /api/events (Server-Sent Events for the
+ * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), POST /api/ledger (from ledger-post.mjs), GET /api/events (Server-Sent Events for the
  * page), GET /api/health, and the built page: only the files `page` names. Events live in memory only; it starts and
  * runs nothing. `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
  */
@@ -85,6 +87,9 @@ export function createHall({
   const startId = randomBytes(12).toString('base64url');
   let map = INITIAL_MAP;
   let replay: OfficeEvent[] = [];
+  // The ledger's latest total, in memory only: never part of the replay, and gone when the hall stops.
+  let ledger: LedgerTotals | null = null;
+  const ledgerFrame = (totals: LedgerTotals) => `event: ledger\ndata: ${JSON.stringify(totals)}\n\n`;
 
   function publish(events: readonly OfficeEvent[]): void {
     for (const event of events) {
@@ -140,13 +145,38 @@ export function createHall({
     reply(res, 204); // no body: send.mjs throws any reply away, and there must be nothing to steer Claude Code
   }
 
+  /**
+   * ledger-post.mjs, after the Lead's turns: the token ledger's total on this PC (v3.2). Every control /api/hook has, and
+   * a body cap of its own. It is kept in memory, sent to the open pages, and to each page that connects after its replay.
+   */
+  async function ledgerPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.headers.origin !== undefined) return reply(res, 403);
+    if (!authorized(req.headers.authorization)) return reply(res, 401);
+    if (!isJson(req.headers['content-type'])) return reply(res, 415);
+    const body = await readBody(req, MAX_LEDGER_BODY);
+    if (body === null) return reply(res, 413);
+    let json: unknown;
+    try {
+      json = JSON.parse(body);
+    } catch {
+      return reply(res, 400);
+    }
+    const totals = ledgerSchema.safeParse(json);
+    if (!totals.success) return reply(res, 400);
+    ledger = totals.data;
+    for (const page of pages) page.write(ledgerFrame(ledger));
+    reply(res, 204);
+  }
+
   function events(req: IncomingMessage, res: ServerResponse): void {
     res.writeHead(200, { ...BASE_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8' });
     res.flushHeaders();
     // Everything since the last reset, then each new event as it comes: a page that (re)connects rebuilds
     // its office from a clean one. A named event marks the end of the replay, so it can do that in one go;
     // it is not a `message`, and it carries only the hall's start id.
-    res.write(`${replay.map(frame).join('')}event: replayed\ndata: ${startId}\n\n`);
+    res.write(
+      `${replay.map(frame).join('')}event: replayed\ndata: ${startId}\n\n${ledger ? ledgerFrame(ledger) : ''}`,
+    );
     pages.add(res);
     req.on('close', () => pages.delete(res));
   }
@@ -174,6 +204,7 @@ export function createHall({
     const method = req.method ?? '';
     if (path === '/api/handshake') return method === 'POST' ? handshake(req, res) : reply(res, 405);
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
+    if (path === '/api/ledger') return method === 'POST' ? ledgerPost(req, res) : reply(res, 405);
     if (path === '/api/events') return method === 'GET' ? events(req, res) : reply(res, 405);
     if (path === '/api/health') return method === 'GET' ? reply(res, 200, { ok: true }) : reply(res, 405);
     if (method === 'GET' || method === 'HEAD') return servePage(path, method, res);

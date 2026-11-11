@@ -9,13 +9,15 @@
 
 import type { EngineInterface } from 'claude-code';
 
-import type { PaneHall, PaneNode } from './types';
+import type { PaneHall, PaneLedger, PaneNode } from './types';
 
 export const NODE_VERSION = ['node', '--version'] as const;
 /** hooks/hall-check.mjs: send.mjs's handshake, answered with an exit code only. */
 export const checkCommand = (root: string) => ['node', `${root}/hooks/hall-check.mjs`];
 /** The prebuilt hall: it finds its page beside itself and serves only what its manifest names. */
 export const hallCommand = (root: string) => ['node', `${root}/hall/server.mjs`];
+/** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
+export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
 
 /** hall-check.mjs's exit codes: our hall, nothing on the port, something else on it. */
 const OURS = 0;
@@ -43,6 +45,22 @@ export async function findNode($: EngineInterface): Promise<NodeFound> {
   const [major, minor, patch] = version.slice(1).map(Number) as [number, number, number];
   if (major > 20 || (major === 20 && minor >= 19)) return { node: 'ok', nodeVersion: null };
   return { node: 'old', nodeVersion: `${major}.${minor}.${patch}` };
+}
+
+/**
+ * The ledger's total to the hall's page (v3.2): the numbers the mod built from the engine's token counts, on stdin,
+ * never text. Nothing it prints is read. A post that fails costs nothing: the next turn sends it again.
+ */
+export async function sendLedger($: EngineInterface, totals: PaneLedger): Promise<void> {
+  try {
+    await $.process.run(ledgerCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      stdin: JSON.stringify(totals),
+      timeoutMs: TIMEOUT_MS,
+    });
+  } catch {
+    // The hall's line waits for the next turn.
+  }
 }
 
 /** Where the pane hears what the mod found. */

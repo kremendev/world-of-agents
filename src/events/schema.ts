@@ -117,6 +117,34 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   awaitingPromptEvent,
 ]);
 
+const tokenCount = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+
+/**
+ * v3.2: the token ledger's total on this PC, as the mod sends it (plugin/hooks/ledger-post.mjs) and the hall passes on.
+ * Numbers, the date of the price table, and the engine's ids of models it couldn't price: never text. It is not an office
+ * event: it comes as its own named SSE event, through parseLedger(), and changes nothing in the office.
+ */
+export const ledgerSchema = z.strictObject({
+  since: timestamp,
+  tokensIn: tokenCount,
+  tokensOut: tokenCount,
+  cents: tokenCount,
+  pricedOn: z.string().regex(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/),
+  unpriced: z
+    .array(
+      z.strictObject({ model: z.string().regex(/^(?:other|[a-z][a-z0-9.-]{0,63})$/), tokens: tokenCount }),
+    )
+    .max(3),
+});
+
+export type LedgerTotals = z.infer<typeof ledgerSchema>;
+
+/** The ledger's total, or null for anything else. Never throws. */
+export function parseLedger(input: unknown): LedgerTotals | null {
+  const result = ledgerSchema.safeParse(input);
+  return result.success ? result.data : null;
+}
+
 /**
  * v3: the id a hall picks when it starts, sent with the end of every replay (12 random bytes as base64url). Another id
  * on a reconnect means the hall restarted and remembers nothing of the run. Anything else, such as an older hall's `1`,

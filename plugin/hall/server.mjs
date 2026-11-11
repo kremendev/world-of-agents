@@ -17,18 +17,6 @@ import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { join } from "node:path";
 
-// server/csp.ts
-var POLICY = [
-  "default-src 'self'",
-  "connect-src 'self'",
-  "img-src 'self'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'none'"
-];
-var HALL_CSP = [...POLICY, "frame-ancestors 'none'"].join("; ");
-var META_CSP = POLICY.join("; ");
-
 // node_modules/zod/v4/core/util.js
 var util_exports = {};
 __export(util_exports, {
@@ -6048,39 +6036,6 @@ function superRefine(fn, params) {
   return _superRefine(fn, params);
 }
 
-// server/hook-input.ts
-var id = string2().max(100);
-var word = string2().max(40);
-var hookInputSchema = object({
-  hook_event_name: word,
-  session_id: id.optional(),
-  agent_id: id.optional(),
-  agent_type: id.optional(),
-  tool_name: id.optional(),
-  tool_use_id: id.optional(),
-  notification_type: word.optional(),
-  source: word.optional(),
-  reason: word.optional(),
-  prompt: string2().max(120).optional(),
-  task_notification: object({ task_id: id.optional(), tool_use_id: id.optional(), status: word.optional() }).optional(),
-  agent_message: object({ from: id }).optional(),
-  last_assistant_message: string2().max(2e4).optional(),
-  tool_input: object({
-    description: string2().max(120).optional(),
-    subagent_type: id.optional(),
-    run_in_background: boolean2().optional()
-  }).optional(),
-  tool_response: object({ status: word.optional(), agentId: id.optional() }).optional(),
-  background_tasks: array(
-    object({
-      id: id.optional(),
-      type: word.optional(),
-      status: word.optional(),
-      agent_type: id.optional()
-    })
-  ).max(20).optional()
-});
-
 // src/events/schema.ts
 config({ jitless: true });
 var AGENT_IDS = ["lead", "designer", "frontend", "backend", "reviewer"];
@@ -6163,6 +6118,17 @@ var officeEventSchema = discriminatedUnion("type", [
   sessionEndEvent,
   awaitingPromptEvent
 ]);
+var tokenCount = number2().int().min(0).max(Number.MAX_SAFE_INTEGER);
+var ledgerSchema = strictObject({
+  since: timestamp,
+  tokensIn: tokenCount,
+  tokensOut: tokenCount,
+  cents: tokenCount,
+  pricedOn: string2().regex(/^\d{1,2} [A-Z][a-z]{2} \d{4}$/),
+  unpriced: array(
+    strictObject({ model: string2().regex(/^(?:other|[a-z][a-z0-9.-]{0,63})$/), tokens: tokenCount })
+  ).max(3)
+});
 var hallStartId = string2().regex(/^[A-Za-z0-9_-]{16}$/);
 function parseEvent(input) {
   const result = officeEventSchema.safeParse(input);
@@ -6173,6 +6139,51 @@ function parseEvent(input) {
   const where = first && first.path.length > 0 ? first.path.join(".") : "event";
   return { ok: false, error: `${where}: ${first?.message ?? "invalid event"}` };
 }
+
+// server/csp.ts
+var POLICY = [
+  "default-src 'self'",
+  "connect-src 'self'",
+  "img-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'"
+];
+var HALL_CSP = [...POLICY, "frame-ancestors 'none'"].join("; ");
+var META_CSP = POLICY.join("; ");
+
+// server/hook-input.ts
+var id = string2().max(100);
+var word = string2().max(40);
+var hookInputSchema = object({
+  hook_event_name: word,
+  session_id: id.optional(),
+  agent_id: id.optional(),
+  agent_type: id.optional(),
+  tool_name: id.optional(),
+  tool_use_id: id.optional(),
+  notification_type: word.optional(),
+  source: word.optional(),
+  reason: word.optional(),
+  prompt: string2().max(120).optional(),
+  task_notification: object({ task_id: id.optional(), tool_use_id: id.optional(), status: word.optional() }).optional(),
+  agent_message: object({ from: id }).optional(),
+  last_assistant_message: string2().max(2e4).optional(),
+  tool_input: object({
+    description: string2().max(120).optional(),
+    subagent_type: id.optional(),
+    run_in_background: boolean2().optional()
+  }).optional(),
+  tool_response: object({ status: word.optional(), agentId: id.optional() }).optional(),
+  background_tasks: array(
+    object({
+      id: id.optional(),
+      type: word.optional(),
+      status: word.optional(),
+      agent_type: id.optional()
+    })
+  ).max(20).optional()
+});
 
 // server/map.ts
 var INITIAL_MAP = { session: null, cards: [], runs: {}, lastWriter: null, askSeen: false };
@@ -6458,6 +6469,7 @@ function everyoneRests(state, at) {
 var HOST = "127.0.0.1";
 var PORT = 4319;
 var MAX_BODY = 256 * 1024;
+var MAX_LEDGER_BODY = 4096;
 var REPLAY = 500;
 var NONCE = /^[A-Za-z0-9_-]{43}$/;
 var BASE_HEADERS = {
@@ -6478,15 +6490,15 @@ function reply(res, status, body) {
   });
   res.end(json);
 }
-function readBody(req) {
+function readBody(req, limit = MAX_BODY) {
   return new Promise((done, fail) => {
     const chunks = [];
     let size = 0;
     req.on("data", (chunk) => {
       size += chunk.length;
-      if (size <= MAX_BODY) chunks.push(chunk);
+      if (size <= limit) chunks.push(chunk);
     });
-    req.on("end", () => done(size > MAX_BODY ? null : Buffer.concat(chunks).toString("utf8")));
+    req.on("end", () => done(size > limit ? null : Buffer.concat(chunks).toString("utf8")));
     req.on("error", fail);
   });
 }
@@ -6502,6 +6514,11 @@ function createHall({
   const startId = randomBytes(12).toString("base64url");
   let map = INITIAL_MAP;
   let replay = [];
+  let ledger = null;
+  const ledgerFrame = (totals) => `event: ledger
+data: ${JSON.stringify(totals)}
+
+`;
   function publish(events2) {
     for (const event of events2) {
       replay = event.type === "reset" ? [event] : [...replay, event].slice(-REPLAY);
@@ -6545,13 +6562,33 @@ function createHall({
     publish(result.events);
     reply(res, 204);
   }
+  async function ledgerPost(req, res) {
+    if (req.headers.origin !== void 0) return reply(res, 403);
+    if (!authorized(req.headers.authorization)) return reply(res, 401);
+    if (!isJson(req.headers["content-type"])) return reply(res, 415);
+    const body = await readBody(req, MAX_LEDGER_BODY);
+    if (body === null) return reply(res, 413);
+    let json;
+    try {
+      json = JSON.parse(body);
+    } catch {
+      return reply(res, 400);
+    }
+    const totals = ledgerSchema.safeParse(json);
+    if (!totals.success) return reply(res, 400);
+    ledger = totals.data;
+    for (const page2 of pages) page2.write(ledgerFrame(ledger));
+    reply(res, 204);
+  }
   function events(req, res) {
     res.writeHead(200, { ...BASE_HEADERS, "Content-Type": "text/event-stream; charset=utf-8" });
     res.flushHeaders();
-    res.write(`${replay.map(frame).join("")}event: replayed
+    res.write(
+      `${replay.map(frame).join("")}event: replayed
 data: ${startId}
 
-`);
+${ledger ? ledgerFrame(ledger) : ""}`
+    );
     pages.add(res);
     req.on("close", () => pages.delete(res));
   }
@@ -6574,6 +6611,7 @@ data: ${startId}
     const method = req.method ?? "";
     if (path === "/api/handshake") return method === "POST" ? handshake(req, res) : reply(res, 405);
     if (path === "/api/hook") return method === "POST" ? hook(req, res) : reply(res, 405);
+    if (path === "/api/ledger") return method === "POST" ? ledgerPost(req, res) : reply(res, 405);
     if (path === "/api/events") return method === "GET" ? events(req, res) : reply(res, 405);
     if (path === "/api/health") return method === "GET" ? reply(res, 200, { ok: true }) : reply(res, 405);
     if (method === "GET" || method === "HEAD") return servePage(path, method, res);

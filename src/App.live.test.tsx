@@ -1201,3 +1201,31 @@ describe('the "For you" strip in Live (v3.1, D6)', () => {
     expect(item()).not.toBeNull();
   });
 });
+
+describe("the ledger's total in the header (v3.2)", () => {
+  const totals = {
+    since: Date.UTC(2026, 10, 11, 12),
+    tokensIn: 3_400_000,
+    tokensOut: 180_000,
+    cents: 1720,
+    pricedOn: '11 Nov 2026',
+    unpriced: [{ model: 'new-model', tokens: 40_000 }],
+  };
+  const line = () => document.querySelector('.run-ledger');
+
+  it('shows "This PC" once the hall sends a total, in Live only', async () => {
+    const app = await renderLive(start);
+    expect(line()).toBeNull();
+    act(() => app.source().emit('ledger', JSON.stringify(totals)));
+    expect(line()).toHaveTextContent('This PC: 3.6M tokens · about $17.20 at API prices');
+    fireEvent.click(screen.getByRole('button', { name: 'Play demo' }));
+    await settle();
+    expect(line()).toBeNull();
+  });
+
+  it('shows nothing for a total that does not pass the schema', async () => {
+    const app = await renderLive(start);
+    act(() => app.source().emit('ledger', JSON.stringify({ ...totals, cents: 'a lot' })));
+    expect(line()).toBeNull();
+  });
+});

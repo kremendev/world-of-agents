@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { OfficeEvent } from '../events/schema';
+import type { LedgerTotals, OfficeEvent } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../state/office';
 import { RECHECK_MS, checkHall, connectHall, liveEnabled } from './hall';
 
@@ -17,6 +17,8 @@ export type LiveHall = {
   hallFound: boolean;
   /** The start id of the hall the page follows, once a replay has named one: the read marks are kept per start. */
   start: string | null;
+  /** v3.2: the token ledger's total on this PC, once the mod has sent one through the hall. */
+  ledger: LedgerTotals | null;
   goLive: () => void;
 };
 
@@ -32,6 +34,7 @@ export function useLiveHall(): LiveHall {
   // The start id of the hall the page last heard from: a ref for the replay to compare, state for the page.
   const startId = useRef<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
+  const [ledger, setLedger] = useState<LedgerTotals | null>(null);
 
   useEffect(() => {
     if (!liveEnabled()) return;
@@ -76,6 +79,7 @@ export function useLiveHall(): LiveHall {
           restarted: restarted && !startsRun(event),
         })),
       onLost: () => setStatus('offline'),
+      onLedger: setLedger,
     });
   }, [following]);
 
@@ -99,5 +103,5 @@ export function useLiveHall(): LiveHall {
     setFollowing(true);
   };
 
-  return { status, ...view, hallFound, start, goLive };
+  return { status, ...view, hallFound, start, ledger, goLive };
 }

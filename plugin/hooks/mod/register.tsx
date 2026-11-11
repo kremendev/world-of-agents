@@ -10,7 +10,7 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import { findNode, keepHall } from './hall';
+import { findNode, keepHall, sendLedger } from './hall';
 import { addTurn, LEDGER_KEY, readLedger, summarize } from './ledger';
 import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
@@ -104,6 +104,7 @@ async function startUp($: EngineInterface): Promise<void> {
   await set($, (v) => ({ ...v, ...found }));
   if (found.node === 'ok') await keepHall($, setHall($));
   else await setHall($)('stopped');
+  await pushLedger($);
 }
 
 /** One of our ids as a settings key holds it: our name, then a marketplace name of plain characters. */
@@ -154,6 +155,12 @@ async function countTurn($: EngineInterface, usage: TurnUsageLike): Promise<void
 let counting: Promise<void> = Promise.resolve();
 function count($: EngineInterface, usage: TurnUsageLike): void {
   counting = counting.then(() => countTurn($, usage)).catch(() => {});
+}
+
+/** The ledger's total to the hall's page, while the hall runs: at session start and after each of the Lead's turns. */
+async function pushLedger($: EngineInterface): Promise<void> {
+  const v = await read($, view);
+  if (v.hall === 'running' && v.ledger !== null) await sendLedger($, v.ledger);
 }
 
 /** Speaks a line, unless the voice is muted. */
@@ -227,6 +234,8 @@ export const register: Register = (on) => {
     // Every agent's turn costs tokens: the Lead's and each subagent's.
     if (e.usage !== undefined) count($, e.usage);
     if (e.agentId === undefined) {
+      // After the counts in line, this turn's included.
+      counting = counting.then(() => pushLedger($)).catch(() => {});
       quietly(
         (async () => {
           // The Lead's turn is over, so none of its own calls still waits.

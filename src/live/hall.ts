@@ -1,4 +1,4 @@
-import { hallStartId, parseEvent, type OfficeEvent } from '../events/schema';
+import { hallStartId, parseEvent, type OfficeEvent, parseLedger, type LedgerTotals } from '../events/schema';
 
 export const HEALTH_TIMEOUT_MS = 1000;
 /** How long to wait before trying the stream again after losing it. */
@@ -50,6 +50,8 @@ export type HallHandlers = {
   onEvent: (event: OfficeEvent) => void;
   /** The stream is gone. It keeps trying until the connection is closed. */
   onLost: () => void;
+  /** v3.2: the token ledger's total on this PC, whenever the hall has one; anything that isn't one is dropped. */
+  onLedger?: (totals: LedgerTotals) => void;
 };
 
 /**
@@ -71,6 +73,16 @@ export function connectHall(handlers: HallHandlers): () => void {
       if (replay) replay.push(event);
       else handlers.onEvent(event);
     };
+    stream.addEventListener('ledger', (message) => {
+      let data: unknown;
+      try {
+        data = JSON.parse(message.data);
+      } catch {
+        return;
+      }
+      const totals = parseLedger(data);
+      if (totals) handlers.onLedger?.(totals);
+    });
     stream.addEventListener('replayed', (message) => {
       const id = hallStartId.safeParse(message.data);
       handlers.onReplay(replay ?? [], id.success ? id.data : null);
