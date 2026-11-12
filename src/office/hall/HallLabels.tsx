@@ -1,3 +1,4 @@
+import { specialistWords } from '../roster';
 import { useEffect, useLayoutEffect, useRef, type CSSProperties } from 'react';
 import type { AgentId, AgentState } from '../../events/schema';
 import { AgentText } from '../../page/AgentText';
@@ -99,12 +100,16 @@ export function HallLabels({
 
         {stations.map((s) => {
           const { copies } = office.agents[s.agent.id];
+          const working = s.agent.id === 'lead' ? [] : office.specialists[s.agent.id];
           return (
             <div key={s.agent.id} className="hall-row" style={at(s.x, s.plateY, s.width)}>
               <span className="nameplate" data-rank={RANK.plate}>
                 {s.agent.name}
                 {u >= PLATE_WITH_RACE && ` · ${s.agent.race}`}
                 {copies && <span className="copies">x{copies}</span>}
+                {working.length > 0 && (
+                  <span className="specialists"> + {working.map(specialistWords).join(', ')}</span>
+                )}
               </span>
             </div>
           );
@@ -173,6 +178,8 @@ export function HallLabels({
         const agent = agentById(t.id);
         const { copies } = office.agents[t.id];
         const running = copies ? `, ${copies} copies running` : '';
+        const helped = t.id === 'lead' ? [] : office.specialists[t.id];
+        const withHelp = helped.length > 0 ? `, with ${helped.map(specialistWords).join(' and ')}` : '';
         // The Reviewer's button also opens the review board (v3.1, D9): the same button, nothing new to see.
         const reviews = t.id === 'reviewer';
         return (
@@ -184,7 +191,7 @@ export function HallLabels({
             style={at(t.x, t.y, t.width, t.height)}
             aria-pressed={t.id === selected}
             aria-haspopup={reviews ? 'dialog' : undefined}
-            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}${running}. Show details${reviews ? ' and reviews' : ''}`}
+            aria-label={`${agent.name}, ${agent.race}, ${stateWords(t.state)}${running}${withHelp}. Show details${reviews ? ' and reviews' : ''}`}
             onClick={() => onSelect(t.id)}
           />
         );

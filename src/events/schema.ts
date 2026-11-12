@@ -82,6 +82,24 @@ const messageEvent = z.strictObject({
   at: timestamp,
 });
 
+/** The guild leads, who start specialists (v3.4). */
+export const GUILD_LEADS = ['designer', 'frontend', 'backend', 'reviewer'] as const;
+
+/**
+ * v3.4: one of the team's specialists (`woa-team:<guild>-<name>`) is at work for its guild lead, or done. `name` is the
+ * slug after the guild, from the agent type Claude Code set, never from text; the hall shows it as words.
+ */
+const specialistEvent = z.strictObject({
+  type: z.literal('specialist'),
+  lead: z.enum(GUILD_LEADS),
+  name: z
+    .string()
+    .max(40)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  working: z.boolean(),
+  at: timestamp,
+});
+
 /** v2: a new session started. Everything from the run before goes. */
 const resetEvent = z.strictObject({
   type: z.literal('reset'),
@@ -115,6 +133,7 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   runEvent,
   sessionEndEvent,
   awaitingPromptEvent,
+  specialistEvent,
 ]);
 
 const tokenCount = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);

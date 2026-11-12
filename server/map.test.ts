@@ -1547,3 +1547,64 @@ describe("the quality gate's verdicts on a SubagentStop (v3.3)", () => {
     }
   });
 });
+
+describe("the team's specialists (v3.4)", () => {
+  const spec = (
+    hook_event_name: string,
+    agent_id = 's1',
+    agent = 'frontend-react-dev',
+    more: Partial<HookInput> = {},
+  ) => ({ hook_event_name, session_id: S, agent_type: `woa-team:${agent}`, agent_id, ...more }) as HookInput;
+  const shown = (events: readonly OfficeEvent[]) => events.filter((e) => e.type === 'specialist');
+
+  it('at work from the first hook seen, once, and done at its stop; its guild lead is told by name only', () => {
+    const { events } = play([
+      start,
+      spec('SubagentStart'),
+      spec('PreToolUse', 's1', 'frontend-react-dev', { tool_name: 'Edit' }),
+      spec('SubagentStop'),
+    ]);
+    expect(shown(events)).toEqual([
+      { type: 'specialist', lead: 'frontend', name: 'react-dev', working: true, at: 1 },
+      { type: 'specialist', lead: 'frontend', name: 'react-dev', working: false, at: 3 },
+    ]);
+    // No state event for anyone: the guild lead's own state stays its own.
+    expect(events.filter((e) => e.type === 'state')).toEqual([]);
+  });
+
+  it('ignores a hook after the stop, another session, and an agent type that is not a specialist', () => {
+    const { events } = play([
+      start,
+      spec('SubagentStart'),
+      spec('SubagentStop'),
+      spec('PreToolUse', 's1', 'frontend-react-dev', { tool_name: 'Read' }),
+      { ...spec('SubagentStart', 's2'), session_id: 'other' },
+      spec('SubagentStart', 's3', 'ops-runner'),
+      spec('SubagentStart', 's4', 'frontend-React_dev'),
+      { ...spec('SubagentStart', 's5'), agent_type: 'woa-team:frontend-react-dev:x' },
+      { ...spec('SubagentStart', 's6'), agent_type: 'some-plugin:frontend-react-dev' },
+      spec('SubagentStop'), // a second stop of s1
+    ]);
+    expect(shown(events)).toHaveLength(2);
+  });
+
+  it('maps each guild to its lead, and every event passes parseEvent()', () => {
+    const { events } = play([
+      start,
+      spec('SubagentStart', 'a', 'design-motion-designer'),
+      spec('SubagentStart', 'b', 'backend-api-dev'),
+      spec('SubagentStart', 'c', 'review-security-warden'),
+    ]);
+    expect(shown(events).map((e) => e.type === 'specialist' && [e.lead, e.name])).toEqual([
+      ['designer', 'motion-designer'],
+      ['backend', 'api-dev'],
+      ['reviewer', 'security-warden'],
+    ]);
+    for (const event of events) expect(parseEvent(event).ok).toBe(true);
+  });
+
+  it('starts over with a new session', () => {
+    const { state } = play([start, spec('SubagentStart'), start]);
+    expect(state.specialists).toEqual({});
+  });
+});

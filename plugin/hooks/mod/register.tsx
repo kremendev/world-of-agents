@@ -16,15 +16,16 @@ import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
 import { fillPreset } from './presets';
 import type { PresetKey } from './presets';
-import { rosterIdOf } from './roster';
+import { rosterIdOf, specialistOf } from './roster';
 import { plain } from './text';
-import type { PaneAgent, PaneHall, PaneLedger, PaneView } from './types';
+import type { PaneAgent, PaneHall, PaneLedger, PaneSpecialist, PaneView } from './types';
 import { approvalLine, backgroundRun, heardRun, hush, say, teamLine } from './voice';
 
 const PANE = 'world-of-agents';
 const EMPTY: PaneView = {
   lead: 'idle',
   agents: [],
+  specialists: [],
   asks: [],
   mode: null,
   usage: null,
@@ -44,7 +45,7 @@ const EMPTY: PaneView = {
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-9' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-10' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -55,11 +56,23 @@ const MUTED = 'muted';
 
 /** Our agents' runs from `$.agent.list()`, merged into what the pane already holds: the list forgets finished runs. */
 async function refreshAgents($: EngineInterface): Promise<void> {
-  const seen = (await $.agent.list()).flatMap((a): PaneAgent[] => {
+  const listed = await $.agent.list();
+  const seen = listed.flatMap((a): PaneAgent[] => {
     const agent = rosterIdOf(a.type);
     return agent ? [{ id: a.id, agent, status: a.status, task: plain(a.description, MAX_TASK) }] : [];
   });
+  // v3.4: the team's specialists, by the shape of their agent type alone.
+  const helpers = listed.flatMap((a): PaneSpecialist[] => {
+    const who = specialistOf(a.type);
+    return who ? [{ id: a.id, lead: who.lead, name: who.name, status: a.status }] : [];
+  });
   await update($, view, (v) => {
+    const specialists = [...v.specialists];
+    for (const run of helpers) {
+      const at = specialists.findIndex((s) => s.id === run.id);
+      if (at >= 0) specialists[at] = run;
+      else specialists.push(run);
+    }
     const agents = [...v.agents];
     const round = [...v.round];
     for (const run of seen) {
@@ -74,7 +87,13 @@ async function refreshAgents($: EngineInterface): Promise<void> {
     // A finished run has no call waiting any more, whatever a lost reload left behind.
     const done = new Set(agents.filter((a) => FINISHED.has(a.status)).map((a) => a.id));
     const asks = v.asks.filter((ask) => ask.agentId === undefined || !done.has(ask.agentId));
-    const next = { ...v, agents: agents.slice(-MAX_RUNS), asks, round: round.slice(-MAX_RUNS) };
+    const next = {
+      ...v,
+      agents: agents.slice(-MAX_RUNS),
+      specialists: specialists.slice(-MAX_RUNS),
+      asks,
+      round: round.slice(-MAX_RUNS),
+    };
     return JSON.stringify(next) === JSON.stringify(v) ? v : next;
   });
 }

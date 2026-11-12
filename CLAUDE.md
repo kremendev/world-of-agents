@@ -689,5 +689,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    for him, and with it 3.4c (the skill buttons). 3.4b done (the guard's team rows from team.json, every start denied
    without it, the folder rule; template version 3 denies Read/Edit/Write on ~/.world-of-agents/**, versions/2.json the
    v3.0 one; guild leads have Agent and memory: local, the Lead memory: local; from the review, Edit and Write into
-   ~/.world-of-agents denied for every caller, as written and as resolved). Next: 3.4d (specialists as labels under
-   their guild lead in the pane and the hall), then prepare v3.4.0.
+   ~/.world-of-agents denied for every caller, as written and as resolved). 3.4d done (a `specialist` event; the hall
+   shows a guild lead's specialists at work in its name plate and screen-reader label, the pane under the lead; names from
+   the agent type's shape only). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare v3.4.0, then
+   the final report.

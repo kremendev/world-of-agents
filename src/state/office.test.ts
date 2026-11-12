@@ -227,3 +227,30 @@ describe('officeReducer on awaiting-prompt', () => {
     expect(next.awaitingPrompt).toBe(true);
   });
 });
+
+describe('officeReducer on specialists (v3.4)', () => {
+  const sp = (name: string, working: boolean, lead: 'frontend' | 'backend' = 'frontend'): OfficeEvent => ({
+    type: 'specialist',
+    lead,
+    name,
+    working,
+    at: 0,
+  });
+
+  it("keeps each guild lead's specialists at work, once each, in the order they started, and clears them on a reset", () => {
+    const state = apply([
+      sp('react-dev', true),
+      sp('test-writer', true),
+      sp('react-dev', true),
+      sp('api-dev', true, 'backend'),
+    ]);
+    expect(state.specialists).toEqual({
+      designer: [],
+      frontend: ['react-dev', 'test-writer'],
+      backend: ['api-dev'],
+      reviewer: [],
+    });
+    expect(officeReducer(state, sp('react-dev', false)).specialists.frontend).toEqual(['test-writer']);
+    expect(officeReducer(state, { type: 'reset', at: 1 })).toEqual(INITIAL_OFFICE);
+  });
+});

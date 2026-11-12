@@ -7,6 +7,7 @@ import {
   type OfficeEvent,
   type ToolCounts,
 } from '../src/events/schema';
+import type { GuildLead } from '../src/state/office';
 import type { HookInput } from './hook-input';
 
 /** A task card: one Agent call by the Lead, keyed by that call's `tool_use_id`. */
@@ -40,9 +41,18 @@ export type MapState = {
   lastWriter: string | null;
   /** A PermissionRequest has arrived in this session, so they get here and a permission_prompt has nothing to guess. */
   askSeen: boolean;
+  /** v3.4: the team's specialist runs seen, by agent_id: whose, which, and whether it has stopped. */
+  specialists: Readonly<Record<string, { lead: GuildLead; name: string; stopped: boolean }>>;
 };
 
-export const INITIAL_MAP: MapState = { session: null, cards: [], runs: {}, lastWriter: null, askSeen: false };
+export const INITIAL_MAP: MapState = {
+  session: null,
+  cards: [],
+  runs: {},
+  lastWriter: null,
+  askSeen: false,
+  specialists: {},
+};
 
 type Step = { state: MapState; events: OfficeEvent[] };
 
@@ -63,6 +73,45 @@ const LATE_PRE_TOOL_USE_MS = 1000;
 /** The SessionStart sources that switch the hall to that session and reset the run. Not `compact`. */
 const TAKES_OVER: ReadonlySet<string> = new Set(['startup', 'clear', 'resume']);
 
+const GUILD_LEAD: Readonly<Record<string, GuildLead>> = {
+  design: 'designer',
+  frontend: 'frontend',
+  backend: 'backend',
+  review: 'reviewer',
+};
+const SPECIALIST = /^woa-team:(design|frontend|backend|review)-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+/** `woa-team:<guild>-<name>` (v3.4) to its guild lead and its name. Anything else is no specialist. */
+export function specialistOf(type: string | undefined): { lead: GuildLead; name: string } | null {
+  const match = SPECIALIST.exec(type ?? '');
+  return match && match[2]!.length <= 40 ? { lead: GUILD_LEAD[match[1]!]!, name: match[2]! } : null;
+}
+
+/**
+ * A specialist's hook, in the session the hall follows (v3.4): at work from the first one seen, done at its
+ * SubagentStop. Its guild lead's own state stays its own. A hook after the stop changes nothing.
+ */
+function specialistHook(
+  state: MapState,
+  input: HookInput,
+  who: { lead: GuildLead; name: string },
+  at: number,
+): Step {
+  const id = input.agent_id;
+  if (!id || !state.session || input.session_id !== state.session) return nothing(state);
+  const seen = state.specialists[id];
+  if (seen?.stopped) return nothing(state);
+  const stopping = input.hook_event_name === 'SubagentStop';
+  if (seen && !stopping) return nothing(state);
+  const specialists = { ...state.specialists, [id]: { ...who, stopped: stopping } };
+  // A stop of one never seen at work says nothing: there is no label to take away.
+  if (!seen && stopping) return { state: { ...state, specialists }, events: [] };
+  return {
+    state: { ...state, specialists },
+    events: [{ type: 'specialist', lead: who.lead, name: who.name, working: !stopping, at }],
+  };
+}
+
 /** `world-of-agents:<name>` to one of our five ids. Anything else (built-in agents, other plugins) is not ours. */
 export function agentOf(type: string | undefined): AgentId | null {
   const name = type?.startsWith(PREFIX) ? type.slice(PREFIX.length) : undefined;
@@ -77,8 +126,9 @@ export function agentOf(type: string | undefined): AgentId | null {
  */
 export function mapHook(state: MapState, input: HookInput, at: number): Step {
   const agent = agentOf(input.agent_type);
-  if (!agent) return nothing(state);
-  const step = route(state, input, agent, at);
+  const specialist = agent ? null : specialistOf(input.agent_type);
+  if (!agent && !specialist) return nothing(state);
+  const step = agent ? route(state, input, agent, at) : specialistHook(state, input, specialist!, at);
   return {
     state: step.state,
     events: step.events.flatMap((event) => {

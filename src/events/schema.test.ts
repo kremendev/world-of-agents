@@ -144,3 +144,18 @@ describe('parseLedger (v3.2)', () => {
     expect(parseLedger(input)).toBeNull();
   });
 });
+
+describe('the specialist event (v3.4)', () => {
+  const event = { type: 'specialist', lead: 'frontend', name: 'react-dev', working: true, at: 1 };
+  it('takes a guild lead, a slug and whether it works', () => {
+    expect(parseEvent(event)).toEqual({ ok: true, event });
+  });
+  it.each([
+    ['the Lead as the lead', { ...event, lead: 'lead' }],
+    ['a name that is text', { ...event, name: 'React dev' }],
+    ['a long name', { ...event, name: 'a'.repeat(41) }],
+    ['an extra key', { ...event, note: 'x' }],
+  ])('refuses %s', (_, bad) => {
+    expect(parseEvent(bad).ok).toBe(false);
+  });
+});

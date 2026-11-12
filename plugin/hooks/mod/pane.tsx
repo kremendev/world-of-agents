@@ -211,6 +211,11 @@ export function drawPane(
                 {agent.name}: {status}
               </Text>
               {run && run.task !== '' && <Text dimColor>{run.task}</Text>}
+              {v.specialists
+                .filter((s) => s.lead === agent.id && LIVE.has(s.status))
+                .map((s) => (
+                  <Text dimColor>{`  + ${s.name}: ${s.status}`}</Text>
+                ))}
             </Box>
           );
         })}

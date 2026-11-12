@@ -1,4 +1,6 @@
-import type { AgentId, AgentState, OfficeEvent, TaskStatus, ToolCounts } from '../events/schema';
+import type { AgentId, AgentState, GUILD_LEADS, OfficeEvent, TaskStatus, ToolCounts } from '../events/schema';
+
+export type GuildLead = (typeof GUILD_LEADS)[number];
 
 /** `copies` is set only while more than one copy of the agent runs (v2). */
 export type AgentStatus = { state: AgentState; taskId?: string; copies?: number };
@@ -25,6 +27,8 @@ export type OfficeState = {
   sessionEnded: boolean;
   /** v2: the Lead has finished and Claude Code waits for your next message. Anything the Lead does next clears it. */
   awaitingPrompt: boolean;
+  /** v3.4: each guild lead's specialists at work now, by their slug, in the order they started. */
+  specialists: Readonly<Record<GuildLead, readonly string[]>>;
 };
 
 /** Keeps a long run from growing the message list without limit. The oldest messages go first. */
@@ -46,6 +50,7 @@ export const INITIAL_OFFICE: OfficeState = {
   runText: null,
   sessionEnded: false,
   awaitingPrompt: false,
+  specialists: { designer: [], frontend: [], backend: [], reviewer: [] },
 };
 
 const logged = (state: OfficeState, entry: LogEntry) => [...state.log, entry].slice(-MAX_LOG);
@@ -88,6 +93,15 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
       return { ...state, sessionEnded: true };
     case 'awaiting-prompt':
       return { ...state, awaitingPrompt: true };
+    case 'specialist': {
+      const was = state.specialists[event.lead];
+      const now = event.working
+        ? was.includes(event.name)
+          ? was
+          : [...was, event.name].slice(-8)
+        : was.filter((name) => name !== event.name);
+      return now === was ? state : { ...state, specialists: { ...state.specialists, [event.lead]: now } };
+    }
   }
 }
 

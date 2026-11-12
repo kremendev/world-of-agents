@@ -221,3 +221,21 @@ describe('HallLabels at small scales, where text keeps its minimum size', () => 
     rect.mockRestore();
   });
 });
+
+describe("the team's specialists at work (v3.4)", () => {
+  it("show in their guild lead's name plate as words, and in its screen-reader label", () => {
+    const office = [
+      { type: 'specialist', lead: 'frontend', name: 'react-dev', working: true, at: 0 },
+      { type: 'specialist', lead: 'frontend', name: 'test-writer', working: true, at: 0 },
+    ].reduce((s, e) => officeReducer(s, e as OfficeEvent), INITIAL_OFFICE);
+    const { container } = render(labels(office, [tag(null, { id: 'frontend', state: 'writing' })]));
+    const plates = [...container.querySelectorAll('.nameplate')].map((p) => p.textContent);
+    expect(plates.find((p) => p?.startsWith('Frontend dev'))).toContain('+ React dev, Test writer');
+    expect(plates.find((p) => p?.startsWith('Backend dev'))).not.toContain('+');
+    expect(
+      screen.getByRole('button', {
+        name: 'Frontend dev, Orc, Writing, with React dev and Test writer. Show details',
+      }),
+    ).toBeInTheDocument();
+  });
+});

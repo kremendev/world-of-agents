@@ -6092,6 +6092,14 @@ var messageEvent = strictObject({
   tools: toolCounts.optional(),
   at: timestamp
 });
+var GUILD_LEADS = ["designer", "frontend", "backend", "reviewer"];
+var specialistEvent = strictObject({
+  type: literal("specialist"),
+  lead: _enum(GUILD_LEADS),
+  name: string2().max(40).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  working: boolean2(),
+  at: timestamp
+});
 var resetEvent = strictObject({
   type: literal("reset"),
   at: timestamp
@@ -6116,7 +6124,8 @@ var officeEventSchema = discriminatedUnion("type", [
   resetEvent,
   runEvent,
   sessionEndEvent,
-  awaitingPromptEvent
+  awaitingPromptEvent,
+  specialistEvent
 ]);
 var tokenCount = number2().int().min(0).max(Number.MAX_SAFE_INTEGER);
 var ledgerSchema = strictObject({
@@ -6194,7 +6203,14 @@ var hookInputSchema = object({
 });
 
 // server/map.ts
-var INITIAL_MAP = { session: null, cards: [], runs: {}, lastWriter: null, askSeen: false };
+var INITIAL_MAP = {
+  session: null,
+  cards: [],
+  runs: {},
+  lastWriter: null,
+  askSeen: false,
+  specialists: {}
+};
 var nothing = (state) => ({ state, events: [] });
 var PREFIX = "world-of-agents:";
 var REPORT_SENT = "Report sent to the Lead";
@@ -6204,14 +6220,40 @@ var isReading = (tool) => READING.has(tool);
 var NO_CALLS = { Read: 0, Grep: 0, Glob: 0 };
 var LATE_PRE_TOOL_USE_MS = 1e3;
 var TAKES_OVER = /* @__PURE__ */ new Set(["startup", "clear", "resume"]);
+var GUILD_LEAD = {
+  design: "designer",
+  frontend: "frontend",
+  backend: "backend",
+  review: "reviewer"
+};
+var SPECIALIST = /^woa-team:(design|frontend|backend|review)-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+function specialistOf(type) {
+  const match = SPECIALIST.exec(type ?? "");
+  return match && match[2].length <= 40 ? { lead: GUILD_LEAD[match[1]], name: match[2] } : null;
+}
+function specialistHook(state, input, who, at) {
+  const id2 = input.agent_id;
+  if (!id2 || !state.session || input.session_id !== state.session) return nothing(state);
+  const seen = state.specialists[id2];
+  if (seen?.stopped) return nothing(state);
+  const stopping = input.hook_event_name === "SubagentStop";
+  if (seen && !stopping) return nothing(state);
+  const specialists = { ...state.specialists, [id2]: { ...who, stopped: stopping } };
+  if (!seen && stopping) return { state: { ...state, specialists }, events: [] };
+  return {
+    state: { ...state, specialists },
+    events: [{ type: "specialist", lead: who.lead, name: who.name, working: !stopping, at }]
+  };
+}
 function agentOf(type) {
   const name = type?.startsWith(PREFIX) ? type.slice(PREFIX.length) : void 0;
   return AGENT_IDS.find((id2) => id2 === name) ?? null;
 }
 function mapHook(state, input, at) {
   const agent = agentOf(input.agent_type);
-  if (!agent) return nothing(state);
-  const step = route(state, input, agent, at);
+  const specialist = agent ? null : specialistOf(input.agent_type);
+  if (!agent && !specialist) return nothing(state);
+  const step = agent ? route(state, input, agent, at) : specialistHook(state, input, specialist, at);
   return {
     state: step.state,
     events: step.events.flatMap((event) => {

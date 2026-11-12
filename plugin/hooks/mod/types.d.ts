@@ -13,6 +13,15 @@ export type PaneAgent = {
   task: string;
 };
 
+/** v3.4: one run of one of the team's specialists, under its guild lead. Its name comes from its agent type's shape. */
+export type PaneSpecialist = {
+  id: string;
+  lead: 'designer' | 'frontend' | 'backend' | 'reviewer';
+  /** In words: `woa-team:frontend-react-dev` is "React dev". */
+  name: string;
+  status: string;
+};
+
 /** A tool call put to the mode's decider: in Manual a dialog asks Dima, in Auto the classifier decides first. */
 export type PaneAsk = {
   /** The call's tool_use_id: the entry goes when that call resolves. */
@@ -71,6 +80,8 @@ export type PaneView = {
   /** The Lead's main-thread turn: running from its `turn.start` to its `turn.complete`. */
   lead: 'running' | 'idle';
   agents: PaneAgent[];
+  /** v3.4: the specialists' runs `$.agent.list()` showed, newest last. */
+  specialists: PaneSpecialist[];
   asks: PaneAsk[];
   /** The last `permission_mode` a prompt or a subagent start carried; null before the first. */
   mode: string | null;

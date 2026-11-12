@@ -22,4 +22,26 @@ export function rosterIdOf(type: string): SubagentId | undefined {
   return SUBAGENTS.find((id) => type === `world-of-agents:${id}`);
 }
 
+const GUILD_LEAD = {
+  design: 'designer',
+  frontend: 'frontend',
+  backend: 'backend',
+  review: 'reviewer',
+} as const;
+const SPECIALIST = /^woa-team:(design|frontend|backend|review)-([a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+/**
+ * A specialist's agent type (v3.4), `woa-team:<guild>-<name>`, to its guild lead and its name in words ("React dev"):
+ * from the agent type's own shape, never from event text. Anything else is no specialist.
+ */
+export function specialistOf(type: string): { lead: SubagentId; name: string } | undefined {
+  const match = SPECIALIST.exec(type);
+  if (!match || match[2]!.length > 40) return undefined;
+  const words = match[2]!.split('-').join(' ');
+  return {
+    lead: GUILD_LEAD[match[1] as keyof typeof GUILD_LEAD],
+    name: words.charAt(0).toUpperCase() + words.slice(1),
+  };
+}
+
 export const nameOf = (id: RosterId): string => ROSTER.find((agent) => agent.id === id)?.name ?? id;

@@ -259,6 +259,11 @@ h1 {
   white-space: nowrap;
 }
 
+/* v3.4: a guild lead's specialists at work, in its name plate. */
+.nameplate .specialists {
+  color: var(--ember-text);
+}
+
 .nameplate {
   padding: calc(var(--u) * 0.5px) calc(var(--u) * 5px);
   background: #17130f;

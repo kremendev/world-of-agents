@@ -92,3 +92,9 @@ export const ROSTER: readonly Agent[] = [
 
 /** The roster entry for an agent id. All five AgentIds are in the roster (stations.test.ts checks it). */
 export const agentById = (id: AgentId): Agent => ROSTER.find((a) => a.id === id)!;
+
+/** A specialist's slug as words for the hall (v3.4): `react-dev` to "React dev". */
+export function specialistWords(slug: string): string {
+  const words = slug.split('-').join(' ');
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
