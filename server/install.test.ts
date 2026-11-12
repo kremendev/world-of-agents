@@ -76,8 +76,11 @@ describe('the plugin once installed', () => {
     );
     expect(imports.length).toBeGreaterThan(0);
     for (const name of imports) expect(name).toMatch(/^node:/);
-    // The guard imports nothing at all: it reads stdin and answers.
-    expect(text('plugin/hooks/guard.mjs')).not.toMatch(/^\s*import\s/m);
+    // The guard imports two Node built-ins, to know its own real path, and nothing else.
+    const guard = [...text('plugin/hooks/guard.mjs').matchAll(/^import .* from '([^']+)';$/gm)].map(
+      (m) => m[1],
+    );
+    expect(guard).toEqual(['node:fs', 'node:url']);
   });
 });
 

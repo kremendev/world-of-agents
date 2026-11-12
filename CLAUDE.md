@@ -101,7 +101,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
-                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, hall-check) and the mod's
+                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, hall-check, run-directly:
+                  every script's run check) and the mod's
                   source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
                   test file under it
 scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod-surface.json (the mod's expected surface),
@@ -257,8 +258,16 @@ Do not change the look without asking. New ideas go into a later version.
   block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
   no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`).
   It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
-  agent file's model always wins. The `.env` rule is best effort; don't sell it as more. No imports, no network, no files. Failing closed means a missing
+  agent file's model always wins. It denies `isolation` other than none or `"worktree"` (v3.1 review): `"remote"` runs
+  the agent off this PC, out of reach of the hooks and the hall, and an unknown value is denied like `model`. The `.env`
+  rule is best effort; don't sell it as more. No network, no files; its only imports are `node:fs` and `node:url`, for
+  `runAsScript()`. Failing closed means a missing
   Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
+- Every plugin script with a main part runs it only when Node was started on that very file (v3.1 review): the same
+  `runAsScript()` block in each compares the real path of `process.argv[1]` with the module's own (`realpathSync`, then
+  `pathToFileURL`), never a name. With `endsWith('guard.mjs')`, a file named `xguard.mjs` that imports the guard ran
+  the guard's main part too. `tests/plugin/run-directly.test.ts` finds every such script, pins the block, and imports
+  each from an `x<name>.mjs` that traps stdin and the network.
 - A project or user agent can't take a `world-of-agents:` name: Claude Code skips any agent file whose name holds `:`
   (checked for 2a, with an error in the debug log), so the guard's `agent_type` can't be spoofed by such a file.
 - The setup is two skills, both `disable-model-invocation: true`, so only Dima types them: `setup-project` (dry run) and
@@ -566,5 +575,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    3.1d (the "For you" strip: unread To you, Needs you and Failed rows above the feed, whatever the agent filter, read
    marks kept per hall start; "Only for me"; useLiveHall now gives the page the hall's start id).
    3.1e (Copy on an opened row and each review card; it removes every Cc and Cf character, tag characters included,
-   wider than the plan drafted). v3.1.0 is built; its desktop checklist is docs/release-notes/v3.1.0-check.md.
+   wider than the plan drafted). 3.1f (the review's fixes, 12 Nov: the guard denies `isolation` other than none or
+   "worktree"; every plugin script's run check compares real paths, never a name). v3.1.0 is built; its desktop
+   checklist is docs/release-notes/v3.1.0-check.md.
    Next: prepare v3.1.0 (plugin.json 3.1.0, release notes, README), then v3.2.0 (the ledger: plan first).

@@ -106,6 +106,34 @@ describe("the agent file's model always wins (v3.1, D3)", () => {
     expect(decide(call({}))).toBeNull();
     expect(decide(call({ effort: 'high', description: 'Review', run_in_background: true }))).toBeNull();
   });
+
+  describe('isolation (v3.1 review): none or a worktree, nothing else', () => {
+    it('answers nothing for no isolation or "worktree"', () => {
+      expect(decide(call({ isolation: 'worktree' }))).toBeNull();
+    });
+
+    it.each([
+      'remote',
+      'Worktree',
+      'worktree ',
+      'cloud',
+      '',
+      null,
+      0,
+      true,
+      ['worktree'],
+      { kind: 'worktree' },
+    ])('denies isolation %j, even for a start the table allows', (isolation) => {
+      expect(decide(call({ isolation }))).toBe(denial(REASONS.isolation));
+    });
+
+    it('denies remote from a subagent too, and a model still wins the reason when both are set', () => {
+      expect(
+        decide(call({ isolation: 'remote' }, { agent_id: 'a1', agent_type: 'world-of-agents:backend' })),
+      ).toBe(denial(REASONS.isolation));
+      expect(decide(call({ isolation: 'remote', model: 'opus' }))).toBe(denial(REASONS.model));
+    });
+  });
 });
 
 describe('fails closed on input it cannot check', () => {
@@ -211,6 +239,14 @@ describe('never allow', () => {
       }),
       false,
     ],
+    [
+      JSON.stringify({
+        agent_type: 'world-of-agents:lead',
+        tool_name: 'Agent',
+        tool_input: { subagent_type: 'world-of-agents:reviewer', isolation: 'remote' },
+      }),
+      false,
+    ],
     [shell('Bash', 'cat .env'), false],
     [shell('PowerShell', 'Get-Content .env.local'), false],
     [shell('Bash', 'echo environment'), true],
@@ -253,8 +289,13 @@ describe('never allow', () => {
     expect(code).not.toMatch(/['"`](allow|ask|defer)['"`]/);
   });
 
-  it('reads nothing but stdin: no imports, no network, no files, no environment', () => {
-    expect(code).not.toMatch(/^\s*import\s/m);
+  it('reads nothing but stdin: no network, no files, no environment, and no import but its own real path', () => {
+    const imports = [...code.matchAll(/^import (.*) from '([^']+)';$/gm)].map((m) => `${m[1]} from ${m[2]}`);
+    expect(imports).toEqual([
+      '{ realpathSync } from node:fs',
+      '{ fileURLToPath, pathToFileURL } from node:url',
+    ]);
+    expect(code.match(/^\s*import\s/gm)).toHaveLength(2);
     expect(code).not.toMatch(/\b(fetch|require|process\.env|writeFile|readFile|child_process)\b/);
   });
 });

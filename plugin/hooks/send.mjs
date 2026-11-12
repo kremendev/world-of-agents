@@ -13,9 +13,10 @@
 // hold file contents and commands: redact them before they go anywhere near a repo.
 
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HALL = 'http://127.0.0.1:4319';
 const TIMEOUT_MS = 800;
@@ -256,8 +257,23 @@ async function main() {
   await deliver(allowlist(payload), token);
 }
 
+/**
+ * True only when Node was started on this very file: the real path of process.argv[1] is this module's own. A name check
+ * (endsWith) also fires for any file whose name ends the same, such as xguard.mjs importing guard.mjs.
+ */
+function runAsScript() {
+  try {
+    const script = process.argv[1];
+    if (typeof script !== 'string' || script === '') return false;
+    const own = pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
+    return pathToFileURL(realpathSync(script)).href === own;
+  } catch {
+    return false;
+  }
+}
+
 // Run only as a script, so tests can import its functions.
-if (process.argv[1]?.endsWith('send.mjs')) {
+if (runAsScript()) {
   process.on('uncaughtException', () => process.exit(0));
   process.on('unhandledRejection', () => process.exit(0));
   main()

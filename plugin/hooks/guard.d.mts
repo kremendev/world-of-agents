@@ -10,6 +10,7 @@ export const REASONS: {
   readonly env: string;
   readonly input: string;
   readonly model: string;
+  readonly isolation: string;
 };
 export function denial(reason: string): string;
 export function decide(raw: string | null): string | null;

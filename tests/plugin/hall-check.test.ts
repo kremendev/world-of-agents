@@ -146,6 +146,6 @@ describe('the script', () => {
 
   it("imports only Node's built-ins and send.mjs", () => {
     const imports = [...source.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]);
-    expect(imports).toEqual(['node:crypto', './send.mjs']);
+    expect(imports).toEqual(['node:crypto', 'node:fs', 'node:url', './send.mjs']);
   });
 });

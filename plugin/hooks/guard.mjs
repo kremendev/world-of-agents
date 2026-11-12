@@ -8,7 +8,11 @@
 // any error it catches. hooks.json sets "onFailure": "block", so a crash, a timeout or a Node that won't start blocks the
 // call too (Claude Code 2.1.295 or later; an older one lets the call through).
 //
-// It reads stdin and answers. No network, no hall, no files, no imports.
+// It reads stdin and answers. No network, no hall, no writes. Its only imports are two Node built-ins, to tell whether it
+// runs as a script: the real path of the file Node started against its own.
+
+import { realpathSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const MAX_STDIN = 1024 * 1024;
 const PREFIX = 'world-of-agents:';
@@ -42,6 +46,8 @@ export const REASONS = Object.freeze({
   input: 'World of Agents guard: this call could not be checked, so it is denied.',
   model:
     "World of Agents guard: the team's models are set in its agent files, so an Agent call may not choose one.",
+  isolation:
+    'World of Agents guard: an agent runs here or in a worktree, never remotely or in an isolation the guard does not know.',
 });
 
 /** The one answer the guard ever gives. */
@@ -69,11 +75,15 @@ function rowOf(input) {
  * The Agent tool's `model` argument takes precedence over the model an agent file sets, so a call that names one could
  * run the Reviewer on a weaker model, or anyone on a far dearer one. Whatever its value, a call that has it is denied:
  * the agent file's model always wins.
+ *
+ * `isolation` (v3.1 review): no isolation or "worktree" (a git worktree on this PC) only. "remote" runs the agent off this
+ * PC, out of reach of these hooks and the hall, so it is denied, and so is any value the guard doesn't know, as for model.
  */
 function checkAgent(input) {
   const call = isObject(input.tool_input) ? input.tool_input : undefined;
   if (typeof call?.subagent_type !== 'string') return denial(REASONS.input);
   if (Object.hasOwn(call, 'model')) return denial(REASONS.model);
+  if (Object.hasOwn(call, 'isolation') && call.isolation !== 'worktree') return denial(REASONS.isolation);
   return rowOf(input)?.includes(call.subagent_type) ? null : denial(REASONS.agent);
 }
 
@@ -108,8 +118,23 @@ async function readStdin() {
   return Buffer.concat(chunks).toString('utf8');
 }
 
+/**
+ * True only when Node was started on this very file: the real path of process.argv[1] is this module's own. A name check
+ * (endsWith) also fires for any file whose name ends the same, such as xguard.mjs importing guard.mjs.
+ */
+function runAsScript() {
+  try {
+    const script = process.argv[1];
+    if (typeof script !== 'string' || script === '') return false;
+    const own = pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
+    return pathToFileURL(realpathSync(script)).href === own;
+  } catch {
+    return false;
+  }
+}
+
 // Run only as a script, so tests can import its functions.
-if (process.argv[1]?.endsWith('guard.mjs')) {
+if (runAsScript()) {
   readStdin()
     .then(decide, () => denial(REASONS.input))
     .then((answer) => {

@@ -12,6 +12,8 @@
 // Node built-ins and send.mjs only.
 
 import { randomBytes } from 'node:crypto';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hallKnowsToken, readToken } from './send.mjs';
 
 export const OURS = 0;
@@ -40,8 +42,23 @@ export async function hallState({ hall = HALL, token = readToken(), timeoutMs = 
   }
 }
 
+/**
+ * True only when Node was started on this very file: the real path of process.argv[1] is this module's own. A name check
+ * (endsWith) also fires for any file whose name ends the same, such as xguard.mjs importing guard.mjs.
+ */
+function runAsScript() {
+  try {
+    const script = process.argv[1];
+    if (typeof script !== 'string' || script === '') return false;
+    const own = pathToFileURL(realpathSync(fileURLToPath(import.meta.url))).href;
+    return pathToFileURL(realpathSync(script)).href === own;
+  } catch {
+    return false;
+  }
+}
+
 // Run only as a script, so tests can import it.
-if (process.argv[1]?.endsWith('hall-check.mjs')) {
+if (runAsScript()) {
   process.on('uncaughtException', () => process.exit(TAKEN));
   process.on('unhandledRejection', () => process.exit(TAKEN));
   hallState().then(
