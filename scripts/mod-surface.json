@@ -4,6 +4,7 @@
       "agent.spawn",
       "classic.PermissionRequest",
       "classic.SubagentStart",
+      "classic.SubagentStop",
       "classic.UserPromptSubmit",
       "command.run{command=world-of-agents:team}",
       "prompt.submit",
@@ -41,7 +42,8 @@
       "classic.UserPromptSubmit",
       "prompt.submit",
       "tool.call",
-      "tool.check"
+      "tool.check",
+      "classic.SubagentStop"
     ]
   }
 }

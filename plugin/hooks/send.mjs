@@ -178,6 +178,23 @@ function capture(raw, event) {
   writeFileSync(join(dir, name), raw);
 }
 
+/** The agents a quality gate checks when a project turns gates on (v3.3): the ones that edit. */
+export const GATED = new Set([
+  'world-of-agents:designer',
+  'world-of-agents:frontend',
+  'world-of-agents:backend',
+]);
+
+/**
+ * Is this a stop the quality gate covers? Then gate.mjs forwards it to the hall with its verdict, and this script
+ * doesn't: an agent the gate sends back is still working. `env` is the hook's environment, where the project's settings
+ * put WOA_QUALITY_GATE (/world-of-agents:setup-gates-write).
+ */
+export const gated = (payload, env) =>
+  env.WOA_QUALITY_GATE === '1' &&
+  payload?.hook_event_name === 'SubagentStop' &&
+  GATED.has(payload?.agent_type);
+
 /** The hall's token, or null when there is none or it isn't token-shaped. hall-check.mjs reads it the same way. */
 export function readToken() {
   try {
@@ -265,6 +282,7 @@ async function main() {
   const payload = JSON.parse(raw);
   if (!payload || typeof payload !== 'object') return;
   if (process.env.WOA_CAPTURE === '1') capture(raw, payload.hook_event_name);
+  if (gated(payload, process.env)) return; // gate.mjs forwards it, with its verdict
 
   const token = readToken();
   if (!token) return;

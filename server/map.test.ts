@@ -1463,3 +1463,51 @@ describe("the Reviewer's report carries the calls the hall saw (v3.1, D10)", () 
     expect(messages(events)).toMatchObject([{ tools: { Read: LIMITS.toolCalls, Grep: 0, Glob: 0 } }]);
   });
 });
+
+describe("the quality gate's verdicts on a SubagentStop (v3.3)", () => {
+  const run = (gate?: 'retry' | 'passed' | 'failed') =>
+    play([
+      start,
+      handOut('t1', 'backend', 'Server'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      returned('t1', 'b1', 'async_launched'),
+      bySub('SubagentStop', 'backend', 'b1', {
+        last_assistant_message: 'Done, I think.',
+        ...(gate ? { gate } : {}),
+      }),
+      bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Edit' }),
+    ]);
+
+  it('retry: the agent is still at work, its card stays In progress, no report yet, and its next call shows', () => {
+    const { steps, state } = run('retry');
+    expect(steps[4]!.events).toEqual([
+      { type: 'state', agent: 'backend', state: 'thinking', taskId: 't1', at: 4 },
+    ]);
+    expect(state.cards[0]!.done).toBe(false);
+    expect(state.runs.b1!.stopped).toBe(false);
+    expect(steps[5]!.events).toMatchObject([{ agent: 'backend', state: 'writing' }]);
+  });
+
+  it('failed: the report reaches the Lead, the agent shows the error, the card stays open', () => {
+    const { steps, state } = run('failed');
+    expect(steps[4]!.events).toEqual([
+      { type: 'message', from: 'backend', to: 'lead', text: 'Done, I think.', at: 4 },
+      { type: 'state', agent: 'backend', state: 'error', taskId: 't1', at: 4 },
+    ]);
+    expect(state.cards[0]!.done).toBe(false);
+    expect(state.runs.b1!.stopped).toBe(true);
+    expect(steps[5]!.events).toEqual([]);
+  });
+
+  it('passed, or no gate: a stop as before, the card Done', () => {
+    for (const gate of ['passed', undefined] as const) {
+      const { steps, state } = run(gate);
+      expect(steps[4]!.events).toMatchObject([
+        { type: 'message', from: 'backend' },
+        { type: 'task', status: 'done' },
+        { type: 'state', agent: 'backend', state: 'done' },
+      ]);
+      expect(state.cards[0]!.done).toBe(true);
+    }
+  });
+});

@@ -6188,7 +6188,9 @@ var hookInputSchema = object({
       status: word.optional(),
       agent_type: id.optional()
     })
-  ).max(20).optional()
+  ).max(20).optional(),
+  /** v3.3: the quality gate's verdict on a SubagentStop that gate.mjs forwards; send.mjs never sends it. */
+  gate: _enum(["retry", "passed", "failed"]).optional()
 });
 
 // server/map.ts
@@ -6247,7 +6249,10 @@ function dispatch(state, input, agent, at) {
     case "PermissionRequest":
       return asking(state, agent, sub, input.tool_name, at);
     case "SubagentStop":
-      return sub ? stopRun(state, sub, agent, input.last_assistant_message, at) : nothing(state);
+      if (!sub) return nothing(state);
+      if (input.gate === "retry") return act(state, sub, agent, "thinking", at);
+      if (input.gate === "failed") return gateFailed(state, sub, agent, input.last_assistant_message, at);
+      return stopRun(state, sub, agent, input.last_assistant_message, at);
     case "PostToolUse":
       return byLead ? agentReturned(state, input, at) : nothing(state);
     case "Stop":
@@ -6402,6 +6407,18 @@ function stopRun(state, id2, agent, text, at) {
     other ? shown(next, other[0], at) : { type: "state", agent, state: "done", ...run.taskId ? { taskId: run.taskId } : {}, at }
   );
   return { state: next, events };
+}
+function gateFailed(state, id2, agent, text, at) {
+  const linked = state.runs[id2] ? state : linkRun(state, id2, agent).state;
+  const run = { ...linked.runs[id2], state: "error", stopped: true };
+  const next = { ...linked, runs: { ...linked.runs, [id2]: run } };
+  return {
+    state: next,
+    events: [
+      { type: "message", from: agent, to: "lead", text: text?.trim() ? text : REPORT_SENT, at },
+      { type: "state", agent, state: "error", ...run.taskId ? { taskId: run.taskId } : {}, at }
+    ]
+  };
 }
 function finish(state, taskId2, at) {
   const card = state.cards.find((c) => c.taskId === taskId2);

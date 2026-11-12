@@ -10,7 +10,7 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import { findNode, keepHall, recountSessions, sendLedger } from './hall';
+import { findNode, gateStatus, keepHall, recountSessions, sendLedger } from './hall';
 import { addTurn, LEDGER_KEY, readLedger, recount, summarize } from './ledger';
 import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
@@ -30,6 +30,8 @@ const EMPTY: PaneView = {
   usage: null,
   ledger: null,
   past: { state: 'idle', counted: null },
+  gates: 'unknown',
+  gateRetry: null,
   round: [],
   unheard: [],
   hall: 'checking',
@@ -42,7 +44,7 @@ const EMPTY: PaneView = {
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-8' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-9' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -126,11 +128,15 @@ async function startUp($: EngineInterface): Promise<void> {
     nodeVersion: null,
   }));
   const found = await findNode($);
-  await set($, (v) => ({ ...v, ...found }));
+  const gates = found.node === 'ok' ? await gateStatus($) : 'unknown';
+  await set($, (v) => ({ ...v, ...found, gates }));
   // A hall found ours gets the total as it becomes `running` (setHall).
   if (found.node === 'ok') await keepHall($, setHall($));
   else await setHall($)('stopped');
 }
+
+/** The quality gate's fixed first line (gate.mjs, firstLine()): the only part of its answer the pane reads. */
+const GATE_LINE = /^World of Agents quality gate: npm run check failed, retry ([1-3]) of 3\./;
 
 /** One of our ids as a settings key holds it: our name, then a marketplace name of plain characters. */
 const OUR_ID = /^world-of-agents@[A-Za-z0-9._-]{1,64}$/;
@@ -291,6 +297,22 @@ export const register: Register = (on) => {
     const result = await next(e);
     quietly(set($, (v) => ({ ...v, mode: e.permission_mode ?? v.mode })));
     return result;
+  });
+
+  // v3.3: a quality gate sent an agent back. Its answer comes up from the plugin's settings hooks beneath; the pane reads
+  // only the gate's fixed first line, never the check's output under it, and hands the answer back unchanged.
+  on('classic.SubagentStop', async ($, e, next) => {
+    const answered = await next(e);
+    try {
+      const retry = GATE_LINE.exec(answered.block ?? '')?.[1];
+      const agent = rosterIdOf(e.agent_type);
+      if (retry !== undefined && agent !== undefined && agent !== 'reviewer') {
+        await set($, (v) => ({ ...v, gateRetry: { agent, retry: Number(retry) } }));
+      }
+    } catch {
+      // What it answered goes back unchanged either way.
+    }
+    return answered;
   });
 
   // The Lead is the main thread, which `$.agent.list()` doesn't list: its state is its own turn's.

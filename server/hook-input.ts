@@ -43,6 +43,8 @@ export const hookInputSchema = z.object({
     )
     .max(20)
     .optional(),
+  /** v3.3: the quality gate's verdict on a SubagentStop that gate.mjs forwards; send.mjs never sends it. */
+  gate: z.enum(['retry', 'passed', 'failed']).optional(),
 });
 
 export type HookInput = z.infer<typeof hookInputSchema>;

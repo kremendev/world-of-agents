@@ -40,13 +40,14 @@ describe('the plugin once installed', () => {
   );
   const SEND = '${CLAUDE_PLUGIN_ROOT}/hooks/send.mjs';
   const GUARD = '${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs';
+  const GATE = '${CLAUDE_PLUGIN_ROOT}/hooks/gate.mjs';
 
   // An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it.
-  it('runs its hooks from wherever it was copied to, and only its two scripts', () => {
+  it('runs its hooks from wherever it was copied to, and only its three scripts', () => {
     expect(all.length).toBeGreaterThan(0);
     for (const { hook } of all) {
       expect(hook.command).toBe('node');
-      expect([[SEND], [GUARD]]).toContainEqual(hook.args);
+      expect([[SEND], [GUARD], [GATE]]).toContainEqual(hook.args);
     }
   });
 
@@ -54,6 +55,18 @@ describe('the plugin once installed', () => {
     const send = all.filter(({ hook }) => hook.args[0] === SEND);
     expect(send.length).toBeGreaterThan(0);
     for (const { hook } of send) expect(hook.async).toBe(true);
+  });
+
+  it('runs the quality gate once, at SubagentStop, where it can send an agent back, and never traps one (v3.3)', () => {
+    const gate = all.filter(({ hook }) => hook.args[0] === GATE);
+    expect(gate).toHaveLength(1);
+    const [{ event, matcher, hook }] = gate as [(typeof gate)[number]];
+    expect(event).toBe('SubagentStop');
+    expect(matcher).toBeUndefined();
+    // Not async: an async hook can't send an agent back. Not onFailure block: a gate that breaks lets the agent stop.
+    expect(hook.async).toBeUndefined();
+    expect(hook.onFailure).toBeUndefined();
+    expect(hook.timeout).toBe(600);
   });
 
   it('runs the guard once, before Agent, Bash and PowerShell calls, where it can block and fails closed', () => {

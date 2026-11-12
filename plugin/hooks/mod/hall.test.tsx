@@ -61,12 +61,18 @@ function engine(
   on('turn.start', (_, e) => ({ turnId: e.turnId }));
 
   const runs: Run[] = [];
+  /** v3.3: the quality gates' status check, answered "off" here and kept apart from the hall's commands. */
+  const statuses: Run[] = [];
   const spawns: ProcessSpawnRequest[] = [];
   const left = [...checks];
   const result = (exitCode: number, stdout = '') => ({
     value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
   });
   on('process.run', async (_, e) => {
+    if (e.argv[2] === '--status') {
+      statuses.push({ argv: [...e.argv], init: e.init });
+      return result(5);
+    }
     runs.push({ argv: [...e.argv], init: e.init });
     if (e.argv[1] === '--version') {
       return node === 'missing'
@@ -91,6 +97,7 @@ function engine(
   return {
     clock,
     runs,
+    statuses,
     spawns,
     end: () => ends(),
     version: (line: string) => {
@@ -127,6 +134,10 @@ describe('the hall', () => {
     ]);
     // No input, no environment, no shell: the command and its folder, and nothing else.
     expect(world.spawns).toEqual([{ argv: ['node', `${root}/hall/server.mjs`], cwd: `${root}/hall` }]);
+    // v3.3: one status check for quality gates, a fixed command answered by its exit code.
+    expect(world.statuses).toEqual([
+      { argv: ['node', `${root}/hooks/gate.mjs`, '--status'], init: { cwd: root, timeoutMs: 10_000 } },
+    ]);
 
     for (const surface of SURFACES) {
       const pane = await mount($, surface);

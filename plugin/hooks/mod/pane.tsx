@@ -82,6 +82,11 @@ const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
 
 /** The modes where something runs without asking you first, and what the pane says about each, the mode named first. */
 const NOTHING_ASKS = 'Nothing asks you before acting.';
+/** v3.3: quality gates, and the modes where they run with nothing else asking first. */
+const GATES_ON = 'Quality gates: on.';
+const GATES_WARNING = "Quality gates: npm run check runs after each dev's task without asking.";
+const GATE_MODES = new Set(['auto', 'acceptEdits']);
+
 const MODE_WARNINGS = new Map([
   ['auto', `Auto: ${NOTHING_ASKS}`],
   ['bypassPermissions', `Bypass: ${NOTHING_ASKS}`],
@@ -166,6 +171,21 @@ export function drawPane(
         <Text color="warning" bold>
           {warning}
         </Text>
+      )}
+      {v.gates === 'on' && v.mode !== null && GATE_MODES.has(v.mode) && (
+        <Text color="warning" bold>
+          {GATES_WARNING}
+        </Text>
+      )}
+      {v.gates === 'on' && (
+        <Box flexDirection="column">
+          <Text>{GATES_ON}</Text>
+          {v.gateRetry !== null && (
+            <Text
+              dimColor
+            >{`Quality gate: ${nameOf(v.gateRetry.agent)}'s check failed, retry ${v.gateRetry.retry} of 3.`}</Text>
+          )}
+        </Box>
       )}
       {waiting.length > 0 && (
         <Box flexDirection="column">

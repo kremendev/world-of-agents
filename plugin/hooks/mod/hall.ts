@@ -26,6 +26,8 @@ export const NODE_VERSION = ['node', '--version'] as const;
 export const checkCommand = (root: string) => ['node', `${root}/hooks/hall-check.mjs`];
 /** The prebuilt hall: it finds its page beside itself and serves only what its manifest names. */
 export const hallCommand = (root: string) => ['node', `${root}/hall/server.mjs`];
+/** hooks/gate.mjs --status: are quality gates on in this project? An exit code only (v3.3). */
+export const gateStatusCommand = (root: string) => ['node', `${root}/hooks/gate.mjs`, '--status'];
 /** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
 export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
 /** hooks/ledger-past.mjs: Recount, every session's token counts from Claude Code's transcripts, numbers only. */
@@ -108,6 +110,22 @@ export function compareVersions(a: string, b: string): number {
     if (d !== 0) return d;
   }
   return 0;
+}
+
+/**
+ * Are quality gates on (v3.3)? The project's settings put WOA_QUALITY_GATE in the session's environment, which the child
+ * inherits; it answers 0 for on and 5 for off. The mod reads no env itself, and nothing the child prints.
+ */
+export async function gateStatus($: EngineInterface): Promise<'unknown' | 'on' | 'off'> {
+  try {
+    const { exitCode } = await $.process.run(gateStatusCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      timeoutMs: TIMEOUT_MS,
+    });
+    return exitCode === 0 ? 'on' : exitCode === 5 ? 'off' : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
 
 /**

@@ -125,7 +125,11 @@ function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number)
     case 'PermissionRequest':
       return asking(state, agent, sub, input.tool_name, at);
     case 'SubagentStop':
-      return sub ? stopRun(state, sub, agent, input.last_assistant_message, at) : nothing(state);
+      if (!sub) return nothing(state);
+      // v3.3: the quality gate sent the agent back, or it failed its last try (gate.mjs forwards these stops).
+      if (input.gate === 'retry') return act(state, sub, agent, 'thinking', at);
+      if (input.gate === 'failed') return gateFailed(state, sub, agent, input.last_assistant_message, at);
+      return stopRun(state, sub, agent, input.last_assistant_message, at);
     case 'PostToolUse':
       return byLead ? agentReturned(state, input, at) : nothing(state);
     case 'Stop':
@@ -355,6 +359,23 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
       : { type: 'state', agent, state: 'done', ...(run.taskId ? { taskId: run.taskId } : {}), at },
   );
   return { state: next, events };
+}
+
+/**
+ * The quality gate's last try failed (v3.3): the agent's last message goes to the Lead, the agent shows the error, and its
+ * card stays In progress, for Dima to look at. The run counts as stopped, so a late hook can't put it back to work.
+ */
+function gateFailed(state: MapState, id: string, agent: AgentId, text: string | undefined, at: number): Step {
+  const linked = state.runs[id] ? state : linkRun(state, id, agent).state;
+  const run: Run = { ...linked.runs[id]!, state: 'error', stopped: true };
+  const next: MapState = { ...linked, runs: { ...linked.runs, [id]: run } };
+  return {
+    state: next,
+    events: [
+      { type: 'message', from: agent, to: 'lead', text: text?.trim() ? text : REPORT_SENT, at },
+      { type: 'state', agent, state: 'error', ...(run.taskId ? { taskId: run.taskId } : {}), at },
+    ],
+  };
 }
 
 /**

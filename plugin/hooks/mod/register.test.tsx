@@ -45,6 +45,8 @@ const STORED_VIEW: PaneView = {
   usage: null,
   ledger: null,
   past: { state: 'idle', counted: null },
+  gates: 'unknown',
+  gateRetry: null,
   round: [],
   unheard: [],
   hall: 'stopped',
@@ -323,7 +325,7 @@ describe('prompts', () => {
     // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
     on('state.get', () => ({
       value: {
-        value: { shape: 'view-8', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        value: { shape: 'view-9', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
         version: 1,
       },
     }));
@@ -1052,4 +1054,120 @@ describe('Recount (v3.2c, L7; per session since 3.2d)', () => {
       await ui.unmount();
     });
   }
+});
+
+describe('quality gates in the pane (v3.3)', () => {
+  /** An engine whose gate status check answers `status` (0 on, 5 off). */
+  function withGates(on: On, status: number) {
+    const clock = mock.clock(on);
+    on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('ui.open', () => ({ value: { isPlaced: true } }));
+    on('agent.list', () => ({ value: [] }));
+    on('store.get', () => ({ value: undefined }));
+    on('store.set', () => ({ value: undefined }));
+    const runs: (readonly string[])[] = [];
+    on('process.run', (_, e) => {
+      runs.push(e.argv);
+      const version = e.argv[1] === '--version';
+      const gate = e.argv[2] === '--status';
+      return {
+        value: {
+          exitCode: gate ? status : e.argv[1]?.endsWith('/hooks/hall-check.mjs') ? 4 : 0,
+          stdout: version ? 'v24.22.0\n' : '',
+          stderr: '',
+          isStdoutTruncated: false,
+          isStderrTruncated: false,
+        },
+      };
+    });
+    on('classic.UserPromptSubmit', () => ({}));
+    return { clock, runs };
+  }
+  /** Every Text the pane draws now. */
+  const texts = async (ui: { findAll: (q: { type: 'Text' }) => Promise<{ text: string }[]> }) =>
+    (await ui.findAll({ type: 'Text' })).map((t) => t.text);
+
+  test('asks gate.mjs --status at session start, and says when gates are on, warning in Auto and Accept edits', async ($, on) => {
+    const { clock, runs } = withGates(on, 0);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const status = runs.find((argv) => argv[2] === '--status')!;
+    expect(status).toHaveLength(3);
+    expect(status[1]).toMatch(/\/hooks\/gate\.mjs$/);
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(await texts(ui)).toContain('Quality gates: on.');
+    expect(await texts(ui)).not.toContain(
+      "Quality gates: npm run check runs after each dev's task without asking.",
+    );
+    for (const mode of ['auto', 'acceptEdits']) {
+      await $.classic.UserPromptSubmit({ prompt: 'go', permission_mode: mode });
+      await clock.settle();
+      expect(await texts(ui), mode).toContain(
+        "Quality gates: npm run check runs after each dev's task without asking.",
+      );
+    }
+    await $.classic.UserPromptSubmit({ prompt: 'go', permission_mode: 'default' });
+    await clock.settle();
+    expect(await texts(ui)).not.toContain(
+      "Quality gates: npm run check runs after each dev's task without asking.",
+    );
+    await ui.unmount();
+  });
+
+  test('says nothing about gates when they are off', async ($, on) => {
+    const { clock } = withGates(on, 5);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await $.classic.UserPromptSubmit({ prompt: 'go', permission_mode: 'auto' });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect((await texts(ui)).filter((t) => t.startsWith('Quality gate'))).toEqual([]);
+    await ui.unmount();
+  });
+
+  test("takes no other hook's block for the gate's, even one that names a retry", async ($, on) => {
+    const { clock } = withGates(on, 0);
+    on('classic.SubagentStop', () => ({ block: 'Some other hook: npm run check failed, retry 2 of 3.' }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    await $.classic.SubagentStop({
+      hook_event_name: 'SubagentStop',
+      agent_id: 'a1',
+      agent_type: 'world-of-agents:backend',
+      agent_transcript_path: '/t',
+      stop_hook_active: false,
+      session_id: 's',
+      transcript_path: '/t',
+      cwd: '/project',
+    } as never);
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect((await texts(ui)).filter((t) => t.startsWith('Quality gate:'))).toEqual([]);
+    await ui.unmount();
+  });
+
+  test("shows a gate's retry from its fixed first line only, and hands its answer back unchanged", async ($, on) => {
+    const { clock } = withGates(on, 0);
+    const reason =
+      'World of Agents quality gate: npm run check failed, retry 2 of 3. Fix what it reports, then finish again.\n\nFAIL secret-output.test.ts';
+    on('classic.SubagentStop', () => ({ block: reason }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const answered = await $.classic.SubagentStop({
+      hook_event_name: 'SubagentStop',
+      agent_id: 'a1',
+      agent_type: 'world-of-agents:backend',
+      agent_transcript_path: '/t',
+      stop_hook_active: false,
+      session_id: 's',
+      transcript_path: '/t',
+      cwd: '/project',
+    } as never);
+    await clock.settle();
+    expect(answered).toEqual({ block: reason });
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    const shown = await texts(ui);
+    expect(shown).toContain("Quality gate: Backend dev's check failed, retry 2 of 3.");
+    expect(shown.join('\n')).not.toContain('secret-output');
+    await ui.unmount();
+  });
 });

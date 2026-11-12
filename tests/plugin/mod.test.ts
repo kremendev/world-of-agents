@@ -80,6 +80,7 @@ describe('the processes the mod starts', () => {
     expect(code('hall.ts')).toContain("['node', `${root}/hall/server.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-post.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-past.mjs`]");
+    expect(code('hall.ts')).toContain("['node', `${root}/hooks/gate.mjs`, '--status']");
     expect(code('voice.ts')).toContain('`${root}/voice/speak.ps1`');
     // Never a command string: no -Command, no encoded command, no shell as a command or an option.
     expect(

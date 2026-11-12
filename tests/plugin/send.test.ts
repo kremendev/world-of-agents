@@ -389,3 +389,16 @@ describe("an agent's last message: whole up to MAX_REPORT, still scrubbed", () =
     expect(bytes).toBeLessThanOrEqual(MAX_BODY);
   });
 });
+
+describe('a stop the quality gate covers (v3.3)', () => {
+  // main() posts to 127.0.0.1:4319, which tests never reach, so its source holds the rule: a covered stop is skipped
+  // before anything is delivered, because gate.mjs forwards it with its verdict.
+  const source = readFileSync(join(import.meta.dirname, '../../plugin/hooks/send.mjs'), 'utf8');
+  const main = source.slice(source.indexOf('async function main()'));
+
+  it('main() skips it before it delivers anything', () => {
+    const skip = main.indexOf('if (gated(payload, process.env)) return;');
+    expect(skip).toBeGreaterThan(0);
+    expect(skip).toBeLessThan(main.indexOf('deliver('));
+  });
+});

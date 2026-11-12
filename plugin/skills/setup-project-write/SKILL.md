@@ -19,6 +19,8 @@ Tell the user in a few plain sentences what happened:
   in our tests the app used the file only in a git repository. If it also says "Upgraded", name the rules the upgrade
   added and removed, exactly as listed. If it lists "Rules you added", say that those stayed as they were.
 - If it says "Already set up", the file already holds exactly these settings. Nothing changed and nothing is needed.
+- After "Written." or "Already set up", add one sentence: quality gates are a separate choice, off until the user turns
+  them on, and `/world-of-agents:setup-gates` shows what they do.
 - If it says "Stopped", nothing was changed. Say why and name the settings it lists. Don't guess at values: the script
   compared them and shows only names. Running it again changes nothing.
 - If it shows "[shell command execution disabled by policy]" instead, the script did not run, because a setting

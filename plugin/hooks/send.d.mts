@@ -17,9 +17,13 @@ export type Forwarded = {
   tool_input?: { description?: string; subagent_type?: string; run_in_background?: boolean };
   tool_response?: { status?: string; agentId?: string };
   background_tasks?: { id?: string; type?: string; status?: string; agent_type?: string }[];
+  /** v3.3: added by gate.mjs, never by the allowlist. */
+  gate?: 'retry' | 'passed' | 'failed';
 };
 
 export const MAX_REPORT: number;
+export const GATED: ReadonlySet<string>;
+export function gated(payload: Record<string, unknown>, env: Record<string, string | undefined>): boolean;
 export function homePattern(home: string): RegExp;
 export function text(v: unknown, max: number, home?: string): string | undefined;
 export function allowlist(p: Record<string, unknown>, home?: string): Forwarded;

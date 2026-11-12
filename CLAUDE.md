@@ -91,7 +91,9 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
-                  whom, no `model` in an Agent call, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
+                  whom, no `model` in an Agent call, and the .env rule), hooks/gate.mjs (v3.3: the quality gate on SubagentStop, opt-in per project through
+                  env WOA_QUALITY_GATE; runs npm run check, sends a dev back at most 3 times, forwards those stops to the
+                  hall with its verdict; --status answers by exit code), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code: 0 ours, 3 nothing listens, 4 anything else; with 0, the plugin version the hall states, one line of
                   digits and dots, 3.2d), hooks/ledger-post.mjs (v3.2: the ledger's
                   totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing),
@@ -107,7 +109,9 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
                   a project's .claude/settings.local.json; versions/: every earlier template.json, for the upgrade) and skills/setup-project-write/ (SKILL.md: the write); tested in
-                  server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers).
+                  server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers). skills/setup-gates/ (gates.mjs and SKILL.md),
+                  setup-gates-write/ and setup-gates-off/ (v3.3: the quality gates switch, env WOA_QUALITY_GATE; tested in
+                  server/setup-gates.test.ts).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
@@ -262,7 +266,13 @@ Do not change the look without asking. New ideas go into a later version.
   mode only in a git repository; a folder without git got the user settings' mode (11 Nov; the brief has what that
   proves and what it doesn't). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
-- `guard.mjs` is the one hook that answers Claude Code, and it only denies: a test runs it over every input and fails on
+- From v3.3 `gate.mjs` answers too, and only at `SubagentStop`: a block (the dev goes back to fix a failing
+  `npm run check`) or nothing. It runs only where the project's settings set `env.WOA_QUALITY_GATE` to "1" (written by
+  `/world-of-agents:setup-gates-write`, a fixed injected command only Dima starts), only for the Designer and the two devs,
+  only `npm run check`, only in a project with that script, at most 3 retries per run. Not async, timeout 600, and never
+  `onFailure: block`: a gate that breaks lets the agent stop. With gates on it forwards those stops to the hall with its
+  verdict and `send.mjs` skips them. The pane learns gates are on from `gate.mjs --status`'s exit code, never from env.
+- `guard.mjs` is the one hook that answers a tool call, and it only denies: a test runs it over every input and fails on
   any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
   permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
   not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
@@ -631,4 +641,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    at 1 hour, Recount replaces each settled session's count with its transcript's, exact; billions as "1.18B".
    The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
    v3.2.0 is prepared, not tagged (plugin.json 3.2.0, docs/release-notes/v3.2.0.md, README pins on `#v3.2.0`).
-   Next: v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.
+   v3.3.0 (docs/v3.3-plan.md): 3.3a done (the quality gate, its switch skills, the hall's gate verdicts, the pane's gate
+   lines; three real runs: the send-back loop and the pass path work, an agent fixing from the gate's output not seen).
+   G11 (the backlog on the hall's dashboard) waits for Dima. Next: 3.3b (BACKLOG.md and plan once, approve once: the Lead
+   gets Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md).

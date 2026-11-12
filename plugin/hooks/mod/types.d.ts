@@ -79,6 +79,10 @@ export type PaneView = {
   ledger: PaneLedger | null;
   /** Recount: every session in the transcripts, counted into `ledger` when Dima asks (v3.2c, 3.2d). */
   past: PanePast;
+  /** v3.3: are quality gates on in this project? `hooks/gate.mjs --status`'s exit code at session start. */
+  gates: 'unknown' | 'on' | 'off';
+  /** v3.3: the last time a gate sent an agent back: which of ours, and which retry. From the gate's fixed first line only. */
+  gateRetry: { agent: 'designer' | 'frontend' | 'backend'; retry: number } | null;
   /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */
   round: string[];
   /**
