@@ -756,5 +756,12 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    dev" is no reason to use React or to rule it out). 3.4h done (14 Nov, Dima's re-check: the older-hall line says
    "Close your other sessions, here and in other projects.", because after an update another session in the same
    project can keep the old hall; the README says a hall stops when its session closes or reloads an updated plugin,
-   and a `/reload-plugins` that brings nothing new keeps it). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
-   v3.4.0, then the final report.
+   and a `/reload-plugins` that brings nothing new keeps it). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. v3.4.0 is
+   prepared, not tagged (plugin.json 3.4.0, docs/release-notes/v3.4.0.md, README pins on `#v3.4.0`).
+
+7. The review's fixes (12 Nov, Dima's review of `v3-next`), folded into the versions they belong to, `v3-next` rebuilt
+   once with `--force-with-lease`: 3.1f (Agent `isolation` none or "worktree" only; every plugin script's run check by
+   real path), 3.2c (past sessions, L7), 3.3c (BACKLOG.md looked at with lstat; the devs run npm run check last), 3.4b's
+   folder rule (Edit and Write into ~/.world-of-agents denied for every caller, as written and as resolved), 3.4c (the
+   skill buttons, T8), the specialists' prompts in 3.4a. G11 is "not now". What waits for Dima: his desktop checks in
+   order (v3.1.0 to v3.4.0), then the tags, one version at a time, on `main`.
