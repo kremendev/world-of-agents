@@ -1,10 +1,24 @@
 import { execFile } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decide, denial, EDITORS, ENV_FILE, MAY_START, REASONS } from '../../plugin/hooks/guard.mjs';
+import {
+  decide,
+  denial,
+  EDITORS,
+  ENV_FILE,
+  MAY_START,
+  REASONS,
+  TEAM_FOLDER,
+  teamRows,
+} from '../../plugin/hooks/guard.mjs';
+import { defaults, init } from '../../plugin/team/team.mjs';
 
 const SCRIPT = resolve(import.meta.dirname, '../../plugin/hooks/guard.mjs');
+/** The default team (v3.4): the guard reads its rows from the team table. */
+const TABLE = defaults().team;
+const check = (raw: string | null) => decide(raw, TABLE);
 const TEAM = ['designer', 'frontend', 'backend', 'reviewer'].map((id) => `world-of-agents:${id}`);
 const BUILT_IN = [
   'Explore',
@@ -42,38 +56,47 @@ const shell = (tool_name: string, command: unknown) =>
 
 describe('who may start whom', () => {
   it('lets the Lead start each of the four, by answering nothing', () => {
-    for (const type of TEAM) expect(decide(byLead(type))).toBeNull();
+    for (const type of TEAM) expect(check(byLead(type))).toBeNull();
   });
 
   it("denies Claude Code's own agents and any name not in the table, even for the Lead", () => {
-    for (const type of BUILT_IN) expect(decide(byLead(type))).toBe(denial(REASONS.agent));
+    for (const type of BUILT_IN) expect(check(byLead(type))).toBe(denial(REASONS.agent));
   });
 
   it('denies a bare name: only the exact full name is in the table', () => {
-    expect(decide(byLead('backend'))).toBe(denial(REASONS.agent));
-    expect(decide(byLead('World-Of-Agents:backend'))).toBe(denial(REASONS.agent));
+    expect(check(byLead('backend'))).toBe(denial(REASONS.agent));
+    expect(check(byLead('World-Of-Agents:backend'))).toBe(denial(REASONS.agent));
   });
 
   it('lets no subagent start anyone in milestone 2, a subagent of type lead included', () => {
     for (const caller of [...TEAM, 'world-of-agents:lead', 'Explore'])
-      for (const type of TEAM) expect(decide(bySub(caller, type))).toBe(denial(REASONS.agent));
+      for (const type of TEAM) expect(check(bySub(caller, type))).toBe(denial(REASONS.agent));
   });
 
   it('denies a main thread that is not the Lead', () => {
     const main = (agent_type?: string) =>
       JSON.stringify({ tool_name: 'Agent', agent_type, tool_input: { subagent_type: TEAM[0] } });
-    expect(decide(main(undefined))).toBe(denial(REASONS.agent));
-    expect(decide(main('probe'))).toBe(denial(REASONS.agent));
+    expect(check(main(undefined))).toBe(denial(REASONS.agent));
+    expect(check(main('probe'))).toBe(denial(REASONS.agent));
   });
 
   it("never gives a subagent the main thread's row, nor trips over a name like an object key", () => {
     for (const caller of ['main', '__proto__', 'constructor', 'toString', 'subagents'])
-      expect(decide(bySub(caller, TEAM[0] ?? ''))).toBe(denial(REASONS.agent));
+      expect(check(bySub(caller, TEAM[0] ?? ''))).toBe(denial(REASONS.agent));
   });
 
-  it('keeps the table to the Lead and the four, with no subagent rows before milestone 5', () => {
+  it("keeps the Lead's row to the four, and takes the guild leads' rows from the team table (v3.4)", () => {
     expect([...MAY_START.main]).toEqual(TEAM);
-    expect(MAY_START.subagents.size).toBe(0);
+    const rows = teamRows(TABLE);
+    expect([...rows.keys()]).toEqual(TEAM);
+    expect(rows.get('world-of-agents:designer')).toEqual([
+      'woa-team:design-react-designer',
+      'woa-team:design-motion-designer',
+    ]);
+    expect(rows.get('world-of-agents:reviewer')).toEqual([
+      'woa-team:review-security-warden',
+      'woa-team:review-qa-tester',
+    ]);
   });
 });
 
@@ -91,25 +114,25 @@ describe("the agent file's model always wins (v3.1, D3)", () => {
   it.each(['sonnet', 'opus', 'haiku', 'fable', 'claude-opus-5-5', '', null, 0])(
     'denies a call that sets model to %j, even a start the table allows',
     (model) => {
-      expect(decide(call({ model }))).toBe(denial(REASONS.model));
+      expect(check(call({ model }))).toBe(denial(REASONS.model));
     },
   );
 
   it('denies it for a type outside the table and from a subagent too: any call with a model is denied', () => {
-    expect(decide(call({ model: 'opus', subagent_type: 'Explore' }))).not.toBeNull();
+    expect(check(call({ model: 'opus', subagent_type: 'Explore' }))).not.toBeNull();
     expect(
-      decide(call({ model: 'opus' }, { agent_id: 'a1', agent_type: 'world-of-agents:backend' })),
+      check(call({ model: 'opus' }, { agent_id: 'a1', agent_type: 'world-of-agents:backend' })),
     ).not.toBeNull();
   });
 
   it('answers nothing for a call without a model, and leaves effort and the other arguments alone', () => {
-    expect(decide(call({}))).toBeNull();
-    expect(decide(call({ effort: 'high', description: 'Review', run_in_background: true }))).toBeNull();
+    expect(check(call({}))).toBeNull();
+    expect(check(call({ effort: 'high', description: 'Review', run_in_background: true }))).toBeNull();
   });
 
   describe('isolation (v3.1 review): none or a worktree, nothing else', () => {
     it('answers nothing for no isolation or "worktree"', () => {
-      expect(decide(call({ isolation: 'worktree' }))).toBeNull();
+      expect(check(call({ isolation: 'worktree' }))).toBeNull();
     });
 
     it.each([
@@ -124,14 +147,16 @@ describe("the agent file's model always wins (v3.1, D3)", () => {
       ['worktree'],
       { kind: 'worktree' },
     ])('denies isolation %j, even for a start the table allows', (isolation) => {
-      expect(decide(call({ isolation }))).toBe(denial(REASONS.isolation));
+      expect(check(call({ isolation }))).toBe(denial(REASONS.isolation));
     });
 
-    it('denies remote from a subagent too, and a model still wins the reason when both are set', () => {
-      expect(
-        decide(call({ isolation: 'remote' }, { agent_id: 'a1', agent_type: 'world-of-agents:backend' })),
-      ).toBe(denial(REASONS.isolation));
-      expect(decide(call({ isolation: 'remote', model: 'opus' }))).toBe(denial(REASONS.model));
+    it('denies remote from a guild lead starting its own specialist too, and a model still wins the reason', () => {
+      const byBackend = { agent_id: 'a1', agent_type: 'world-of-agents:backend' };
+      const specialist = { subagent_type: 'woa-team:backend-api-dev' };
+      expect(check(call(specialist, byBackend))).toBeNull();
+      expect(check(call({ ...specialist, isolation: 'worktree' }, byBackend))).toBeNull();
+      expect(check(call({ ...specialist, isolation: 'remote' }, byBackend))).toBe(denial(REASONS.isolation));
+      expect(check(call({ isolation: 'remote', model: 'opus' }))).toBe(denial(REASONS.model));
     });
   });
 });
@@ -152,7 +177,7 @@ describe('the Lead edits BACKLOG.md and nothing else (v3.3)', () => {
     JSON.stringify({ agent_id: 'a1', agent_type, cwd: CWD, tool_name: 'Edit', tool_input: { file_path } });
 
   it('lets the Lead edit and write BACKLOG.md at the project root, by answering nothing', () => {
-    for (const tool of ['Edit', 'Write']) expect(decide(lead(tool, at('BACKLOG.md'))), tool).toBeNull();
+    for (const tool of ['Edit', 'Write']) expect(check(lead(tool, at('BACKLOG.md'))), tool).toBeNull();
   });
 
   it.each([
@@ -164,36 +189,103 @@ describe('the Lead edits BACKLOG.md and nothing else (v3.3)', () => {
     ['a look-alike name', at('BACKLOG.md.bak')],
     ['the settings file', at('.claude', 'settings.local.json')],
   ])('denies the Lead %s', (_, file) => {
-    for (const tool of ['Edit', 'Write']) expect(decide(lead(tool, file)), tool).toBe(denial(REASONS.edit));
+    for (const tool of ['Edit', 'Write']) expect(check(lead(tool, file)), tool).toBe(denial(REASONS.edit));
   });
 
   it('denies when the folder itself has a dot segment: the exact match alone would let that through', () => {
     const odd = process.platform === 'win32' ? 'C:\\Users\\x\\..\\project' : '/home/x/../project';
     const file = `${odd}${process.platform === 'win32' ? '\\' : '/'}BACKLOG.md`;
-    expect(decide(lead('Edit', file, { cwd: odd }))).toBe(denial(REASONS.edit));
+    expect(check(lead('Edit', file, { cwd: odd }))).toBe(denial(REASONS.edit));
   });
 
   it('matches the name case-blind on Windows only', () => {
-    const lower = decide(lead('Edit', at('backlog.md')));
+    const lower = check(lead('Edit', at('backlog.md')));
     if (process.platform === 'win32') expect(lower).toBeNull();
     else expect(lower).toBe(denial(REASONS.edit));
   });
 
   it('denies the Lead with no folder to compare, and a call with no file at all', () => {
-    expect(decide(lead('Edit', at('BACKLOG.md'), { cwd: undefined }))).toBe(denial(REASONS.edit));
-    expect(decide(lead('Edit', undefined))).toBe(denial(REASONS.input));
+    expect(check(lead('Edit', at('BACKLOG.md'), { cwd: undefined }))).toBe(denial(REASONS.edit));
+    expect(check(lead('Edit', undefined))).toBe(denial(REASONS.input));
   });
 
   it("leaves our editing agents' edits to their own permission prompts, anywhere in the project", () => {
-    for (const agent of EDITORS) expect(decide(sub(agent, at('src', 'app.ts'))), agent).toBeNull();
+    for (const agent of EDITORS) expect(check(sub(agent, at('src', 'app.ts'))), agent).toBeNull();
     expect([...EDITORS]).toEqual(TEAM.filter((t) => !t.endsWith(':reviewer')));
   });
 
   it('denies an edit by anyone else: the Reviewer, an unknown agent, a main thread that is not the Lead', () => {
-    expect(decide(sub('world-of-agents:reviewer', at('a.ts')))).toBe(denial(REASONS.edit));
-    expect(decide(sub('general-purpose', at('a.ts')))).toBe(denial(REASONS.edit));
-    expect(decide(lead('Edit', at('BACKLOG.md'), { agent_type: 'probe' }))).toBe(denial(REASONS.edit));
-    expect(decide(lead('Edit', at('BACKLOG.md'), { agent_type: undefined }))).toBe(denial(REASONS.edit));
+    expect(check(sub('world-of-agents:reviewer', at('a.ts')))).toBe(denial(REASONS.edit));
+    expect(check(sub('general-purpose', at('a.ts')))).toBe(denial(REASONS.edit));
+    expect(check(lead('Edit', at('BACKLOG.md'), { agent_type: 'probe' }))).toBe(denial(REASONS.edit));
+    expect(check(lead('Edit', at('BACKLOG.md'), { agent_type: undefined }))).toBe(denial(REASONS.edit));
+  });
+});
+
+describe('the team table (v3.4)', () => {
+  const lead = (subagent_type: string) =>
+    JSON.stringify({ agent_type: 'world-of-agents:lead', tool_name: 'Agent', tool_input: { subagent_type } });
+  const guildLead = (agent: string, subagent_type: string) =>
+    JSON.stringify({
+      agent_id: 'a1',
+      agent_type: `world-of-agents:${agent}`,
+      tool_name: 'Agent',
+      tool_input: { subagent_type },
+    });
+
+  it("lets each guild lead start its own guild's specialists, by answering nothing", () => {
+    for (const [lead, specialists] of teamRows(TABLE))
+      for (const s of specialists)
+        expect(check(guildLead(lead.split(':')[1]!, s)), `${lead} ${s}`).toBeNull();
+  });
+
+  it("denies a guild lead another guild's specialist, a specialist starting anyone, and the Lead a specialist", () => {
+    expect(check(guildLead('designer', 'woa-team:backend-api-dev'))).toBe(denial(REASONS.agent));
+    expect(
+      check(
+        JSON.stringify({
+          agent_id: 'a2',
+          agent_type: 'woa-team:frontend-react-dev',
+          tool_name: 'Agent',
+          tool_input: { subagent_type: 'woa-team:frontend-test-writer' },
+        }),
+      ),
+    ).toBe(denial(REASONS.agent));
+    expect(check(lead('woa-team:frontend-react-dev'))).toBe(denial(REASONS.agent));
+  });
+
+  it("denies every agent start, the Lead's included, when the table is missing or broken", () => {
+    for (const call of [
+      lead('world-of-agents:backend'),
+      guildLead('frontend', 'woa-team:frontend-react-dev'),
+    ])
+      expect(decide(call, null)).toBe(denial(REASONS.team));
+    expect(REASONS.team).toContain('/world-of-agents:setup-team');
+  });
+
+  it("leaves the editing specialists' edits to their own prompts, and denies the Security warden's", () => {
+    const edit = (agent_type: string) =>
+      JSON.stringify({
+        agent_id: 'a1',
+        agent_type,
+        tool_name: 'Write',
+        tool_input: { file_path: '/p/a.ts' },
+      });
+    expect(check(edit('woa-team:frontend-react-dev'))).toBeNull();
+    expect(check(edit('woa-team:review-security-warden'))).toBe(denial(REASONS.edit));
+  });
+
+  it.each([
+    'cat ~/.world-of-agents/token',
+    'echo x > "$HOME/.world-of-agents/team/team.json"',
+    'Get-ChildItem C:\\Users\\x\\.World-Of-Agents',
+  ])('denies a shell command that names the World of Agents folder: %s', (command) => {
+    expect(check(shell('Bash', command))).toBe(denial(REASONS.folder));
+    expect(TEAM_FOLDER.test(command)).toBe(true);
+  });
+
+  it('lets a command through that only mentions the words', () => {
+    expect(check(shell('Bash', 'echo "world of agents"'))).toBeNull();
   });
 });
 
@@ -215,11 +307,11 @@ describe('fails closed on input it cannot check', () => {
     ['a tool the matcher never sends', JSON.stringify({ tool_name: 'Read', tool_input: { file_path: 'a' } })],
     ['no tool_name', JSON.stringify({ tool_input: { command: 'ls' } })],
   ])('%s', (_name, raw) => {
-    expect(decide(raw)).toBe(denial(REASONS.input));
+    expect(check(raw)).toBe(denial(REASONS.input));
   });
 
   it('denies stdin that was too big to read', () => {
-    expect(decide(null)).toBe(denial(REASONS.input));
+    expect(check(null)).toBe(denial(REASONS.input));
   });
 });
 
@@ -245,8 +337,8 @@ describe('the best-effort .env rule', () => {
     'source "./.envrc"',
     'cat .envrc.md.txt',
   ])('denies %s', (command) => {
-    expect(decide(shell('Bash', command))).toBe(denial(REASONS.env));
-    expect(decide(shell('PowerShell', command))).toBe(denial(REASONS.env));
+    expect(check(shell('Bash', command))).toBe(denial(REASONS.env));
+    expect(check(shell('PowerShell', command))).toBe(denial(REASONS.env));
   });
 
   it.each([
@@ -260,8 +352,8 @@ describe('the best-effort .env rule', () => {
     'git diff -- src/env.ts',
     'npm test',
   ])('lets %s through, by answering nothing', (command) => {
-    expect(decide(shell('Bash', command))).toBeNull();
-    expect(decide(shell('PowerShell', command))).toBeNull();
+    expect(check(shell('Bash', command))).toBeNull();
+    expect(check(shell('PowerShell', command))).toBeNull();
   });
 
   it('is the same rule the module exports', () => {
@@ -275,9 +367,13 @@ describe('the best-effort .env rule', () => {
 /** Runs the real script with `input` on stdin. */
 function run(input: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((done) => {
-    const child = execFile(process.execPath, [SCRIPT], { timeout: 20_000 }, (error, stdout, stderr) =>
-      done({ code: error ? (typeof error.code === 'number' ? error.code : null) : 0, stdout, stderr }),
-    );
+    const home = mkdtempSync(join(tmpdir(), 'woa-guard-'));
+    init(home);
+    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    const child = execFile(process.execPath, [SCRIPT], { timeout: 20_000, env }, (error, stdout, stderr) => {
+      rmSync(home, { recursive: true, force: true });
+      done({ code: error ? (typeof error.code === 'number' ? error.code : null) : 0, stdout, stderr });
+    });
     child.stdin?.end(input);
   });
 }
@@ -365,13 +461,14 @@ describe('never allow', () => {
     expect(code).not.toMatch(/['"`](allow|ask|defer)['"`]/);
   });
 
-  it('reads nothing but stdin: no network, no files, no environment, and no import but its own real path', () => {
-    const imports = [...code.matchAll(/^import (.*) from '([^']+)';$/gm)].map((m) => `${m[1]} from ${m[2]}`);
-    expect(imports).toEqual([
-      '{ lstatSync, realpathSync } from node:fs',
-      '{ fileURLToPath, pathToFileURL } from node:url',
+  it('reads stdin and the team table through team.mjs: no network, no files of its own but an lstat, no environment', () => {
+    expect(code.match(/^\s*import\s.*$/gm)?.map((line) => line.trim())).toEqual([
+      "import { lstatSync, realpathSync } from 'node:fs';",
+      "import { homedir } from 'node:os';",
+      "import { basename, dirname, join, resolve, sep } from 'node:path';",
+      "import { fileURLToPath, pathToFileURL } from 'node:url';",
+      "import { LEADS, readTeam } from '../team/team.mjs';",
     ]);
-    expect(code.match(/^\s*import\s/gm)).toHaveLength(2);
     expect(code).not.toMatch(/\b(fetch|require|process\.env|writeFile|readFile|child_process)\b/);
   });
 });

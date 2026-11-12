@@ -5,6 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { decide, denial, REASONS } from '../../plugin/hooks/guard.mjs';
+import { defaults } from '../../plugin/team/team.mjs';
+
+/** The team table, given: a test never reads the real ~/.world-of-agents. */
+const TABLE = defaults().team;
 
 const temp = mkdtempSync(join(tmpdir(), 'woa-backlog-'));
 afterAll(() => rmSync(temp, { recursive: true, force: true, maxRetries: 5 }));
@@ -27,7 +31,8 @@ const lead = (tool: string, cwd: string, file_path: string) =>
     tool_input: { file_path, content: '# Backlog' },
   });
 
-const both = (cwd: string, file: string) => ['Edit', 'Write'].map((tool) => decide(lead(tool, cwd, file)));
+const both = (cwd: string, file: string) =>
+  ['Edit', 'Write'].map((tool) => decide(lead(tool, cwd, file), TABLE));
 
 describe("the Lead's BACKLOG.md on disk", () => {
   it('answers nothing when there is none yet: the first write creates it', () => {

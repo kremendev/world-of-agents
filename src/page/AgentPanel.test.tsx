@@ -36,7 +36,7 @@ describe('AgentPanel', () => {
     expect(details).toEqual({
       'Current task': 'Board and item API',
       'Task status': 'In progress',
-      'Tools in v2': 'Read, Grep, Glob, Write, Edit, Bash',
+      'Tools in v2': 'Agent, Read, Grep, Glob, Write, Edit, Bash',
     });
   });
 

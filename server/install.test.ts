@@ -89,11 +89,17 @@ describe('the plugin once installed', () => {
     );
     expect(imports.length).toBeGreaterThan(0);
     for (const name of imports) expect(name).toMatch(/^node:/);
-    // The guard imports two Node built-ins, to know its own real path, and nothing else.
-    const guard = [...text('plugin/hooks/guard.mjs').matchAll(/^import .* from '([^']+)';$/gm)].map(
+    // The guard imports Node built-ins (its own real path, BACKLOG.md's lstat, where an edit lands) and the team module.
+    const guard = [...text('plugin/hooks/guard.mjs').matchAll(/^\s*import\s.*from '([^']+)';$/gm)].map(
       (m) => m[1],
     );
-    expect(guard).toEqual(['node:fs', 'node:url']);
+    expect(guard).toEqual(['node:fs', 'node:os', 'node:path', 'node:url', '../team/team.mjs']);
+    // Every script the plugin runs imports Node's own modules or the plugin's own files, nothing to install.
+    for (const file of ['plugin/hooks/gate.mjs', 'plugin/hooks/ledger-post.mjs', 'plugin/team/team.mjs']) {
+      for (const [, name] of text(file).matchAll(/^import .* from '([^']+)';$/gm)) {
+        expect(name, file).toMatch(/^(node:|\.\/[a-z-]+\.mjs$|\.\.\/team\/team\.mjs$)/);
+      }
+    }
   });
 });
 

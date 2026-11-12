@@ -50,14 +50,18 @@ describe('the plugin agents match the roster the page shows', () => {
         .filter((tool) => toolName(tool) === 'Agent')
         .map((tool) => ({ id: a.id, tool })),
     );
-    expect(agentTools.map((a) => a.id)).toEqual(['lead']);
-    const started = /^Agent\((.*)\)$/.exec(agentTools[0]?.tool ?? '')?.[1]?.split(', ') ?? [];
+    // v3.4: the Lead's list names the four; the guild leads have a bare Agent, held to their specialists by the guard.
+    expect(agentTools.filter((a) => a.tool !== 'Agent').map((a) => a.id)).toEqual(['lead']);
+    expect(sorted(agentTools.filter((a) => a.tool === 'Agent').map((a) => a.id))).toEqual(
+      sorted(['designer', 'frontend', 'backend', 'reviewer']),
+    );
+    const started =
+      /^Agent\((.*)\)$/.exec(agentTools.find((a) => a.id === 'lead')?.tool ?? '')?.[1]?.split(', ') ?? [];
     expect(sorted(started)).toEqual(
       sorted(ROSTER.filter((a) => a.id !== 'lead').map((a) => `world-of-agents:${a.id}`)),
     );
     // The guard hook enforces the same list (a subagent's Agent(...) list restricts nothing), so the two can't drift.
     expect(sorted([...MAY_START.main])).toEqual(sorted(started));
-    expect(MAY_START.subagents.size).toBe(0);
   });
 });
 

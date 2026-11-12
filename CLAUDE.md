@@ -120,7 +120,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
-                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, guard-backlog and its mock
+                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, guard-woa-folder: no edit
+                  into ~/.world-of-agents, guard-backlog and its mock
                   twin: BACKLOG.md on disk, agent-prompts: the check in the prompts, hall-check, run-directly:
                   every script's run check) and the mod's
                   source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
@@ -298,12 +299,22 @@ Do not change the look without asking. New ideas go into a later version.
   permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
   not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
   block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
-  no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`).
+  no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`); the guild leads
+  have a bare `Agent` tool (v3.4), held to their specialists by the guard.
   It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
   agent file's model always wins. It denies `isolation` other than none or `"worktree"` (v3.1 review): `"remote"` runs
   the agent off this PC, out of reach of the hooks and the hall, and an unknown value is denied like `model`. The `.env`
-  rule is best effort; don't sell it as more. No network, no writes; its only imports are `node:fs` and `node:url`, for
-  `runAsScript()` and, from v3.3, the `lstat` of BACKLOG.md. Failing closed means a missing
+  rule is best effort; don't sell it as more. Its imports are `node:fs` and `node:url` (for `runAsScript()` and, from
+  v3.3, the `lstat` of BACKLOG.md) and from v3.4 `plugin/team/team.mjs`, whose
+  `readTeam()` reads `~/.world-of-agents/team/team.json` through the strict team schema (Dima's decision): the guild
+  leads' rows come from it (each may start its guild's `woa-team:<guild>-<name>` specialists; specialists start nobody),
+  and with the file missing or broken every agent start is denied, the Lead's included, naming
+  `/world-of-agents:setup-team`. A shell command that names `.world-of-agents` is denied too (best effort). Edit and
+  Write into `~/.world-of-agents` are denied for every caller, with or without the setup (v3.4 review, `inWoaFolder()`):
+  by the path as written (a leading `~` is home, `.` and `..` resolved against the call's cwd, a Windows `\\?\` prefix
+  dropped, case-blind on Windows) and by where it lands (the deepest existing part through `realpathSync.native`, so a
+  junction, a link or an 8.3 short name such as `WORLD-~1` that leads in is caught too; this PC keeps short names). The
+  template's denies stay as a second layer. No network, no writes, no file content read. Failing closed means a missing
   Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
 - Every plugin script with a main part runs it only when Node was started on that very file (v3.1 review): the same
   `runAsScript()` block in each compares the real path of `process.argv[1]` with the module's own (`realpathSync`, then
@@ -675,5 +686,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    README pins on `#v3.3.0`).
    v3.4.0 (docs/v3.4-plan.md): the local-plugin approach is proven (a folder marketplace, local scope, loaded in place,
    `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). T8, how the hall's page proves it is Dima, waits
-   for him, and with it 3.4c (the skill buttons). Next: 3.4b (the guard reads team.json and denies every start without
-   it; template version 2 denies Read/Edit/Write on ~/.world-of-agents/**; guild leads get Agent; memory: local).
+   for him, and with it 3.4c (the skill buttons). 3.4b done (the guard's team rows from team.json, every start denied
+   without it, the folder rule; template version 3 denies Read/Edit/Write on ~/.world-of-agents/**, versions/2.json the
+   v3.0 one; guild leads have Agent and memory: local, the Lead memory: local; from the review, Edit and Write into
+   ~/.world-of-agents denied for every caller, as written and as resolved). Next: 3.4d (specialists as labels under
+   their guild lead in the pane and the hall), then prepare v3.4.0.

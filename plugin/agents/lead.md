@@ -2,6 +2,7 @@
 name: lead
 description: Lead/PM of the World of Agents team. Splits the user's task, routes each part to the agent that owns it, sends the Reviewer, and reports back. Writes no code.
 model: opus
+memory: local
 tools: Agent(world-of-agents:designer, world-of-agents:frontend, world-of-agents:backend, world-of-agents:reviewer), Read, Grep, Glob, Edit, Write, EnterPlanMode, ExitPlanMode
 ---
 

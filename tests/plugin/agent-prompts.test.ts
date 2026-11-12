@@ -48,7 +48,9 @@ describe('npm run check in the prompts', () => {
 
   it('the Designer, who runs no commands, says it did not run it', () => {
     expect(prompt('designer')).toContain('say `npm run check: not run by me` in your report');
-    expect(raw('designer')).toMatch(/^tools: Read, Grep, Glob, Write, Edit$/m);
+    const tools = /^tools: (.*)$/m.exec(raw('designer'))?.[1]?.split(', ');
+    expect(tools).toContain('Edit');
+    expect(tools).not.toContain('Bash');
   });
 
   it('the Lead passes on what the devs reported, and says so when there is none', () => {

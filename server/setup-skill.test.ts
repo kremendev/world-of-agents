@@ -50,12 +50,22 @@ const setup = (dir: string, args: string[] = [], script = SCRIPT) =>
   spawnSync(process.execPath, [script, ...args], { cwd: dir, encoding: 'utf8', timeout: 20_000 });
 
 describe('the template', () => {
-  it('is exactly the agreed settings: Manual, depth 2, two allows and five denies', () => {
+  it('is exactly the agreed settings: Manual, depth 2, two allows and eight denies', () => {
     expect(TEMPLATE).toEqual({
       permissions: {
         defaultMode: 'default',
         allow: ['Bash(npm test)', 'Bash(npm run check)'],
-        deny: ['Read(.env)', 'Read(.env.*)', 'Read(.envrc)', 'Bash(git push *)', 'PowerShell(git push *)'],
+        deny: [
+          'Read(.env)',
+          'Read(.env.*)',
+          'Read(.envrc)',
+          'Bash(git push *)',
+          'PowerShell(git push *)',
+          // v3.4: the team folder (and the hall's token beside it) is Dima's alone.
+          'Read(~/.world-of-agents/**)',
+          'Edit(~/.world-of-agents/**)',
+          'Write(~/.world-of-agents/**)',
+        ],
       },
       env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '2' },
     });
@@ -411,13 +421,31 @@ describe('setup.mjs', () => {
     /** What the 2a setup wrote next to an install: version 1, merged by that version of this script. */
     const fromV1 = JSON.stringify({ ...INSTALLED, ...V1 }, null, 2) + '\n';
 
+    it("upgrades a project set up with v3.0 to v3.4: the team folder's three denies are added, nothing else (v3.4)", () => {
+      const v2 = JSON.parse(readFileSync(join(VERSIONS, '2.json'), 'utf8')) as object;
+      const dir = project();
+      put(dir, JSON.stringify({ ...INSTALLED, ...v2 }, null, 2) + '\n');
+      const run = setup(dir);
+      expect(run.stdout).toContain(
+        [
+          "The file holds version 2 of the template's settings. Writing upgrades them to version 3, the current one. The upgrade:",
+          '- adds the deny rule Read(~/.world-of-agents/**)',
+          '- adds the deny rule Edit(~/.world-of-agents/**)',
+          '- adds the deny rule Write(~/.world-of-agents/**)',
+        ].join('\n'),
+      );
+      expect(run.stdout).not.toContain('removes');
+      expect(setup(dir, ['--write']).stdout).toContain('Written.');
+      expect(JSON.parse(read(settings(dir)))).toEqual({ ...INSTALLED, ...TEMPLATE });
+    });
+
     it('the dry run names the version and the rules it adds, and writes nothing', () => {
       const dir = project();
       put(dir, fromV1);
       const run = setup(dir);
       expect(run.status).toBe(0);
       expect(run.stdout).toContain(
-        "The file holds version 1 of the template's settings. Writing upgrades them to version 2, the current one.",
+        "The file holds version 1 of the template's settings. Writing upgrades them to version 3, the current one.",
       );
       expect(run.stdout).toContain('- adds the deny rule PowerShell(git push *)\n');
       expect(run.stdout).not.toContain('removes');
@@ -434,7 +462,7 @@ describe('setup.mjs', () => {
       put(dir, fromV1);
       const run = setup(dir, ['--write']);
       expect(run.status).toBe(0);
-      expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 2');
+      expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 3');
       expect(run.stdout).toContain('Written.');
       const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
       expect(after).toEqual({ ...INSTALLED, ...TEMPLATE });
@@ -508,8 +536,11 @@ describe('setup.mjs', () => {
         expect(run.status).toBe(0);
         expect(run.stdout).toContain(
           [
-            "The file holds version 1 of the template's settings. Writing upgrades them to version 2, the current one. The upgrade:",
+            "The file holds version 1 of the template's settings. Writing upgrades them to version 3, the current one. The upgrade:",
             '- adds the deny rule PowerShell(git push *)',
+            '- adds the deny rule Read(~/.world-of-agents/**)',
+            '- adds the deny rule Edit(~/.world-of-agents/**)',
+            '- adds the deny rule Write(~/.world-of-agents/**)',
             LISTED,
             'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN.',
           ].join('\n'),
@@ -522,7 +553,7 @@ describe('setup.mjs', () => {
         const dir = project();
         put(dir, JSON.stringify(file, null, 2));
         const run = setup(dir, ['--write']);
-        expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 2');
+        expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 3');
         expect(run.stdout).toContain(LISTED);
         const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
         expect(after).toEqual({
@@ -665,7 +696,8 @@ describe('setup.mjs', () => {
           'Writing upgrades them to version 2, the current one. The upgrade:',
           '- sets permissions.defaultMode to "default"',
           '- removes the allow rule Bash(npm run lint)',
-          '- adds the deny rule PowerShell(git push *)',
+          // The old file is the template less its last deny: from v3.4 that is the team folder's Write rule.
+          '- adds the deny rule Write(~/.world-of-agents/**)',
           '- removes the ask rule Bash(rm *)',
           '- sets env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH to "2"',
           '- removes env.WOA_OLD',
