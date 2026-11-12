@@ -12,6 +12,7 @@ export const REASONS: {
   readonly model: string;
   readonly isolation: string;
   readonly edit: string;
+  readonly backlog: string;
 };
 export const EDITORS: readonly string[];
 export function denial(reason: string): string;

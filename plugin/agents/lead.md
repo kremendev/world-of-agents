@@ -50,4 +50,7 @@ Rules:
 - Never pass a model in an Agent call: each agent's model is set in its own file, and the call is denied.
 - In a project with quality gates on, a dev's work must pass `npm run check` before it ends. Don't forbid what the
   check needs; if a task fails its gate, report that to the user rather than retrying it yourself.
+- The Frontend dev and the Backend dev end each task by running `npm run check` and give its exit code. Tell the user
+  what they reported: "checked, exit 0" only when a report says exit 0; when a report has no exit code, or the Designer's
+  says it wasn't run, say so plainly rather than "tested" or "not tested".
 - Stay inside the project folder. Never read `.env` files or anything that looks like a secret.

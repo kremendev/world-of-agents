@@ -244,7 +244,8 @@ step, while you still review every milestone.
   the failure and keeps fixing it, up to 3 tries per task. After that the task is marked failed for you to look at. This hook does
   send a decision back, which is fine here: it's our own code, run locally, not a network reply.
 - **A backlog that survives sessions.** Each project gets a `BACKLOG.md` with milestones and tasks. The Lead reads it when a
-  session starts and updates it at the end, so tomorrow continues today. The hall's dashboard shows it.
+  session starts and updates it at the end, so tomorrow continues today. The hall's dashboard showing it is not now (G11,
+  12 Nov): the hall stays unable to read project files.
 - **Plan once, approve once.** At the start of a milestone the Lead plans in plan mode and writes the plan into the backlog. You
   approve it once, the team works through it, and you review at the end.
 - **A safe-command list.** Two skills (milestone 2) give the project's `.claude/settings.local.json`

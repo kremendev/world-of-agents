@@ -115,7 +115,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
-                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, hall-check, run-directly:
+                  tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, guard-backlog and its mock
+                  twin: BACKLOG.md on disk, agent-prompts: the check in the prompts, hall-check, run-directly:
                   every script's run check) and the mod's
                   source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
                   test file under it
@@ -272,8 +273,14 @@ Do not change the look without asking. New ideas go into a later version.
   only `npm run check`, only in a project with that script, at most 3 retries per run. Not async, timeout 600, and never
   `onFailure: block`: a gate that breaks lets the agent stop. With gates on it forwards those stops to the hall with its
   verdict and `send.mjs` skips them. The pane learns gates are on from `gate.mjs --status`'s exit code, never from env.
+  A gate that passes says nothing, so (v3.3 review) the Frontend and Backend devs run `npm run check` themselves as their
+  last step (pre-approved by the setup) and give its exit code; the Designer runs no commands and says so; the Lead passes
+  on what they reported. The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
-  `BACKLOG.md` directly in its `cwd` (exact match, no `.` or `..` segment, case-blind on Windows only); the Designer and
+  `BACKLOG.md` directly in its `cwd` (exact match, no `.` or `..` segment, case-blind on Windows only), and only when that
+  file is missing or a plain file with one name (v3.3 review: `lstat`, never through a link; a symbolic link, a junction,
+  a folder or a hard link could carry the write to `.claude/settings.local.json`; any error but ENOENT denies); the
+  Designer and
   the two devs get no answer (their own permission prompts decide); anyone else is denied. The Lead's tools are
   `Agent(...)`, Read, Grep, Glob, Edit, Write, EnterPlanMode and ExitPlanMode: it plans a milestone once in plan mode and
   keeps `BACKLOG.md`, and still writes no code.
@@ -286,8 +293,8 @@ Do not change the look without asking. New ideas go into a later version.
   It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
   agent file's model always wins. It denies `isolation` other than none or `"worktree"` (v3.1 review): `"remote"` runs
   the agent off this PC, out of reach of the hooks and the hall, and an unknown value is denied like `model`. The `.env`
-  rule is best effort; don't sell it as more. No network, no files; its only imports are `node:fs` and `node:url`, for
-  `runAsScript()`. Failing closed means a missing
+  rule is best effort; don't sell it as more. No network, no writes; its only imports are `node:fs` and `node:url`, for
+  `runAsScript()` and, from v3.3, the `lstat` of BACKLOG.md. Failing closed means a missing
   Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
 - Every plugin script with a main part runs it only when Node was started on that very file (v3.1 review): the same
   `runAsScript()` block in each compares the real path of `process.argv[1]` with the module's own (`realpathSync`, then
@@ -648,7 +655,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    v3.2.0 is prepared, not tagged (plugin.json 3.2.0, docs/release-notes/v3.2.0.md, README pins on `#v3.2.0`).
    v3.3.0 (docs/v3.3-plan.md): 3.3a done (the quality gate, its switch skills, the hall's gate verdicts, the pane's gate
    lines; three real runs: the send-back loop and the pass path work, an agent fixing from the gate's output not seen).
-   G11 (the backlog on the hall's dashboard) waits for Dima. 3.3b done (BACKLOG.md and plan once, approve once: the Lead
-   has Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md). The v3.3.0 checklist
+   3.3b done (BACKLOG.md and plan once, approve once: the Lead
+   has Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md). 3.3c done (the
+   review's fixes, 12 Nov: the guard lstats BACKLOG.md and denies a link, a junction, a folder or a second name; the two
+   devs run npm run check last and report its exit code; G11 is "not now", in the plan's backlog). The v3.3.0 checklist
    is docs/release-notes/v3.3.0-check.md. Next: prepare v3.3.0, then v3.4.0 (guilds, skills and memory): plan first, and
    prove the team-as-a-local-plugin approach before building on it.

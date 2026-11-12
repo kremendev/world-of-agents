@@ -368,7 +368,7 @@ describe('never allow', () => {
   it('reads nothing but stdin: no network, no files, no environment, and no import but its own real path', () => {
     const imports = [...code.matchAll(/^import (.*) from '([^']+)';$/gm)].map((m) => `${m[1]} from ${m[2]}`);
     expect(imports).toEqual([
-      '{ realpathSync } from node:fs',
+      '{ lstatSync, realpathSync } from node:fs',
       '{ fileURLToPath, pathToFileURL } from node:url',
     ]);
     expect(code.match(/^\s*import\s/gm)).toHaveLength(2);

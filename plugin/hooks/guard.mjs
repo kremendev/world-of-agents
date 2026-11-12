@@ -8,10 +8,11 @@
 // any error it catches. hooks.json sets "onFailure": "block", so a crash, a timeout or a Node that won't start blocks the
 // call too (Claude Code 2.1.295 or later; an older one lets the call through).
 //
-// It reads stdin and answers. No network, no hall, no writes. Its only imports are two Node built-ins, to tell whether it
-// runs as a script: the real path of the file Node started against its own.
+// It reads stdin and answers. No network, no hall, no writes. Its only imports are two Node built-ins: to tell whether it
+// runs as a script (the real path of the file Node started against its own), and to look at BACKLOG.md before the Lead
+// writes it (lstat: what kind of file, how many names, never its content).
 
-import { realpathSync } from 'node:fs';
+import { lstatSync, realpathSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const MAX_STDIN = 1024 * 1024;
@@ -49,6 +50,8 @@ export const REASONS = Object.freeze({
   isolation:
     'World of Agents guard: an agent runs here or in a worktree, never remotely or in an isolation the guard does not know.',
   edit: 'World of Agents guard: the Lead/PM edits BACKLOG.md at the project root, and nothing else.',
+  backlog:
+    'World of Agents guard: BACKLOG.md here is a link, a folder or a file with more than one name, so the Lead may not write it.',
 });
 
 /** The one answer the guard ever gives. */
@@ -106,6 +109,22 @@ function isBacklog(filePath, cwd) {
  * project root and nothing else. A subagent of ours that edits gets no answer: its own permission prompt decides. Anyone
  * else, an unknown caller included, is denied.
  */
+/**
+ * BACKLOG.md as it stands (v3.3 review): a plain file with one name, or none yet (the Lead's first write creates it). A
+ * symbolic link, a junction, a folder, or a hard link (a file with more than one name) would carry the Lead's write to
+ * another file, such as .claude/settings.local.json, so each is denied, and so is a file the guard can't look at. A dev
+ * could still swap the file between this look and the write: the window is short, and the devs' own prompts decide.
+ */
+function plainOrMissing(filePath) {
+  let stat;
+  try {
+    stat = lstatSync(filePath);
+  } catch (error) {
+    return error?.code === 'ENOENT';
+  }
+  return stat.isFile() && stat.nlink === 1;
+}
+
 function checkEdit(input) {
   const filePath = isObject(input.tool_input) ? input.tool_input.file_path : undefined;
   if (typeof filePath !== 'string') return denial(REASONS.input);
@@ -114,7 +133,8 @@ function checkEdit(input) {
     return ours ? null : denial(REASONS.edit);
   }
   if (input.agent_type !== LEAD) return denial(REASONS.edit);
-  return isBacklog(filePath, input.cwd) ? null : denial(REASONS.edit);
+  if (!isBacklog(filePath, input.cwd)) return denial(REASONS.edit);
+  return plainOrMissing(filePath) ? null : denial(REASONS.backlog);
 }
 
 function checkShell(input) {
