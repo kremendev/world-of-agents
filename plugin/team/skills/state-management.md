@@ -1,0 +1,4 @@
+- Keep state as close as possible to where it is used, and as little of it as you can: derive the rest.
+- One owner per piece of state; pass it down, and pass changes up through callbacks.
+- Put state in a shared store or context only when several distant parts need it.
+- Don't copy props into state.

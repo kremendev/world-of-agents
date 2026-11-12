@@ -1,0 +1,4 @@
+- Wrap every animation in @media (prefers-reduced-motion: no-preference), or switch it off in the reduce case.
+- With reduced motion, a change still happens: it simply happens at once.
+- Never rely on motion alone to tell the user something.
+- Test both settings.

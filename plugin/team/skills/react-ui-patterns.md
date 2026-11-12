@@ -1,0 +1,4 @@
+- Build a screen from small components, each with one job, and pass data down through typed props.
+- Keep layout (where things sit) apart from content (what they show), so either can change alone.
+- Reuse the project's existing components before writing a new one; match their naming and folder layout.
+- Prefer CSS the project already uses (its tokens, its classes) to inline styles.

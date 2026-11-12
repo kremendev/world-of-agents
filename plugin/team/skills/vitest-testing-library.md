@@ -1,0 +1,4 @@
+- Test what a person sees and does: find elements by role and name (getByRole), not by class or test id.
+- One behaviour per test, named for what it proves.
+- Use fake timers for anything timed, and wrap React updates in act().
+- A test must fail when the behaviour breaks: check that it does before you trust it.

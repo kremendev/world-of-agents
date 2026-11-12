@@ -1,6 +1,6 @@
 ---
 name: setup-gates-write
-description: Turns World of Agents quality gates on in this project: npm run check runs after each dev's task, without asking. Only the user starts it, and typing it is the yes.
+description: Turns World of Agents quality gates on in this project, so npm run check runs after each dev's task, without asking. Only the user starts it, and typing it is the yes.
 disable-model-invocation: true
 allowed-tools: Bash(node '${CLAUDE_PLUGIN_ROOT}/skills/setup-gates/gates.mjs' --on)
 ---

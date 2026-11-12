@@ -1,0 +1,4 @@
+- Name colours, spacing, radii and type sizes once, as tokens (CSS custom properties or the project's own system).
+- Use the tokens everywhere; a raw value in a component is a bug unless the project has no tokens.
+- Set sizes in rem so they grow with browser zoom.
+- Add a token only when no existing one fits, and say so in your report.

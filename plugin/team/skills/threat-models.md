@@ -1,0 +1,4 @@
+- Who might attack this change: a stranger on the internet, a logged-in user, another program on the machine?
+- What could they get or break, and through which input?
+- What already stops them, and what doesn't?
+- Report the gaps in plain words, most serious first.

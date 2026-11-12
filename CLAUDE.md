@@ -87,6 +87,11 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
                   quiet-logger.ts: hides the dev proxy's "no hall" error. fixtures/: the recorded runs' hooks, redacted
 .claude-plugin/   marketplace.json: the repo is its own marketplace, listing the plugin from ./plugin
+plugin/team/      v3.4: the team as data. team.mjs (the only writer of ~/.world-of-agents/team, a local plugin `woa-team`
+                  loaded in place: its strict schema, the generator of agents/*.md and skills/*/SKILL.md, the refusal of a
+                  skill line starting with !` and of invisible characters, init() and readTeam()), defaults.json (the 8
+                  specialists and 14 skills) and skills/*.md (their texts). skills/setup-team/ (team-setup.mjs) and
+                  setup-team-write/: create it, never over one that is there; tested in server/setup-team.test.ts
 plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
@@ -665,7 +670,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    devs run npm run check last and report its exit code; G11 is "not now", in the plan's backlog). 3.3d done (14 Nov,
    Dima's decision after a real run: Claude Code shows no exit code on a pass, so the devs report "npm run check: passed",
    or "failed (exit N)" with a code they saw, and never run a command just to read one; the Lead says "checked, passed";
-   and a card whose gate failed stays open when the Lead's Agent call comes back "completed"). The v3.3.0 checklist is
-   docs/release-notes/v3.3.0-check.md. v3.3.0 is prepared, not tagged (plugin.json 3.3.0, docs/release-notes/v3.3.0.md,
-   README pins on `#v3.3.0`). Next: v3.4.0 (guilds, skills and memory): plan first, and
-   prove the team-as-a-local-plugin approach before building on it.
+   and a card whose gate failed stays open when the Lead's Agent call comes back "completed"). The v3.3.0 checklist
+   is docs/release-notes/v3.3.0-check.md. v3.3.0 is prepared, not tagged (plugin.json 3.3.0, docs/release-notes/v3.3.0.md,
+   README pins on `#v3.3.0`).
+   v3.4.0 (docs/v3.4-plan.md): the local-plugin approach is proven (a folder marketplace, local scope, loaded in place,
+   `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). T8, how the hall's page proves it is Dima, waits
+   for him, and with it 3.4c (the skill buttons). Next: 3.4b (the guard reads team.json and denies every start without
+   it; template version 2 denies Read/Edit/Write on ~/.world-of-agents/**; guild leads get Agent; memory: local).

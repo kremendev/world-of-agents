@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "specialists": [
+    {
+      "id": "design-react-designer",
+      "name": "React designer",
+      "role": "Turns a design into React layouts, styles and design tokens",
+      "guild": "design",
+      "kind": "edits",
+      "skills": ["react-ui-patterns", "accessibility", "design-tokens"]
+    },
+    {
+      "id": "design-motion-designer",
+      "name": "Motion designer",
+      "role": "Adds animation and transitions that respect reduced motion",
+      "guild": "design",
+      "kind": "edits",
+      "skills": ["animation-principles", "reduced-motion"]
+    },
+    {
+      "id": "frontend-react-dev",
+      "name": "React dev",
+      "role": "Builds React components and client logic in TypeScript",
+      "guild": "frontend",
+      "kind": "edits",
+      "skills": ["react-typescript", "state-management"]
+    },
+    {
+      "id": "frontend-test-writer",
+      "name": "Test writer",
+      "role": "Writes front-end tests with Vitest and Testing Library",
+      "guild": "frontend",
+      "kind": "edits",
+      "skills": ["vitest-testing-library"]
+    },
+    {
+      "id": "backend-api-dev",
+      "name": "API dev",
+      "role": "Builds API routes with input validation and auth",
+      "guild": "backend",
+      "kind": "edits",
+      "skills": ["validation-auth"]
+    },
+    {
+      "id": "backend-database-dev",
+      "name": "Database dev",
+      "role": "Writes SQL, migrations and indexes",
+      "guild": "backend",
+      "kind": "edits",
+      "skills": ["sql-migrations-indexes"]
+    },
+    {
+      "id": "review-security-warden",
+      "name": "Security warden",
+      "role": "Reads changes for security issues and reports them, changing nothing",
+      "guild": "review",
+      "kind": "reads",
+      "skills": ["owasp-checks", "threat-models", "secret-scans"]
+    },
+    {
+      "id": "review-qa-tester",
+      "name": "QA tester",
+      "role": "Writes and runs Playwright end-to-end tests",
+      "guild": "review",
+      "kind": "edits",
+      "skills": ["playwright-e2e"]
+    }
+  ],
+  "skills": [
+    {
+      "id": "react-ui-patterns",
+      "name": "React UI patterns",
+      "description": "Composing React layouts from small, reusable parts"
+    },
+    {
+      "id": "accessibility",
+      "name": "Accessibility",
+      "description": "Keyboard, screen reader and contrast basics for every screen"
+    },
+    {
+      "id": "design-tokens",
+      "name": "Design tokens",
+      "description": "Colours, spacing and type as named tokens, not loose values"
+    },
+    {
+      "id": "animation-principles",
+      "name": "Animation principles",
+      "description": "Short, purposeful motion that explains a change"
+    },
+    {
+      "id": "reduced-motion",
+      "name": "Reduced motion",
+      "description": "Respecting prefers-reduced-motion everywhere motion appears"
+    },
+    {
+      "id": "react-typescript",
+      "name": "React and TypeScript",
+      "description": "Typed props, hooks and components in strict TypeScript"
+    },
+    {
+      "id": "state-management",
+      "name": "State management",
+      "description": "Where state lives in a React app, and how little of it to keep"
+    },
+    {
+      "id": "vitest-testing-library",
+      "name": "Vitest and Testing Library",
+      "description": "Tests that use the page the way a person does"
+    },
+    {
+      "id": "validation-auth",
+      "name": "Validation and auth",
+      "description": "Checking every input at the edge, and who may do what"
+    },
+    {
+      "id": "sql-migrations-indexes",
+      "name": "SQL, migrations and indexes",
+      "description": "Safe schema changes and the indexes queries need"
+    },
+    {
+      "id": "owasp-checks",
+      "name": "OWASP checks",
+      "description": "The common web flaws to look for in a change"
+    },
+    {
+      "id": "threat-models",
+      "name": "Threat models",
+      "description": "Who could attack a change, how, and what stops them"
+    },
+    {
+      "id": "secret-scans",
+      "name": "Secret scans",
+      "description": "Finding keys, tokens and passwords that must not be committed"
+    },
+    {
+      "id": "playwright-e2e",
+      "name": "Playwright end-to-end tests",
+      "description": "Testing whole user journeys in a real browser"
+    }
+  ]
+}

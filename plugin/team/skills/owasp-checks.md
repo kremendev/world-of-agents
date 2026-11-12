@@ -1,0 +1,5 @@
+- Injection: is any input put into SQL, a shell command, HTML or a path without escaping or parameters?
+- Broken access control: can a user reach or change what isn't theirs?
+- Cross-site scripting: is any text rendered as HTML?
+- Secrets and misconfiguration: keys in code, debug output, open CORS, missing security headers.
+- Report each finding with its file and line; change nothing.

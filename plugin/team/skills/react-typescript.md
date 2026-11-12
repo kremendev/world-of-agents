@@ -1,0 +1,4 @@
+- Strict TypeScript: no any, no non-null assertions without a reason in a comment.
+- Type a component's props; let TypeScript infer the rest.
+- Keep hooks at the top level of a component, and their dependency lists complete.
+- A component that renders agent or user text renders it as text, never as HTML.

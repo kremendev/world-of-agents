@@ -1,0 +1,5 @@
+- Every control is a real element: a button is a <button>, a link is an <a>; never a clickable <div>.
+- Every input has a visible label, every image a text alternative (empty alt when it is decoration).
+- Everything works with the keyboard alone, in a sensible order, with a visible focus ring.
+- Text has a contrast of at least 4.5:1 against its background (3:1 for large text).
+- Don't say anything with colour alone: add a word or a shape.

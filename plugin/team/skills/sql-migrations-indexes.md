@@ -1,0 +1,4 @@
+- Change the schema only through a migration, one step at a time, each one reversible.
+- Use parameterised queries always; never build SQL from strings.
+- Add an index for each column a frequent query filters or joins on, and check the plan.
+- A migration that drops or rewrites data needs a backup step and a sentence in your report.

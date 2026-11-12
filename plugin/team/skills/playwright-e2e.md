@@ -1,0 +1,4 @@
+- Test a whole user journey in a real browser: open the page, act like a person, check what they see.
+- Find elements by role and name, as Testing Library does.
+- Make each test independent: its own data, no order between tests.
+- Run the tests only with the user's approval, and report what passed and what failed.

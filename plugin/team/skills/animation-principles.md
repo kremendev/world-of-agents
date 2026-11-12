@@ -1,0 +1,4 @@
+- Animate to explain a change (something appears, moves or goes), never to decorate.
+- Keep it short: 150 to 300 ms for most moves, ease-out when something arrives, ease-in when it leaves.
+- Animate transform and opacity; avoid animating layout (width, height, top, left).
+- One thing moves at a time; nothing loops forever.

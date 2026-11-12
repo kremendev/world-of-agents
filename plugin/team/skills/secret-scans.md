@@ -1,0 +1,4 @@
+- Look for anything that looks like a key, token or password: long random strings, 'sk-', 'ghp_', 'AKIA', private key headers.
+- Check new and changed files, config files and example files.
+- Never print a secret you find: name the file and line only.
+- Never read .env files: they are off limits to the team.

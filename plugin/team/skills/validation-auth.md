@@ -1,0 +1,4 @@
+- Validate every input where it enters (a request body, a query, a header) with a schema: type, length, format.
+- Refuse what doesn't match; never try to repair it.
+- Check who the caller is and what they may do on every request, on the server, not only in the page.
+- Never put a secret in code, a log or a response.
