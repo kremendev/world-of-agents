@@ -664,7 +664,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    review's fixes, 12 Nov: the guard lstats BACKLOG.md and denies a link, a junction, a folder or a second name; the two
    devs run npm run check last and report its exit code; G11 is "not now", in the plan's backlog). 3.3d done (14 Nov,
    Dima's decision after a real run: Claude Code shows no exit code on a pass, so the devs report "npm run check: passed",
-   or "failed (exit N)" with a code they saw, and never run a command just to read one; the Lead says "checked, passed"; and a card whose gate failed stays open when the Lead's
-   Agent call comes back "completed"). The v3.3.0 checklist
-   is docs/release-notes/v3.3.0-check.md. Next: prepare v3.3.0, then v3.4.0 (guilds, skills and memory): plan first, and
+   or "failed (exit N)" with a code they saw, and never run a command just to read one; the Lead says "checked, passed";
+   and a card whose gate failed stays open when the Lead's Agent call comes back "completed"). The v3.3.0 checklist is
+   docs/release-notes/v3.3.0-check.md. v3.3.0 is prepared, not tagged (plugin.json 3.3.0, docs/release-notes/v3.3.0.md,
+   README pins on `#v3.3.0`). Next: v3.4.0 (guilds, skills and memory): plan first, and
    prove the team-as-a-local-plugin approach before building on it.

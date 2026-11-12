@@ -12,6 +12,15 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.3
+
+Big-project tools. **Quality gates**, off until you turn them on per project (`/world-of-agents:setup-gates`), run the
+project's `npm run check` each time a dev finishes and send the dev back to fix what fails, at most 3 times. They run
+without asking you, which is why they are opt-in and the pane warns about them in Auto and Accept edits. The Lead keeps
+a **`BACKLOG.md`** that carries on from one session to the next, and **plans a milestone once** in plan mode for one
+approval. The devs end each task by running `npm run check` themselves and report whether it passed. The details are in the
+[release notes](docs/release-notes/v3.3.0.md).
+
 ## New in v3.2
 
 The token ledger. The team pane counts every turn of every agent, per session, and shows the total for this PC with
@@ -105,13 +114,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.2.0
+/plugin marketplace add kremendev/world-of-agents#v3.3.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.2.0
+claude plugin marketplace add kremendev/world-of-agents#v3.3.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -176,9 +185,9 @@ The hook script sends the hall a short list of fields: event name, ids, agent ty
 
 `woa` adds nothing to your project. Installing the plugin adds one line to the project's `.claude/settings.local.json`, which git ignores. The setup skills, only when you type them, add the settings above to that file and a line for it to `.gitignore`. The hall writes one file, `~/.world-of-agents/token`: a random token that lets your hooks post events. It is not your Claude login. The hall deletes it when it stops, but a PC shutdown can leave it behind. That is harmless: the hook script posts nothing until the hall proves it holds the token. An installed plugin has this check from v2.2.0.
 
-One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and it can only deny, never allow, so your permission prompt still decides. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. From v3.1 it also denies an agent start that chooses a model (the agent's own file decides) or runs the agent anywhere but on this PC (`isolation` other than none or `"worktree"`). The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
+One hook answers Claude Code: the guard, `plugin/hooks/guard.mjs`. It runs before every agent start and every Bash or PowerShell command, and from v3.3 every Edit and Write, and it can only deny, never allow, so your permission prompt still decides. The Lead may write only `BACKLOG.md` at the project root, and only while that is a plain file with one name: a link, a junction, a folder or a hard link there could carry the write into another file, such as your settings. The Designer's and the devs' edits go to your prompt; anyone else's are denied. It denies an agent start outside the team's table (only the Lead starts agents, and only the four others; Claude Code's own agents are denied, because some run on Haiku), and a shell command that names a `.env` or `.envrc` file. From v3.1 it also denies an agent start that chooses a model (the agent's own file decides) or runs the agent anywhere but on this PC (`isolation` other than none or `"worktree"`). The `.env` rule is best effort: it stops accidents and lazy prompt injection, not someone set on getting around it. If the guard can't read a call, it denies it, and a guard that crashes or hangs blocks the call too. An installed plugin has it from v3.0.0, and `woa` has it too.
 
-The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed. It never reads your draft. Of the messages you send, it only checks whether one carries an agent's result, and it keeps none of their text. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. Of your settings it reads one key, `enabledPlugins` in your user settings, to warn when the plugin is on for every project, and nothing else of them. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall), `node hooks/ledger-post.mjs` (the token total, to the hall), `node hooks/ledger-past.mjs` (every session's token counts, only when you press "Recount") and the voice script. Nothing they print is shown or kept, except the version digits `node --version` prints, the hall's version `hall-check.mjs` prints, and the session ids and whole numbers `ledger-past.mjs` prints, each checked to the character and dropped whole when it isn't exactly that. Two installs on one PC share the hall's token file, so the pane links to the hall only when it states the pane's own version; another install's hall gets a line naming its version, no link and no total, and the pane never stops it. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
+The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It never answers a tool call, a permission check or an agent start, and it never sends a prompt: a preset button only puts its fixed text in your prompt box, after what you've typed. It never reads your draft. Of the messages you send, it only checks whether one carries an agent's result, and it keeps none of their text. Agent text shows as plain text, never as Markdown or a link; its one link goes to the hall on localhost. It uses no network and no files. Of your settings it reads one key, `enabledPlugins` in your user settings, to warn when the plugin is on for every project, and nothing else of them. It starts only fixed programs, each from the plugin's own folder, with no shell and no argument from an agent, a file or the page: `node --version`, `node hooks/hall-check.mjs` (what holds port 4319?), `node hall/server.mjs` (the hall), `node hooks/ledger-post.mjs` (the token total, to the hall), `node hooks/gate.mjs --status` (are quality gates on in this project? its exit code only), `node hooks/ledger-past.mjs` (every session's token counts, only when you press "Recount") and the voice script. Nothing they print is shown or kept, except the version digits `node --version` prints, the hall's version `hall-check.mjs` prints, and the session ids and whole numbers `ledger-past.mjs` prints, each checked to the character and dropped whole when it isn't exactly that. Two installs on one PC share the hall's token file, so the pane links to the hall only when it states the pane's own version; another install's hall gets a line naming its version, no link and no total, and the pane never stops it. `npm run check` lists every event and API call it uses and fails if that list changes, so any change to it shows in review.
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 
@@ -202,6 +211,9 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
   - If a session sends no `PermissionRequest` (the hall started mid-wait, or an older Claude Code), the hall guesses after about 6 s: the running subagent that last used Edit, Write or Bash. With two writing at once it can name the wrong one.
   - Once a `PermissionRequest` has arrived in a session, the hall never guesses. If a later one gets lost, that wait shows no flag.
 - **The pane's approval list.** An approval stays listed until that call finishes, so a long command stays there while it runs after you approve it. The mode warning can come one prompt late: Claude Code says nothing when you switch modes, so the pane learns the mode from the next prompt or agent start.
+- **Quality gates run project code without asking.** With gates on, `npm run check` runs after each dev's task, so an
+  edit to `package.json`, a test file or a config changes what runs unasked. Keep them off where you don't read every
+  edit you approve. A check that takes longer than 9 minutes counts as a failure.
 - **The token ledger is an estimate.** It counts only sessions where the plugin runs, until you press "Recount", which
   counts every session in Claude Code's transcripts on this PC; sessions after that are again only the plugin's, as the
   pane says. Live counts price the Lead's cache writes at the 1-hour rate and subagents' at the 5-minute rate, which is
