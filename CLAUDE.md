@@ -748,3 +748,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    folder rule (Edit and Write into ~/.world-of-agents denied for every caller, as written and as resolved), 3.4c (the
    skill buttons, T8), the specialists' prompts in 3.4a. G11 is "not now". What waits for Dima: his desktop checks in
    order (v3.1.0 to v3.4.0), then the tags, one version at a time, on `main`.
+
+8. Dima's desktop checks (13 Nov). v3.1.0 passed and is released. v3.2.0's failed step 6 (no total in the hall's header
+   after an app restart) and he decided the self-check's findings: 3.2d (docs/v3.2-plan.md, L10 to L16) fixes the cause
+   and adds the hall's version, the per-session ledger with Recount, the 1-hour cache-write price and "1.18B". `v3-next`
+   was rebuilt a second time with `--force-with-lease`: 3.2d and the amended prepare commit, then v3.3 and v3.4 replayed
+   on top (3.4c's change-log read moved into the same "the hall became ours" step as the ledger's push, fixing the same
+   race there). What waits for Dima: his re-check of v3.2.0, then v3.3.0's and v3.4.0's checks, then the tags.
