@@ -3,9 +3,12 @@ import {
   addTurn,
   ledgerLines,
   MAX_MODELS,
+  merge,
   OTHER,
+  pastOf,
   priceOf,
   readLedger,
+  readPast,
   shortCount,
   summarize,
   type Ledger,
@@ -175,5 +178,58 @@ describe("the pane's lines", () => {
 
   it('shortens counts: 950, 12K, 3.4M', () => {
     expect([950, 12_345, 3_400_000].map(shortCount)).toEqual(['950', '12K', '3.4M']);
+  });
+});
+
+describe('past sessions (v3.2c, L7)', () => {
+  const totals = (n: number) => ({ inputTokens: n, outputTokens: n, cacheRead: 0, cacheWrite: 0, turns: 1 });
+  const ledger: Ledger = { since: NOW - 1000, models: { 'claude-opus-5-5': totals(5) } };
+
+  it('pastOf takes exactly a ledger of whole numbers, as ledger-past.mjs prints it, and nothing else', () => {
+    expect(pastOf(`${JSON.stringify(ledger)}\n`)).toEqual(ledger);
+    for (const printed of [
+      '',
+      'text',
+      JSON.stringify({ ...ledger, extra: 1 }),
+      JSON.stringify({ since: ledger.since }),
+      JSON.stringify({ ...ledger, models: { 'Not-An-Id': totals(1) } }),
+      JSON.stringify({ ...ledger, models: { 'claude-opus-5-5': { ...totals(1), turns: 0.5 } } }),
+      JSON.stringify([ledger]),
+      JSON.stringify({ ...ledger, models: {}, pad: 'x'.repeat(9000) }),
+      // A ledger after 9,000 spaces is still JSON, and too long.
+      `${' '.repeat(9000)}${JSON.stringify(ledger)}`,
+    ]) {
+      expect(pastOf(printed)).toBeNull();
+    }
+  });
+
+  it('readPast takes exactly what the mod stores: the ledger, its cut-off and when it was counted', () => {
+    const kept = { ...ledger, before: NOW, counted: NOW + 5 };
+    expect(readPast(kept)).toEqual(kept);
+    expect(readPast({ ...kept, note: 'x' })).toBeNull();
+    expect(readPast({ ...kept, before: NOW - 2000 })).toBeNull();
+    expect(readPast({ ...kept, counted: -1 })).toBeNull();
+    expect(readPast(ledger)).toBeNull();
+  });
+
+  it('merge adds the counts per model from the earlier since, and keeps at most 32 ids apart', () => {
+    const live: Ledger = {
+      since: NOW,
+      models: { 'claude-opus-5-5': totals(1), 'claude-sonnet-5-5': totals(2) },
+    };
+    expect(merge(live, ledger)).toEqual({
+      since: NOW - 1000,
+      models: { 'claude-opus-5-5': { ...totals(6), turns: 2 }, 'claude-sonnet-5-5': totals(2) },
+    });
+    expect(merge(null, { ...ledger, before: NOW, counted: NOW } as Ledger)).toEqual(ledger);
+    expect(merge(live, null)).toEqual(live);
+    expect(merge(null, null)).toBeNull();
+    const many = (from: number): Ledger => ({
+      since: NOW,
+      models: Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`model-${from + i}`, totals(1)])),
+    });
+    const both = merge(many(0), many(100))!;
+    expect(Object.keys(both.models)).toHaveLength(MAX_MODELS);
+    expect(both.models[OTHER]?.turns).toBe(9);
   });
 });

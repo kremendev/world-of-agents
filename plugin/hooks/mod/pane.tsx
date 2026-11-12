@@ -5,7 +5,7 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
-import { ledgerLines } from './ledger';
+import { day, ledgerLines } from './ledger';
 import { nameOf, ROSTER } from './roster';
 import type { PaneAgent, PaneFillRefusal, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
@@ -25,6 +25,11 @@ const FILL_LINES: Record<PaneFillRefusal, string> = {
   no_composer: 'This surface has no prompt box',
   other: "Couldn't fill the prompt box",
 };
+
+/** Past sessions (v3.2c): what the button does, and a count that failed. */
+export const PAST_HOW =
+  "Reads only the token counts in Claude Code's transcripts on this PC, once, when you press it.";
+export const PAST_FAILED = "Couldn't count past sessions.";
 
 /** Why there is no usable Node, and what it costs. Only digits and dots of what `node --version` printed show here. */
 export function nodeWarning(v: PaneView): string | undefined {
@@ -100,7 +105,15 @@ export function drawPane(
   $: EngineInterface,
   e: RenderInput,
   v: PaneView,
-  { onPreset, onMute }: { onPreset: (key: PresetKey) => Promise<void>; onMute: () => Promise<void> },
+  {
+    onPreset,
+    onMute,
+    onCountPast,
+  }: {
+    onPreset: (key: PresetKey) => Promise<void>;
+    onMute: () => Promise<void>;
+    onCountPast: () => Promise<void>;
+  },
 ) {
   const { Box, Text, Button, Link } = $.ui.resolve(e);
   const warning = v.mode === null ? undefined : MODE_WARNINGS.get(v.mode);
@@ -181,6 +194,21 @@ export function drawPane(
           ledgerLines(v.ledger).map((line, i) =>
             i === 0 ? <Text>{line}</Text> : <Text dimColor>{line}</Text>,
           )
+        )}
+        {v.past.state === 'counted' && (
+          <Text
+            dimColor
+          >{`Includes past sessions before ${day(v.past.before)}, counted on ${day(v.past.counted)}.`}</Text>
+        )}
+        {v.past.state === 'counting' && <Text dimColor>Counting past sessions...</Text>}
+        {v.past.state === 'failed' && <Text color="warning">{PAST_FAILED}</Text>}
+        {(v.past.state === 'none' || v.past.state === 'failed') && (
+          <Box flexDirection="column">
+            <Box flexDirection="row">
+              <Button key="count-past" label="Count past sessions" onPress={onCountPast} />
+            </Box>
+            <Text dimColor>{PAST_HOW}</Text>
+          </Box>
         )}
       </Box>
       <Box flexDirection="column">

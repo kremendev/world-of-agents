@@ -5,10 +5,13 @@
 // nothing from an agent, a file, the page or the environment. Each runs in the plugin's own folder. Claude Code already
 // refuses a command found only in the working folder ("unsafe location (current directory)", checked on 2.1.318), so a
 // node.exe in a project is never run; the plugin's folder is a second lock on that. Nothing any of them prints is kept,
-// shown or sent anywhere.
+// shown or sent anywhere, with two exceptions checked to the character: the digits of `node --version`, and (v3.2c, L7)
+// the ledger of whole numbers ledger-past.mjs prints, through pastOf().
 
 import type { EngineInterface } from 'claude-code';
 
+import { pastOf } from './ledger';
+import type { Ledger } from './ledger';
 import type { PaneHall, PaneLedger, PaneNode } from './types';
 
 export const NODE_VERSION = ['node', '--version'] as const;
@@ -18,12 +21,16 @@ export const checkCommand = (root: string) => ['node', `${root}/hooks/hall-check
 export const hallCommand = (root: string) => ['node', `${root}/hall/server.mjs`];
 /** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
 export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
+/** hooks/ledger-past.mjs: past sessions' token counts from Claude Code's transcripts, numbers only (v3.2c). */
+export const pastCommand = (root: string) => ['node', `${root}/hooks/ledger-past.mjs`];
 
 /** hall-check.mjs's exit codes: our hall, nothing on the port, something else on it. */
 const OURS = 0;
 const DOWN = 3;
 const TAKEN = 4;
 const TIMEOUT_MS = 10_000;
+/** Reading every transcript on the PC: 196 MB took a few seconds on 12 Nov. */
+const PAST_TIMEOUT_MS = 120_000;
 
 export type NodeFound = { node: PaneNode; nodeVersion: string | null };
 
@@ -60,6 +67,25 @@ export async function sendLedger($: EngineInterface, totals: PaneLedger): Promis
     });
   } catch {
     // The hall's line waits for the next turn.
+  }
+}
+
+/**
+ * Past sessions counted (v3.2c, L7), only on Dima's press: the cut-off on stdin, and back exactly a ledger of whole
+ * numbers per model id, all of it before the cut-off, or null. Anything else it prints is dropped, whole.
+ */
+export async function countPast($: EngineInterface, before: number): Promise<Ledger | null> {
+  try {
+    const run = await $.process.run(pastCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      stdin: JSON.stringify({ before }),
+      timeoutMs: PAST_TIMEOUT_MS,
+    });
+    if (run.exitCode !== 0 || run.isStdoutTruncated) return null;
+    const found = pastOf(run.stdout);
+    return found !== null && found.since <= before ? found : null;
+  } catch {
+    return null;
   }
 }
 

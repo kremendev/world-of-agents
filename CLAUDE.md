@@ -91,7 +91,9 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
                   whom, no `model` in an Agent call, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/ledger-post.mjs (v3.2: the ledger's
-                  totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing), hooks/mod/ (the team pane, a mod named
+                  totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing),
+                  hooks/ledger-past.mjs (v3.2c: past sessions' token counts from Claude Code's transcripts, printed as a
+                  ledger of whole numbers only, on Dima's press), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
                   command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
@@ -317,6 +319,12 @@ Do not change the look without asking. New ideas go into a later version.
   tab, a draft kept. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
   The ledger (v3.2) keeps numbers only in `$.store` (`ledger`): the engine's four token counts per model id (ids that
   aren't `[a-z][a-z0-9.-]{0,63}` count as `other`, at most 32), read back through `readLedger()`'s strict check.
+  Past sessions (v3.2c, L7, Dima's decision) are opt-in: only the pane's "Count past sessions" runs `ledger-past.mjs`,
+  which reads Claude Code's transcripts and prints one ledger of whole numbers; `pastOf()` keeps it only when it is
+  exactly that (keys `since` and `models`, the counts' five keys, ids as above, at most 8 KiB, `since` not after the
+  cut-off) and drops anything else whole. It goes in `$.store` as `ledger-past`, with its cut-off and when it was
+  counted, and `readPast()` reads it back as strictly. Never text: a test plants secrets in transcripts and in the
+  script's output.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
   checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
@@ -337,13 +345,17 @@ Do not change the look without asking. New ideas go into a later version.
 - The mod's processes (2c) are fixed commands, each with the plugin's own folder as `cwd`: `node --version`,
   `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`), the voice, and from v3.2
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
-  counts, never text), run at session start and after each of the Lead's turns while the hall is `running`. A
+  counts, never text), run at session start and after each of the Lead's turns while the hall is `running`, and from
+  v3.2c `node <plugin>/hooks/ledger-past.mjs`, whose `stdin` is the cut-off (`{"before": <ms>}`), run only on Dima's
+  press. A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
   lock on that. No shell, no `-Command`, no argument, `env` or text from an agent, a file, the page or the environment;
   the kit tests pin each argv and cwd, and `mod.test.ts` pins where `process.run`, `process.spawn` and `input` appear.
-  Nothing a child prints is shown or kept. The hall is started through the session's `$`, never a turn's: a child dies
+  Nothing a child prints is shown or kept, with two exceptions, each checked to the character: the digits of
+  `node --version`, and ledger-past.mjs's ledger of whole numbers through `pastOf()` (v3.2c, L7, Dima's decision);
+  `mod.test.ts` pins `.stdout` to those two lines. The hall is started through the session's `$`, never a turn's: a child dies
   when the dispatch it was started in is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
   refuses a `$` kept in a variable, so register.tsx keeps a closure made in `session.start` instead.
 - "Is the hall up?" is `hall-check.mjs`: send.mjs's own handshake (no redirect, capped answer, `timingSafeEqual`), never
@@ -590,8 +602,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    its pins on `#v3.1.0` (a tag that exists only once Dima tags this commit after his test).
    v3.2.0 (docs/v3.2-plan.md): 3.2a done (every turn's usage, the Lead's and each subagent's, from turn.complete, added
    per model to `ledger` in $.store, one count at a time; the pane's "This PC" line with the value at the dated API
-   prices). 3.2c, past sessions, is not built: it waits for Dima on L7 (the mod would keep numbers a child prints).
+   prices).
    3.2b done (the total in the hall's page header: hooks/ledger-post.mjs; POST /api/ledger; a named `ledger` SSE event
-   through parseLedger()).
+   through parseLedger()). 3.2c done (12 Nov, Dima's L7: the pane's "Count past sessions" runs hooks/ledger-past.mjs,
+   which prints a ledger of whole numbers from the transcripts before the live ledger began; pastOf() keeps only that,
+   as `ledger-past` in $.store, and the pane and the hall show one total).
    The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
    Next: prepare v3.2.0, then v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.

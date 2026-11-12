@@ -46,6 +46,16 @@ export type PaneLedger = {
 };
 
 /**
+ * Past sessions (v3.2c, L7): not counted, being counted, counted (before when, and when), or the count failed. Only
+ * Dima's press counts them.
+ */
+export type PanePast =
+  | { state: 'none' }
+  | { state: 'counting' }
+  | { state: 'failed' }
+  | { state: 'counted'; before: number; counted: number };
+
+/**
  * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs), `taken` when
  * something else holds port 4319, `stopped` when nothing runs and no start is under way.
  */
@@ -70,6 +80,8 @@ export type PaneView = {
   usage: PaneUsage | null;
   /** The ledger's total, kept in $.store across sessions; null until the first turn is counted. */
   ledger: PaneLedger | null;
+  /** Past sessions, counted into `ledger` once Dima asked (v3.2c). */
+  past: PanePast;
   /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */
   round: string[];
   /**

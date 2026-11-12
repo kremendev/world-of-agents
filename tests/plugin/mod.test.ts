@@ -79,6 +79,7 @@ describe('the processes the mod starts', () => {
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-check.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hall/server.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-post.mjs`]");
+    expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-past.mjs`]");
     expect(code('voice.ts')).toContain('`${root}/voice/speak.ps1`');
     // Never a command string: no -Command, no encoded command, no shell as a command or an option.
     expect(
@@ -92,8 +93,19 @@ describe('the processes the mod starts', () => {
     expect(using(/\bstdin\s*:/)).toEqual(['hall.ts']);
     expect(code('hall.ts').match(/[^\n]*\bstdin\s*:[^\n]*/g)).toEqual([
       '      stdin: JSON.stringify(totals),',
+      // v3.2c: past sessions' cut-off, a number.
+      '      stdin: JSON.stringify({ before }),',
     ]);
     expect(using(/\benv\s*:/)).toEqual([]);
+  });
+
+  it("keeps what a child prints in two places only: node --version's digits and ledger-past's numbers (v3.2c, L7)", () => {
+    expect(using(/\.stdout\b/)).toEqual(['hall.ts']);
+    expect(code('hall.ts').match(/[^\n]*\.stdout\b[^\n]*/g)).toEqual([
+      '    printed = run.stdout;',
+      '    const found = pastOf(run.stdout);',
+    ]);
+    expect(using(/\.stderr\b/)).toEqual([]);
   });
 
   it('uses no network, no files and no environment variables', () => {

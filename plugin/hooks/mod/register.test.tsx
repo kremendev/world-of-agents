@@ -43,6 +43,7 @@ const STORED_VIEW: PaneView = {
   mode: null,
   usage: null,
   ledger: null,
+  past: { state: 'none' },
   round: [],
   unheard: [],
   hall: 'stopped',
@@ -320,7 +321,7 @@ describe('prompts', () => {
     // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
     on('state.get', () => ({
       value: {
-        value: { shape: 'view-6', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        value: { shape: 'view-7', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
         version: 1,
       },
     }));
@@ -704,5 +705,237 @@ describe("the ledger's total to the hall (v3.2)", () => {
     await $.turn.complete(turn());
     await clock.settle();
     expect(posts()).toEqual([]);
+  });
+});
+
+describe('past sessions (v3.2c, L7)', () => {
+  const SINCE = Date.UTC(2026, 10, 11, 12);
+  const live = {
+    since: SINCE,
+    models: {
+      'claude-opus-5-5': { inputTokens: 1_000_000, outputTokens: 0, cacheRead: 0, cacheWrite: 0, turns: 4 },
+    },
+  };
+  const counted = {
+    since: Date.UTC(2026, 9, 3, 9),
+    models: {
+      'claude-opus-5-5': { inputTokens: 1_000_000, outputTokens: 0, cacheRead: 0, cacheWrite: 0, turns: 7 },
+      'claude-sonnet-5-5': { inputTokens: 0, outputTokens: 100_000, cacheRead: 0, cacheWrite: 0, turns: 3 },
+    },
+  };
+  const SECRET = 'sk-ant-api03-PLANTED';
+
+  /** An engine whose ledger-past.mjs prints `printed` (exit `exitCode`), with the hall up. Records every command. */
+  function withPast(
+    on: On,
+    printed: string,
+    more: { exitCode?: number; truncated?: boolean; store?: [string, unknown][] } = {},
+  ) {
+    const clock = mock.clock(on);
+    const runs: { argv: readonly string[]; cwd?: string; stdin?: string }[] = [];
+    const store = new Map<string, unknown>(more.store ?? [['ledger', live]]);
+    on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('ui.open', () => ({ value: { isPlaced: true } }));
+    on('agent.list', () => ({ value: [] }));
+    on('store.get', (_, e) => ({ value: store.get(e.key) }));
+    on('store.set', (_, e) => {
+      store.set(e.key, JSON.parse(JSON.stringify(e.value)));
+      return { value: undefined };
+    });
+    on('process.run', (_, e) => {
+      runs.push({ argv: e.argv, cwd: e.init?.cwd, stdin: e.init?.stdin });
+      const past = e.argv[1]?.endsWith('/hooks/ledger-past.mjs');
+      return {
+        value: {
+          exitCode: past ? (more.exitCode ?? 0) : 0,
+          stdout: e.argv[1] === '--version' ? 'v24.22.0\n' : past ? printed : '',
+          stderr: past ? SECRET : '',
+          isStdoutTruncated: past ? (more.truncated ?? false) : false,
+          isStderrTruncated: false,
+        },
+      };
+    });
+    on('turn.start', (_, e) => ({ turnId: e.turnId }));
+    on('turn.complete', () => ({ text: '' }));
+    const pasts = () => runs.filter((r) => r.argv[1]?.endsWith('/hooks/ledger-past.mjs'));
+    const posts = () => runs.filter((r) => r.argv[1]?.endsWith('/hooks/ledger-post.mjs'));
+    return { clock, store, pasts, posts };
+  }
+
+  test('reads nothing until Dima presses; then runs the fixed script once and keeps exactly its numbers', async ($, on) => {
+    const { clock, store, pasts, posts } = withPast(on, `${JSON.stringify(counted)}\n`);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(pasts()).toEqual([]);
+    expect(await ui.find({ type: 'Button', key: 'count-past' })).toBeDefined();
+
+    await ui.press({ key: 'count-past' });
+    await clock.settle();
+    expect(pasts()).toHaveLength(1);
+    const [run] = pasts();
+    const root = run!.cwd!;
+    expect(run!.argv).toEqual(['node', `${root}/hooks/ledger-past.mjs`]);
+    expect(root).not.toBe('/project');
+    // The cut-off: when the live ledger began, so nothing is counted twice.
+    expect(run!.stdin).toBe(JSON.stringify({ before: SINCE }));
+
+    const kept = store.get('ledger-past') as Record<string, unknown>;
+    expect(Object.keys(kept).sort()).toEqual(['before', 'counted', 'models', 'since']);
+    expect(kept).toMatchObject({ ...counted, before: SINCE });
+    expect(store.get('ledger')).toEqual(live);
+    // The pane: one total since the earliest past session, and where it came from. No button any more.
+    expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+      /^This PC since 3 Oct 2026: 2\.0M tokens in, 100K out, about \$9\.00 at API prices/,
+    );
+    expect(
+      await ui.find({ type: 'Text', text: /^Includes past sessions before 11 Nov 2026, counted on / }),
+    ).toBeDefined();
+    expect(await ui.find({ type: 'Button', key: 'count-past' })).toBeUndefined();
+    // The hall gets the same total.
+    expect(JSON.parse(posts().at(-1)!.stdin!)).toMatchObject({
+      tokensIn: 2_000_000,
+      tokensOut: 100_000,
+      cents: 900,
+    });
+    // Nothing the child wrote on stderr was kept anywhere.
+    expect(JSON.stringify([...store.values()])).not.toContain(SECRET);
+
+    // A turn after the count: the total still holds the past, and the past stays as counted.
+    await $.turn.complete({
+      answer: '',
+      durationMs: 1,
+      isAborted: false,
+      turnId: 't1',
+      reason: 'answer',
+      usage: {
+        input_tokens: 1_000_000,
+        output_tokens: 0,
+        cache_read_input_tokens: 0,
+        cache_creation_input_tokens: 0,
+        model: 'claude-opus-5-5',
+      },
+    });
+    await clock.settle();
+    expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+      /^This PC since 3 Oct 2026: 3\.0M tokens in, 100K out, about \$13\.00 at API prices/,
+    );
+    expect(store.get('ledger-past')).toEqual(kept);
+    await ui.unmount();
+  });
+
+  test('with nothing counted yet, the cut-off is now, and the next session start shows the past without running it', async ($, on) => {
+    const { clock, store, pasts } = withPast(on, JSON.stringify(counted), { store: [] });
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(await ui.find({ type: 'Text', text: 'This PC: nothing counted yet.' })).toBeDefined();
+    const pressed = Date.now();
+    await ui.press({ key: 'count-past' });
+    await clock.settle();
+    const { before } = JSON.parse(pasts()[0]!.stdin!) as { before: number };
+    expect(before).toBeGreaterThanOrEqual(pressed - 1000);
+    expect(store.get('ledger')).toBeUndefined();
+    expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+      /^This PC since 3 Oct 2026: 1\.0M tokens in, 100K out/,
+    );
+    await ui.unmount();
+  });
+
+  test('a press while a count runs starts no second one', async ($, on) => {
+    const { clock, pasts } = withPast(on, JSON.stringify(counted));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    await Promise.all([ui.press({ key: 'count-past' }), ui.press({ key: 'count-past' })]);
+    await clock.settle();
+    expect(pasts()).toHaveLength(1);
+    await ui.unmount();
+  });
+
+  /** What the script could print that isn't exactly a ledger of whole numbers, and what else could go wrong. */
+  const BAD: [name: string, printed: string, more?: { exitCode?: number; truncated?: boolean }][] = [
+    ['a key besides since and models', JSON.stringify({ ...counted, note: SECRET })],
+    [
+      'a model id that is text',
+      JSON.stringify({ ...counted, models: { [SECRET.toUpperCase()]: counted.models['claude-opus-5-5'] } }),
+    ],
+    [
+      'a count with a sixth key',
+      JSON.stringify({
+        ...counted,
+        models: { 'claude-opus-5-5': { ...counted.models['claude-opus-5-5'], why: SECRET } },
+      }),
+    ],
+    [
+      'a fraction',
+      JSON.stringify({
+        ...counted,
+        models: { 'claude-opus-5-5': { ...counted.models['claude-opus-5-5'], turns: 1.5 } },
+      }),
+    ],
+    [
+      'a negative count',
+      JSON.stringify({
+        ...counted,
+        models: { 'claude-opus-5-5': { ...counted.models['claude-opus-5-5'], turns: -1 } },
+      }),
+    ],
+    [
+      'a count as a string',
+      JSON.stringify({
+        ...counted,
+        models: { 'claude-opus-5-5': { ...counted.models['claude-opus-5-5'], turns: '7' } },
+      }),
+    ],
+    ['a since after the cut-off', JSON.stringify({ ...counted, since: SINCE + 1 })],
+    ['text', `The key is ${SECRET}`],
+    ['a ledger and then text', `${JSON.stringify(counted)}\n${SECRET}`],
+    ['more than 8 KiB', JSON.stringify({ ...counted, pad: 'x'.repeat(9000) })],
+    ['nothing', ''],
+    ['a good ledger but exit 1', JSON.stringify(counted), { exitCode: 1 }],
+    ['a good ledger, cut short', JSON.stringify(counted), { truncated: true }],
+  ];
+
+  for (const [name, printed, more] of BAD) {
+    test(`drops it whole and keeps nothing: ${name}`, async ($, on) => {
+      const { clock, store, posts } = withPast(on, printed, more);
+      await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+      await clock.settle();
+      const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+      const sent = posts().length;
+      await ui.press({ key: 'count-past' });
+      await clock.settle();
+      expect(store.has('ledger-past')).toBe(false);
+      expect(store.get('ledger')).toEqual(live);
+      expect(JSON.stringify([...store.values()])).not.toContain('PLANTED');
+      expect(await ui.find({ type: 'Text', text: "Couldn't count past sessions." })).toBeDefined();
+      expect(await ui.find({ type: 'Text', text: /PLANTED/ })).toBeUndefined();
+      // The total stays the live one, and the button is back for another try.
+      expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+        /^This PC since 11 Nov 2026: 1\.0M tokens in/,
+      );
+      expect(await ui.find({ type: 'Button', key: 'count-past' })).toBeDefined();
+      expect(posts()).toHaveLength(sent);
+      await ui.unmount();
+    });
+  }
+
+  test('a past kept in the store that is not exactly one is ignored, and the button shows', async ($, on) => {
+    const { clock, pasts } = withPast(on, '', {
+      store: [
+        ['ledger', live],
+        ['ledger-past', { ...counted, before: SINCE, counted: SINCE, note: SECRET }],
+      ],
+    });
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect((await ui.find({ type: 'Text', text: /^This PC since/ }))?.text).toMatch(
+      /^This PC since 11 Nov 2026: 1\.0M tokens in/,
+    );
+    expect(await ui.find({ type: 'Button', key: 'count-past' })).toBeDefined();
+    expect(pasts()).toEqual([]);
+    await ui.unmount();
   });
 });

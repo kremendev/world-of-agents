@@ -27,6 +27,10 @@ export type TurnUsageLike = {
 
 /** The $.store key. */
 export const LEDGER_KEY = 'ledger';
+/** The $.store key of past sessions (v3.2c): what hooks/ledger-past.mjs counted, and when. */
+export const PAST_KEY = 'ledger-past';
+/** The most ledger-past.mjs prints: 32 models of five counts are well under it. */
+export const MAX_PAST = 8192;
 /** At most this many model ids are kept apart; the rest count together as OTHER. */
 export const MAX_MODELS = 32;
 /** A model id the API reports: lower-case letters, digits, dots and dashes, starting with a letter. Else OTHER. */
@@ -100,6 +104,61 @@ export function readLedger(value: unknown): Ledger | null {
   return { since, models: Object.fromEntries(entries) as Record<string, ModelTotals> };
 }
 
+/** Past sessions as $.store keeps them (v3.2c): the ledger counted before `before` (when the live one began), and when. */
+export type Past = Ledger & { before: number; counted: number };
+
+const whole = (n: unknown): n is number => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0;
+const keysAre = (v: object, keys: string) => Object.keys(v).sort().join() === keys;
+
+/**
+ * What ledger-past.mjs printed, when it is exactly a ledger of whole numbers per model id ({"since", "models"}, nothing
+ * else, at most MAX_PAST characters); else null, and nothing of it is kept. The one child output the mod keeps (L7).
+ */
+export function pastOf(printed: string): Ledger | null {
+  if (typeof printed !== 'string' || printed.length > MAX_PAST) return null;
+  let value: unknown;
+  try {
+    value = JSON.parse(printed);
+  } catch {
+    return null;
+  }
+  if (typeof value !== 'object' || value === null || Array.isArray(value) || !keysAre(value, 'models,since'))
+    return null;
+  return readLedger(value);
+}
+
+/** Past sessions $.store held, or null when there are none or it isn't exactly that. */
+export function readPast(value: unknown): Past | null {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+  if (!keysAre(value, 'before,counted,models,since')) return null;
+  const { before, counted } = value as Record<string, unknown>;
+  const ledger = readLedger(value);
+  if (ledger === null || !whole(before) || !whole(counted) || ledger.since > before) return null;
+  return { ...ledger, before, counted };
+}
+
+/** Two ledgers as one: the counts per model added, model ids past MAX_MODELS together as OTHER, from the earlier since. */
+export function merge(a: Ledger | null, b: Ledger | null): Ledger | null {
+  if (a === null || b === null) {
+    const one = a ?? b;
+    return one === null ? null : { since: one.since, models: one.models };
+  }
+  const models: Record<string, ModelTotals> = { ...a.models };
+  for (const [id, t] of Object.entries(b.models)) {
+    const room = Object.keys(models).filter((m) => m !== OTHER).length < MAX_MODELS - 1;
+    const key = Object.hasOwn(models, id) || room ? id : OTHER;
+    const was = Object.hasOwn(models, key) ? models[key]! : ZERO;
+    models[key] = {
+      inputTokens: plus(was.inputTokens, t.inputTokens),
+      outputTokens: plus(was.outputTokens, t.outputTokens),
+      cacheRead: plus(was.cacheRead, t.cacheRead),
+      cacheWrite: plus(was.cacheWrite, t.cacheWrite),
+      turns: plus(was.turns, t.turns),
+    };
+  }
+  return { since: Math.min(a.since, b.since), models };
+}
+
 /**
  * What the pane and the hall show: tokens in (input, cache reads and writes) and out, the value in whole cents, and the
  * tokens of models the price table doesn't know, by model id, the most first, at most three.
@@ -146,10 +205,15 @@ export function shortCount(n: number): string {
   return `${(n / 1_000_000).toFixed(1)}M`;
 }
 
+/** A day as the pane writes it: 11 Nov 2026. */
+export function day(ms: number): string {
+  const d = new Date(ms);
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 /** The pane's lines for the ledger: the total, then any model it couldn't price. */
 export function ledgerLines(s: LedgerSummary): string[] {
-  const d = new Date(s.since);
-  const since = `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const since = day(s.since);
   const dollars = (s.cents / 100).toFixed(2);
   return [
     `This PC since ${since}: ${shortCount(s.tokensIn)} tokens in, ${shortCount(s.tokensOut)} out, about $${dollars} at API prices (${s.pricedOn}).`,
