@@ -36,7 +36,7 @@ export const ROSTER: readonly Agent[] = [
     size: 'normal',
     monitor: 'right',
     model: 'Opus',
-    tools: 'Agent, Read, Grep, Glob',
+    tools: 'Agent, Read, Grep, Glob, Edit, Write, EnterPlanMode, ExitPlanMode',
     look: 'Strategist: patched cape, map case, quill behind the ear',
     waitingFor: 'every task to finish',
   },

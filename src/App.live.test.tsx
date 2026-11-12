@@ -1062,7 +1062,7 @@ describe('Agent panel in Live', () => {
         dt.nextElementSibling?.textContent,
       ]),
     );
-    expect(details.Tools).toBe('Agent, Read, Grep, Glob');
+    expect(details.Tools).toBe('Agent, Read, Grep, Glob, Edit, Write, EnterPlanMode, ExitPlanMode');
     expect(details).not.toHaveProperty('Tokens');
     expect(details).not.toHaveProperty('Tools in v2');
   });

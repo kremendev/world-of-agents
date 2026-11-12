@@ -1,4 +1,4 @@
-// World of Agents guard. Claude Code runs it before every Agent, Bash and PowerShell call (a PreToolUse hook that is NOT
+// World of Agents guard. Claude Code runs it before every Agent, Bash, PowerShell, Edit and Write call (a PreToolUse hook that is NOT
 // async: an async hook runs in the background and can't block anything) and pipes the hook input as JSON on stdin.
 //
 // Deny-only: it prints a PreToolUse deny, or nothing. It never answers allow, because allow would skip your permission
@@ -48,6 +48,7 @@ export const REASONS = Object.freeze({
     "World of Agents guard: the team's models are set in its agent files, so an Agent call may not choose one.",
   isolation:
     'World of Agents guard: an agent runs here or in a worktree, never remotely or in an isolation the guard does not know.',
+  edit: 'World of Agents guard: the Lead/PM edits BACKLOG.md at the project root, and nothing else.',
 });
 
 /** The one answer the guard ever gives. */
@@ -87,6 +88,35 @@ function checkAgent(input) {
   return rowOf(input)?.includes(call.subagent_type) ? null : denial(REASONS.agent);
 }
 
+/** The agents whose edits the guard leaves to their own permission prompts (v3.3): the ones that write files. */
+export const EDITORS = Object.freeze([`${PREFIX}designer`, `${PREFIX}frontend`, `${PREFIX}backend`]);
+
+/** `file_path` is BACKLOG.md directly in `cwd`: exact, no `.` or `..` segment, case-blind on Windows only. */
+function isBacklog(filePath, cwd) {
+  if (typeof filePath !== 'string' || typeof cwd !== 'string' || cwd === '') return false;
+  const norm = (p) => p.replace(/\\/g, '/').replace(/\/+$/, '');
+  const got = norm(filePath);
+  if (got.split('/').some((segment) => segment === '.' || segment === '..')) return false;
+  const want = `${norm(cwd)}/BACKLOG.md`;
+  return process.platform === 'win32' ? got.toLowerCase() === want.toLowerCase() : got === want;
+}
+
+/**
+ * Edit and Write (v3.3). The Lead (the main thread) keeps the backlog and writes no code: it may edit BACKLOG.md at the
+ * project root and nothing else. A subagent of ours that edits gets no answer: its own permission prompt decides. Anyone
+ * else, an unknown caller included, is denied.
+ */
+function checkEdit(input) {
+  const filePath = isObject(input.tool_input) ? input.tool_input.file_path : undefined;
+  if (typeof filePath !== 'string') return denial(REASONS.input);
+  if (input.agent_id !== undefined) {
+    const ours = typeof input.agent_id === 'string' && EDITORS.includes(input.agent_type);
+    return ours ? null : denial(REASONS.edit);
+  }
+  if (input.agent_type !== LEAD) return denial(REASONS.edit);
+  return isBacklog(filePath, input.cwd) ? null : denial(REASONS.edit);
+}
+
 function checkShell(input) {
   const command = isObject(input.tool_input) ? input.tool_input.command : undefined;
   if (typeof command !== 'string') return denial(REASONS.input);
@@ -101,6 +131,7 @@ export function decide(raw) {
     if (!isObject(input)) return denial(REASONS.input);
     if (input.tool_name === 'Agent') return checkAgent(input);
     if (input.tool_name === 'Bash' || input.tool_name === 'PowerShell') return checkShell(input);
+    if (input.tool_name === 'Edit' || input.tool_name === 'Write') return checkEdit(input);
     return denial(REASONS.input);
   } catch {
     return denial(REASONS.input);

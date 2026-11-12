@@ -63,9 +63,11 @@ describe('AgentPanel', () => {
     expect(screen.queryByText('x2')).toBeNull();
   });
 
-  it("shows the Lead's real tools: it starts agents and reads, and has no Write", () => {
+  it("shows the Lead's real tools: it starts agents, reads, plans, and edits the backlog (v3.3)", () => {
     render(<AgentPanel office={INITIAL_OFFICE} agent="lead" live />);
-    expect(screen.getByText('Agent, Read, Grep, Glob')).toBeInTheDocument();
+    expect(
+      screen.getByText('Agent, Read, Grep, Glob, Edit, Write, EnterPlanMode, ExitPlanMode'),
+    ).toBeInTheDocument();
   });
 
   it('says what a waiting agent waits for', () => {

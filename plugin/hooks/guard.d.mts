@@ -11,6 +11,8 @@ export const REASONS: {
   readonly input: string;
   readonly model: string;
   readonly isolation: string;
+  readonly edit: string;
 };
+export const EDITORS: readonly string[];
 export function denial(reason: string): string;
 export function decide(raw: string | null): string | null;

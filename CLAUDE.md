@@ -90,8 +90,8 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
 plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
-                  the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
-                  whom, no `model` in an Agent call, and the .env rule), hooks/gate.mjs (v3.3: the quality gate on SubagentStop, opt-in per project through
+                  the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash, PowerShell, Edit and Write: who may
+                  start whom, no `model` in an Agent call, the .env rule, and from v3.3 the Lead edits BACKLOG.md alone), hooks/gate.mjs (v3.3: the quality gate on SubagentStop, opt-in per project through
                   env WOA_QUALITY_GATE; runs npm run check, sends a dev back at most 3 times, forwards those stops to the
                   hall with its verdict; --status answers by exit code), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code: 0 ours, 3 nothing listens, 4 anything else; with 0, the plugin version the hall states, one line of
@@ -272,6 +272,11 @@ Do not change the look without asking. New ideas go into a later version.
   only `npm run check`, only in a project with that script, at most 3 retries per run. Not async, timeout 600, and never
   `onFailure: block`: a gate that breaks lets the agent stop. With gates on it forwards those stops to the hall with its
   verdict and `send.mjs` skips them. The pane learns gates are on from `gate.mjs --status`'s exit code, never from env.
+- From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
+  `BACKLOG.md` directly in its `cwd` (exact match, no `.` or `..` segment, case-blind on Windows only); the Designer and
+  the two devs get no answer (their own permission prompts decide); anyone else is denied. The Lead's tools are
+  `Agent(...)`, Read, Grep, Glob, Edit, Write, EnterPlanMode and ExitPlanMode: it plans a milestone once in plan mode and
+  keeps `BACKLOG.md`, and still writes no code.
 - `guard.mjs` is the one hook that answers a tool call, and it only denies: a test runs it over every input and fails on
   any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
   permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
@@ -643,5 +648,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    v3.2.0 is prepared, not tagged (plugin.json 3.2.0, docs/release-notes/v3.2.0.md, README pins on `#v3.2.0`).
    v3.3.0 (docs/v3.3-plan.md): 3.3a done (the quality gate, its switch skills, the hall's gate verdicts, the pane's gate
    lines; three real runs: the send-back loop and the pass path work, an agent fixing from the gate's output not seen).
-   G11 (the backlog on the hall's dashboard) waits for Dima. Next: 3.3b (BACKLOG.md and plan once, approve once: the Lead
-   gets Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md).
+   G11 (the backlog on the hall's dashboard) waits for Dima. 3.3b done (BACKLOG.md and plan once, approve once: the Lead
+   has Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md). The v3.3.0 checklist
+   is docs/release-notes/v3.3.0-check.md. Next: prepare v3.3.0, then v3.4.0 (guilds, skills and memory): plan first, and
+   prove the team-as-a-local-plugin approach before building on it.

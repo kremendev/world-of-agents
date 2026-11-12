@@ -69,12 +69,12 @@ describe('the plugin once installed', () => {
     expect(hook.timeout).toBe(600);
   });
 
-  it('runs the guard once, before Agent, Bash and PowerShell calls, where it can block and fails closed', () => {
+  it('runs the guard once, before Agent, Bash, PowerShell, Edit and Write calls, where it can block and fails closed', () => {
     const guard = all.filter(({ hook }) => hook.args[0] === GUARD);
     expect(guard).toHaveLength(1);
     const [{ event, matcher, hook }] = guard as [(typeof guard)[number]];
     expect(event).toBe('PreToolUse');
-    expect(matcher).toBe('Agent|Bash|PowerShell');
+    expect(matcher).toBe('Agent|Bash|PowerShell|Edit|Write');
     // An async hook runs in the background and can't block anything.
     expect(hook.async).toBeUndefined();
     // A crash, a timeout or a Node that won't start blocks the call instead of letting it through.

@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { decide, denial, ENV_FILE, MAY_START, REASONS } from '../../plugin/hooks/guard.mjs';
+import { decide, denial, EDITORS, ENV_FILE, MAY_START, REASONS } from '../../plugin/hooks/guard.mjs';
 
 const SCRIPT = resolve(import.meta.dirname, '../../plugin/hooks/guard.mjs');
 const TEAM = ['designer', 'frontend', 'backend', 'reviewer'].map((id) => `world-of-agents:${id}`);
@@ -136,6 +136,67 @@ describe("the agent file's model always wins (v3.1, D3)", () => {
   });
 });
 
+describe('the Lead edits BACKLOG.md and nothing else (v3.3)', () => {
+  const CWD = process.platform === 'win32' ? 'C:\\Users\\dima\\project' : '/home/dima/project';
+  const at = (...parts: string[]) => [CWD, ...parts].join(process.platform === 'win32' ? '\\' : '/');
+  const lead = (tool: string, file_path: unknown, more: Record<string, unknown> = {}) =>
+    JSON.stringify({
+      hook_event_name: 'PreToolUse',
+      agent_type: 'world-of-agents:lead',
+      cwd: CWD,
+      tool_name: tool,
+      tool_input: { file_path, content: 'x' },
+      ...more,
+    });
+  const sub = (agent_type: string, file_path: string) =>
+    JSON.stringify({ agent_id: 'a1', agent_type, cwd: CWD, tool_name: 'Edit', tool_input: { file_path } });
+
+  it('lets the Lead edit and write BACKLOG.md at the project root, by answering nothing', () => {
+    for (const tool of ['Edit', 'Write']) expect(decide(lead(tool, at('BACKLOG.md'))), tool).toBeNull();
+  });
+
+  it.each([
+    ['another file', at('src', 'app.ts')],
+    ['a BACKLOG.md in a subfolder', at('docs', 'BACKLOG.md')],
+    ['a path that climbs out and back', at('src', '..', 'BACKLOG.md')],
+    ['a path through .', at('.', 'BACKLOG.md')],
+    ['a relative path', 'BACKLOG.md'],
+    ['a look-alike name', at('BACKLOG.md.bak')],
+    ['the settings file', at('.claude', 'settings.local.json')],
+  ])('denies the Lead %s', (_, file) => {
+    for (const tool of ['Edit', 'Write']) expect(decide(lead(tool, file)), tool).toBe(denial(REASONS.edit));
+  });
+
+  it('denies when the folder itself has a dot segment: the exact match alone would let that through', () => {
+    const odd = process.platform === 'win32' ? 'C:\\Users\\x\\..\\project' : '/home/x/../project';
+    const file = `${odd}${process.platform === 'win32' ? '\\' : '/'}BACKLOG.md`;
+    expect(decide(lead('Edit', file, { cwd: odd }))).toBe(denial(REASONS.edit));
+  });
+
+  it('matches the name case-blind on Windows only', () => {
+    const lower = decide(lead('Edit', at('backlog.md')));
+    if (process.platform === 'win32') expect(lower).toBeNull();
+    else expect(lower).toBe(denial(REASONS.edit));
+  });
+
+  it('denies the Lead with no folder to compare, and a call with no file at all', () => {
+    expect(decide(lead('Edit', at('BACKLOG.md'), { cwd: undefined }))).toBe(denial(REASONS.edit));
+    expect(decide(lead('Edit', undefined))).toBe(denial(REASONS.input));
+  });
+
+  it("leaves our editing agents' edits to their own permission prompts, anywhere in the project", () => {
+    for (const agent of EDITORS) expect(decide(sub(agent, at('src', 'app.ts'))), agent).toBeNull();
+    expect([...EDITORS]).toEqual(TEAM.filter((t) => !t.endsWith(':reviewer')));
+  });
+
+  it('denies an edit by anyone else: the Reviewer, an unknown agent, a main thread that is not the Lead', () => {
+    expect(decide(sub('world-of-agents:reviewer', at('a.ts')))).toBe(denial(REASONS.edit));
+    expect(decide(sub('general-purpose', at('a.ts')))).toBe(denial(REASONS.edit));
+    expect(decide(lead('Edit', at('BACKLOG.md'), { agent_type: 'probe' }))).toBe(denial(REASONS.edit));
+    expect(decide(lead('Edit', at('BACKLOG.md'), { agent_type: undefined }))).toBe(denial(REASONS.edit));
+  });
+});
+
 describe('fails closed on input it cannot check', () => {
   it.each([
     ['empty stdin', ''],
@@ -151,10 +212,7 @@ describe('fails closed on input it cannot check', () => {
     ['a subagent_type that is not a string', byLead(['world-of-agents:backend'])],
     ['a shell call with no command', shell('Bash', undefined)],
     ['a shell command that is not a string', shell('PowerShell', 42)],
-    [
-      'a tool the matcher never sends',
-      JSON.stringify({ tool_name: 'Write', tool_input: { file_path: 'a' } }),
-    ],
+    ['a tool the matcher never sends', JSON.stringify({ tool_name: 'Read', tool_input: { file_path: 'a' } })],
     ['no tool_name', JSON.stringify({ tool_input: { command: 'ls' } })],
   ])('%s', (_name, raw) => {
     expect(decide(raw)).toBe(denial(REASONS.input));
@@ -231,6 +289,24 @@ describe('never allow', () => {
     ...BUILT_IN.map((type): [string, boolean] => [byLead(type), false]),
     [bySub('world-of-agents:backend', 'Explore'), false],
     [bySub('main', 'world-of-agents:backend'), false],
+    [
+      JSON.stringify({
+        agent_type: 'world-of-agents:lead',
+        cwd: '/p',
+        tool_name: 'Edit',
+        tool_input: { file_path: '/p/src/a.ts' },
+      }),
+      false,
+    ],
+    [
+      JSON.stringify({
+        agent_type: 'world-of-agents:lead',
+        cwd: '/p',
+        tool_name: 'Write',
+        tool_input: { file_path: '/p/BACKLOG.md' },
+      }),
+      true,
+    ],
     [
       JSON.stringify({
         agent_type: 'world-of-agents:lead',
