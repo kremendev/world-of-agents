@@ -5,15 +5,16 @@
 // nothing from an agent, a file, the page or the environment. Each runs in the plugin's own folder. Claude Code already
 // refuses a command found only in the working folder ("unsafe location (current directory)", checked on 2.1.318), so a
 // node.exe in a project is never run; the plugin's folder is a second lock on that. Nothing any of them prints is kept,
-// shown or sent anywhere, with three exceptions checked to the character: the digits of `node --version`, the version
-// hall-check.mjs prints for our hall (3.2d), through hallVersionOf(), and (v3.2c, L7) the recount of whole numbers
-// ledger-past.mjs prints, through recountOf().
+// shown or sent anywhere, with four exceptions checked to the character: the digits of `node --version`, the version
+// hall-check.mjs prints for our hall (3.2d), through hallVersionOf(), (v3.2c, L7) the recount of whole numbers
+// ledger-past.mjs prints, through recountOf(), and (v3.4c) team-log.mjs's change log, names only, through changesOf().
 
 import type { EngineInterface } from 'claude-code';
 
 import { recountOf } from './ledger';
 import type { Recount } from './ledger';
-import type { PaneHall, PaneLedger, PaneNode } from './types';
+import { changesOf } from './team';
+import type { PaneChange, PaneHall, PaneLedger, PaneNode } from './types';
 
 /**
  * This plugin's version, as plugin.json states it: change both together (tests/plugin/mod.test.ts checks). The hall it
@@ -32,6 +33,10 @@ export const gateStatusCommand = (root: string) => ['node', `${root}/hooks/gate.
 export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
 /** hooks/ledger-past.mjs: Recount, every session's token counts from Claude Code's transcripts, numbers only. */
 export const pastCommand = (root: string) => ['node', `${root}/hooks/ledger-past.mjs`];
+/** hooks/hall-key.mjs: a one-time key, on stdin, handed to the hall after the handshake (v3.4c). */
+export const keyCommand = (root: string) => ['node', `${root}/hooks/hall-key.mjs`];
+/** hooks/team-log.mjs: the changes the hall's page made to the team, names only (v3.4c). */
+export const logCommand = (root: string) => ['node', `${root}/hooks/team-log.mjs`];
 
 /** hall-check.mjs's exit codes: our hall, nothing on the port, something else on it. */
 const OURS = 0;
@@ -125,6 +130,34 @@ export async function gateStatus($: EngineInterface): Promise<'unknown' | 'on' |
     return exitCode === 0 ? 'on' : exitCode === 5 ? 'off' : 'unknown';
   } catch {
     return 'unknown';
+  }
+}
+
+/**
+ * The team editor's key to the hall (v3.4c, T8), on stdin only, never as an argument or in the environment. True when
+ * the hall took it (exit 0).
+ */
+export async function sendKey($: EngineInterface, key: string): Promise<boolean> {
+  try {
+    const run = await $.process.run(keyCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      stdin: JSON.stringify({ key }),
+      timeoutMs: TIMEOUT_MS,
+    });
+    return run.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+/** The team's newest changes (v3.4c), when team-log.mjs printed exactly a change log; else null, and nothing is kept. */
+export async function teamChanges($: EngineInterface): Promise<PaneChange[] | null> {
+  try {
+    const run = await $.process.run(logCommand($.plugin.root), { cwd: $.plugin.root, timeoutMs: TIMEOUT_MS });
+    if (run.exitCode !== 0 || run.isStdoutTruncated) return null;
+    return changesOf(run.stdout);
+  } catch {
+    return null;
   }
 }
 

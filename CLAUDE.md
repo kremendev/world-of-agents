@@ -75,11 +75,19 @@ src/live/         Live mode: hall.ts (health check, with the version the hall st
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
                   announce.ts (what the aria-live region says, cut at the last full sentence)
+src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team view, the key; team.mjs's rules mirrored,
+                  team-page.test.ts holds them in step), key.ts (takeKey(): #k= out of the address bar at once;
+                  startTeamSession() in main.tsx, before React), api.ts (the calls), text.ts (checkText(): refusals as
+                  team.mjs's, link and command-like flags). The panel is src/page/TeamPanel.tsx
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id,
-                  /api/health, serves only the page files it is given, by exact match; the handshake answer and /api/health
-                  state the plugin version, from src/version.ts, 3.2d), page.ts (PAGE_TYPES, listPage()
+                  /api/health, and from v3.4c the team editor: POST /api/key (hall-key.mjs, token, no Origin), POST
+                  /api/session (the page's key, once, within 60 s, for a cookie), GET and POST /api/team (that cookie,
+                  the page's exact Origin, the schema, a 64 KiB cap; writes through team.mjs only); serves only the page
+                  files it is given, by exact match; the handshake answer and /api/health state the plugin version, from
+                  src/version.ts, 3.2d), keys.ts (the one-time keys and sessions, digests in memory only),
+                  page.ts (PAGE_TYPES, listPage()
                   for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals),
                   plugin-hall.ts (the plugin's hall: its page and manifest beside its own file), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
@@ -104,7 +112,9 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing),
                   hooks/ledger-past.mjs (Recount, v3.2c, per session since 3.2d: every session's token counts from Claude
                   Code's transcripts, cache writes split 5-minute and 1-hour, printed as whole numbers only, on Dima's press),
-                  hooks/mod/ (the team pane, a mod named
+                  hooks/hall-key.mjs (v3.4c: the editor's one-time key
+                  from stdin to POST /api/key after the handshake; exit code only), hooks/team-log.mjs (v3.4c: the team's
+                  change log, names only, as strict JSON), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
                   command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
@@ -380,7 +390,10 @@ Do not change the look without asking. New ideas go into a later version.
   what it has, and one stored at the press whose transcript is gone moves into `earlier`, so the total never goes down.
   Never text: a test plants secrets in transcripts and in the script's output.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
-  120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
+  120 code points; never `Markdown`. Two `Link`s only: the hall, exactly `http://localhost:4319`, and (v3.4c, T8) the team editor's,
+  `http://localhost:4319/#k=<key>`, shown for 60 s after Dima presses "Change skills". The key is 32 bytes from the
+  engine's `crypto.getRandomValues`, kept in a module variable of register.tsx only, never in `$.state` or `$.store`, and
+  sent only on hall-key.mjs's stdin. `tests/plugin/mod.test.ts`
   checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
   `prompt.read`, no `send`, no `Markdown`, and prompt text read in one place. Two hooks see Dima's prompts (`prompt.submit`, `classic.UserPromptSubmit`): the first only asks `heardRun()` whether the prompt is a frame naming one of the mod's own runs, and that id is only compared with `unheard`; the second reads `permission_mode` only. No prompt text, not even an id a prompt claims, reaches `$.state`, `$.store`, a process, the voice or the pane: `register.test.tsx` plants a fake token in a prompt and in frames and checks every write (two planted bugs, both caught). `scripts/mod-surface.json` lists
   every event, `$` call, state key and env name it uses, as `claude plugin validate` reads them; `npm run mod:surface`
@@ -401,16 +414,19 @@ Do not change the look without asking. New ideas go into a later version.
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
   counts, never text), run whenever the hall becomes `running` (3.2d: a hall the mod started itself answered after session
   start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
-  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press. A
+  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, on the press of "Change skills") and
+  `node <plugin>/hooks/team-log.mjs` (no input; whenever the hall becomes `running`, after the Lead's turns while it is, and every
+  20 s for ten minutes after a key). A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
   lock on that. No shell, no `-Command`, no argument, `env` or text from an agent, a file, the page or the environment;
   the kit tests pin each argv and cwd, and `mod.test.ts` pins where `process.run`, `process.spawn` and `input` appear.
-  Nothing a child prints is shown or kept, with three exceptions, each checked to the character: the digits of
-  `node --version`, the version hall-check.mjs prints for our hall through `hallVersionOf()` (3.2d), and
-  ledger-past.mjs's recount of whole numbers through `recountOf()` (v3.2c, L7, Dima's decision); `mod.test.ts` pins
-  `.stdout` to those three lines. The hall is started through the session's `$`, never a turn's: a child dies
+  Nothing a child prints is shown or kept, with four exceptions, each checked to the character: the digits of
+  `node --version`, the version hall-check.mjs prints for our hall through `hallVersionOf()` (3.2d),
+  ledger-past.mjs's recount of whole numbers through `recountOf()` (v3.2c, L7, Dima's decision), and
+  team-log.mjs's change log through `changesOf()` (v3.4c: time, a fixed kind, and names that pass team.mjs's name rule,
+  the newest five shown; Dima's T8 asked for a line per change); `mod.test.ts` pins `.stdout` to those four lines. The hall is started through the session's `$`, never a turn's: a child dies
   when the dispatch it was started in is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
   refuses a `$` kept in a variable, so register.tsx keeps a closure made in `session.start` instead.
 - "Is the hall up?" is `hall-check.mjs`: send.mjs's own handshake (no redirect, capped answer, `timingSafeEqual`), never
@@ -465,6 +481,18 @@ Do not change the look without asking. New ideas go into a later version.
   same name, so nothing loads twice (tested for milestone 0, with hooks counted and a real hall). Don't add a warning.
 - `version` in `plugin.json` pins installs: people on GitHub get a new copy only when that string changes. Change it with
   every release. A marketplace added from a local folder loads `plugin/` in place, so it ignores the version.
+- The team editor (v3.4c, T8, Dima's decision) is the one way the hall's page writes anything: skills only (add, change,
+  delete, give, take; at most 5 per specialist; specialists wait for v3.5.0). A write needs the session cookie, which only
+  a one-time key buys: made by the mod, handed to the hall only on hall-key.mjs's stdin and through the token-checked
+  `POST /api/key`, carried in the link after a `#`, taken out of the address bar before React renders, and exchanged once,
+  within 60 s (`server/keys.ts`: digests only, the newest 10 keys and 5 sessions, in memory). The cookie is HttpOnly,
+  SameSite=Strict, `Path=/api/team`. Every write also needs the page's exact Origin (`http://` + its Host), JSON, the
+  64 KiB cap and `teamChangeSchema`; then `team.mjs`'s `applyChange()` and `writeTeam()` check it again and write only in
+  the team folder, `changes.json` included. It never starts a run. A used key says "This link was already used. Open the
+  hall again from the pane." (Dima's words). What the panel shows of the team is text; the preview shows a skill whole,
+  flags links and command-like lines, and refuses what `textProblem()` refuses. Known limit, in the README: the link is
+  briefly visible in the browser's command line when the desktop app opens it. Anything that can read the hall's token
+  can also mint a key, the same as it could post hooks; the guard and the template keep agents away from that folder.
 - The hall sends `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on every
   response. The Pages build (`VITE_LIVE=false`) carries the same policy as a meta tag, without `frame-ancestors`. Both
   come from `server/csp.ts`. Add only what the page really needs; never `unsafe-inline` or `unsafe-eval`. React's `style`
@@ -685,11 +713,14 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    is docs/release-notes/v3.3.0-check.md. v3.3.0 is prepared, not tagged (plugin.json 3.3.0, docs/release-notes/v3.3.0.md,
    README pins on `#v3.3.0`).
    v3.4.0 (docs/v3.4-plan.md): the local-plugin approach is proven (a folder marketplace, local scope, loaded in place,
-   `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). T8, how the hall's page proves it is Dima, waits
-   for him, and with it 3.4c (the skill buttons). 3.4b done (the guard's team rows from team.json, every start denied
+   `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). 3.4b done (the guard's team rows from team.json, every start denied
    without it, the folder rule; template version 3 denies Read/Edit/Write on ~/.world-of-agents/**, versions/2.json the
    v3.0 one; guild leads have Agent and memory: local, the Lead memory: local; from the review, Edit and Write into
    ~/.world-of-agents denied for every caller, as written and as resolved). 3.4d done (a `specialist` event; the hall
    shows a guild lead's specialists at work in its name plate and screen-reader label, the pane under the lead; names from
-   the agent type's shape only). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare v3.4.0, then
-   the final report.
+   the agent type's shape only). 3.4c done (12 Nov, Dima's T8: the pane's "Change skills" makes a one-time key, hands
+   it to the hall through hall-key.mjs's stdin and shows the link with it after a #; the page takes it out of the address
+   bar at once and exchanges it once, within 60 s, for an HttpOnly, SameSite=Strict cookie; the Team panel adds,
+   changes, deletes and gives skills through POST /api/team, with a full preview, flags and refusals; every change is a
+   line in the pane through team-log.mjs). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
+   v3.4.0, then the final report.

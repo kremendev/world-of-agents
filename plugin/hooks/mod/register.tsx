@@ -10,13 +10,14 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import { findNode, gateStatus, keepHall, recountSessions, sendLedger } from './hall';
+import { findNode, gateStatus, keepHall, recountSessions, sendKey, sendLedger, teamChanges } from './hall';
 import { addTurn, LEDGER_KEY, readLedger, recount, summarize } from './ledger';
 import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
 import { fillPreset } from './presets';
 import type { PresetKey } from './presets';
 import { rosterIdOf, specialistOf } from './roster';
+import { KEY_LIFE_MS, makeKey, SHOWN, WATCH_MS, WATCH_TICKS } from './team';
 import { plain } from './text';
 import type { PaneAgent, PaneHall, PaneLedger, PaneSpecialist, PaneView } from './types';
 import { approvalLine, backgroundRun, heardRun, hush, say, teamLine } from './voice';
@@ -31,6 +32,8 @@ const EMPTY: PaneView = {
   usage: null,
   ledger: null,
   past: { state: 'idle', counted: null },
+  editor: 'none',
+  teamChanges: [],
   gates: 'unknown',
   gateRetry: null,
   round: [],
@@ -45,7 +48,7 @@ const EMPTY: PaneView = {
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-10' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-11' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -113,7 +116,11 @@ const setHall =
       came = hall === 'running' && v.hall !== 'running';
       return v.hall === hall && v.hallVersion === version ? v : { ...v, hall, hallVersion: version };
     });
-    if (came) counting = counting.then(() => pushLedger($)).catch(() => {});
+    if (came) {
+      counting = counting.then(() => pushLedger($)).catch(() => {});
+      // v3.4c: changes come only through a running hall's page, so the change log is read as it becomes ours too.
+      quietly(checkChanges($));
+    }
   };
 
 /** Watching must never get in the way: a failure here is dropped, and the event goes on as the engine settled it. */
@@ -175,6 +182,61 @@ async function checkScope($: EngineInterface): Promise<void> {
     JSON.stringify(v.everyProject) === JSON.stringify(everyProject) ? v : { ...v, everyProject },
   );
 }
+
+/**
+ * The team editor (v3.4c, T8). The key lives here only, for the minute its link is shown: never in $.state or $.store.
+ */
+let editorKey: string | null = null;
+let makingKey = false;
+let watching: { cancel: () => void } | undefined;
+
+/** The changes the hall's page made to the team, newest last: only what changesOf() takes. */
+async function checkChanges($: EngineInterface): Promise<void> {
+  const changes = await teamChanges($);
+  if (changes === null) return;
+  const shown = changes.slice(-SHOWN);
+  await set($, (v) =>
+    JSON.stringify(v.teamChanges) === JSON.stringify(shown) ? v : { ...v, teamChanges: shown },
+  );
+}
+
+/**
+ * "Change skills": a new key to the hall through hall-key.mjs's stdin, then the link that carries it, for a minute. Then the
+ * pane looks at the change log every 20 s for ten minutes, so each change shows while Dima edits.
+ */
+async function openEditor($: EngineInterface): Promise<void> {
+  if (makingKey) return;
+  makingKey = true;
+  try {
+    editorKey = null;
+    await set($, (v) => ({ ...v, editor: 'making' }));
+    const key = makeKey();
+    if (!(await sendKey($, key))) {
+      await set($, (v) => ({ ...v, editor: 'failed' }));
+      return;
+    }
+    editorKey = key;
+    await set($, (v) => ({ ...v, editor: 'open' }));
+    $.clock.after(KEY_LIFE_MS, () => {
+      if (editorKey !== key) return;
+      editorKey = null;
+      quietly(set($, (v) => (v.editor === 'open' ? { ...v, editor: 'none' } : v)));
+    });
+    watching?.cancel();
+    let left = WATCH_TICKS;
+    const tick = $.clock.every(WATCH_MS, () => {
+      left -= 1;
+      if (left <= 0) tick.cancel();
+      quietly(checkChanges($));
+    });
+    watching = tick;
+  } finally {
+    makingKey = false;
+  }
+}
+
+/** The editor through the session's own `$`, like the hall check: its timers must outlive the press. */
+let openEditorInSession: (() => Promise<void>) | undefined;
 
 /** Is the hall still there? Not before Node has been found at session start. */
 async function checkHall($: EngineInterface): Promise<void> {
@@ -282,6 +344,7 @@ export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     const started = await next(e);
     checkHallInSession = () => checkHall($);
+    openEditorInSession = () => openEditor($);
     quietly($.ui.open({ id: PANE, title: 'World of Agents' }));
     $.clock.every(POLL_MS, () => quietly(refreshAgents($)));
     quietly(startUp($));
@@ -299,11 +362,18 @@ export const register: Register = (on) => {
   });
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) =>
-    drawPane($, e, await read($, view), {
-      onPreset: (key) => pressPreset($, key),
-      onMute: () => toggleMute($),
-      onRecount: () => recountPressed($),
-    }),
+    drawPane(
+      $,
+      e,
+      await read($, view),
+      {
+        onPreset: (key) => pressPreset($, key),
+        onMute: () => toggleMute($),
+        onRecount: () => recountPressed($),
+        onChangeSkills: () => (openEditorInSession ? openEditorInSession() : openEditor($)),
+      },
+      editorKey,
+    ),
   );
 
   // The mode isn't announced when it changes: the next prompt or subagent start carries it.
@@ -367,6 +437,8 @@ export const register: Register = (on) => {
             return { ...v, round: end.round };
           });
           if (line !== undefined) await speakUp($, line);
+          // v3.4c: anything the hall's page changed in the team since.
+          if ((await read($, view)).hall === 'running') await checkChanges($);
         })(),
       );
     }

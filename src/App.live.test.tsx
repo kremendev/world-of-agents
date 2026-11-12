@@ -1232,3 +1232,29 @@ describe("the ledger's total in the header (v3.2)", () => {
     expect(line()).toBeNull();
   });
 });
+
+describe('the team editor (v3.4c)', () => {
+  it('opens from the header in Live, says how to get a session, and closes on Esc with the focus back', async () => {
+    await renderLive();
+    const team = button('Team');
+    team.focus();
+    fireEvent.click(team);
+    const dialog = screen.getByRole('dialog', { name: 'Team' });
+    expect(dialog).toHaveTextContent('press "Change skills" in the team pane');
+    // The activity column under it can't be reached while it is open.
+    expect(document.querySelector('.side-content')).toHaveAttribute('inert');
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await settle();
+    expect(screen.queryByRole('dialog', { name: 'Team' })).toBeNull();
+    expect(button('Team')).toHaveFocus();
+  });
+
+  it('opens at once with what the hall said to the key in the address', async () => {
+    hallAnswers();
+    render(<App teamSession={Promise.resolve('used')} />);
+    await settle();
+    expect(screen.getByRole('dialog', { name: 'Team' })).toHaveTextContent(
+      'This link was already used. Open the hall again from the pane.',
+    );
+  });
+});

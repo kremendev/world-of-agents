@@ -131,6 +131,8 @@ describe('the hall', () => {
       { argv: ['node', `${root}/hooks/hall-check.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
       // Once the hall says it listens, the handshake (not its word) says it is ours.
       { argv: ['node', `${root}/hooks/hall-check.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
+      // v3.4c: the team's change log, read as the hall becomes ours (3.2d: also when this session started it).
+      { argv: ['node', `${root}/hooks/team-log.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
     ]);
     // No input, no environment, no shell: the command and its folder, and nothing else.
     expect(world.spawns).toEqual([{ argv: ['node', `${root}/hall/server.mjs`], cwd: `${root}/hall` }]);
@@ -367,7 +369,12 @@ describe('Node', () => {
       const world = engine(on, { node: { exitCode: 0, stdout: `${version}\n` }, checks: [OURS] });
       await $.session.start(SESSION);
       await world.clock.settle();
-      expect(world.runs).toHaveLength(2);
+      // --version, the hall check, and (v3.4c) the team's change log, which only a running hall's page changes.
+      expect(world.runs.map((r) => r.argv[1]?.split('/').at(-1))).toEqual([
+        '--version',
+        'hall-check.mjs',
+        'team-log.mjs',
+      ]);
       const pane = await mount($);
       const texts = await pane.texts();
       expect(texts.filter((t) => t.startsWith('Node.js') || t.startsWith('Install Node'))).toEqual([]);

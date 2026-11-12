@@ -2,11 +2,15 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { readFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { applyChange, logChange, readTeam, readTexts, teamDir, writeTeam } from '../plugin/team/team.mjs';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
 import { VERSION } from '../src/version';
+import { keyBodySchema, teamChangeSchema, type TeamChange, type TeamView } from '../src/team/schema';
 import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
+import { createKeys, sessionCookie } from './keys';
 import { INITIAL_MAP, mapHook } from './map';
 import type { Page } from './page';
 
@@ -21,6 +25,10 @@ export const PORT = 4319;
 export const MAX_BODY = 256 * 1024;
 /** The ledger's total is a few hundred bytes (v3.2). */
 export const MAX_LEDGER_BODY = 4096;
+/** A one-time key or the page's handing back of one: a few dozen bytes (v3.4c). */
+export const MAX_KEY_BODY = 256;
+/** One change to the team: a skill's text is at most 8,000 characters, four bytes each at most in UTF-8. */
+export const MAX_TEAM_BODY = 64 * 1024;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
 /** What send.mjs sends to the handshake: 32 random bytes as base64url. Anything else is not a handshake. */
@@ -67,7 +75,8 @@ function readBody(req: IncomingMessage, limit = MAX_BODY): Promise<string | null
 const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLowerCase() === 'application/json';
 
 /**
- * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), POST /api/ledger (from ledger-post.mjs), GET /api/events (Server-Sent Events for the
+ * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), POST /api/ledger (from ledger-post.mjs),
+ * POST /api/key (from hall-key.mjs), POST /api/session and GET and POST /api/team (the team editor, v3.4c), GET /api/events (Server-Sent Events for the
  * page), GET /api/health, and the built page: only the files `page` names. Events live in memory only; it starts and
  * runs nothing. `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
  * `version` is the plugin's (3.2d), which the handshake answer and /api/health state, so the team pane and the page can
@@ -78,11 +87,16 @@ export function createHall({
   port = PORT,
   page,
   version = VERSION,
+  teamHome = homedir(),
+  now = Date.now,
 }: {
   token: string;
   port?: number;
   page?: Page;
   version?: string;
+  /** The home folder whose ~/.world-of-agents/team the team editor reads and writes (v3.4c); tests give a temp one. */
+  teamHome?: string;
+  now?: () => number;
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
@@ -95,6 +109,10 @@ export function createHall({
   // The ledger's latest total, in memory only: never part of the replay, and gone when the hall stops.
   let ledger: LedgerTotals | null = null;
   const ledgerFrame = (totals: LedgerTotals) => `event: ledger\ndata: ${JSON.stringify(totals)}\n\n`;
+  // The team editor's one-time keys and sessions (v3.4c), in memory only.
+  const keys = createKeys(now);
+  // One team write at a time: each reads the team the last one wrote.
+  let writing: Promise<unknown> = Promise.resolve();
 
   function publish(events: readonly OfficeEvent[]): void {
     for (const event of events) {
@@ -174,6 +192,104 @@ export function createHall({
     reply(res, 204);
   }
 
+  /** A request from the page itself: browsers send Origin with a POST, and it must be exactly this hall's own. */
+  const fromPage = (req: IncomingMessage) =>
+    req.headers.origin === `http://${req.headers.host?.toLowerCase() ?? ''}`;
+
+  /** The body as JSON when it is JSON and under `limit`; else the reply is sent and undefined comes back. */
+  async function jsonBody(req: IncomingMessage, res: ServerResponse, limit: number): Promise<unknown> {
+    if (!isJson(req.headers['content-type'])) return reply(res, 415);
+    const body = await readBody(req, limit);
+    if (body === null) return reply(res, 413);
+    try {
+      return JSON.parse(body) as unknown;
+    } catch {
+      return reply(res, 400);
+    }
+  }
+
+  /**
+   * hall-key.mjs, when Dima presses "Change skills" in the pane (v3.4c, T8): a one-time key the mod made, with the token,
+   * like a hook. Never from a page.
+   */
+  async function keyPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.headers.origin !== undefined) return reply(res, 403);
+    if (!authorized(req.headers.authorization)) return reply(res, 401);
+    const json = await jsonBody(req, res, MAX_KEY_BODY);
+    if (json === undefined) return;
+    const body = keyBodySchema.safeParse(json);
+    if (!body.success) return reply(res, 400);
+    keys.add(body.data.key);
+    reply(res, 204);
+  }
+
+  /** The page hands back the key from its link, once, within 60 seconds, for a session cookie. */
+  async function sessionPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!fromPage(req)) return reply(res, 403);
+    const json = await jsonBody(req, res, MAX_KEY_BODY);
+    if (json === undefined) return;
+    const body = keyBodySchema.safeParse(json);
+    if (!body.success) return reply(res, 400);
+    const exchanged = keys.exchange(body.data.key);
+    if (!exchanged.ok) return reply(res, 403, { error: exchanged.why });
+    res.writeHead(204, { ...BASE_HEADERS, 'Set-Cookie': sessionCookie(exchanged.session) });
+    res.end();
+  }
+
+  /** The team and its skills' texts, as team.mjs reads them; null when there is no team or a file isn't as it wrote it. */
+  function teamView(): TeamView | null {
+    const team = readTeam(teamHome);
+    if (team === null) return null;
+    try {
+      return { team, texts: readTexts(teamDir(teamHome), team) };
+    } catch {
+      return null;
+    }
+  }
+
+  const NO_TEAM = {
+    error: 'The team is missing or broken. Type /world-of-agents:setup-team in Claude Code.',
+  };
+
+  function teamGet(req: IncomingMessage, res: ServerResponse): void {
+    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
+    const view = teamView();
+    reply(res, view === null ? 409 : 200, view ?? NO_TEAM);
+  }
+
+  /**
+   * One change to the team's skills, from the page with a live session (v3.4c): every control above, the schema, then
+   * team.mjs, which checks the result again and writes only inside the team folder. It starts nothing and runs nothing.
+   */
+  async function teamPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!fromPage(req)) return reply(res, 403);
+    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
+    const json = await jsonBody(req, res, MAX_TEAM_BODY);
+    if (json === undefined) return;
+    const change = teamChangeSchema.safeParse(json);
+    if (!change.success) return reply(res, 400);
+    const done = writing.then(() => applyToTeam(change.data));
+    writing = done.catch(() => {});
+    const { status, body } = await done;
+    reply(res, status, body);
+  }
+
+  function applyToTeam(change: TeamChange): { status: number; body: unknown } {
+    const view = teamView();
+    if (view === null) return { status: 409, body: NO_TEAM };
+    let next: ReturnType<typeof applyChange>;
+    try {
+      next = applyChange(view.team, view.texts, change, now());
+    } catch (error) {
+      // team.mjs's own fixed words, with checked ids at most.
+      return { status: 409, body: { error: (error as Error).message } };
+    }
+    const dir = teamDir(teamHome);
+    writeTeam(dir, next.team, next.texts);
+    logChange(dir, next.entry);
+    return { status: 200, body: { team: next.team, texts: next.texts } };
+  }
+
   function events(req: IncomingMessage, res: ServerResponse): void {
     res.writeHead(200, { ...BASE_HEADERS, 'Content-Type': 'text/event-stream; charset=utf-8' });
     res.flushHeaders();
@@ -211,6 +327,12 @@ export function createHall({
     if (path === '/api/handshake') return method === 'POST' ? handshake(req, res) : reply(res, 405);
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
     if (path === '/api/ledger') return method === 'POST' ? ledgerPost(req, res) : reply(res, 405);
+    if (path === '/api/key') return method === 'POST' ? keyPost(req, res) : reply(res, 405);
+    if (path === '/api/session') return method === 'POST' ? sessionPost(req, res) : reply(res, 405);
+    if (path === '/api/team') {
+      if (method === 'GET') return teamGet(req, res);
+      return method === 'POST' ? teamPost(req, res) : reply(res, 405);
+    }
     if (path === '/api/events') return method === 'GET' ? events(req, res) : reply(res, 405);
     if (path === '/api/health')
       return method === 'GET' ? reply(res, 200, { ok: true, version }) : reply(res, 405);

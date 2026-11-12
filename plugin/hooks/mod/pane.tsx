@@ -8,6 +8,7 @@ import type { PresetKey } from './presets';
 import { compareVersions, PLUGIN_VERSION } from './hall';
 import { ledgerLines, scopeLine } from './ledger';
 import { nameOf, ROSTER } from './roster';
+import { changeLine, editorLink, KEY } from './team';
 import type { PaneAgent, PaneFillRefusal, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
 export const HALL_URL = 'http://localhost:4319';
@@ -49,6 +50,10 @@ const FILL_LINES: Record<PaneFillRefusal, string> = {
 export const PAST_HOW =
   "Recount reads only the token counts in Claude Code's transcripts on this PC, when you press it.";
 export const PAST_FAILED = "Couldn't recount.";
+
+/** The team editor (v3.4c): how its link works, and a key the hall didn't take. */
+export const EDITOR_HOW = 'Opens the hall where you can change skills. The link works once, within a minute.';
+export const EDITOR_FAILED = "The hall didn't take the key. Try again once the hall runs.";
 
 /** Why there is no usable Node, and what it costs. Only digits and dots of what `node --version` printed show here. */
 export function nodeWarning(v: PaneView): string | undefined {
@@ -133,11 +138,15 @@ export function drawPane(
     onPreset,
     onMute,
     onRecount,
+    onChangeSkills,
   }: {
     onPreset: (key: PresetKey) => Promise<void>;
     onMute: () => Promise<void>;
     onRecount: () => Promise<void>;
+    onChangeSkills: () => Promise<void>;
   },
+  /** The team editor's one-time key while its link is open (v3.4c); never part of the view. */
+  editorKey: string | null = null,
 ) {
   const { Box, Text, Button, Link } = $.ui.resolve(e);
   const warning = v.mode === null ? undefined : MODE_WARNINGS.get(v.mode);
@@ -270,6 +279,32 @@ export function drawPane(
           <Button key="mute" label={v.muted ? 'Unmute voice' : 'Mute voice'} onPress={onMute} />
         </Box>
       </Box>
+      {v.hall === 'running' && (
+        <Box flexDirection="column">
+          <Text bold>Skills</Text>
+          {v.editor === 'open' && editorKey !== null && KEY.test(editorKey) ? (
+            <Box flexDirection="column">
+              <Box flexDirection="row">
+                <Link href={editorLink(HALL_URL, editorKey)} label="Open the team editor" />
+              </Box>
+              <Text dimColor>{EDITOR_HOW}</Text>
+            </Box>
+          ) : (
+            <Box flexDirection="row">
+              <Button key="change-skills" label="Change skills" onPress={onChangeSkills} />
+            </Box>
+          )}
+          {v.editor === 'failed' && <Text color="warning">{EDITOR_FAILED}</Text>}
+        </Box>
+      )}
+      {v.teamChanges.length > 0 && (
+        <Box flexDirection="column">
+          <Text bold>Team changes</Text>
+          {v.teamChanges.map((change) => (
+            <Text>{changeLine(change)}</Text>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 }

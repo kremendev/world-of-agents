@@ -846,7 +846,8 @@ p {
  * The review board: a drawer over the right-hand column (task bar and feed), never over the hall, so the hall keeps its
  * place and size. No slide: nothing to switch off for reduced motion. It scrolls inside itself.
  */
-.review-board {
+.review-board,
+.team-panel {
   position: absolute;
   inset: 0;
   z-index: 1;

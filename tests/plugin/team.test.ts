@@ -3,14 +3,20 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  MAX_CHANGES,
   MAX_PRELOADED,
   MAX_TEXT,
+  applyChange,
   buildAgent,
   buildSkill,
   defaults,
   init,
+  isChange,
+  logChange,
   problem,
+  readChanges,
   readTeam,
+  readTexts,
   teamDir,
   textProblem,
   toolsOf,
@@ -219,5 +225,64 @@ describe('init and readTeam', () => {
     expect(readTeam(h)).toBeNull();
     writeFileSync(join(teamDir(h), 'team.json'), JSON.stringify({ ...copy(), version: 2 }));
     expect(readTeam(h)).toBeNull();
+  });
+});
+
+describe('the editing functions (v3.4c)', () => {
+  const NOW = Date.UTC(2026, 10, 12, 12);
+
+  it('applyChange leaves the team and texts it was given as they were', () => {
+    const { team, texts } = defaults();
+    const before = JSON.stringify([team, texts]);
+    const next = applyChange(team, texts, { action: 'delete-skill', id: 'owasp-checks' }, NOW);
+    expect(JSON.stringify([team, texts])).toBe(before);
+    expect(next.team.skills.map((s) => s.id)).not.toContain('owasp-checks');
+    expect(next.texts['owasp-checks']).toBeUndefined();
+    expect(next.entry).toEqual({ at: NOW, what: 'skill-deleted', skill: 'OWASP checks' });
+  });
+
+  it('applyChange refuses what it cannot do, in its own fixed words', () => {
+    const { team, texts } = defaults();
+    const refuse = (change: Parameters<typeof applyChange>[2]) => () => applyChange(team, texts, change, NOW);
+    expect(refuse({ action: 'delete-skill', id: 'no-such' })).toThrow('no such skill');
+    expect(
+      refuse({ action: 'add-skill', id: 'owasp-checks', name: 'X', description: 'Y', text: 'Z' }),
+    ).toThrow('a skill with that id is there already');
+    expect(
+      refuse({ action: 'add-skill', id: 'new', name: 'X', description: 'Y', text: '!`rm -rf ~`' }),
+    ).toThrow('a line Claude Code would run as a command');
+    expect(refuse({ action: 'attach', specialist: 'review-security-warden', skill: 'owasp-checks' })).toThrow(
+      'attached already',
+    );
+    expect(
+      refuse({ action: 'add-skill', id: 'new', name: 'Bad: name', description: 'Y', text: 'Z' }),
+    ).toThrow('not a team');
+  });
+
+  it('readTexts gives back each text as written, and refuses a SKILL.md someone changed by hand', () => {
+    const dir = home();
+    const { team, texts } = defaults();
+    writeTeam(dir, team, texts);
+    const back = readTexts(dir, team);
+    for (const s of team.skills) expect(back[s.id]).toBe(texts[s.id]!.trim());
+    writeFileSync(
+      join(dir, 'skills', 'owasp-checks', 'SKILL.md'),
+      '---\nname: owasp-checks\nhooks: evil\n---\n\nx\n',
+    );
+    expect(() => readTexts(dir, team)).toThrow('not as this module wrote it');
+  });
+
+  it('logChange keeps the newest entries, and only entries that are exactly entries', () => {
+    const dir = home();
+    writeTeam(dir, defaults().team, defaults().texts);
+    for (let i = 0; i < MAX_CHANGES + 2; i++)
+      logChange(dir, { at: i + 1, what: 'skill-added', skill: `Skill ${i}` });
+    expect(readChanges(dir)).toHaveLength(MAX_CHANGES);
+    expect(readChanges(dir)[0]).toEqual({ at: 3, what: 'skill-added', skill: 'Skill 2' });
+    expect(() => logChange(dir, { at: 1, what: 'skill-added', skill: 'see https://x' })).toThrow(
+      'not a log entry',
+    );
+    expect(isChange({ at: 1, what: 'skill-attached', skill: 'A', specialist: 'B' })).toBe(true);
+    expect(isChange({ at: 1, what: 'skill-attached', skill: 'A' })).toBe(false);
   });
 });

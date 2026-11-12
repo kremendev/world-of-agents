@@ -117,9 +117,9 @@ describe('the hall the plugin carries', () => {
   });
 
   it('finds its page beside its own file: never the working folder, an argument or an environment variable', () => {
-    // esbuild numbers the renamed imports (join2, join3...), so the number may change from one build to the next.
+    // esbuild numbers the renamed imports (join2, readFileSync2...), so the number may change from one build to the next.
     expect(bundle).toContain('var here = import.meta.dirname;');
-    expect(bundle).toMatch(/readFileSync\(join\d*\(here, "manifest\.json"\), "utf8"\)/);
+    expect(bundle).toMatch(/readFileSync\d*\(join\d*\(here, "manifest\.json"\), "utf8"\)/);
     expect(bundle).toMatch(/dir: join\d*\(here, "page"\)/);
     expect(bundle).not.toMatch(/process\.(cwd|argv|env)\b/);
   });

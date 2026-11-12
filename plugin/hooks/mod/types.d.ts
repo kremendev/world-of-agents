@@ -60,6 +60,20 @@ export type PaneLedger = {
  */
 export type PanePast = { state: 'idle' | 'counting' | 'failed'; counted: number | null };
 
+/** One change the hall's page made to the team (v3.4c): when, what, and names only. */
+export type PaneChange = {
+  at: number;
+  what: 'skill-added' | 'skill-changed' | 'skill-deleted' | 'skill-attached' | 'skill-detached';
+  skill: string;
+  specialist?: string;
+};
+
+/**
+ * The team editor's link (v3.4c): none, a key on its way to the hall, a link open for a minute, or the hall didn't take
+ * the key. The key itself is never here.
+ */
+export type PaneEditor = 'none' | 'making' | 'open' | 'failed';
+
 /**
  * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs) as this
  * plugin's version, `other-version` when it answered as another install's (3.2d), `taken` when something else holds port
@@ -90,6 +104,9 @@ export type PaneView = {
   ledger: PaneLedger | null;
   /** Recount: every session in the transcripts, counted into `ledger` when Dima asks (v3.2c, 3.2d). */
   past: PanePast;
+  /** v3.4c: the team editor's link, and the newest changes the hall's page made to the team. */
+  editor: PaneEditor;
+  teamChanges: PaneChange[];
   /** v3.3: are quality gates on in this project? `hooks/gate.mjs --status`'s exit code at session start. */
   gates: 'unknown' | 'on' | 'off';
   /** v3.3: the last time a gate sent an agent back: which of ours, and which retry. From the gate's fixed first line only. */

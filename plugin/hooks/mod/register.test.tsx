@@ -46,6 +46,8 @@ const STORED_VIEW: PaneView = {
   usage: null,
   ledger: null,
   past: { state: 'idle', counted: null },
+  editor: 'none',
+  teamChanges: [],
   gates: 'unknown',
   gateRetry: null,
   round: [],
@@ -326,7 +328,7 @@ describe('prompts', () => {
     // The engine's own refusal can't come from a stand-in (see above), so the view holds it as a press would leave it.
     on('state.get', () => ({
       value: {
-        value: { shape: 'view-10', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
+        value: { shape: 'view-11', value: { ...STORED_VIEW, fillRefused: 'no_composer' } },
         version: 1,
       },
     }));
@@ -1202,4 +1204,186 @@ describe("the team's specialists in the pane (v3.4)", () => {
     expect(texts.filter((t) => t.includes('React dev'))).toEqual([]);
     await ui.unmount();
   });
+});
+
+describe('the team editor (v3.4c, T8)', () => {
+  /** An engine with the hall up. hall-key.mjs answers `keyExit`; team-log.mjs prints `log`. Records every write. */
+  function withEditor(on: On, keyExit: number, log = '{"changes":[]}') {
+    const clock = mock.clock(on);
+    const runs: { argv: readonly string[]; cwd?: string; stdin?: string }[] = [];
+    const written: string[] = [];
+    on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('ui.open', () => ({ value: { isPlaced: true } }));
+    on('agent.list', () => ({ value: [] }));
+    on('state.set', async (_, e, next) => {
+      written.push(JSON.stringify(e.value));
+      return next(e);
+    });
+    on('store.get', () => ({ value: undefined }));
+    on('store.set', (_, e) => {
+      written.push(JSON.stringify(e));
+      return { value: undefined };
+    });
+    on('process.run', (_, e) => {
+      runs.push({ argv: e.argv, cwd: e.init?.cwd, stdin: e.init?.stdin });
+      const script = e.argv[1]?.split('/').at(-1);
+      return {
+        value: {
+          exitCode: script === 'hall-key.mjs' ? keyExit : 0,
+          // Our hall states this plugin's version (3.2d).
+          stdout:
+            script === '--version'
+              ? 'v24.22.0\n'
+              : script === 'team-log.mjs'
+                ? log
+                : script === 'hall-check.mjs'
+                  ? `${PLUGIN_VERSION}\n`
+                  : '',
+          stderr: '',
+          isStdoutTruncated: false,
+          isStderrTruncated: false,
+        },
+      };
+    });
+    on('turn.start', (_, e) => ({ turnId: e.turnId }));
+    on('turn.complete', () => ({ text: '' }));
+    const keys = () => runs.filter((r) => r.argv[1]?.endsWith('/hooks/hall-key.mjs'));
+    const logs = () => runs.filter((r) => r.argv[1]?.endsWith('/hooks/team-log.mjs'));
+    return { clock, written, keys, logs };
+  }
+  const links = async (ui: { findAll: (q: { type: 'Link' }) => Promise<{ props: { href?: unknown } }[]> }) =>
+    (await ui.findAll({ type: 'Link' })).map((l) => String(l.props.href));
+
+  test('a press hands a new key to the hall on stdin only, then shows its link for a minute, and keeps it nowhere', async ($, on) => {
+    const { clock, written, keys } = withEditor(on, 0);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    expect(await links(ui)).toEqual(['http://localhost:4319']);
+    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeDefined();
+
+    await ui.press({ key: 'change-skills' });
+    await clock.settle();
+    expect(keys()).toHaveLength(1);
+    const [run] = keys();
+    const root = run!.cwd!;
+    expect(run!.argv).toEqual(['node', `${root}/hooks/hall-key.mjs`]);
+    expect(root).not.toBe('/project');
+    const { key } = JSON.parse(run!.stdin!) as { key: string };
+    expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await links(ui)).toEqual(['http://localhost:4319', `http://localhost:4319/#k=${key}`]);
+    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeUndefined();
+    // The key went to hall-key.mjs's stdin and into the link, and nowhere else: no state, no store, no argument.
+    expect(written.join('\n')).not.toContain(key);
+    expect(
+      keys()
+        .flatMap((r) => r.argv)
+        .join(' '),
+    ).not.toContain(key);
+
+    await clock.advance(60_000);
+    await clock.settle();
+    expect(await links(ui)).toEqual(['http://localhost:4319']);
+    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeDefined();
+    await ui.unmount();
+  });
+
+  test('every press makes a new key', async ($, on) => {
+    const { clock, keys } = withEditor(on, 0);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    await ui.press({ key: 'change-skills' });
+    await clock.advance(60_000);
+    await clock.settle();
+    await ui.press({ key: 'change-skills' });
+    await clock.settle();
+    const sent = keys().map((r) => (JSON.parse(r.stdin!) as { key: string }).key);
+    expect(sent).toHaveLength(2);
+    expect(sent[0]).not.toBe(sent[1]);
+    await ui.unmount();
+  });
+
+  test("a key the hall didn't take shows no link, and says so", async ($, on) => {
+    const { clock } = withEditor(on, 1);
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    await ui.press({ key: 'change-skills' });
+    await clock.settle();
+    expect(await links(ui)).toEqual(['http://localhost:4319']);
+    expect(
+      await ui.find({ type: 'Text', text: "The hall didn't take the key. Try again once the hall runs." }),
+    ).toBeDefined();
+    await ui.unmount();
+  });
+
+  test('shows the newest five team changes, names only, and looks again while the editor may be in use', async ($, on) => {
+    const at = new Date(2026, 10, 12, 14, 5).getTime();
+    const changes = [
+      { at, what: 'skill-added', skill: 'Release notes' },
+      { at, what: 'skill-changed', skill: 'Release notes' },
+      { at, what: 'skill-attached', skill: 'Release notes', specialist: 'React dev' },
+      { at, what: 'skill-detached', skill: 'Vitest', specialist: 'Test writer' },
+      { at, what: 'skill-deleted', skill: 'Old notes' },
+      { at, what: 'skill-added', skill: 'Newest' },
+    ];
+    const { clock, logs } = withEditor(on, 0, JSON.stringify({ changes }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    expect(logs()).toHaveLength(1);
+    expect(logs()[0]!.argv).toEqual(['node', `${logs()[0]!.cwd}/hooks/team-log.mjs`]);
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    const lines = (await ui.findAll({ type: 'Text', text: /^12 Nov 14:05 / })).map((t) => t.text);
+    expect(lines).toEqual([
+      '12 Nov 14:05 Skill changed: Release notes',
+      '12 Nov 14:05 React dev got the skill Release notes',
+      '12 Nov 14:05 Test writer lost the skill Vitest',
+      '12 Nov 14:05 Skill deleted: Old notes',
+      '12 Nov 14:05 Skill added: Newest',
+    ]);
+    await ui.press({ key: 'change-skills' });
+    await clock.settle();
+    const before = logs().length;
+    await clock.advance(20_000);
+    await clock.settle();
+    expect(logs().length).toBe(before + 1);
+    await ui.unmount();
+  });
+
+  const BAD_LOGS: [name: string, log: string][] = [
+    ['text', 'Skill added: Release notes'],
+    ['a key besides changes', JSON.stringify({ changes: [], note: 'x' })],
+    [
+      'an entry with a link for a name',
+      JSON.stringify({ changes: [{ at: 1, what: 'skill-added', skill: 'see https://evil.example' }] }),
+    ],
+    [
+      'an entry with an extra key',
+      JSON.stringify({ changes: [{ at: 1, what: 'skill-added', skill: 'Notes', prompt: 'x' }] }),
+    ],
+    [
+      'an unknown kind of change',
+      JSON.stringify({ changes: [{ at: 1, what: 'specialist-added', skill: 'Notes' }] }),
+    ],
+    [
+      'a pair without its specialist',
+      JSON.stringify({ changes: [{ at: 1, what: 'skill-attached', skill: 'Notes' }] }),
+    ],
+    [
+      'more than 20 entries',
+      JSON.stringify({ changes: Array(21).fill({ at: 1, what: 'skill-added', skill: 'Notes' }) }),
+    ],
+  ];
+  for (const [name, log] of BAD_LOGS) {
+    test(`drops a change log that isn't exactly one, whole: ${name}`, async ($, on) => {
+      const { clock } = withEditor(on, 0, log);
+      await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+      await clock.settle();
+      const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+      expect(await ui.find({ type: 'Text', text: 'Team changes' })).toBeUndefined();
+      expect(await ui.find({ type: 'Text', text: /Notes|evil|Release/ })).toBeUndefined();
+      await ui.unmount();
+    });
+  }
 });

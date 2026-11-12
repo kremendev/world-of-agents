@@ -13,6 +13,8 @@ import { reviewsOf } from './page/review';
 import { ReviewBoard } from './page/ReviewBoard';
 import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
+import { TeamPanel, type TeamSession } from './page/TeamPanel';
+import type { Exchange } from './team/api';
 import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
@@ -53,7 +55,8 @@ function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
   return { kind: 'live', label: 'Live', status };
 }
 
-export default function App() {
+/** `teamSession`: the team editor's key from the address, exchanged before React rendered (main.tsx), or null. */
+export default function App({ teamSession = null }: { teamSession?: Promise<Exchange> | null } = {}) {
   const hall = useLiveHall();
   const [watchingDemo, setWatchingDemo] = useState(false);
   // The scripted run: the whole page when no hall answered, or on request while one does.
@@ -72,6 +75,10 @@ export default function App() {
   // What opened it, for the focus to go back to, and whether a close asked for that (another agent's click doesn't).
   const opener = useRef<HTMLElement | null>(null);
   const focusBack = useRef(false);
+  // The team editor (v3.4c): open at once when the address carried a key, and where the page stands with the hall.
+  const [teamOpen, setTeamOpen] = useState(teamSession !== null);
+  const [teamState, setTeamState] = useState<TeamSession>(teamSession ? 'checking' : 'none');
+  const sideOpen = board !== null || teamOpen;
   const activityHeading = useRef<HTMLHeadingElement>(null);
   const player = useRef<Player | null>(null);
   const stage = useStage();
@@ -132,8 +139,30 @@ export default function App() {
     if (!(active instanceof HTMLElement && active.closest('.review-board'))) {
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     }
+    setTeamOpen(false);
     setBoard((was) => ({ at, n: (was?.n ?? 0) + 1 }));
   };
+
+  // The team editor takes the same place as the board; one of them at a time.
+  const openTeam = () => {
+    const active = document.activeElement;
+    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    setBoard(null);
+    setTeamOpen(true);
+  };
+  const closeTeam = () => {
+    focusBack.current = true;
+    setTeamOpen(false);
+  };
+
+  useEffect(() => {
+    if (!teamSession) return;
+    let alive = true;
+    void teamSession.then((answer) => alive && setTeamState(answer));
+    return () => {
+      alive = false;
+    };
+  }, [teamSession]);
 
   // Esc or Close: the focus goes back to what opened the board, or to the Activity heading if that is gone.
   const closeBoard = () => {
@@ -143,22 +172,23 @@ export default function App() {
 
   // After the render that closed it: until then the feed is still inert, and a browser won't focus inside it.
   useEffect(() => {
-    if (board || !focusBack.current) return;
+    if (sideOpen || !focusBack.current) return;
     focusBack.current = false;
     const back = opener.current;
     (back?.isConnected ? back : activityHeading.current)?.focus();
-  }, [board]);
+  }, [sideOpen]);
 
   useEffect(() => {
-    if (!board) return;
+    if (!sideOpen) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       focusBack.current = true;
       setBoard(null);
+      setTeamOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [board]);
+  }, [sideOpen]);
 
   // Clicking the Reviewer selects it and filters the feed, as for anyone, and opens the review board too (D9).
   // Another agent closes the board, leaving the focus on that agent.
@@ -236,6 +266,9 @@ export default function App() {
             <button type="button" onClick={playDemo}>
               Play demo
             </button>
+            <button type="button" aria-haspopup="dialog" onClick={openTeam}>
+              Team
+            </button>
           </div>
         )}
       </header>
@@ -272,7 +305,7 @@ export default function App() {
         </section>
         {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}
         <div className="side">
-          <div className="side-content" inert={board !== null}>
+          <div className="side-content" inert={sideOpen}>
             {demo && <TaskBar onSend={send} />}
             <ActivityFeed
               office={office}
@@ -284,6 +317,7 @@ export default function App() {
             />
           </div>
           {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
+          {teamOpen && !board && <TeamPanel session={teamState} onClose={closeTeam} />}
         </div>
       </div>
 

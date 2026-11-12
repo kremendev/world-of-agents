@@ -28,3 +28,24 @@ export function writeTeam(dir: string, team: Team, texts: Record<string, string>
 export function defaults(): { team: Team; texts: Record<string, string> };
 export function init(home?: string): 'created' | 'exists';
 export function readTeam(home?: string): Team | null;
+
+export type TeamChange =
+  | { action: 'add-skill' | 'change-skill'; id: string; name: string; description: string; text: string }
+  | { action: 'delete-skill'; id: string }
+  | { action: 'attach' | 'detach'; specialist: string; skill: string };
+export type ChangeEntry =
+  | { at: number; what: 'skill-added' | 'skill-changed' | 'skill-deleted'; skill: string }
+  | { at: number; what: 'skill-attached' | 'skill-detached'; skill: string; specialist: string };
+export const ACTIONS: readonly TeamChange['action'][];
+export const MAX_CHANGES: number;
+export const CHANGE_KINDS: readonly ChangeEntry['what'][];
+export function readTexts(dir: string, team: Team): Record<string, string>;
+export function applyChange(
+  team: Team,
+  texts: Record<string, string>,
+  change: TeamChange,
+  now: number,
+): { team: Team; texts: Record<string, string>; entry: ChangeEntry };
+export function isChange(entry: unknown): entry is ChangeEntry;
+export function readChanges(dir: string): ChangeEntry[];
+export function logChange(dir: string, entry: ChangeEntry): void;

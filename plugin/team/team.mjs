@@ -4,8 +4,9 @@
 //
 // That folder is a live plugin: whatever lands in it loads (a prompt, a skill, a hooks folder that runs code). So this is
 // the only writer: it checks the data with a strict schema, writes the frontmatter itself from checked fields, refuses a
-// skill line that Claude Code would run as a command, and writes only team.json, agents/<id>.md, skills/<id>/SKILL.md and
-// the two manifests, inside the team folder. Node built-ins only, so the plugin needs no build.
+// skill line that Claude Code would run as a command, and writes only team.json, agents/<id>.md, skills/<id>/SKILL.md,
+// the two manifests and (v3.4c) changes.json, the log of what the hall's page changed, inside the team folder. Node
+// built-ins only, so the plugin needs no build.
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -185,6 +186,120 @@ export function writeTeam(dir, team, texts) {
     if (SKILL_ID.test(name) && !skills.has(name)) rmSync(inside(dir, 'skills', name), { recursive: true });
   }
   writeFileSync(inside(dir, 'team.json'), `${JSON.stringify(team, null, 2)}\n`);
+}
+
+/**
+ * Each skill's text as written, read back from the SKILL.md this module built (v3.4c): the file must start with exactly
+ * the frontmatter buildSkill() writes for that skill. Throws when one is missing or doesn't, so a write never loses a text.
+ */
+export function readTexts(dir, team) {
+  const texts = {};
+  for (const s of team.skills) {
+    const file = readFileSync(inside(dir, 'skills', s.id, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
+    const head = buildSkill(s, '').slice(0, -1);
+    if (!file.startsWith(head) || !file.endsWith('\n'))
+      throw new Error(`skill ${s.id}: not as this module wrote it`);
+    texts[s.id] = file.slice(head.length, -1);
+  }
+  return texts;
+}
+
+/** What the hall's page may change (v3.4c): skills only. Specialists wait for v3.5.0. */
+export const ACTIONS = Object.freeze(['add-skill', 'change-skill', 'delete-skill', 'attach', 'detach']);
+
+/**
+ * One change applied (v3.4c): a new team and texts, and the log entry, names only. Pure: the team and texts given are left
+ * as they were. Throws when the change can't be made; writeTeam() checks the result again before anything is written.
+ */
+export function applyChange(team, texts, change, now) {
+  const next = structuredClone(team);
+  const nextTexts = { ...texts };
+  const skill = (id) => next.skills.find((s) => s.id === id);
+  const specialist = (id) => next.specialists.find((p) => p.id === id);
+  let entry;
+  if (change.action === 'add-skill' || change.action === 'change-skill') {
+    const textWhy = textProblem(change.text);
+    if (textWhy) throw new Error(`the text: ${textWhy}`);
+    const fields = { id: change.id, name: change.name, description: change.description };
+    if (change.action === 'add-skill') {
+      if (skill(change.id)) throw new Error('a skill with that id is there already');
+      if (next.skills.length >= MAX_SKILLS) throw new Error(`the team has ${MAX_SKILLS} skills already`);
+      next.skills.push(fields);
+    } else {
+      const at = next.skills.findIndex((s) => s.id === change.id);
+      if (at < 0) throw new Error('no such skill');
+      next.skills[at] = fields;
+    }
+    nextTexts[change.id] = change.text.trim();
+    entry = { what: change.action === 'add-skill' ? 'skill-added' : 'skill-changed', skill: change.name };
+  } else if (change.action === 'delete-skill') {
+    const gone = skill(change.id);
+    if (!gone) throw new Error('no such skill');
+    next.skills = next.skills.filter((s) => s.id !== change.id);
+    for (const p of next.specialists) p.skills = p.skills.filter((id) => id !== change.id);
+    delete nextTexts[change.id];
+    entry = { what: 'skill-deleted', skill: gone.name };
+  } else if (change.action === 'attach' || change.action === 'detach') {
+    const p = specialist(change.specialist);
+    const s = skill(change.skill);
+    if (!p || !s) throw new Error('no such specialist or skill');
+    if (change.action === 'attach') {
+      if (p.skills.includes(s.id)) throw new Error('attached already');
+      if (p.skills.length >= MAX_PRELOADED)
+        throw new Error(`a specialist has at most ${MAX_PRELOADED} skills`);
+      p.skills.push(s.id);
+    } else {
+      if (!p.skills.includes(s.id)) throw new Error('not attached');
+      p.skills = p.skills.filter((id) => id !== s.id);
+    }
+    entry = {
+      what: change.action === 'attach' ? 'skill-attached' : 'skill-detached',
+      skill: s.name,
+      specialist: p.name,
+    };
+  } else {
+    throw new Error('an unknown change');
+  }
+  const why = problem(next);
+  if (why) throw new Error(`not a team: ${why}`);
+  return { team: next, texts: nextTexts, entry: { at: now, ...entry } };
+}
+
+/** The log of the page's changes (v3.4c), newest last: time, what, and names only. */
+export const MAX_CHANGES = 50;
+export const CHANGE_KINDS = Object.freeze([
+  'skill-added',
+  'skill-changed',
+  'skill-deleted',
+  'skill-attached',
+  'skill-detached',
+]);
+
+/** Is `entry` exactly a log entry? */
+export function isChange(entry) {
+  if (!isObject(entry) || !Number.isSafeInteger(entry.at) || entry.at <= 0) return false;
+  if (!CHANGE_KINDS.includes(entry.what) || !line(entry.skill, 60)) return false;
+  const paired = entry.what === 'skill-attached' || entry.what === 'skill-detached';
+  return paired
+    ? keysAre(entry, ['at', 'what', 'skill', 'specialist']) && line(entry.specialist, 40)
+    : keysAre(entry, ['at', 'what', 'skill']);
+}
+
+/** The log in `dir`: only the entries that are exactly entries, newest last. None when it is missing or broken. */
+export function readChanges(dir) {
+  try {
+    const log = JSON.parse(readFileSync(inside(dir, 'changes.json'), 'utf8'));
+    return Array.isArray(log) ? log.filter(isChange).slice(-MAX_CHANGES) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** One entry added to the log in `dir`, the newest MAX_CHANGES kept. */
+export function logChange(dir, entry) {
+  if (!isChange(entry)) throw new Error('not a log entry');
+  const log = [...readChanges(dir), entry].slice(-MAX_CHANGES);
+  writeFileSync(inside(dir, 'changes.json'), `${JSON.stringify(log, null, 2)}\n`);
 }
 
 /** The defaults this plugin ships: the brief's 8 specialists and their skills, with the texts beside them. */
