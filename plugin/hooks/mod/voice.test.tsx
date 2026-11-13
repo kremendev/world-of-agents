@@ -5,6 +5,7 @@ import type { AgentInfo, On, ProcessSpawnRequest } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
 
+import { PLUGIN_VERSION } from './hall';
 import { plain } from './text';
 import { backgroundRun, firstSentence, heardRun, speakCommand, withoutMarkdown } from './voice';
 
@@ -80,7 +81,12 @@ function engine(
     return {
       value: {
         exitCode: 0,
-        stdout: e.argv[1] === '--version' ? 'v24.22.0\n' : '',
+        stdout:
+          e.argv[1] === '--version'
+            ? 'v24.22.0\n'
+            : e.argv[1]?.endsWith('/hooks/hall-check.mjs')
+              ? `${PLUGIN_VERSION}\n`
+              : '',
         stderr: '',
         isStdoutTruncated: false,
         isStderrTruncated: false,

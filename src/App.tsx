@@ -16,6 +16,7 @@ import { TaskBoard } from './page/TaskBoard';
 import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
+import { VERSION } from './version';
 
 type RunStatus = 'playing' | 'paused' | 'ended';
 
@@ -185,7 +186,7 @@ export default function App() {
       <header className="app-header">
         <div className="brand">
           <h1>World of Agents</h1>
-          <span className="badge forge-badge">Forge Hall · v2</span>
+          <span className="badge forge-badge">Forge Hall · v{hall.version ?? VERSION}</span>
           {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
         </div>
         <div className="run-info">

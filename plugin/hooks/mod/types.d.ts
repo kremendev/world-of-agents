@@ -46,20 +46,17 @@ export type PaneLedger = {
 };
 
 /**
- * Past sessions (v3.2c, L7): not counted, being counted, counted (before when, and when), or the count failed. Only
- * Dima's press counts them.
+ * Recount (v3.2c, L7; per session since 3.2d): running or not, whether the last press failed, and when one last
+ * succeeded (null before the first). Only Dima's press runs it.
  */
-export type PanePast =
-  | { state: 'none' }
-  | { state: 'counting' }
-  | { state: 'failed' }
-  | { state: 'counted'; before: number; counted: number };
+export type PanePast = { state: 'idle' | 'counting' | 'failed'; counted: number | null };
 
 /**
- * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs), `taken` when
- * something else holds port 4319, `stopped` when nothing runs and no start is under way.
+ * The hall as the mod last found it: `running` only once it answered the handshake (hooks/hall-check.mjs) as this
+ * plugin's version, `other-version` when it answered as another install's (3.2d), `taken` when something else holds port
+ * 4319, `stopped` when nothing runs and no start is under way.
  */
-export type PaneHall = 'checking' | 'starting' | 'running' | 'taken' | 'stopped';
+export type PaneHall = 'checking' | 'starting' | 'running' | 'other-version' | 'taken' | 'stopped';
 
 /** What `node --version` said at session start: not asked yet, 20.19 or later, not found, no version, or too old. */
 export type PaneNode = 'unchecked' | 'ok' | 'missing' | 'failed' | 'old';
@@ -80,7 +77,7 @@ export type PaneView = {
   usage: PaneUsage | null;
   /** The ledger's total, kept in $.store across sessions; null until the first turn is counted. */
   ledger: PaneLedger | null;
-  /** Past sessions, counted into `ledger` once Dima asked (v3.2c). */
+  /** Recount: every session in the transcripts, counted into `ledger` when Dima asks (v3.2c, 3.2d). */
   past: PanePast;
   /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */
   round: string[];
@@ -90,6 +87,8 @@ export type PaneView = {
    */
   unheard: string[];
   hall: PaneHall;
+  /** For `other-version`: the version that hall states, digits and dots only; null when it states none (before 3.2.0). */
+  hallVersion: string | null;
   node: PaneNode;
   /** For `old`: the version found, digits and dots only. */
   nodeVersion: string | null;

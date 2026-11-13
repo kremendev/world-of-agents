@@ -6,6 +6,8 @@ import type { On, ProcessRunInit, ProcessSpawnRequest } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
 
+import { PLUGIN_VERSION } from './hall';
+
 const PLUGIN = 'world-of-agents';
 const SURFACES = ['terminal', 'desktop', 'vscode'] as const;
 const PANE = {
@@ -37,7 +39,8 @@ type HallChild = 'listens' | 'ends';
 
 /**
  * The engine beneath the mod. `node` is what `node --version` does; `checks` are hall-check.mjs's exit codes in turn,
- * the last one again for every later check; `gate`, when given, holds every check until the test opens it.
+ * the last one again for every later check, our hall printing `stated` (3.2d: this plugin's version unless given, and
+ * `version()` changes it); `gate`, when given, holds every check until the test opens it.
  */
 function engine(
   on: On,
@@ -46,8 +49,10 @@ function engine(
     checks = [DOWN, OURS] as (number | 'cannot run')[],
     child = 'listens' as HallChild,
     gate = undefined as Promise<void> | undefined,
+    stated = `${PLUGIN_VERSION}\n`,
   } = {},
 ) {
+  let printed = stated;
   const clock = mock.clock(on);
   mock.store(on);
   on('session.start', (_, e) => ({ cwd: e.cwd }));
@@ -70,7 +75,9 @@ function engine(
     }
     if (gate) await gate;
     const answer = left.length > 1 ? left.shift()! : left[0]!;
-    return answer === 'cannot run' ? { deny: 'cannot start' } : result(answer);
+    return answer === 'cannot run'
+      ? { deny: 'cannot start' }
+      : result(answer, answer === OURS ? printed : '');
   });
   let ends = () => {};
   on('process.spawn', async function* (_, e) {
@@ -81,7 +88,15 @@ function engine(
     await new Promise<void>((resolve) => (ends = resolve));
     return { value: { code: null, signal: 'SIGTERM' } };
   });
-  return { clock, runs, spawns, end: () => ends() };
+  return {
+    clock,
+    runs,
+    spawns,
+    end: () => ends(),
+    version: (line: string) => {
+      printed = line;
+    },
+  };
 }
 
 async function mount($: Engine, surface: (typeof SURFACES)[number] = 'desktop') {
@@ -151,6 +166,56 @@ describe('the hall', () => {
       expect(await pane.links()).toEqual([]);
       await pane.ui.unmount();
     }
+  });
+
+  // 3.2d: two installs on one PC share one token file, so another install's hall passes the handshake.
+  for (const [stated, line] of [
+    ['3.0.1\n', 'An older hall (v3.0.1) is running. Close the sessions in your other projects.'],
+    ['', 'An older hall (before v3.2.0) is running. Close the sessions in your other projects.'],
+    ['99.0.0\n', 'A newer hall (v99.0.0) is running. Close the sessions in your other projects.'],
+    [
+      '3.2.0; echo hi\n',
+      'An older hall (before v3.2.0) is running. Close the sessions in your other projects.',
+    ],
+  ] as const) {
+    test(`another install's hall (${JSON.stringify(stated)}): no link, nothing started or stopped, and the pane says which`, async ($, on) => {
+      const world = engine(on, { checks: [OURS], stated });
+      await $.session.start(SESSION);
+      await $.turn.start({ text: 'hi', turnId: 't1' });
+      await world.clock.settle();
+      expect(world.spawns).toEqual([]);
+      expect(
+        new Set(world.runs.map((r) => r.argv.slice(1).join(' ').replace(rootOf(world.runs), '<plugin>'))),
+      ).toEqual(new Set(['--version', '<plugin>/hooks/hall-check.mjs']));
+      for (const surface of SURFACES) {
+        const pane = await mount($, surface);
+        expect(await pane.texts()).toContain(line);
+        expect(await pane.links()).toEqual([]);
+        await pane.ui.unmount();
+      }
+    });
+  }
+
+  test('once the other hall is gone, the next turn of the Lead starts ours and links to it', async ($, on) => {
+    const world = engine(on, { checks: [OURS, DOWN, OURS], stated: '3.0.1\n' });
+    await $.session.start(SESSION);
+    await world.clock.settle();
+    const before = await mount($);
+    expect(await before.texts()).toContain(
+      'An older hall (v3.0.1) is running. Close the sessions in your other projects.',
+    );
+    await before.ui.unmount();
+    // The session that started it closed, and with it that hall. Ours answers as this version.
+    world.version(`${PLUGIN_VERSION}\n`);
+    await $.turn.start({ text: 'hi', turnId: 't1' });
+    await world.clock.settle();
+    expect(world.spawns).toHaveLength(1);
+    const pane = await mount($);
+    expect(await pane.texts()).toContain('Hall: running');
+    expect(await pane.links()).toEqual([HALL_URL]);
+    await pane.ui.unmount();
+    world.end();
+    await world.clock.settle();
   });
 
   test('two checks at once still start one hall, and a check while ours is starting starts none', async ($, on) => {

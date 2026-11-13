@@ -1266,10 +1266,10 @@ function nanoidOfLength(length) {
 }
 var duration = /^P(?:(\d+W)|(?!.*W)(?=\d|T\d)(\d+Y)?(\d+M)?(\d+D)?(T(?=\d)(\d+H)?(\d+M)?(\d+([.,]\d+)?S)?)?)$/;
 var guid = /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})$/;
-var uuid = (version2) => {
-  if (!version2)
+var uuid = (version3) => {
+  if (!version3)
     return /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
-  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version2}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
+  return new RegExp(`^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-${version3}[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$`);
 };
 var email = /^(?:[A-Za-z0-9_'+\-]+\.)*[A-Za-z0-9_'+\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\-]*\.)+[A-Za-z]{2,}$/;
 var _emoji = `^(?=[\\s\\S]*[\\p{Extended_Pictographic}\\p{Regional_Indicator}\\u20E3])[\\p{Extended_Pictographic}\\p{Emoji_Component}]+$`;
@@ -6140,6 +6140,12 @@ function parseEvent(input) {
   return { ok: false, error: `${where}: ${first?.message ?? "invalid event"}` };
 }
 
+// plugin/.claude-plugin/plugin.json
+var version2 = "3.1.0";
+
+// src/version.ts
+var VERSION = version2;
+
 // server/csp.ts
 var POLICY = [
   "default-src 'self'",
@@ -6506,7 +6512,8 @@ var isJson = (type) => type?.split(";")[0]?.trim().toLowerCase() === "applicatio
 function createHall({
   token,
   port = PORT,
-  page
+  page,
+  version: version3 = VERSION
 }) {
   const hosts = /* @__PURE__ */ new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
@@ -6541,7 +6548,7 @@ data: ${JSON.stringify(totals)}
       return reply(res, 400);
     }
     if (typeof nonce !== "string" || !NONCE.test(nonce)) return reply(res, 400);
-    reply(res, 200, { answer: createHmac("sha256", token).update(nonce).digest("base64url") });
+    reply(res, 200, { answer: createHmac("sha256", token).update(nonce).digest("base64url"), version: version3 });
   }
   async function hook(req, res) {
     if (req.headers.origin !== void 0) return reply(res, 403);
@@ -6613,7 +6620,8 @@ ${ledger ? ledgerFrame(ledger) : ""}`
     if (path === "/api/hook") return method === "POST" ? hook(req, res) : reply(res, 405);
     if (path === "/api/ledger") return method === "POST" ? ledgerPost(req, res) : reply(res, 405);
     if (path === "/api/events") return method === "GET" ? events(req, res) : reply(res, 405);
-    if (path === "/api/health") return method === "GET" ? reply(res, 200, { ok: true }) : reply(res, 405);
+    if (path === "/api/health")
+      return method === "GET" ? reply(res, 200, { ok: true, version: version3 }) : reply(res, 405);
     if (method === "GET" || method === "HEAD") return servePage(path, method, res);
     return reply(res, 405);
   }

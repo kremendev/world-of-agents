@@ -35,10 +35,20 @@ describe('checkHall', () => {
   const answers = (ok: boolean, json: () => Promise<unknown>) =>
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok, json })) as unknown as typeof fetch);
 
-  it('asks /api/health and takes { ok: true } for an answer', async () => {
-    answers(true, async () => ({ ok: true }));
-    await expect(checkHall()).resolves.toBe(true);
+  it('asks /api/health and takes { ok: true } for an answer, with the version it states (3.2d)', async () => {
+    answers(true, async () => ({ ok: true, version: '3.2.0' }));
+    await expect(checkHall()).resolves.toEqual({ version: '3.2.0' });
     expect(fetch).toHaveBeenCalledWith('/api/health', expect.objectContaining({ signal: expect.anything() }));
+  });
+
+  it.each([
+    ['none, as a hall from before 3.2.0 answers', { ok: true }],
+    ['text', { ok: true, version: 'v3.2.0 <b>' }],
+    ['a number', { ok: true, version: 320 }],
+    ['four parts', { ok: true, version: '3.2.0.1' }],
+  ])('takes a hall whose version is %s, with no version', async (_, body) => {
+    answers(true, async () => body);
+    await expect(checkHall()).resolves.toEqual({ version: null });
   });
 
   it.each([
@@ -53,12 +63,12 @@ describe('checkHall', () => {
     ['null', true, async () => null],
   ])('says no to %s', async (_, ok, json) => {
     answers(ok, json);
-    await expect(checkHall()).resolves.toBe(false);
+    await expect(checkHall()).resolves.toBeNull();
   });
 
   it('says no when the request fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-    await expect(checkHall()).resolves.toBe(false);
+    await expect(checkHall()).resolves.toBeNull();
   });
 
   it('gives up after a second on a hall that never answers', async () => {
@@ -72,12 +82,12 @@ describe('checkHall', () => {
           }),
       ),
     );
-    let answer: boolean | undefined;
+    let answer: { version: string | null } | null | undefined;
     void checkHall().then((up) => (answer = up));
     await vi.advanceTimersByTimeAsync(HEALTH_TIMEOUT_MS - 1);
     expect(answer).toBeUndefined();
     await vi.advanceTimersByTimeAsync(1);
-    expect(answer).toBe(false);
+    expect(answer).toBeNull();
   });
 });
 

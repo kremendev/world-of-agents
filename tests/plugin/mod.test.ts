@@ -93,19 +93,34 @@ describe('the processes the mod starts', () => {
     expect(using(/\bstdin\s*:/)).toEqual(['hall.ts']);
     expect(code('hall.ts').match(/[^\n]*\bstdin\s*:[^\n]*/g)).toEqual([
       '      stdin: JSON.stringify(totals),',
-      // v3.2c: past sessions' cut-off, a number.
-      '      stdin: JSON.stringify({ before }),',
     ]);
     expect(using(/\benv\s*:/)).toEqual([]);
   });
 
-  it("keeps what a child prints in two places only: node --version's digits and ledger-past's numbers (v3.2c, L7)", () => {
+  it("keeps what a child prints in three places only: node --version's digits, our hall's version and Recount's numbers", () => {
     expect(using(/\.stdout\b/)).toEqual(['hall.ts']);
     expect(code('hall.ts').match(/[^\n]*\.stdout\b[^\n]*/g)).toEqual([
       '    printed = run.stdout;',
-      '    const found = pastOf(run.stdout);',
+      // v3.2c, L7 (per session since 3.2d): whole numbers per session and model, through recountOf().
+      '    return recountOf(run.stdout);',
+      // 3.2d: hall-check.mjs's one line, digits and dots only, through hallVersionOf().
+      "    if (run.exitCode === OURS) return { state: 'ours', version: hallVersionOf(run.stdout) };",
     ]);
     expect(using(/\.stderr\b/)).toEqual([]);
+  });
+
+  it("knows its own version, the one plugin.json states (3.2d): a hall that states another is another install's", () => {
+    const plugin = JSON.parse(readFileSync(join(MOD, '../../.claude-plugin/plugin.json'), 'utf8')) as {
+      version: string;
+    };
+    expect(code('hall.ts')).toContain(`export const PLUGIN_VERSION = '${plugin.version}';`);
+  });
+
+  it('reads the session id only to count a turn under it (3.2d)', () => {
+    expect(using(/\bsession\.id\b/)).toEqual(['register.tsx']);
+    expect(code('register.tsx').match(/[^\n]*\bsession\.id\b[^\n]*/g)).toEqual([
+      "  const session = $.session.id().catch(() => '');",
+    ]);
   });
 
   it('uses no network, no files and no environment variables', () => {

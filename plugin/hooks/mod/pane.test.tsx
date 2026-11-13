@@ -5,6 +5,8 @@ import type { AgentInfo, On } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 import type { Engine } from 'claude-code/testing';
 
+import { PLUGIN_VERSION } from './hall';
+
 const PLUGIN = 'world-of-agents';
 const SURFACES = ['terminal', 'desktop', 'vscode'] as const;
 const PANE = {
@@ -41,7 +43,13 @@ function engine(on: On, agents: AgentInfo[]) {
   on('process.run', (_, e) => ({
     value: {
       exitCode: 0,
-      stdout: e.argv[1] === '--version' ? 'v24.22.0\n' : '',
+      // Node's version; our hall stating this plugin's (3.2d).
+      stdout:
+        e.argv[1] === '--version'
+          ? 'v24.22.0\n'
+          : e.argv[1]?.endsWith('/hooks/hall-check.mjs')
+            ? `${PLUGIN_VERSION}\n`
+            : '',
       stderr: '',
       isStdoutTruncated: false,
       isStderrTruncated: false,

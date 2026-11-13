@@ -12,6 +12,7 @@ import { listPage, readManifest, type Page } from './page';
 import { INITIAL_MAP, mapHook } from './map';
 import { hookOf, run1, timeless } from './test-helpers';
 import { newToken } from './token';
+import { VERSION } from '../src/version';
 
 /** The Host the hall expects. The test hall listens on a free port and is reached with this Host. */
 const HALL_HOST = '127.0.0.1:4319';
@@ -200,17 +201,17 @@ describe('POST /api/handshake', () => {
       body: typeof body === 'string' ? body : JSON.stringify(body),
     });
 
-  it('answers HMAC-SHA256(token, nonce), with no token asked for and none given away', async () => {
+  it('answers HMAC-SHA256(token, nonce) and its plugin version, with no token asked for and none given away', async () => {
     const reply = await ask({ nonce: NONCE });
     expect(reply.status).toBe(200);
-    expect(JSON.parse(reply.body)).toEqual({ answer: handshakeAnswer(TOKEN, NONCE) });
+    expect(JSON.parse(reply.body)).toEqual({ answer: handshakeAnswer(TOKEN, NONCE), version: VERSION });
     expect(reply.body).not.toContain(TOKEN);
     expect(JSON.stringify(reply.headers)).not.toContain(TOKEN);
   });
 
   it('gives a different answer for a different nonce', async () => {
     const other = await ask({ nonce: 'm'.repeat(43) });
-    expect(JSON.parse(other.body)).not.toEqual({ answer: handshakeAnswer(TOKEN, NONCE) });
+    expect((JSON.parse(other.body) as { answer: string }).answer).not.toBe(handshakeAnswer(TOKEN, NONCE));
   });
 
   it('403 with an Origin: a web page has no business asking', async () => {
@@ -336,7 +337,7 @@ describe('every route', () => {
     for (const host of [HALL_HOST, 'localhost:4319', 'LOCALHOST:4319']) {
       const reply = await call({ path: '/api/health', host });
       expect(reply.status, host).toBe(200);
-      expect(JSON.parse(reply.body)).toEqual({ ok: true });
+      expect(JSON.parse(reply.body)).toEqual({ ok: true, version: VERSION });
     }
   });
 

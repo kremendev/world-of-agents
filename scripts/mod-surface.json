@@ -22,6 +22,7 @@
       "$.process.run",
       "$.process.spawn",
       "$.prompt.fill",
+      "$.session.id",
       "$.settings.read",
       "$.state.get",
       "$.state.set",

@@ -37,10 +37,12 @@ const state = (agent: AgentId, s: AgentState): OfficeEvent => ({
   at: 5,
 });
 
+/** The hall states a version no build has, so the badge can only have it from the hall (3.2d). */
+const HALL_VERSION = '9.8.7';
 const hallAnswers = () =>
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({ ok: true, json: async () => ({ ok: true }) })),
+    vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, version: HALL_VERSION }) })),
   );
 
 /** Runs what is waiting on promises (the health check). React sees the result when the act() ends. */
@@ -110,7 +112,8 @@ describe('Demo and Live', () => {
   it('goes Live when the hall answers: its header, no demo controls, and the demo does not play', async () => {
     const app = await renderLive(start);
     expect(app.badge()).toBe('Live');
-    expect(screen.getByText('Forge Hall · v2')).toBeInTheDocument();
+    // The badge names the hall's plugin version, never a fixed one (3.2d).
+    expect(screen.getByText(`Forge Hall · v${HALL_VERSION}`)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'World of Agents' })).toBeInTheDocument();
     expect(screen.getByText(`Run: ${RUN_TEXT}`)).toBeInTheDocument();
     for (const name of ['Play', 'Pause', 'Restart']) noButton(name);

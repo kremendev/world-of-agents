@@ -5,14 +5,21 @@
 // nothing from an agent, a file, the page or the environment. Each runs in the plugin's own folder. Claude Code already
 // refuses a command found only in the working folder ("unsafe location (current directory)", checked on 2.1.318), so a
 // node.exe in a project is never run; the plugin's folder is a second lock on that. Nothing any of them prints is kept,
-// shown or sent anywhere, with two exceptions checked to the character: the digits of `node --version`, and (v3.2c, L7)
-// the ledger of whole numbers ledger-past.mjs prints, through pastOf().
+// shown or sent anywhere, with three exceptions checked to the character: the digits of `node --version`, the version
+// hall-check.mjs prints for our hall (3.2d), through hallVersionOf(), and (v3.2c, L7) the recount of whole numbers
+// ledger-past.mjs prints, through recountOf().
 
 import type { EngineInterface } from 'claude-code';
 
-import { pastOf } from './ledger';
-import type { Ledger } from './ledger';
+import { recountOf } from './ledger';
+import type { Recount } from './ledger';
 import type { PaneHall, PaneLedger, PaneNode } from './types';
+
+/**
+ * This plugin's version, as plugin.json states it: change both together (tests/plugin/mod.test.ts checks). The hall it
+ * starts reports the same; a hall that reports another one is another install's (3.2d).
+ */
+export const PLUGIN_VERSION = '3.1.0';
 
 export const NODE_VERSION = ['node', '--version'] as const;
 /** hooks/hall-check.mjs: send.mjs's handshake, answered with an exit code only. */
@@ -21,7 +28,7 @@ export const checkCommand = (root: string) => ['node', `${root}/hooks/hall-check
 export const hallCommand = (root: string) => ['node', `${root}/hall/server.mjs`];
 /** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
 export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
-/** hooks/ledger-past.mjs: past sessions' token counts from Claude Code's transcripts, numbers only (v3.2c). */
+/** hooks/ledger-past.mjs: Recount, every session's token counts from Claude Code's transcripts, numbers only. */
 export const pastCommand = (root: string) => ['node', `${root}/hooks/ledger-past.mjs`];
 
 /** hall-check.mjs's exit codes: our hall, nothing on the port, something else on it. */
@@ -29,7 +36,7 @@ const OURS = 0;
 const DOWN = 3;
 const TAKEN = 4;
 const TIMEOUT_MS = 10_000;
-/** Reading every transcript on the PC: 196 MB took a few seconds on 12 Nov. */
+/** Reading every transcript on the PC: 206 MB took under a second on 13 Nov. */
 const PAST_TIMEOUT_MS = 120_000;
 
 export type NodeFound = { node: PaneNode; nodeVersion: string | null };
@@ -71,51 +78,77 @@ export async function sendLedger($: EngineInterface, totals: PaneLedger): Promis
 }
 
 /**
- * Past sessions counted (v3.2c, L7), only on Dima's press: the cut-off on stdin, and back exactly a ledger of whole
- * numbers per model id, all of it before the cut-off, or null. Anything else it prints is dropped, whole.
+ * Recount (v3.2c, L7; per session since 3.2d), only on Dima's press: nothing on stdin, and back exactly a recount of whole
+ * numbers per session and model id, or null. Anything else it prints is dropped, whole.
  */
-export async function countPast($: EngineInterface, before: number): Promise<Ledger | null> {
+export async function recountSessions($: EngineInterface): Promise<Recount | null> {
   try {
     const run = await $.process.run(pastCommand($.plugin.root), {
       cwd: $.plugin.root,
-      stdin: JSON.stringify({ before }),
       timeoutMs: PAST_TIMEOUT_MS,
     });
     if (run.exitCode !== 0 || run.isStdoutTruncated) return null;
-    const found = pastOf(run.stdout);
-    return found !== null && found.since <= before ? found : null;
+    return recountOf(run.stdout);
   } catch {
     return null;
   }
 }
 
-/** Where the pane hears what the mod found. */
-export type SetHall = (hall: PaneHall) => Promise<unknown>;
+/** The version hall-check.mjs printed for our hall: exactly digits and dots, one line; null for anything else. */
+export function hallVersionOf(printed: string): string | null {
+  return /^(\d{1,4}\.\d{1,4}\.\d{1,4})\n?$/.exec(printed)?.[1] ?? null;
+}
+
+/** Which of two versions is newer: below 0 when `a` is older than `b`, 0 when they are the same. */
+export function compareVersions(a: string, b: string): number {
+  const x = a.split('.').map(Number);
+  const y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const d = (x[i] ?? 0) - (y[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * Where the pane hears what the mod found. `version` goes with `other-version`: the version that hall states, null when
+ * it states none (a hall from before 3.2.0).
+ */
+export type SetHall = (hall: PaneHall, version?: string | null) => Promise<unknown>;
 
 /** A check is under way (and maybe a start): one at a time. */
 let busy = false;
 /** The hall this module started is still running. Unloading the module kills it, and with it this flag. */
 let child = false;
 
-/** What holds the port, as hall-check.mjs says. A check that can't run says nothing. */
-async function ask($: EngineInterface): Promise<'ours' | 'down' | 'taken' | 'unknown'> {
+type Found = { state: 'ours' | 'down' | 'taken' | 'unknown'; version: string | null };
+
+/** What holds the port, as hall-check.mjs says, with our hall's version. A check that can't run says nothing. */
+async function ask($: EngineInterface): Promise<Found> {
   try {
-    const { exitCode } = await $.process.run(checkCommand($.plugin.root), {
+    const run = await $.process.run(checkCommand($.plugin.root), {
       cwd: $.plugin.root,
       timeoutMs: TIMEOUT_MS,
     });
-    if (exitCode === OURS) return 'ours';
-    if (exitCode === DOWN) return 'down';
-    if (exitCode === TAKEN) return 'taken';
+    if (run.exitCode === OURS) return { state: 'ours', version: hallVersionOf(run.stdout) };
+    if (run.exitCode === DOWN) return { state: 'down', version: null };
+    if (run.exitCode === TAKEN) return { state: 'taken', version: null };
   } catch {
     // It couldn't run: no answer.
   }
-  return 'unknown';
+  return { state: 'unknown', version: null };
 }
 
-/** The hall is running only once it answered the handshake; until then, while our start is alive, it is starting. */
-const shown = (found: Awaited<ReturnType<typeof ask>>): PaneHall =>
-  found === 'ours' ? 'running' : found === 'taken' ? 'taken' : child ? 'starting' : 'stopped';
+/**
+ * The hall is running only once it answered the handshake as this version (3.2d): another install's hall knows the same
+ * token file, and is another version's. Until it answers, while our start is alive, it is starting.
+ */
+async function show(found: Found, setHall: SetHall): Promise<unknown> {
+  if (found.state === 'ours') {
+    return found.version === PLUGIN_VERSION ? setHall('running') : setHall('other-version', found.version);
+  }
+  return setHall(found.state === 'taken' ? 'taken' : child ? 'starting' : 'stopped');
+}
 
 /**
  * Checks the hall, and starts it when nothing holds the port and no start of ours is alive. Never two halls: one check
@@ -128,11 +161,11 @@ export async function keepHall($: EngineInterface, setHall: SetHall): Promise<vo
   busy = true;
   try {
     const found = await ask($);
-    if (found === 'down' && !child) {
+    if (found.state === 'down' && !child) {
       await setHall('starting');
       start($, setHall);
     } else {
-      await setHall(shown(found));
+      await show(found, setHall);
     }
   } finally {
     busy = false;
@@ -141,7 +174,7 @@ export async function keepHall($: EngineInterface, setHall: SetHall): Promise<vo
 
 function start($: EngineInterface, setHall: SetHall): void {
   child = true;
-  const recheck = async () => setHall(shown(await ask($)));
+  const recheck = async () => show(await ask($), setHall);
   void (async () => {
     try {
       const hall = $.process.spawn({ argv: hallCommand($.plugin.root), cwd: `${$.plugin.root}/hall` });

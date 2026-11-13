@@ -10,15 +10,15 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import { countPast, findNode, keepHall, sendLedger } from './hall';
-import { addTurn, LEDGER_KEY, merge, PAST_KEY, readLedger, readPast, summarize } from './ledger';
-import type { Past, TurnUsageLike } from './ledger';
+import { findNode, keepHall, recountSessions, sendLedger } from './hall';
+import { addTurn, LEDGER_KEY, readLedger, recount, summarize } from './ledger';
+import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
 import { fillPreset } from './presets';
 import type { PresetKey } from './presets';
 import { rosterIdOf } from './roster';
 import { plain } from './text';
-import type { PaneAgent, PaneHall, PaneLedger, PanePast, PaneView } from './types';
+import type { PaneAgent, PaneHall, PaneLedger, PaneView } from './types';
 import { approvalLine, backgroundRun, heardRun, hush, say, teamLine } from './voice';
 
 const PANE = 'world-of-agents';
@@ -29,10 +29,11 @@ const EMPTY: PaneView = {
   mode: null,
   usage: null,
   ledger: null,
-  past: { state: 'none' },
+  past: { state: 'idle', counted: null },
   round: [],
   unheard: [],
   hall: 'checking',
+  hallVersion: null,
   node: 'unchecked',
   nodeVersion: null,
   muted: false,
@@ -41,7 +42,7 @@ const EMPTY: PaneView = {
 };
 // Change the tag when PaneView's fields change: a value an older version stored outlives a reload, and is then
 // read as EMPTY instead.
-const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-7' });
+const view = atom({ plugin: 'world-of-agents', key: 'view' } as const, EMPTY, { shape: 'view-8' });
 
 const POLL_MS = 2000;
 const MAX_RUNS = 50;
@@ -77,8 +78,22 @@ async function refreshAgents($: EngineInterface): Promise<void> {
 }
 
 const set = ($: EngineInterface, change: (v: PaneView) => PaneView) => update($, view, change);
-const setHall = ($: EngineInterface) => (hall: PaneHall) =>
-  set($, (v) => (v.hall === hall ? v : { ...v, hall }));
+
+/**
+ * What the mod found at the port. A hall that becomes ours (`running`) gets the ledger's total at once (3.2d): a hall the
+ * mod started itself answered after session start's push, and showed no total until the Lead's next answer (Dima's
+ * desktop check, step 6, 13 Nov).
+ */
+const setHall =
+  ($: EngineInterface) =>
+  async (hall: PaneHall, version: string | null = null): Promise<void> => {
+    let came = false;
+    await set($, (v) => {
+      came = hall === 'running' && v.hall !== 'running';
+      return v.hall === hall && v.hallVersion === version ? v : { ...v, hall, hallVersion: version };
+    });
+    if (came) counting = counting.then(() => pushLedger($)).catch(() => {});
+  };
 
 /** Watching must never get in the way: a failure here is dropped, and the event goes on as the engine settled it. */
 function quietly(work: Promise<unknown>): void {
@@ -94,9 +109,9 @@ async function startUp($: EngineInterface): Promise<void> {
     // No store: the voice is on, as by default.
   }
   let ledger: PaneLedger | null = null;
-  let past: PanePast = { state: 'none' };
+  let counted: number | null = null;
   try {
-    ({ ledger, past } = await storedTotals($));
+    ({ ledger, counted } = await storedTotals($));
   } catch {
     // No store: the pane says nothing has been counted yet.
   }
@@ -104,16 +119,17 @@ async function startUp($: EngineInterface): Promise<void> {
     ...v,
     muted,
     ledger,
-    past,
+    past: { state: 'idle', counted },
     hall: 'checking',
+    hallVersion: null,
     node: 'unchecked',
     nodeVersion: null,
   }));
   const found = await findNode($);
   await set($, (v) => ({ ...v, ...found }));
+  // A hall found ours gets the total as it becomes `running` (setHall).
   if (found.node === 'ok') await keepHall($, setHall($));
   else await setHall($)('stopped');
-  await pushLedger($);
 }
 
 /** One of our ids as a settings key holds it: our name, then a marketplace name of plain characters. */
@@ -147,26 +163,28 @@ async function checkHall($: EngineInterface): Promise<void> {
 let checkHallInSession: (() => Promise<void>) | undefined;
 
 /**
- * One turn's tokens added to the ledger in $.store (v3.2), then shown. Numbers and the engine's model id only. A store
- * that fails costs this turn's count and nothing else; two sessions ending turns at once can lose one (no atomic update).
+ * One turn's tokens added to its session in the ledger in $.store (v3.2, per session since 3.2d), then shown. Numbers,
+ * the engine's model id and the session id only. `lead` is the main thread's turn: its cache writes count as 1-hour ones
+ * (ledger.ts). A store that fails costs this turn's count and nothing else; two sessions ending turns at once can lose
+ * one (no atomic update).
  */
-async function countTurn($: EngineInterface, usage: TurnUsageLike): Promise<void> {
-  const ledger = addTurn(readLedger(await $.store.get(LEDGER_KEY)), usage, Date.now());
+async function countTurn(
+  $: EngineInterface,
+  session: Promise<string>,
+  usage: TurnUsageLike,
+  lead: boolean,
+): Promise<void> {
+  const ledger = addTurn(readLedger(await $.store.get(LEDGER_KEY)), await session, usage, lead, Date.now());
   await $.store.set(LEDGER_KEY, ledger);
-  const summary = summarize(merge(ledger, readPast(await $.store.get(PAST_KEY))) ?? ledger);
-  await set($, (v) => ({ ...v, ledger: summary }));
+  await set($, (v) => ({ ...v, ledger: summarize(ledger) }));
 }
 
-/** The live ledger and past sessions as $.store keeps them, as one total for the pane and the hall. */
-async function storedTotals($: EngineInterface): Promise<{ ledger: PaneLedger | null; past: PanePast }> {
-  const live = readLedger(await $.store.get(LEDGER_KEY));
-  const kept = readPast(await $.store.get(PAST_KEY));
-  const total = merge(live, kept);
-  return {
-    ledger: total === null ? null : summarize(total),
-    past:
-      kept === null ? { state: 'none' } : { state: 'counted', before: kept.before, counted: kept.counted },
-  };
+/** The ledger as $.store keeps it: its total for the pane and the hall, and when Recount last ran. */
+async function storedTotals(
+  $: EngineInterface,
+): Promise<{ ledger: PaneLedger | null; counted: number | null }> {
+  const ledger = readLedger(await $.store.get(LEDGER_KEY));
+  return { ledger: ledger === null ? null : summarize(ledger), counted: ledger?.counted ?? null };
 }
 
 /**
@@ -174,37 +192,40 @@ async function storedTotals($: EngineInterface): Promise<{ ledger: PaneLedger | 
  * read the old total would lose one of the turns.
  */
 let counting: Promise<void> = Promise.resolve();
-function count($: EngineInterface, usage: TurnUsageLike): void {
-  counting = counting.then(() => countTurn($, usage)).catch(() => {});
+function count($: EngineInterface, usage: TurnUsageLike, lead: boolean): void {
+  // The session id now, as the turn ends: a /clear before the count's turn in line would name another session.
+  const session = $.session.id().catch(() => '');
+  counting = counting.then(() => countTurn($, session, usage, lead)).catch(() => {});
 }
 
 /**
- * "Count past sessions" (v3.2c, L7): only on Dima's press, one count at a time. Everything before the live ledger began
- * (now, when nothing has been counted yet), as numbers only; a count that fails keeps nothing.
+ * Recount (v3.2c, L7; per session since 3.2d): only on Dima's press, one at a time. Every session in Claude Code's
+ * transcripts, numbers only; each one it covers takes the transcript's count in place of the stored one, by recount()'s
+ * rules. A count that fails changes nothing.
  */
-let countingPast = false;
-async function countPastSessions($: EngineInterface): Promise<void> {
-  if (countingPast) return;
-  countingPast = true;
+let recounting = false;
+async function recountPressed($: EngineInterface): Promise<void> {
+  if (recounting) return;
+  recounting = true;
   try {
-    await set($, (v) => ({ ...v, past: { state: 'counting' } }));
-    const before = readLedger(await $.store.get(LEDGER_KEY))?.since ?? Date.now();
-    const found = await countPast($, before);
+    await set($, (v) => ({ ...v, past: { ...v.past, state: 'counting' } }));
+    const before = readLedger(await $.store.get(LEDGER_KEY));
+    const found = await recountSessions($);
     if (found === null) throw new Error('not counted');
-    const kept: Past = { ...found, before, counted: Date.now() };
-    // In line with the turns' counts, so no total is shown without what one of them just added.
+    // In line with the turns' counts, against the ledger as it stands once they are in.
     const stored = counting.then(async () => {
-      await $.store.set(PAST_KEY, kept);
-      const { ledger, past } = await storedTotals($);
-      await set($, (v) => ({ ...v, ledger, past }));
+      const table = readLedger(await $.store.get(LEDGER_KEY));
+      await $.store.set(LEDGER_KEY, recount(table, before, found, Date.now()));
+      const { ledger, counted } = await storedTotals($);
+      await set($, (v) => ({ ...v, ledger, past: { state: 'idle', counted } }));
       await pushLedger($);
     });
     counting = stored.catch(() => {});
     await stored;
   } catch {
-    await set($, (v) => ({ ...v, past: { state: 'failed' } }));
+    await set($, (v) => ({ ...v, past: { ...v.past, state: 'failed' } }));
   } finally {
-    countingPast = false;
+    recounting = false;
   }
 }
 
@@ -256,7 +277,7 @@ export const register: Register = (on) => {
     drawPane($, e, await read($, view), {
       onPreset: (key) => pressPreset($, key),
       onMute: () => toggleMute($),
-      onCountPast: () => countPastSessions($),
+      onRecount: () => recountPressed($),
     }),
   );
 
@@ -284,7 +305,7 @@ export const register: Register = (on) => {
   on('turn.complete', async ($, e, next) => {
     const completed = await next(e);
     // Every agent's turn costs tokens: the Lead's and each subagent's.
-    if (e.usage !== undefined) count($, e.usage);
+    if (e.usage !== undefined) count($, e.usage, e.agentId === undefined);
     if (e.agentId === undefined) {
       // After the counts in line, this turn's included.
       counting = counting.then(() => pushLedger($)).catch(() => {});

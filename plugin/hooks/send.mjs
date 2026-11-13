@@ -192,11 +192,17 @@ export function readToken() {
 export const handshakeAnswer = (token, nonce) =>
   createHmac('sha256', token).update(nonce).digest('base64url');
 
+/** A version as a hall states it (3.2d): digits and dots, three parts. */
+const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,4}$/;
+
 /**
- * Does whatever holds the port know the token? The request carries only a random nonce, never the token. Rejects when
- * nothing answers (hall-check.mjs tells a refused connection from the rest).
+ * Does whatever holds the port know the token, and which plugin version is it (3.2d)? The request carries only a random
+ * nonce, never the token. The version counts only beside an answer that proves the token, and only in its exact shape;
+ * a hall from before 3.2.0 states none. Rejects when nothing answers (hall-check.mjs tells a refused connection from the
+ * rest).
  */
-export async function hallKnowsToken(hall, token, signal) {
+export async function askHall(hall, token, signal) {
+  const no = { ours: false, version: null };
   const nonce = randomBytes(32).toString('base64url');
   const res = await fetch(`${hall}/api/handshake`, {
     method: 'POST',
@@ -207,20 +213,28 @@ export async function hallKnowsToken(hall, token, signal) {
   });
   if (!res.ok) {
     await res.body?.cancel();
-    return false;
+    return no;
   }
   const chunks = [];
   let size = 0;
   for await (const chunk of res.body ?? []) {
     size += chunk.length;
-    if (size > MAX_ANSWER) return false;
+    if (size > MAX_ANSWER) return no;
     chunks.push(chunk);
   }
-  const answer = JSON.parse(Buffer.concat(chunks).toString('utf8'))?.answer;
-  if (typeof answer !== 'string') return false;
+  const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  const answer = body?.answer;
+  if (typeof answer !== 'string') return no;
   const got = Buffer.from(answer);
   const expected = Buffer.from(handshakeAnswer(token, nonce));
-  return got.length === expected.length && timingSafeEqual(got, expected);
+  if (got.length !== expected.length || !timingSafeEqual(got, expected)) return no;
+  const version = body.version;
+  return { ours: true, version: typeof version === 'string' && VERSION.test(version) ? version : null };
+}
+
+/** Does whatever holds the port know the token? askHall()'s first half: what send.mjs needs before it posts. */
+export async function hallKnowsToken(hall, token, signal) {
+  return (await askHall(hall, token, signal)).ours;
 }
 
 /**

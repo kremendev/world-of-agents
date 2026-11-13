@@ -3,8 +3,10 @@
 export const OURS: 0;
 export const DOWN: 3;
 export const TAKEN: 4;
-export function hallState(options?: {
+type Options = {
   hall?: string;
   token?: string | null;
   timeoutMs?: number;
-}): Promise<0 | 3 | 4>;
+};
+export function hallAnswer(options?: Options): Promise<{ state: 0 | 3 | 4; version: string | null }>;
+export function hallState(options?: Options): Promise<0 | 3 | 4>;

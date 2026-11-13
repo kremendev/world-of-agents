@@ -42,6 +42,7 @@ The owner works on Windows in Git Bash. Give commands that work there.
 
 ```
 src/events/       Zod schema for OfficeEvent + parseEvent(): the gate every event passes
+src/version.ts    the plugin's version from plugin.json (3.2d): the hall states it, the page's badge shows it
 src/state/        office.ts: OfficeState, INITIAL_OFFICE, the pure officeReducer(), workingCount()
 src/script/       demoRun.ts (the 9-step run as timed events), player.ts (play/pause/restart on a timer)
 src/pixel/        sprite format, crisp scaling (scale.ts), baking and drawing (draw.ts)
@@ -70,14 +71,15 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   strip's read marks: flag|agent|at keys only, in localStorage per hall start, newest 500, every access in
                   a try/catch; memory only in the demo), ledgerText.ts (v3.2: the header's "This PC" line, Live only), copy.ts and CopyButton (v3.1: Copy on an opened row and on each
                   review card: links as their text, every Cc and Cf character but tab and line breaks left out, and said)
-src/live/         Live mode: hall.ts (health check, EventSource with its own reconnect, parseEvent() on every
+src/live/         Live mode: hall.ts (health check, with the version the hall states, EventSource with its own reconnect, parseEvent() on every
                   message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
                   announce.ts (what the aria-live region says, cut at the last full sentence)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id,
-                  /api/health, serves only the page files it is given, by exact match), page.ts (PAGE_TYPES, listPage()
+                  /api/health, serves only the page files it is given, by exact match; the handshake answer and /api/health
+                  state the plugin version, from src/version.ts, 3.2d), page.ts (PAGE_TYPES, listPage()
                   for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals),
                   plugin-hall.ts (the plugin's hall: its page and manifest beside its own file), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
@@ -90,14 +92,17 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash and PowerShell: who may start
                   whom, no `model` in an Agent call, and the .env rule), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
-                  by exit code only: 0 ours, 3 nothing listens, 4 anything else), hooks/ledger-post.mjs (v3.2: the ledger's
+                  by exit code: 0 ours, 3 nothing listens, 4 anything else; with 0, the plugin version the hall states, one line of
+                  digits and dots, 3.2d), hooks/ledger-post.mjs (v3.2: the ledger's
                   totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing),
-                  hooks/ledger-past.mjs (v3.2c: past sessions' token counts from Claude Code's transcripts, printed as a
-                  ledger of whole numbers only, on Dima's press), hooks/mod/ (the team pane, a mod named
+                  hooks/ledger-past.mjs (Recount, v3.2c, per session since 3.2d: every session's token counts from Claude
+                  Code's transcripts, cache writes split 5-minute and 1-hour, printed as whole numbers only, on Dima's press),
+                  hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
                   command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
-                  readLedger(), summarize(), the dated price table, the pane's "This PC" line), types.d.ts
+                  readLedger(), recountOf() and recount() (3.2d), summarize(), the dated price table, the pane's "This PC"
+                  line and scopeLine()), types.d.ts
                   the state contract that plugin.json names; *.test.tsx are kit tests), voice/speak.ps1 (the voice
                   script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
@@ -317,14 +322,21 @@ Do not change the look without asking. New ideas go into a later version.
   When the box doesn't take the text the pane says why in one line: "This surface has no prompt box" for the engine's
   `no_composer`, else, a fill that throws included, "Couldn't fill the prompt box". The presets spike (9 Nov) saw fill work in the desktop app's Code
   tab, a draft kept. `register.test.tsx` pins each, and a mutation run (break one, see the kit fail) showed every one bites.
-  The ledger (v3.2) keeps numbers only in `$.store` (`ledger`): the engine's four token counts per model id (ids that
-  aren't `[a-z][a-z0-9.-]{0,63}` count as `other`, at most 32), read back through `readLedger()`'s strict check.
-  Past sessions (v3.2c, L7, Dima's decision) are opt-in: only the pane's "Count past sessions" runs `ledger-past.mjs`,
-  which reads Claude Code's transcripts and prints one ledger of whole numbers; `pastOf()` keeps it only when it is
-  exactly that (keys `since` and `models`, the counts' five keys, ids as above, at most 8 KiB, `since` not after the
-  cut-off) and drops anything else whole. It goes in `$.store` as `ledger-past`, with its cut-off and when it was
-  counted, and `readPast()` reads it back as strictly. Never text: a test plants secrets in transcripts and in the
-  script's output.
+  The ledger (v3.2, per session since 3.2d) keeps numbers only in `$.store` (`ledger`): per session id (`$.session.id()`,
+  the transcript's name, a UUID; anything else counts in `earlier`) and model id (ids that aren't `[a-z][a-z0-9.-]{0,63}`
+  count as `other`, at most 8 per session), five counts: input, output, cache read, and cache writes of 5 minutes and of
+  1 hour. The engine's counts don't say how long a write lasts, so the Lead's are counted as 1-hour writes and a
+  subagent's as 5-minute ones: an inference (every response on this PC on 13 Nov was so), pinned by a test, which
+  Recount replaces with each transcript's exact split. At most 1000 sessions; past that the oldest fold into `earlier`.
+  `readLedger()` reads it back strictly; 3.2c's shape starts again from nothing (it was never released).
+  Recount (v3.2c, L7 and 3.2d, Dima's decisions) is opt-in: only the pane's "Recount" runs `ledger-past.mjs`, which reads
+  Claude Code's transcripts and prints every session's whole numbers, each with `settled` (no turn can still run in it:
+  nothing written for 10 minutes, and no tool call waiting unless a day has passed). `recountOf()` keeps it only when it
+  is exactly that (keys `since` and `sessions`, session ids as UUIDs, `settled` and `models`, the counts' five keys, ids
+  as above, at most 1000 sessions and 1 MiB) and drops anything else whole. `recount()` merges it: a settled session
+  takes the transcript's count in place of the stored one, an unsettled one or one that changed while Recount ran keeps
+  what it has, and one stored at the press whose transcript is gone moves into `earlier`, so the total never goes down.
+  Never text: a test plants secrets in transcripts and in the script's output.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. The only `Link` is the hall, exactly `http://localhost:4319`. `tests/plugin/mod.test.ts`
   checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
@@ -345,23 +357,29 @@ Do not change the look without asking. New ideas go into a later version.
 - The mod's processes (2c) are fixed commands, each with the plugin's own folder as `cwd`: `node --version`,
   `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`), the voice, and from v3.2
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
-  counts, never text), run at session start and after each of the Lead's turns while the hall is `running`, and from
-  v3.2c `node <plugin>/hooks/ledger-past.mjs`, whose `stdin` is the cut-off (`{"before": <ms>}`), run only on Dima's
-  press. A
+  counts, never text), run whenever the hall becomes `running` (3.2d: a hall the mod started itself answered after session
+  start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
+  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press. A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
   lock on that. No shell, no `-Command`, no argument, `env` or text from an agent, a file, the page or the environment;
   the kit tests pin each argv and cwd, and `mod.test.ts` pins where `process.run`, `process.spawn` and `input` appear.
-  Nothing a child prints is shown or kept, with two exceptions, each checked to the character: the digits of
-  `node --version`, and ledger-past.mjs's ledger of whole numbers through `pastOf()` (v3.2c, L7, Dima's decision);
-  `mod.test.ts` pins `.stdout` to those two lines. The hall is started through the session's `$`, never a turn's: a child dies
+  Nothing a child prints is shown or kept, with three exceptions, each checked to the character: the digits of
+  `node --version`, the version hall-check.mjs prints for our hall through `hallVersionOf()` (3.2d), and
+  ledger-past.mjs's recount of whole numbers through `recountOf()` (v3.2c, L7, Dima's decision); `mod.test.ts` pins
+  `.stdout` to those three lines. The hall is started through the session's `$`, never a turn's: a child dies
   when the dispatch it was started in is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
   refuses a `$` kept in a variable, so register.tsx keeps a closure made in `session.start` instead.
 - "Is the hall up?" is `hall-check.mjs`: send.mjs's own handshake (no redirect, capped answer, `timingSafeEqual`), never
   a 200 from `/api/health`. 0 is ours; 3 is a refused connection; 4 is anything else (no token file, a wrong or late
-  answer, a redirect, a closed connection). Only 0 shows "Open hall". 4 shows "Port 4319 is used by another program." and
-  starts and stops nothing. A start happens only on 3 with no start of ours alive, one check at a time; checks run at
+  answer, a redirect, a closed connection). Only 0 shows "Open hall", and since 3.2d only when the hall states this
+  plugin's version (`PLUGIN_VERSION` in `hall.ts`, which `mod.test.ts` holds to plugin.json's): two installs on one PC
+  share one token file, so another install's hall passes the handshake. That one is `other-version`: "An older hall
+  (vX) is running. Close the sessions in your other projects." ("A newer hall" when it is, "before v3.2.0" when it
+  states none), no link, no ledger, and nothing started or stopped; the session that started it stops it when it ends.
+  askHall() in send.mjs takes the version only beside an answer that proves the token, and only as digits and dots.
+  4 shows "Port 4319 is used by another program." and starts and stops nothing. A start happens only on 3 with no start of ours alive, one check at a time; checks run at
   session start and at each of the Lead's turns, never a subagent's. A hall that loses the race for the port exits 0
   without a word and writes no token (checked by hand with a hall on 4319; `install.test.ts` pins the line).
 - The plugin's hall (`plugin/hall/`, written by `npm run build:plugin-hall`, tracked) finds its page with
@@ -598,8 +616,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    wider than the plan drafted). 3.1f (the review's fixes, 12 Nov: the guard denies `isolation` other than none or
    "worktree"; every plugin script's run check compares real paths, never a name). v3.1.0 is built; its desktop
    checklist is docs/release-notes/v3.1.0-check.md.
-   v3.1.0 is prepared, not tagged: plugin.json and package.json 3.1.0, docs/release-notes/v3.1.0.md, the README with
-   its pins on `#v3.1.0` (a tag that exists only once Dima tags this commit after his test).
+   v3.1.0 is released (13 Nov, after Dima's desktop test): tag `v3.1.0` on `703f135`, main fast-forwarded to it, the
+   GitHub release from docs/release-notes/v3.1.0.md.
    v3.2.0 (docs/v3.2-plan.md): 3.2a done (every turn's usage, the Lead's and each subagent's, from turn.complete, added
    per model to `ledger` in $.store, one count at a time; the pane's "This PC" line with the value at the dated API
    prices).
@@ -607,5 +625,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    through parseLedger()). 3.2c done (12 Nov, Dima's L7: the pane's "Count past sessions" runs hooks/ledger-past.mjs,
    which prints a ledger of whole numbers from the transcripts before the live ledger began; pastOf() keeps only that,
    as `ledger-past` in $.store, and the pane and the hall show one total).
+   3.2d done (13 Nov, after Dima's desktop check of v3.2.0, docs/v3.2-plan.md "3.2d"): a hall the mod starts itself
+   gets the total as it answers; the hall states its plugin version (handshake, /api/health, the page's badge) and the
+   pane names another install's hall instead of linking to it; the ledger is per session, the Lead's cache writes priced
+   at 1 hour, Recount replaces each settled session's count with its transcript's, exact; billions as "1.18B".
    The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
    Next: prepare v3.2.0, then v3.3.0 (big-project tools, milestone 4): write docs/v3.3-plan.md first.

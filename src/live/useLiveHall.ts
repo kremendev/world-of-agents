@@ -19,6 +19,8 @@ export type LiveHall = {
   start: string | null;
   /** v3.2: the token ledger's total on this PC, once the mod has sent one through the hall. */
   ledger: LedgerTotals | null;
+  /** The plugin version the hall states (3.2d), once one answered; null before, and for a hall from before 3.2.0. */
+  version: string | null;
   goLive: () => void;
 };
 
@@ -35,14 +37,17 @@ export function useLiveHall(): LiveHall {
   const startId = useRef<string | null>(null);
   const [start, setStart] = useState<string | null>(null);
   const [ledger, setLedger] = useState<LedgerTotals | null>(null);
+  const [version, setVersion] = useState<string | null>(null);
 
   useEffect(() => {
     if (!liveEnabled()) return;
     let closed = false;
-    void checkHall().then((up) => {
+    void checkHall().then((found) => {
       if (closed) return;
-      if (up) setFollowing(true);
-      else setStatus('no-hall');
+      if (found) {
+        setVersion(found.version);
+        setFollowing(true);
+      } else setStatus('no-hall');
     });
     return () => {
       closed = true;
@@ -87,8 +92,10 @@ export function useLiveHall(): LiveHall {
     if (status !== 'no-hall' || !liveEnabled()) return;
     let closed = false;
     const timer = setInterval(() => {
-      void checkHall().then((up) => {
-        if (!closed) setHallFound(up);
+      void checkHall().then((found) => {
+        if (closed) return;
+        setHallFound(found !== null);
+        if (found) setVersion(found.version);
       });
     }, RECHECK_MS);
     return () => {
@@ -103,5 +110,5 @@ export function useLiveHall(): LiveHall {
     setFollowing(true);
   };
 
-  return { status, ...view, hallFound, start, ledger, goLive };
+  return { status, ...view, hallFound, start, ledger, version, goLive };
 }

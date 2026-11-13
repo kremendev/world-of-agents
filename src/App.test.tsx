@@ -8,6 +8,7 @@ import { speechMs } from './office/hall/talk';
 import { REST_SPOTS, type Point } from './office/hall/walk';
 import { STATUS_COLOR } from './office/tasks';
 import { STEP_MS } from './script/demoRun';
+import { VERSION } from './version';
 
 /** When step n of the demo run starts. stepStart(10) is the end of step 9. */
 const stepStart = (n: number) => (n - 1) * STEP_MS;
@@ -88,6 +89,8 @@ describe('App', () => {
     render(<App />);
     expect(screen.getByRole('heading', { level: 1, name: 'World of Agents' })).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /The Forge Hall/ })).toBeInTheDocument();
+    // No hall: the badge names this build's plugin version, as plugin.json states it (3.2d).
+    expect(screen.getByText(`Forge Hall · v${VERSION}`)).toBeInTheDocument();
 
     for (const room of ['Lead/PM room', 'Great hall', 'Rest room', 'Dev room']) {
       expect(screen.getByText(room)).toBeInTheDocument();

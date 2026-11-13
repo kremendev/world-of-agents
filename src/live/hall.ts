@@ -1,4 +1,5 @@
 import { hallStartId, parseEvent, type OfficeEvent, parseLedger, type LedgerTotals } from '../events/schema';
+import { VERSION_SHAPE } from '../version';
 
 export const HEALTH_TIMEOUT_MS = 1000;
 /** How long to wait before trying the stream again after losing it. */
@@ -9,17 +10,22 @@ export const RECHECK_MS = 5000;
 /** False skips the health check and the stream: the hosted demo build never calls an API. Nothing secret. */
 export const liveEnabled = (): boolean => import.meta.env.VITE_LIVE !== 'false';
 
-/** Does a hall answer on this origin within a second? In dev, Vite proxies /api to it. */
-export async function checkHall(): Promise<boolean> {
+/** A hall that answered, with the plugin version it states (3.2d); null for one from before 3.2.0, which states none. */
+export type HallFound = { version: string | null };
+
+/** Does a hall answer on this origin within a second? In dev, Vite proxies /api to it. Null when none does. */
+export async function checkHall(): Promise<HallFound | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
   try {
     const res = await fetch('/api/health', { signal: controller.signal });
-    if (!res.ok) return false;
+    if (!res.ok) return null;
     const body: unknown = await res.json();
-    return typeof body === 'object' && body !== null && 'ok' in body && body.ok === true;
+    if (typeof body !== 'object' || body === null || !('ok' in body) || body.ok !== true) return null;
+    const version = 'version' in body ? body.version : undefined;
+    return { version: typeof version === 'string' && VERSION_SHAPE.test(version) ? version : null };
   } catch {
-    return false;
+    return null;
   } finally {
     clearTimeout(timer);
   }

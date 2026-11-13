@@ -5,14 +5,18 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
-import { day, ledgerLines } from './ledger';
+import { compareVersions, PLUGIN_VERSION } from './hall';
+import { ledgerLines, scopeLine } from './ledger';
 import { nameOf, ROSTER } from './roster';
 import type { PaneAgent, PaneFillRefusal, PaneHall, PaneLimit, PaneUsage, PaneView } from './types';
 
 export const HALL_URL = 'http://localhost:4319';
 
-/** What the pane says about the hall. The link to it shows only while it is `running`: proven ours by the handshake. */
-const HALL_LINES: Record<PaneHall, string> = {
+/**
+ * What the pane says about the hall. The link to it shows only while it is `running`: proven ours by the handshake, as
+ * this version. `other-version` has a line of its own (otherHallLine).
+ */
+const HALL_LINES: Record<Exclude<PaneHall, 'other-version'>, string> = {
   checking: 'Hall: checking',
   starting: 'Hall: starting',
   running: 'Hall: running',
@@ -20,16 +24,31 @@ const HALL_LINES: Record<PaneHall, string> = {
   stopped: 'Hall: not running',
 };
 
+/**
+ * Another install's hall holds the port (3.2d): it knows the same token file, so the handshake passes, but it is another
+ * version, and the pane neither links to it nor sends it the ledger. It never stops it: the session that started it
+ * does, when it ends. A hall that states no version is from before 3.2.0.
+ */
+export function otherHallLine(version: string | null): string {
+  const which =
+    version === null
+      ? 'An older hall (before v3.2.0)'
+      : compareVersions(version, PLUGIN_VERSION) < 0
+        ? `An older hall (v${version})`
+        : `A newer hall (v${version})`;
+  return `${which} is running. Close the sessions in your other projects.`;
+}
+
 /** Why a preset's text didn't reach the prompt box, in one line. */
 const FILL_LINES: Record<PaneFillRefusal, string> = {
   no_composer: 'This surface has no prompt box',
   other: "Couldn't fill the prompt box",
 };
 
-/** Past sessions (v3.2c): what the button does, and a count that failed. */
+/** Recount (v3.2c, 3.2d): what the button does, and a count that failed. */
 export const PAST_HOW =
-  "Reads only the token counts in Claude Code's transcripts on this PC, once, when you press it.";
-export const PAST_FAILED = "Couldn't count past sessions.";
+  "Recount reads only the token counts in Claude Code's transcripts on this PC, when you press it.";
+export const PAST_FAILED = "Couldn't recount.";
 
 /** Why there is no usable Node, and what it costs. Only digits and dots of what `node --version` printed show here. */
 export function nodeWarning(v: PaneView): string | undefined {
@@ -108,11 +127,11 @@ export function drawPane(
   {
     onPreset,
     onMute,
-    onCountPast,
+    onRecount,
   }: {
     onPreset: (key: PresetKey) => Promise<void>;
     onMute: () => Promise<void>;
-    onCountPast: () => Promise<void>;
+    onRecount: () => Promise<void>;
   },
 ) {
   const { Box, Text, Button, Link } = $.ui.resolve(e);
@@ -195,21 +214,15 @@ export function drawPane(
             i === 0 ? <Text>{line}</Text> : <Text dimColor>{line}</Text>,
           )
         )}
-        {v.past.state === 'counted' && (
-          <Text
-            dimColor
-          >{`Includes past sessions before ${day(v.past.before)}, counted on ${day(v.past.counted)}.`}</Text>
-        )}
-        {v.past.state === 'counting' && <Text dimColor>Counting past sessions...</Text>}
+        <Text dimColor>{scopeLine(v.past.counted)}</Text>
+        {v.past.state === 'counting' && <Text dimColor>Recounting...</Text>}
         {v.past.state === 'failed' && <Text color="warning">{PAST_FAILED}</Text>}
-        {(v.past.state === 'none' || v.past.state === 'failed') && (
-          <Box flexDirection="column">
-            <Box flexDirection="row">
-              <Button key="count-past" label="Count past sessions" onPress={onCountPast} />
-            </Box>
-            <Text dimColor>{PAST_HOW}</Text>
+        {v.past.state !== 'counting' && (
+          <Box flexDirection="row">
+            <Button key="recount" label="Recount" onPress={onRecount} />
           </Box>
         )}
+        <Text dimColor>{PAST_HOW}</Text>
       </Box>
       <Box flexDirection="column">
         <Box flexDirection="row" gap={1} flexWrap="wrap">
@@ -220,10 +233,12 @@ export function drawPane(
         {v.fillRefused !== null && <Text color="warning">{FILL_LINES[v.fillRefused]}</Text>}
       </Box>
       <Box flexDirection="column">
-        <Text color={v.hall === 'taken' ? 'warning' : undefined}>
-          {v.hall === 'stopped' && v.node === 'ok'
-            ? 'Hall: not running. Your next message starts it.'
-            : HALL_LINES[v.hall]}
+        <Text color={v.hall === 'taken' || v.hall === 'other-version' ? 'warning' : undefined}>
+          {v.hall === 'other-version'
+            ? otherHallLine(v.hallVersion)
+            : v.hall === 'stopped' && v.node === 'ok'
+              ? 'Hall: not running. Your next message starts it.'
+              : HALL_LINES[v.hall]}
         </Text>
         <Box flexDirection="row" gap={1} flexWrap="wrap">
           {v.hall === 'running' && <Link href={HALL_URL} label="Open hall" />}

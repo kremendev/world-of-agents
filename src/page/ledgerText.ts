@@ -1,10 +1,16 @@
 import type { LedgerTotals } from '../events/schema';
 
-/** A token count, short: 950, 12K, 3.4M (as the pane writes it). */
+/**
+ * A token count, short: 950, 12K, 3.4M, 1.18B (as the pane writes it). The unit follows the rounded number, so never
+ * 1000K or 1000.0M.
+ */
 export function shortCount(n: number): string {
   if (n < 1000) return String(n);
-  if (n < 1_000_000) return `${Math.round(n / 1000)}K`;
-  return `${(n / 1_000_000).toFixed(1)}M`;
+  const k = Math.round(n / 1000);
+  if (k < 1000) return `${k}K`;
+  const m = (n / 1_000_000).toFixed(1);
+  if (Number(m) < 1000) return `${m}M`;
+  return `${(n / 1_000_000_000).toFixed(2)}B`;
 }
 
 /**

@@ -4,6 +4,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
+import { VERSION } from '../src/version';
 import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
 import { INITIAL_MAP, mapHook } from './map';
@@ -69,15 +70,19 @@ const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLower
  * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), POST /api/ledger (from ledger-post.mjs), GET /api/events (Server-Sent Events for the
  * page), GET /api/health, and the built page: only the files `page` names. Events live in memory only; it starts and
  * runs nothing. `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
+ * `version` is the plugin's (3.2d), which the handshake answer and /api/health state, so the team pane and the page can
+ * tell this hall from another install's.
  */
 export function createHall({
   token,
   port = PORT,
   page,
+  version = VERSION,
 }: {
   token: string;
   port?: number;
   page?: Page;
+  version?: string;
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
@@ -121,7 +126,8 @@ export function createHall({
       return reply(res, 400);
     }
     if (typeof nonce !== 'string' || !NONCE.test(nonce)) return reply(res, 400);
-    reply(res, 200, { answer: createHmac('sha256', token).update(nonce).digest('base64url') });
+    // The version is no secret, and it means something only next to an answer that proves the token (3.2d).
+    reply(res, 200, { answer: createHmac('sha256', token).update(nonce).digest('base64url'), version });
   }
 
   async function hook(req: IncomingMessage, res: ServerResponse): Promise<void> {
@@ -206,7 +212,8 @@ export function createHall({
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
     if (path === '/api/ledger') return method === 'POST' ? ledgerPost(req, res) : reply(res, 405);
     if (path === '/api/events') return method === 'GET' ? events(req, res) : reply(res, 405);
-    if (path === '/api/health') return method === 'GET' ? reply(res, 200, { ok: true }) : reply(res, 405);
+    if (path === '/api/health')
+      return method === 'GET' ? reply(res, 200, { ok: true, version }) : reply(res, 405);
     if (method === 'GET' || method === 'HEAD') return servePage(path, method, res);
     return reply(res, 405);
   }
