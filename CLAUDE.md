@@ -758,7 +758,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    "Close your other sessions, here and in other projects.", because after an update another session in the same
    project can keep the old hall; the README says a hall stops when its session closes or reloads an updated plugin,
    and a `/reload-plugins` that brings nothing new keeps it). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. v3.4.0 is
-   prepared, not tagged (plugin.json 3.4.0, docs/release-notes/v3.4.0.md, README pins on `#v3.4.0`).
+   released (14 Nov, after Dima's re-check): tag `v3.4.0` on `ee78885`, main fast-forwarded to it, the GitHub release
+   from docs/release-notes/v3.4.0.md.
 
 7. The review's fixes (12 Nov, Dima's review of `v3-next`), folded into the versions they belong to, `v3-next` rebuilt
    once with `--force-with-lease`: 3.1f (Agent `isolation` none or "worktree" only; every plugin script's run check by
@@ -801,4 +802,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     and the missing memory folder passed): the hall follows the session you type into, the devs and the specialists run
     tests only as `npm test` or `npm run check`, and the Lead's hand-off says who, not how. The ninth, 3.4h, after
     Dima's re-check (step 7 again and the new step 22 passed): the older-hall line names every other session, and the
-    README says which reloads stop the hall. What waits for Dima: v3.4.0's tag.
+    README says which reloads stop the hall. v3.4.0 is released (14 Nov). Next: v3.5.0, written only, in
+    docs/v3.4-plan.md ("v3.5.0, written only"); nothing of it is built, and the editor's redesign waits for Dima's
+    review of a mockup.
