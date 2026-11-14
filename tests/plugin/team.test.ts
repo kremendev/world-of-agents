@@ -171,6 +171,22 @@ describe('the files it builds', () => {
     }
   });
 
+  // Dima's v3.4.0 desktop test (14 Nov): the React dev ran `node --test 2>&1 | tail -15` to see its new test mid-task,
+  // which no allow rule covers, so it asked him (3.4g).
+  it('a specialist with a shell runs tests only as npm test or npm run check, nothing added; one without has no such line', () => {
+    const rule =
+      "- Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets exactly those two run without asking; anything else waits for the user's approval.";
+    const shells = DEFAULTS.specialists.filter((p) => p.kind !== 'reads' && toolsOf(p).includes('Bash'));
+    expect(shells.map((p) => p.id)).toContain('frontend-react-dev');
+    for (const p of DEFAULTS.specialists) {
+      const flat = buildAgent(p).replace(/\s+/g, ' ');
+      if (shells.includes(p)) {
+        expect(flat, p.id).toContain(rule);
+        expect(flat.indexOf(rule), p.id).toBeLessThan(flat.indexOf('- Your last step'));
+      } else expect(flat, p.id).not.toContain('Run tests only');
+    }
+  });
+
   // Dima's v3.3.0 desktop run (14 Nov): the Frontend dev broke another agent's file on purpose to prove its test could fail.
   it('every specialist that edits changes only the files its task names and leaves no backup copies; a reader has no such line', () => {
     const rule =

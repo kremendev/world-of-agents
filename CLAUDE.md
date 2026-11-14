@@ -297,7 +297,9 @@ Do not change the look without asking. New ideas go into a later version.
   last step (pre-approved by the setup) and report what they saw (3.3d, Dima): `npm run check: passed` when it ends
   without an error, `npm run check: failed (exit N)` only with an exit code Claude Code showed, never a second command to
   read one (it asks for approval) and never a number they didn't see, and they run it exactly, as one command on its own,
-  nothing added (no `--prefix`, 3.4f) and never chained, so the setup's `Bash(npm run check)` covers it; they change only the files their task names, prove a
+  nothing added (no `--prefix`, 3.4f) and never chained, so the setup's `Bash(npm run check)` covers it; they run tests
+  only as `npm test` or `npm run check`, exactly, never the runner itself or with output cut (3.4g: the React dev's
+  `node --test 2>&1 | tail -15` asked Dima); they change only the files their task names, prove a
   test can fail with a temporary copy or a fixture, and leave no backup copies (Dima's desktop run, 14 Nov); the Designer runs no commands and says so; the Lead
   passes on what they reported ("checked, passed"). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
@@ -630,7 +632,8 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    docs/v2-hooks.md. Milestone 2 (the hall server, `server/`) is done: `npm run hall` builds the page and
    serves it with the API on 127.0.0.1:4319. The token in ~/.world-of-agents/token is new at every start and
    deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
-   that only a new, cleared or resumed session switches it. A resume of the session it already follows keeps the run
+   that a new, cleared or resumed session switches it, and from 3.4g so does a prompt typed in another session (never a
+   frame): the session you type into is the one you watch. A resume of the session it already follows keeps the run
    (2d): the desktop app resumes a session in a fresh process after a focus change, and that wiped the Lead's answer
    from the feed. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
@@ -739,5 +742,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    change; the Lead's `Agent` is bare, because its list became the whole session's and hid the specialists from the
    guild leads; agent memory is off, and the guard denies a write into any of the three agent memory folders with its own reason;
    the devs and the specialists run exactly `npm run check`, nothing added; a real run saw the Frontend dev start its
-   React dev; the engine has no pattern for an `Agent(...)` list, so the Lead's `Agent` stays bare). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
+   React dev; the engine has no pattern for an `Agent(...)` list, so the Lead's `Agent` stays bare). 3.4g done (14 Nov,
+   Dima's desktop test of v3.4.0: a prompt typed in another session takes the hall over, because a newer session had
+   taken it and the older one, still open, sent no SessionStart, so its run never reached the page; the devs and the
+   specialists run tests only as `npm test` or `npm run check`; the Lead's hand-off says who, not how, so "the React
+   dev" is no reason to use React or to rule it out). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
    v3.4.0, then the final report.

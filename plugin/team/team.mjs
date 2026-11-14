@@ -92,6 +92,15 @@ export function toolsOf(specialist) {
 }
 
 /**
+ * Tests, for a specialist with a shell (3.4g, Dima's desktop test): the React dev ran `node --test 2>&1 | tail -15` to
+ * see its new test, which no allow rule covers, so it asked him. The setup allows exactly `npm test` and `npm run check`.
+ */
+const TESTS_ONLY = [
+  '- Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner',
+  '  itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets',
+  "  exactly those two run without asking; anything else waits for the user's approval.",
+];
+/**
  * The check, for a specialist that edits and has a shell, and for one that edits without one (v3.3 review). What a pass
  * looks like is the devs' rule (3.3d): Claude Code shows no exit code for a command that passes.
  */
@@ -141,7 +150,7 @@ export function buildAgent(p) {
       ? ['- You read and report; you change nothing.']
       : ["- Your guild lead's quality gate, when the project has one on, checks your work too."]),
     // v3.3 review: a gate that passes says nothing, so whoever can run the check runs it last and gives its exit code.
-    ...(reads ? [] : toolsOf(p).includes('Bash') ? CHECK_LAST : NO_CHECK),
+    ...(reads ? [] : toolsOf(p).includes('Bash') ? [...TESTS_ONLY, ...CHECK_LAST] : NO_CHECK),
     toolsOf(p).includes('Bash') && !reads
       ? "- Report back to your guild lead in five lines or fewer: what you did, which files, the check's result (or\n  that the project has no `npm run check`), anything left open."
       : '- Report back to your guild lead in five lines or fewer: what you did, which files, anything left open.',

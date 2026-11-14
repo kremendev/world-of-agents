@@ -82,6 +82,11 @@ function toolsOf(specialist) {
   if (specialist.kind === "reads") return "Read, Grep, Glob";
   return specialist.guild === "design" ? "Read, Grep, Glob, Write, Edit" : "Read, Grep, Glob, Write, Edit, Bash";
 }
+var TESTS_ONLY = [
+  "- Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner",
+  "  itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets",
+  "  exactly those two run without asking; anything else waits for the user's approval."
+];
 var CHECK_LAST = [
   "- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that",
   "  and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no",
@@ -122,7 +127,7 @@ function buildAgent(p) {
     ...reads ? [] : FILES_ONLY,
     ...reads ? ["- You read and report; you change nothing."] : ["- Your guild lead's quality gate, when the project has one on, checks your work too."],
     // v3.3 review: a gate that passes says nothing, so whoever can run the check runs it last and gives its exit code.
-    ...reads ? [] : toolsOf(p).includes("Bash") ? CHECK_LAST : NO_CHECK,
+    ...reads ? [] : toolsOf(p).includes("Bash") ? [...TESTS_ONLY, ...CHECK_LAST] : NO_CHECK,
     toolsOf(p).includes("Bash") && !reads ? "- Report back to your guild lead in five lines or fewer: what you did, which files, the check's result (or\n  that the project has no `npm run check`), anything left open." : "- Report back to your guild lead in five lines or fewer: what you did, which files, anything left open.",
     ""
   ].join("\n");
@@ -6891,6 +6896,11 @@ function route(state, input, agent, at) {
     if (input.source === "resume" && session === state.session) return nothing(state);
     return takeOver(session, at);
   }
+  if (session && state.session && session !== state.session && typedPrompt(input, agent)) {
+    const over = takeOver(session, at);
+    const next = dispatch(over.state, input, agent, at);
+    return { state: next.state, events: [...over.events, ...next.events] };
+  }
   const followed = state.session ?? session;
   if (!followed || session !== followed) return nothing(state);
   return dispatch(state.session ? state : { ...state, session: followed }, input, agent, at);
@@ -6954,6 +6964,7 @@ function shown(state, id2, at) {
     at
   };
 }
+var typedPrompt = (input, agent) => input.hook_event_name === "UserPromptSubmit" && agent === "lead" && !input.agent_id && !input.task_notification && !input.agent_message && Boolean(input.prompt?.trim());
 function takeOver(session, at) {
   return { state: { ...INITIAL_MAP, session }, events: [{ type: "reset", at }] };
 }

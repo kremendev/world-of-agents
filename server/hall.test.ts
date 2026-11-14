@@ -533,6 +533,42 @@ describe('a new Claude Code session', () => {
     late.close();
     expect(late.events.map((e) => e.type)).toEqual(['reset', 'run', 'state']);
   });
+
+  // Dima's v3.4.0 desktop test (14 Nov): back in the older session, still open, nothing he did there reached the page,
+  // and F5 replayed the newer session's run. A prompt typed there takes the hall back (3.4g).
+  it('gives the hall back to the older session at a prompt typed there, and a page that opens later sees that run', async () => {
+    const B = 'session-opened-beside';
+    await post(first); // A
+    await post(run1[1]!.body); // A's prompt
+    const page = await subscribe();
+    await until(() => page.events.length === 3);
+
+    for (const body of [
+      { ...first, session_id: B, source: 'startup' }, // B takes over
+      { ...run1[1]!.body, session_id: B },
+      run1[1]!.body, // back in A
+      run1[2]!.body, // A's Lead reads
+      { ...run1[2]!.body, session_id: B }, // B, now quiet
+    ])
+      expect((await post(body)).status).toBe(204);
+    await until(() => page.events.length === 3 + 1 + 2 + 3 + 1);
+    page.close();
+    expect(page.events.slice(3).map((e) => e.type)).toEqual([
+      'reset', // B
+      'run',
+      'state',
+      'reset', // A again
+      'run',
+      'state',
+      'state', // A's Lead reading
+    ]);
+
+    const late = await subscribe(); // F5: the replay starts at A's reset
+    await until(() => late.events.length === 4);
+    late.close();
+    expect(late.events.map((e) => e.type)).toEqual(['reset', 'run', 'state', 'state']);
+    expect(late.events[3]).toMatchObject({ agent: 'lead', state: 'reading' });
+  });
 });
 
 describe('the favicon', () => {

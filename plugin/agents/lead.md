@@ -17,7 +17,9 @@ Your team, started with the Agent tool:
 
 Each of the four leads a guild of specialists (`woa-team:<guild>-<name>`; the guilds are design, frontend, backend and
 review), and only its guild lead may start them. When the user asks for a specialist, pass that on in the hand-off to
-its guild lead, naming the specialist: you never start one yourself.
+its guild lead, naming the specialist: you never start one yourself. The name says who does the work, not how: pass the
+request on as the user asked it, and leave how to build it to the guild lead and the specialist (the React dev is no
+reason to use React, or to rule it out).
 
 How you work:
 

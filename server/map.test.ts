@@ -1219,7 +1219,7 @@ describe('mapHook rules', () => {
   });
 });
 
-describe('mapHook sessions: the hall follows the first one it hears from, until another starts new, cleared or resumed', () => {
+describe('mapHook sessions: the hall follows the first one it hears from, until another starts new, cleared or resumed, or you type in another', () => {
   const other = (input: HookInput): HookInput => ({ ...input, session_id: 'session-2' });
 
   it.each(['startup', 'clear', 'resume'])(
@@ -1267,11 +1267,28 @@ describe('mapHook sessions: the hall follows the first one it hears from, until 
     expect(compacted).toEqual({ state: { ...INITIAL_MAP, session: 'session-2' }, events: [] });
   });
 
-  it('a session adopted that way is switched only by a new, cleared or resumed one', () => {
+  it('a session adopted that way is switched by a new, cleared or resumed one, or a prompt typed in another, never by a frame', () => {
     const { steps, state } = play([
       bySub('PreToolUse', 'backend', 'b1', { tool_name: 'Write' }), // adopted mid-run
-      other(byLead('UserPromptSubmit', { prompt: 'Elsewhere' })),
       other(byLead('SessionStart', { source: 'compact' })),
+      other(
+        byLead('UserPromptSubmit', {
+          task_notification: { task_id: 'x1', tool_use_id: 't9', status: 'completed' },
+        }),
+      ), // a background run's notice in the other session: a frame, with no prompt text
+      other(byLead('UserPromptSubmit', { agent_message: { from: 'x1' } })), // a hand-back: a frame too
+      // send.mjs never sends a frame's text, and a frame that came with some would still be a frame.
+      other(
+        byLead('UserPromptSubmit', {
+          prompt: 'A notice',
+          task_notification: { task_id: 'x1', tool_use_id: 't9', status: 'completed' },
+        }),
+      ),
+      other(byLead('UserPromptSubmit', { prompt: 'A hand-back', agent_message: { from: 'x1' } })),
+      other(byLead('UserPromptSubmit', { prompt: '   ' })),
+      other(byLead('UserPromptSubmit', { prompt: 'Not the Lead', agent_type: 'world-of-agents:backend' })),
+      other(byLead('UserPromptSubmit', { prompt: 'Inside a run', agent_id: 'x2' })),
+      other(byLead('Stop', { prompt: 'Not a prompt' })), // only a prompt's own hook is a prompt
       other(byLead('SessionStart', { source: 'resume' })),
       other(byLead('UserPromptSubmit', { prompt: 'Next task' })),
       byLead('UserPromptSubmit', { prompt: 'The old window' }),
@@ -1280,12 +1297,61 @@ describe('mapHook sessions: the hall follows the first one it hears from, until 
       { type: 'state', agent: 'backend', state: 'thinking' },
       { type: 'state', agent: 'backend', state: 'writing' },
     ]);
-    expect(steps[1]!.events).toEqual([]);
-    expect(steps[2]!.events).toEqual([]);
-    expect(steps[3]!.events).toEqual([{ type: 'reset', at: 3 }]);
-    expect(steps[4]!.events).toMatchObject([{ type: 'run', text: 'Next task' }, { agent: 'lead' }]);
-    expect(steps[5]!.events).toEqual([]);
-    expect(state.session).toBe('session-2');
+    expect(steps.slice(1, 10).flatMap((s) => s.events)).toEqual([]);
+    expect(steps[10]!.events).toEqual([{ type: 'reset', at: 10 }]);
+    expect(steps[11]!.events).toMatchObject([{ type: 'run', text: 'Next task' }, { agent: 'lead' }]);
+    // Back in the old window: what you type there takes the hall back (3.4g).
+    expect(steps[12]!.events).toEqual([
+      { type: 'reset', at: 12 },
+      { type: 'run', text: 'The old window', at: 12 },
+      { type: 'state', agent: 'lead', state: 'thinking', at: 12 },
+    ]);
+    expect(state).toMatchObject({ session: S, cards: [], runs: {} });
+  });
+
+  // Dima's v3.4.0 desktop test (14 Nov): session A started the hall and ran his first steps. Session B, opened beside it,
+  // took the hall over at its SessionStart. Back in A, still open, so no SessionStart, its whole run was dropped, and F5
+  // replayed B's. The session you type into is the one you watch (3.4g).
+  it('a prompt typed in the older session, still open, takes the hall back, and the newer one goes quiet', () => {
+    const ask = 'Have the React dev add a small counter';
+    const { steps, events, state } = play([
+      start, // A
+      byLead('UserPromptSubmit', { prompt: 'Any task' }),
+      other(byLead('SessionStart', { source: 'startup' })), // B takes the hall over
+      other(byLead('UserPromptSubmit', { prompt: ask })),
+      other(handOut('tB', 'frontend')),
+      byLead('UserPromptSubmit', { prompt: ask }), // back in A
+      handOut('tA', 'frontend', 'Add a counter'),
+      other(bySub('PreToolUse', 'frontend', 'f2', { tool_name: 'Write' })), // B's run goes on, unseen
+      other(
+        byLead('UserPromptSubmit', {
+          task_notification: { task_id: 'f2', tool_use_id: 'tB', status: 'completed' },
+        }),
+      ),
+      other(byLead('Stop', { last_assistant_message: 'Done in B.' })),
+      bySub('SubagentStart', 'frontend', 'f1'),
+    ]);
+    expect(steps[2]!.events).toEqual([{ type: 'reset', at: 2 }]);
+    expect(steps[5]!.events).toMatchObject([
+      { type: 'reset', at: 5 },
+      { type: 'run', text: ask },
+      { type: 'state', agent: 'lead', state: 'thinking' },
+    ]);
+    expect(steps[6]!.events).toMatchObject([
+      { type: 'task', taskId: 'tA', owner: 'frontend', title: 'Add a counter', status: 'todo' },
+      { type: 'state', agent: 'lead', state: 'thinking' },
+    ]);
+    expect(steps.slice(7, 10).flatMap((s) => s.events)).toEqual([]);
+    expect(steps[10]!.events).toMatchObject([
+      { type: 'task', taskId: 'tA', status: 'in-progress' },
+      { type: 'state', agent: 'frontend', taskId: 'tA' },
+    ]);
+    expect(state.session).toBe(S);
+    expect(state.cards.map((c) => c.taskId)).toEqual(['tA']);
+    // What the page shows after the last reset: A's run only.
+    const office = events.reduce(officeReducer, INITIAL_OFFICE);
+    expect(office.runText).toBe(ask);
+    expect(office.tasks.map((t) => t.id)).toEqual(['tA']);
   });
 
   it('ignores hooks from another session, its compaction, and a start with an unknown source or no id', () => {

@@ -47,7 +47,21 @@ describe('npm run check in the prompts', () => {
     },
   );
 
+  // Dima's v3.4.0 desktop test (14 Nov): the React dev ran `node --test 2>&1 | tail -15` to see its new test mid-task.
+  // The rule above covered only the last step, and no allow rule covers that command, so it asked him (3.4g).
+  it.each(['frontend', 'backend'])(
+    'the %s dev runs tests only as npm test or npm run check, nothing added, before its last step',
+    (name) => {
+      const text = prompt(name);
+      const rule =
+        "- Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets exactly those two run without asking; anything else waits for the user's approval.";
+      expect(text).toContain(rule);
+      expect(text.indexOf(rule)).toBeLessThan(text.indexOf('- Your last step'));
+    },
+  );
+
   it('the Designer, who runs no commands, says it did not run it', () => {
+    expect(prompt('designer')).not.toContain('Run tests only');
     expect(prompt('designer')).toContain('say `npm run check: not run by me` in your report');
     const tools = /^tools: (.*)$/m.exec(raw('designer'))?.[1]?.split(', ');
     expect(tools).toContain('Edit');
@@ -88,6 +102,11 @@ describe('specialists: the Lead passes a request on, the guild leads hand work o
       'only its guild lead may start them. When the user asks for a specialist, pass that on in the hand-off to its guild lead, naming the specialist: you never start one yourself.',
     );
     expect(text).toContain('the guilds are design, frontend, backend and review');
+    // Dima's v3.4.0 desktop test (14 Nov): the Lead read "the React dev" as a choice about React and told the Frontend
+    // dev to build it in plain JavaScript, no React. A name says who, not how (3.4g).
+    expect(text).toContain(
+      'you never start one yourself. The name says who does the work, not how: pass the request on as the user asked it, and leave how to build it to the guild lead and the specialist (the React dev is no reason to use React, or to rule it out).',
+    );
     // A bare Agent (3.4f, Dima): a list on the main thread became the whole session's list, which the guild leads
     // inherit, so they never saw a specialist. The guard holds the Lead to the four (roster.test.ts).
     expect(/^tools: (.*)$/m.exec(raw('lead'))?.[1]?.split(', ')).toContain('Agent');

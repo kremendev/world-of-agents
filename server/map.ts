@@ -30,8 +30,8 @@ export type Run = {
 
 export type MapState = {
   /**
-   * The session the hall follows: the first one it hears from, until another starts new, cleared or resumed.
-   * Null until it hears from one.
+   * The session the hall follows: the first one it hears from, until another starts new, cleared or resumed, or you
+   * type a prompt in another (3.4g). Null until it hears from one.
    */
   session: string | null;
   /** Oldest first: a subagent that starts is matched to the oldest open card of its type. */
@@ -146,6 +146,14 @@ function route(state: MapState, input: HookInput, agent: AgentId, at: number): S
     if (input.source === 'resume' && session === state.session) return nothing(state);
     return takeOver(session, at);
   }
+  // 3.4g (Dima's desktop test, 14 Nov): a new session took the hall over, and going back to the older one, still open in
+  // the desktop app, sends no SessionStart, so that session's run never reached the hall. The session you type into is
+  // the one you watch. A frame (a background run's notice, a hand-back) comes with no prompt text, so it never does this.
+  if (session && state.session && session !== state.session && typedPrompt(input, agent)) {
+    const over = takeOver(session, at);
+    const next = dispatch(over.state, input, agent, at);
+    return { state: next.state, events: [...over.events, ...next.events] };
+  }
   // One session at a time: hooks from another Claude Code window don't mix into this run. A hall with no
   // session yet (it started after Claude Code) follows the first one it hears from.
   const followed = state.session ?? session;
@@ -224,9 +232,19 @@ function shown(state: MapState, id: string, at: number): OfficeEvent {
   };
 }
 
+/** A prompt you typed to the Lead: not a frame (send.mjs drops a frame's text), and not empty. */
+const typedPrompt = (input: HookInput, agent: AgentId): boolean =>
+  input.hook_event_name === 'UserPromptSubmit' &&
+  agent === 'lead' &&
+  !input.agent_id &&
+  !input.task_notification &&
+  !input.agent_message &&
+  Boolean(input.prompt?.trim());
+
 /**
  * A new, cleared or resumed session takes the hall over and resets the run, so restarting Claude Code needs
- * no hall restart. Compaction starts the current session again mid-run: same run, nothing to reset.
+ * no hall restart; so does a prompt typed in another session (3.4g). Compaction starts the current session again
+ * mid-run: same run, nothing to reset.
  */
 function takeOver(session: string, at: number): Step {
   return { state: { ...INITIAL_MAP, session }, events: [{ type: 'reset', at }] };
