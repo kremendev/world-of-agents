@@ -763,7 +763,21 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    fix went in with it, and 3.4e gives the specialists the same rule. A later run had the dev chain the check with
    another command, which asked for approval; Dima decided they run it as one command on its own (3.3d, 3.4e), and the
    next run showed `npm run check: passed`, passed on by the Lead. `v3-next` was rebuilt a third, a fourth and a fifth time with
-   `--force-with-lease` (all on 14 Nov); v3.3.0 is `cfc4200`, v3.4.0 `6d97400`. Dima's desktop run of v3.3.0
+   `--force-with-lease` (all on 14 Nov); v3.3.0 is `cfc4200` (v3.4.0 then `6d97400`). Dima's desktop run of v3.3.0
    passed (in Auto); its one finding, a dev that broke another agent's file to prove its test could fail, became the
    rule that the devs and the specialists change only their task's files and leave no backup copies. Steps 6, 7 and 12 ran for real (docs/v3.3-plan.md,
    "3.3d"); woa-m2-test lost its two "Always allow" echo rules (Dima). What waits for Dima: v3.4.0's checks, then its tag (v3.3.0 is released, 14 Nov).
+
+10. v3.4.0's self-check (14 Nov). Without a person: the team setup, the guard's rows and folder rules, the settings
+    upgrade and the team editor in Edge (19 of 20, the one failure the script's own). Three small real runs never saw a
+    specialist start, and agent memory clashed with the guard. Dima decided 3.4f: the Designer's files rule, the Lead
+    passing a request for a specialist on, the guild leads handing work over, and memory off with the guard's own
+    reason; and checklist steps 7, 10, 20 and 21 reworded. The next real run found why no specialist had ever started:
+    the Lead's `Agent(...)` list became the whole session's list, which the guild leads inherit. Dima chose a bare
+    `Agent` for the Lead, and a run then saw the Frontend dev start its React dev and the hall show "+ React dev".
+    `v3-next` was rebuilt a sixth and a seventh time with `--force-with-lease` (14 Nov); v3.4.0 is `62dfe7a`. The
+    seventh, Dima's three follow-ups: the engine has no pattern for an `Agent(...)` list (exact names only), so the bare
+    `Agent` stays; the devs and the specialists run exactly `npm run check`, nothing added; the memory deny covers all
+    three agent memory folders. woa-m2-test lost the
+    two "Always allow" rules of Dima's v3.3.0 run, and an empty memory folder a v3.4 session had left. What waits for
+    Dima: v3.4.0's checks, then its tag.
