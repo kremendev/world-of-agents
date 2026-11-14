@@ -6456,7 +6456,9 @@ function agentReturned(state, input, at) {
   const linked = agentId2 ? link(state, taskId2, agentId2) : state;
   const run = agentId2 ? linked.runs[agentId2] : void 0;
   const started = agentId2 && run && !run.stopped && !card.done && card.agentId !== agentId2 ? [taskEvent2(card, "in-progress", at), shown(linked, agentId2, at)] : [];
-  const ended = input.tool_response?.status === "completed" ? finish(linked, taskId2, at) : nothing(linked);
+  const owner = run ?? Object.values(linked.runs).find((r) => r.taskId === taskId2);
+  const failed2 = owner?.stopped === true && owner.state === "error";
+  const ended = input.tool_response?.status === "completed" && !failed2 ? finish(linked, taskId2, at) : nothing(linked);
   return { state: ended.state, events: [...started, ...ended.events] };
 }
 function link(state, taskId2, agentId2) {

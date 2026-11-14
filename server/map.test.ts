@@ -1499,6 +1499,42 @@ describe("the quality gate's verdicts on a SubagentStop (v3.3)", () => {
     expect(steps[5]!.events).toEqual([]);
   });
 
+  // 3.3d: a real run (14 Nov) called the Backend dev in the foreground: its Agent call came back "completed" 131 ms after
+  // the gate's failed stop, and closed the card.
+  it("failed, then the foreground call's completed result: the card still stays open", () => {
+    const foreground = (gate: 'failed' | 'passed') =>
+      play([
+        start,
+        handOut('t1', 'backend', 'Server'),
+        bySub('SubagentStart', 'backend', 'b1'),
+        bySub('SubagentStop', 'backend', 'b1', { last_assistant_message: 'It still fails.', gate }),
+        returned('t1', 'b1', 'completed'),
+      ]);
+    const failed = foreground('failed');
+    expect(failed.steps[4]!.events).toEqual([]);
+    expect(failed.state.cards[0]!.done).toBe(false);
+    // A pass closes it at the stop, as ever, and the completed result changes nothing after it.
+    const passed = foreground('passed');
+    expect(passed.steps[3]!.events).toMatchObject([
+      { type: 'message' },
+      { type: 'task', status: 'done' },
+      { type: 'state' },
+    ]);
+    expect(passed.steps[4]!.events).toEqual([]);
+    expect(passed.state.cards[0]!.done).toBe(true);
+  });
+
+  it("a completed result for a run that didn't fail still closes its card, stop or no stop", () => {
+    const { steps, state } = play([
+      start,
+      handOut('t1', 'backend', 'Server'),
+      bySub('SubagentStart', 'backend', 'b1'),
+      returned('t1', 'b1', 'completed'),
+    ]);
+    expect(steps[3]!.events).toMatchObject([{ type: 'task', status: 'done' }]);
+    expect(state.cards[0]!.done).toBe(true);
+  });
+
   it('passed, or no gate: a stop as before, the card Done', () => {
     for (const gate of ['passed', undefined] as const) {
       const { steps, state } = run(gate);

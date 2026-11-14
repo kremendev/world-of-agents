@@ -431,7 +431,12 @@ function agentReturned(state: MapState, input: HookInput, at: number): Step {
       ? [taskEvent(card, 'in-progress', at), shown(linked, agentId, at)]
       : [];
   // A background call comes back at once with "async_launched": beyond that, it only links the card to its run.
-  const ended = input.tool_response?.status === 'completed' ? finish(linked, taskId, at) : nothing(linked);
+  // A run that ended in an error (its quality gate's last try failed, v3.3) keeps its card open for Dima: the call's
+  // "completed", which comes after that stop, doesn't close it (3.3d, seen in a real run on 14 Nov).
+  const owner = run ?? Object.values(linked.runs).find((r) => r.taskId === taskId);
+  const failed = owner?.stopped === true && owner.state === 'error';
+  const ended =
+    input.tool_response?.status === 'completed' && !failed ? finish(linked, taskId, at) : nothing(linked);
   return { state: ended.state, events: [...started, ...ended.events] };
 }
 

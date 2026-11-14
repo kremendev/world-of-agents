@@ -274,8 +274,12 @@ Do not change the look without asking. New ideas go into a later version.
   `onFailure: block`: a gate that breaks lets the agent stop. With gates on it forwards those stops to the hall with its
   verdict and `send.mjs` skips them. The pane learns gates are on from `gate.mjs --status`'s exit code, never from env.
   A gate that passes says nothing, so (v3.3 review) the Frontend and Backend devs run `npm run check` themselves as their
-  last step (pre-approved by the setup) and give its exit code; the Designer runs no commands and says so; the Lead passes
-  on what they reported. The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
+  last step (pre-approved by the setup) and report what they saw (3.3d, Dima): `npm run check: passed` when it ends
+  without an error, `npm run check: failed (exit N)` only with an exit code Claude Code showed, never a second command to
+  read one (it asks for approval) and never a number they didn't see, and they run it as one command on its own,
+  never chained, so the setup's `Bash(npm run check)` covers it; they change only the files their task names, prove a
+  test can fail with a temporary copy or a fixture, and leave no backup copies (Dima's desktop run, 14 Nov); the Designer runs no commands and says so; the Lead
+  passes on what they reported ("checked, passed"). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
   `BACKLOG.md` directly in its `cwd` (exact match, no `.` or `..` segment, case-blind on Windows only), and only when that
   file is missing or a plain file with one name (v3.3 review: `lstat`, never through a link; a symbolic link, a junction,
@@ -658,6 +662,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    3.3b done (BACKLOG.md and plan once, approve once: the Lead
    has Edit, Write, EnterPlanMode and ExitPlanMode; the guard denies the Lead any edit but BACKLOG.md). 3.3c done (the
    review's fixes, 12 Nov: the guard lstats BACKLOG.md and denies a link, a junction, a folder or a second name; the two
-   devs run npm run check last and report its exit code; G11 is "not now", in the plan's backlog). The v3.3.0 checklist
+   devs run npm run check last and report its exit code; G11 is "not now", in the plan's backlog). 3.3d done (14 Nov,
+   Dima's decision after a real run: Claude Code shows no exit code on a pass, so the devs report "npm run check: passed",
+   or "failed (exit N)" with a code they saw, and never run a command just to read one; the Lead says "checked, passed"; and a card whose gate failed stays open when the Lead's
+   Agent call comes back "completed"). The v3.3.0 checklist
    is docs/release-notes/v3.3.0-check.md. Next: prepare v3.3.0, then v3.4.0 (guilds, skills and memory): plan first, and
    prove the team-as-a-local-plugin approach before building on it.
