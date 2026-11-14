@@ -17,12 +17,10 @@ export default defineConfig([
   ]),
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.recommended,
-      reactHooks.configs['recommended-latest'],
-      reactRefresh.configs.vite,
-    ],
+    extends: [js.configs.recommended, tseslint.configs.recommended, reactRefresh.configs.vite],
+    // The two rules eslint-plugin-react-hooks 5 recommended. Its version 7 (ESLint 10 needs it) adds the React Compiler's
+    // rules to its presets; taking them is a choice of its own, not part of an upgrade (v3.5a).
+    plugins: { 'react-hooks': reactHooks },
     languageOptions: {
       ecmaVersion: 2022,
       globals: globals.browser,
@@ -37,6 +35,8 @@ export default defineConfig([
         },
       ],
       '@typescript-eslint/no-explicit-any': 'error',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
     },
   },
 ]);

@@ -33,8 +33,14 @@ The owner works on Windows in Git Bash. Give commands that work there.
 - Zod is imported as `import * as z from 'zod'` (Zod's own advice), never `import { z }`: with the namespace import
   esbuild drops Zod's 64 locales from the bundled hall (779 KB to 210 KB, 2d).
 - The office is drawn on **Canvas 2D**. Switch to PixiJS only if sprite handling gets painful.
-- TypeScript is pinned to 5.9 on purpose: typescript-eslint 8 does not accept TS 6. Upgrade both together.
-- ESLint 9 and Vite 7 are also one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
+- TypeScript 6.0.3, typescript-eslint 8.72.2 and ESLint 10.15.0 (with `@eslint/js` 10.0.1), pinned exactly (v3.5a).
+  Not TypeScript 7: typescript-eslint 8 accepts only below 6.1. Upgrade them together.
+- `overrides` in package.json gives typescript-estree `minimatch` 11.0.8 (GHSA-g3hv-75wg-m249, fixed in 11.0.1) until a
+  stable typescript-eslint asks for `^11.0.1`; then drop it. `npm audit` is clean. After changing an override, remove
+  the nested copy from package-lock.json and node_modules, or npm keeps it and calls it "invalid".
+- eslint-plugin-react-hooks 7 (ESLint 10 needs it): eslint.config.js turns on its two classic rules only. Its presets
+  add the React Compiler's rules (8 `react-hooks/refs` errors in App.tsx and ReviewBoard.tsx, 14 Nov): a choice of its own.
+- Vite 7 is one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
 - npm blocks dependency install scripts. `esbuild` is approved in `package.json` `allowScripts`. If a new
   package asks, review it and approve by name; never `npm install-scripts approve --all`.
 
@@ -805,3 +811,13 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     README says which reloads stop the hall. v3.4.0 is released (14 Nov). Next: v3.5.0, written only, in
     docs/v3.4-plan.md ("v3.5.0, written only"); nothing of it is built, and the editor's redesign waits for Dima's
     review of a mockup.
+
+11. Long run 2, v3.5.0 to v3.7.0 (Dima's brief of 14 Nov), on `v3-next`, alone until a version is ready for his test.
+    Same rules as the first long run: one commit per finished part, pushed to `v3-next`; never `main`, a tag or a
+    release; `--force-with-lease` only on `v3-next`, only to fold fixes into a version. After each part: `npm run check`
+    from `C:\`, `check:hall` when the hall changes, planted bugs, and this status. Dima's real team is
+    `~/.world-of-agents/team`: tests use a throwaway HOME. Stop for Dima on a rule to loosen, new art, or Pro limits.
+    v3.5.0 (docs/v3.5-plan.md): 3.5a done (TypeScript 6.0.3, typescript-eslint 8.72.2, ESLint 10.15.0, `npm audit` clean
+    through the minimatch override; the hooks plugin keeps its two classic rules). Next: 3.5b (the hall that stops
+    itself), 3.5c (each session's activity), 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
+    checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.
