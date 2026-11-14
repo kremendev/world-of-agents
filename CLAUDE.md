@@ -756,3 +756,15 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    was rebuilt a second time with `--force-with-lease`: 3.2d and the amended prepare commit, then v3.3 and v3.4 replayed
    on top (3.4c's change-log read moved into the same "the hall became ours" step as the ledger's push, fixing the same
    race there). What waits for Dima: v3.3.0's and v3.4.0's checks, then their tags (v3.2.0 passed its re-check and is released, 14 Nov).
+
+9. v3.3.0's self-check (14 Nov), before Dima's part. Real runs in a throwaway project found the devs' report had no
+   `npm run check: exit 0` (Claude Code shows no exit code on a pass), and a card whose gate failed going Done when the
+   Lead's Agent call came back. Dima decided the report (3.3d: "passed", or "failed (exit N)" with a code seen), the card
+   fix went in with it, and 3.4e gives the specialists the same rule. A later run had the dev chain the check with
+   another command, which asked for approval; Dima decided they run it as one command on its own (3.3d, 3.4e), and the
+   next run showed `npm run check: passed`, passed on by the Lead. `v3-next` was rebuilt a third, a fourth and a fifth time with
+   `--force-with-lease` (all on 14 Nov); v3.3.0 is `cfc4200`, v3.4.0 `6d97400`. Dima's desktop run of v3.3.0
+   passed (in Auto); its one finding, a dev that broke another agent's file to prove its test could fail, became the
+   rule that the devs and the specialists change only their task's files and leave no backup copies. Steps 6, 7 and 12 ran for real (docs/v3.3-plan.md,
+   "3.3d"); woa-m2-test lost its two "Always allow" echo rules (Dima). What waits for Dima: v3.3.0's pane (steps 2 to
+   4), step 5 in the app, plan mode (steps 8 to 10), then v3.4.0's checks, then the tags.
