@@ -721,8 +721,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    Dima's decision after a real run: Claude Code shows no exit code on a pass, so the devs report "npm run check: passed",
    or "failed (exit N)" with a code they saw, and never run a command just to read one; the Lead says "checked, passed";
    and a card whose gate failed stays open when the Lead's Agent call comes back "completed"). The v3.3.0 checklist
-   is docs/release-notes/v3.3.0-check.md. v3.3.0 is prepared, not tagged (plugin.json 3.3.0, docs/release-notes/v3.3.0.md,
-   README pins on `#v3.3.0`).
+   is docs/release-notes/v3.3.0-check.md. v3.3.0 is released (14 Nov, after Dima's desktop run): tag `v3.3.0` on `cfc4200`, main fast-forwarded to it, the
+   GitHub release from docs/release-notes/v3.3.0.md.
    v3.4.0 (docs/v3.4-plan.md): the local-plugin approach is proven (a folder marketplace, local scope, loaded in place,
    `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). 3.4b done (the guard's team rows from team.json, every start denied
    without it, the folder rule; template version 3 denies Read/Edit/Write on ~/.world-of-agents/**, versions/2.json the
@@ -766,5 +766,4 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    `--force-with-lease` (all on 14 Nov); v3.3.0 is `cfc4200`, v3.4.0 `6d97400`. Dima's desktop run of v3.3.0
    passed (in Auto); its one finding, a dev that broke another agent's file to prove its test could fail, became the
    rule that the devs and the specialists change only their task's files and leave no backup copies. Steps 6, 7 and 12 ran for real (docs/v3.3-plan.md,
-   "3.3d"); woa-m2-test lost its two "Always allow" echo rules (Dima). What waits for Dima: v3.3.0's pane (steps 2 to
-   4), step 5 in the app, plan mode (steps 8 to 10), then v3.4.0's checks, then the tags.
+   "3.3d"); woa-m2-test lost its two "Always allow" echo rules (Dima). What waits for Dima: v3.4.0's checks, then its tag (v3.3.0 is released, 14 Nov).
