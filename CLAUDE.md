@@ -710,7 +710,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    pane names another install's hall instead of linking to it; the ledger is per session, the Lead's cache writes priced
    at 1 hour, Recount replaces each settled session's count with its transcript's, exact; billions as "1.18B".
    The v3.2.0 checklist is docs/release-notes/v3.2.0-check.md.
-   v3.2.0 is prepared, not tagged (plugin.json 3.2.0, docs/release-notes/v3.2.0.md, README pins on `#v3.2.0`).
+   v3.2.0 is released (14 Nov, after Dima's re-check): tag `v3.2.0` on `62124fa`, main fast-forwarded to it, the GitHub
+   release from docs/release-notes/v3.2.0.md. His re-check's one note, free port 4319 before step 9, is in the checklist.
    v3.3.0 (docs/v3.3-plan.md): 3.3a done (the quality gate, its switch skills, the hall's gate verdicts, the pane's gate
    lines; three real runs: the send-back loop and the pass path work, an agent fixing from the gate's output not seen).
    3.3b done (BACKLOG.md and plan once, approve once: the Lead
@@ -754,4 +755,4 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    and adds the hall's version, the per-session ledger with Recount, the 1-hour cache-write price and "1.18B". `v3-next`
    was rebuilt a second time with `--force-with-lease`: 3.2d and the amended prepare commit, then v3.3 and v3.4 replayed
    on top (3.4c's change-log read moved into the same "the hall became ours" step as the ledger's push, fixing the same
-   race there). What waits for Dima: his re-check of v3.2.0, then v3.3.0's and v3.4.0's checks, then the tags.
+   race there). What waits for Dima: v3.3.0's and v3.4.0's checks, then their tags (v3.2.0 passed its re-check and is released, 14 Nov).
