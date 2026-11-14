@@ -29,6 +29,9 @@ const HALL_LINES: Record<Exclude<PaneHall, 'other-version'>, string> = {
  * Another install's hall holds the port (3.2d): it knows the same token file, so the handshake passes, but it is another
  * version, and the pane neither links to it nor sends it the ledger. It never stops it: the session that started it
  * does, when it ends. A hall that states no version is from before 3.2.0.
+ * That session is never this one (3.4h): a reload that brings new mod code, as an update does, unloads the module and
+ * kills the hall it started, and one that brings nothing new keeps both, at this version. It can be a session in this
+ * project, though, still on the version it loaded before the update, so the line names every other session.
  */
 export function otherHallLine(version: string | null): string {
   const which =
@@ -37,7 +40,7 @@ export function otherHallLine(version: string | null): string {
       : compareVersions(version, PLUGIN_VERSION) < 0
         ? `An older hall (v${version})`
         : `A newer hall (v${version})`;
-  return `${which} is running. Close the sessions in your other projects.`;
+  return `${which} is running. Close your other sessions, here and in other projects.`;
 }
 
 /** Why a preset's text didn't reach the prompt box, in one line. */

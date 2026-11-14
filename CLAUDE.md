@@ -446,8 +446,12 @@ Do not change the look without asking. New ideas go into a later version.
   answer, a redirect, a closed connection). Only 0 shows "Open hall", and since 3.2d only when the hall states this
   plugin's version (`PLUGIN_VERSION` in `hall.ts`, which `mod.test.ts` holds to plugin.json's): two installs on one PC
   share one token file, so another install's hall passes the handshake. That one is `other-version`: "An older hall
-  (vX) is running. Close the sessions in your other projects." ("A newer hall" when it is, "before v3.2.0" when it
-  states none), no link, no ledger, and nothing started or stopped; the session that started it stops it when it ends.
+  (vX) is running. Close your other sessions, here and in other projects." ("A newer hall" when it is, "before v3.2.0"
+  when it states none), no link, no ledger, and nothing started or stopped; the session that started it stops it when it
+  ends. That session is never this one (3.4h): a reload that brings new mod code (an update) unloads the module, which
+  kills the hall it started (the engine's types; the spike and 2c saw it), and a `/reload-plugins` that brings nothing
+  new reloads nothing and keeps the hall (the spike; Dima's four reloads of 14 Nov). But it can be another session in
+  this very project, still on the version it loaded, so the line names every other session, not only other projects'.
   askHall() in send.mjs takes the version only beside an answer that proves the token, and only as digits and dots.
   4 shows "Port 4319 is used by another program." and starts and stops nothing. A start happens only on 3 with no start of ours alive, one check at a time; checks run at
   session start and at each of the Lead's turns, never a subagent's. A hall that loses the race for the port exits 0
@@ -589,6 +593,9 @@ Do not change the look without asking. New ideas go into a later version.
   (a link-traversing entry), so refresh the copy after each change with `npm run dev:refresh`, then run
   `/reload-plugins` in the desktop session. Not `rm -rf … && cp -r …`: a hall started from the dev install stands in
   `woa-dev/plugin/hall`, Windows won't remove that folder, and the copy then lands in a nested `plugin/plugin/`.
+  `/reload-plugins` reloads the mod only when its own files changed, so after a change to `server/` or the page alone
+  the old hall keeps running, old build and all, and the pane calls it running (same version): stop it first, as each
+  checklist's step 1 does (3.4h; it served v3.4.0's first test the old code).
   The marketplace name can't be `world-of-agents`: the user settings already pin that one to GitHub.
 - `setup-skill.test.ts` runs `setup.mjs` in temp git repos. The script ignores your global git ignore on purpose
   (`core.excludesFile` points at the null device), so the tests don't depend on it either.
@@ -746,5 +753,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    Dima's desktop test of v3.4.0: a prompt typed in another session takes the hall over, because a newer session had
    taken it and the older one, still open, sent no SessionStart, so its run never reached the page; the devs and the
    specialists run tests only as `npm test` or `npm run check`; the Lead's hand-off says who, not how, so "the React
-   dev" is no reason to use React or to rule it out). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
+   dev" is no reason to use React or to rule it out). 3.4h done (14 Nov, Dima's re-check: the older-hall line says
+   "Close your other sessions, here and in other projects.", because after an update another session in the same
+   project can keep the old hall; the README says a hall stops when its session closes or reloads an updated plugin,
+   and a `/reload-plugins` that brings nothing new keeps it). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
    v3.4.0, then the final report.

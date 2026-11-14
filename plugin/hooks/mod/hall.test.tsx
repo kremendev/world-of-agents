@@ -183,12 +183,12 @@ describe('the hall', () => {
 
   // 3.2d: two installs on one PC share one token file, so another install's hall passes the handshake.
   for (const [stated, line] of [
-    ['3.0.1\n', 'An older hall (v3.0.1) is running. Close the sessions in your other projects.'],
-    ['', 'An older hall (before v3.2.0) is running. Close the sessions in your other projects.'],
-    ['99.0.0\n', 'A newer hall (v99.0.0) is running. Close the sessions in your other projects.'],
+    ['3.0.1\n', 'An older hall (v3.0.1) is running. Close your other sessions, here and in other projects.'],
+    ['', 'An older hall (before v3.2.0) is running. Close your other sessions, here and in other projects.'],
+    ['99.0.0\n', 'A newer hall (v99.0.0) is running. Close your other sessions, here and in other projects.'],
     [
       '3.2.0; echo hi\n',
-      'An older hall (before v3.2.0) is running. Close the sessions in your other projects.',
+      'An older hall (before v3.2.0) is running. Close your other sessions, here and in other projects.',
     ],
   ] as const) {
     test(`another install's hall (${JSON.stringify(stated)}): no link, nothing started or stopped, and the pane says which`, async ($, on) => {
@@ -215,7 +215,7 @@ describe('the hall', () => {
     await world.clock.settle();
     const before = await mount($);
     expect(await before.texts()).toContain(
-      'An older hall (v3.0.1) is running. Close the sessions in your other projects.',
+      'An older hall (v3.0.1) is running. Close your other sessions, here and in other projects.',
     );
     await before.ui.unmount();
     // The session that started it closed, and with it that hall. Ours answers as this version.
