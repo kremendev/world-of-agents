@@ -722,5 +722,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    it to the hall through hall-key.mjs's stdin and shows the link with it after a #; the page takes it out of the address
    bar at once and exchanges it once, within 60 s, for an HttpOnly, SameSite=Strict cookie; the Team panel adds,
    changes, deletes and gives skills through POST /api/team, with a full preview, flags and refusals; every change is a
-   line in the pane through team-log.mjs). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
+   line in the pane through team-log.mjs). 3.4e done (14 Nov: the specialists report the check as the devs do since
+   3.3d, and the ones that edit change only their task's files and leave no backup copies). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
    v3.4.0, then the final report.

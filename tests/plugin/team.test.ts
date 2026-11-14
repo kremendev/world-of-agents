@@ -136,7 +136,7 @@ describe('the files it builds', () => {
     expect(file).not.toContain('npm run check');
   });
 
-  it('the check (v3.3 review): a specialist with a shell runs it last and gives its exit code; one without says so', () => {
+  it('the check (v3.3 review, 3.3d): a specialist with a shell runs it last and reports passed or failed; one without says so', () => {
     const flat = (id: string) =>
       buildAgent(DEFAULTS.specialists.find((p) => p.id === id)!).replace(/\s+/g, ' ');
     for (const id of [
@@ -147,12 +147,36 @@ describe('the files it builds', () => {
       'review-qa-tester',
     ]) {
       expect(flat(id), id).toContain('Your last step, after your last edit: run `npm run check` yourself');
-      expect(flat(id), id).toContain('put its exit code in your report, as `npm run check: exit 0`');
-      expect(flat(id), id).toContain("the check's exit code (or that the project has no `npm run check`)");
+      // On its own (Dima, 14 Nov): the setup's `Bash(npm run check)` covers only that command.
+      expect(flat(id), id).toContain(
+        'as one command on its own: never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
+      );
+      expect(flat(id), id).toContain('`npm run check: passed` when it ends without an error');
+      expect(flat(id), id).toContain(
+        '`npm run check: failed (exit N)` with the exit code Claude Code shows you',
+      );
+      expect(flat(id), id).toContain(
+        "Never run another command just to read the exit code, and never write a number you didn't see.",
+      );
+      expect(flat(id), id).toContain("the check's result (or that the project has no `npm run check`)");
+      expect(flat(id), id).not.toContain('npm run check: exit 0');
     }
     for (const id of ['design-react-designer', 'design-motion-designer']) {
       expect(flat(id), id).toContain('say `npm run check: not run by me` in your report');
       expect(flat(id), id).not.toContain('Your last step');
+    }
+  });
+
+  // Dima's v3.3.0 desktop run (14 Nov): the Frontend dev broke another agent's file on purpose to prove its test could fail.
+  it('every specialist that edits changes only the files its task names and leaves no backup copies; a reader has no such line', () => {
+    const rule =
+      "- Change only the files your task names. To show a test can fail, use a temporary copy (removed when you're done) or a test fixture, never edit project files outside your task. Never leave backup copies.";
+    const editors = DEFAULTS.specialists.filter((p) => p.kind !== 'reads');
+    expect(editors.length).toBeGreaterThan(0);
+    for (const p of DEFAULTS.specialists) {
+      const flat = buildAgent(p).replace(/\s+/g, ' ');
+      if (p.kind === 'reads') expect(flat, p.id).not.toContain('Change only the files');
+      else expect(flat, p.id).toContain(rule);
     }
   });
 
