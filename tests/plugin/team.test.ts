@@ -136,6 +136,10 @@ describe('the files it builds', () => {
     expect(file).not.toContain('npm run check');
   });
 
+  it('no specialist keeps agent memory (3.4f: memory is off for every agent)', () => {
+    for (const p of DEFAULTS.specialists) expect(buildAgent(p), p.id).not.toMatch(/^memory:/m);
+  });
+
   it('the check (v3.3 review, 3.3d): a specialist with a shell runs it last and reports passed or failed; one without says so', () => {
     const flat = (id: string) =>
       buildAgent(DEFAULTS.specialists.find((p) => p.id === id)!).replace(/\s+/g, ' ');
@@ -147,9 +151,9 @@ describe('the files it builds', () => {
       'review-qa-tester',
     ]) {
       expect(flat(id), id).toContain('Your last step, after your last edit: run `npm run check` yourself');
-      // On its own (Dima, 14 Nov): the setup's `Bash(npm run check)` covers only that command.
+      // On its own and with nothing added (Dima, 14 Nov; 3.4f): the setup's `Bash(npm run check)` covers only that command.
       expect(flat(id), id).toContain(
-        'as one command on its own: never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
+        'exactly that and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
       );
       expect(flat(id), id).toContain('`npm run check: passed` when it ends without an error');
       expect(flat(id), id).toContain(

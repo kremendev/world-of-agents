@@ -104,7 +104,7 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash, PowerShell, Edit and Write: who may
-                  start whom, no `model` in an Agent call, the .env rule, and from v3.3 the Lead edits BACKLOG.md alone), hooks/gate.mjs (v3.3: the quality gate on SubagentStop, opt-in per project through
+                  start whom, no `model` in an Agent call, the .env rule, and from v3.3 the Lead edits BACKLOG.md alone, from 3.4f no write into agent memory), hooks/gate.mjs (v3.3: the quality gate on SubagentStop, opt-in per project through
                   env WOA_QUALITY_GATE; runs npm run check, sends a dev back at most 3 times, forwards those stops to the
                   hall with its verdict; --status answers by exit code), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code: 0 ours, 3 nothing listens, 4 anything else; with 0, the plugin version the hall states, one line of
@@ -264,9 +264,13 @@ Do not change the look without asking. New ideas go into a later version.
   plugin's hooks post to the hall server on 127.0.0.1. An API key or token in this repo is a bug. Nothing
   secret ever goes in a `VITE_` variable: Vite bundles those into the browser.
 - Least privilege per agent in v2: each agent gets only the tools its job needs; the Reviewer only reads. Change a
-  model or tools in both `plugin/agents/*.md` and `roster.ts`: `roster.test.ts` fails if they differ, and checks the
-  Lead can start exactly the other four. An `Agent(...)` list binds only the main thread: in a subagent's file it is
-  ignored (the v3 spike saw one start an agent its list doesn't name), so who may start whom belongs in the guard hook.
+  model or tools in both `plugin/agents/*.md` and `roster.ts`: `roster.test.ts` fails if they differ, and checks
+  every agent has a bare `Agent` and the guard's main row is the other four. In a subagent's file an `Agent(...)` list
+  is ignored (the v3 spike saw one start an agent its list doesn't name), and on the main thread it becomes the whole
+  session's list, which nested agents inherit (3.4f, Claude Code 2.1.319: the guild leads saw only the Lead's four and
+  could never start a specialist; Dima chose a bare `Agent` for the Lead; the engine has no pattern for
+  such a list, as its listing and spawn check compare exact names). So no agent file has one, and who may start
+  whom belongs in the guard hook alone.
 - `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
 - Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
@@ -292,8 +296,8 @@ Do not change the look without asking. New ideas go into a later version.
   A gate that passes says nothing, so (v3.3 review) the Frontend and Backend devs run `npm run check` themselves as their
   last step (pre-approved by the setup) and report what they saw (3.3d, Dima): `npm run check: passed` when it ends
   without an error, `npm run check: failed (exit N)` only with an exit code Claude Code showed, never a second command to
-  read one (it asks for approval) and never a number they didn't see, and they run it as one command on its own,
-  never chained, so the setup's `Bash(npm run check)` covers it; they change only the files their task names, prove a
+  read one (it asks for approval) and never a number they didn't see, and they run it exactly, as one command on its own,
+  nothing added (no `--prefix`, 3.4f) and never chained, so the setup's `Bash(npm run check)` covers it; they change only the files their task names, prove a
   test can fail with a temporary copy or a fixture, and leave no backup copies (Dima's desktop run, 14 Nov); the Designer runs no commands and says so; the Lead
   passes on what they reported ("checked, passed"). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
@@ -302,15 +306,16 @@ Do not change the look without asking. New ideas go into a later version.
   a folder or a hard link could carry the write to `.claude/settings.local.json`; any error but ENOENT denies); the
   Designer and
   the two devs get no answer (their own permission prompts decide); anyone else is denied. The Lead's tools are
-  `Agent(...)`, Read, Grep, Glob, Edit, Write, EnterPlanMode and ExitPlanMode: it plans a milestone once in plan mode and
+  `Agent` (bare since 3.4f), Read, Grep, Glob, Edit, Write, EnterPlanMode and ExitPlanMode: it plans a milestone once in plan mode and
   keeps `BACKLOG.md`, and still writes no code.
 - `guard.mjs` is the one hook that answers a tool call, and it only denies: a test runs it over every input and fails on
   any answer but a deny, and another fails on any decision but `deny` in its code. Never make it allow (allow skips the
   permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
   not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
   block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
-  no agent type can name the Lead's row. `MAY_START.main` must equal the Lead's `Agent(...)` list (`roster.test.ts`); the guild leads
-  have a bare `Agent` tool (v3.4), held to their specialists by the guard.
+  no agent type can name the Lead's row. `MAY_START.main` must be the roster's other four (`roster.test.ts`): since 3.4f the Lead's
+  `Agent` is bare, so the guard is its only limit. The guild leads have a bare `Agent` tool (v3.4), held to their
+  specialists by the guard.
   It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
   agent file's model always wins. It denies `isolation` other than none or `"worktree"` (v3.1 review): `"remote"` runs
   the agent off this PC, out of reach of the hooks and the hall, and an unknown value is denied like `model`. The `.env`
@@ -324,7 +329,12 @@ Do not change the look without asking. New ideas go into a later version.
   by the path as written (a leading `~` is home, `.` and `..` resolved against the call's cwd, a Windows `\\?\` prefix
   dropped, case-blind on Windows) and by where it lands (the deepest existing part through `realpathSync.native`, so a
   junction, a link or an 8.3 short name such as `WORLD-~1` that leads in is caught too; this PC keeps short names). The
-  template's denies stay as a second layer. No network, no writes, no file content read. Failing closed means a missing
+  template's denies stay as a second layer. Agent memory is off (3.4f, Dima, 14 Nov: notes an agent writes unasked are
+  a place where a hijacked agent plants instructions it reads again next session): no agent file sets `memory`
+  (`agent-prompts.test.ts`, `team.test.ts`), and an Edit or Write into any of the three agent memory folders,
+  `.claude/agent-memory-local`, `.claude/agent-memory` or `~/.claude/agent-memory`, is denied for every caller with its own reason,
+  "agent memory is off" (`inAgentMemory()`: a `.claude` folder, then one of the two names, by the path as written, `.`
+  and `..` resolved, case-blind on Windows; nothing loads from there, so it is for a true reason, not a lock). No network, no writes, no file content read. Failing closed means a missing
   Node blocks every agent start and shell command where the plugin is on; both READMEs say so, with the message.
 - Every plugin script with a main part runs it only when Node was started on that very file (v3.1 review): the same
   `runAsScript()` block in each compares the real path of `process.argv[1]` with the module's own (`realpathSync`, then
@@ -715,7 +725,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    v3.4.0 (docs/v3.4-plan.md): the local-plugin approach is proven (a folder marketplace, local scope, loaded in place,
    `woa-team:<id>`; no model run). 3.4a done (plugin/team/, setup-team). 3.4b done (the guard's team rows from team.json, every start denied
    without it, the folder rule; template version 3 denies Read/Edit/Write on ~/.world-of-agents/**, versions/2.json the
-   v3.0 one; guild leads have Agent and memory: local, the Lead memory: local; from the review, Edit and Write into
+   v3.0 one; guild leads have Agent and memory: local, the Lead memory: local (memory off since 3.4f); from the review, Edit and Write into
    ~/.world-of-agents denied for every caller, as written and as resolved). 3.4d done (a `specialist` event; the hall
    shows a guild lead's specialists at work in its name plate and screen-reader label, the pane under the lead; names from
    the agent type's shape only). 3.4c done (12 Nov, Dima's T8: the pane's "Change skills" makes a one-time key, hands
@@ -723,5 +733,11 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    bar at once and exchanges it once, within 60 s, for an HttpOnly, SameSite=Strict cookie; the Team panel adds,
    changes, deletes and gives skills through POST /api/team, with a full preview, flags and refusals; every change is a
    line in the pane through team-log.mjs). 3.4e done (14 Nov: the specialists report the check as the devs do since
-   3.3d, and the ones that edit change only their task's files and leave no backup copies). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
+   3.3d, and the ones that edit change only their task's files and leave no backup copies). 3.4f done (14 Nov, Dima's
+   decisions after the self-check: the Designer changes only its task's files; the Lead passes a request for a
+   specialist on to its guild lead, naming it, and guild leads hand work over when asked or when it is more than a small
+   change; the Lead's `Agent` is bare, because its list became the whole session's and hid the specialists from the
+   guild leads; agent memory is off, and the guard denies a write into any of the three agent memory folders with its own reason;
+   the devs and the specialists run exactly `npm run check`, nothing added; a real run saw the Frontend dev start its
+   React dev; the engine has no pattern for an `Agent(...)` list, so the Lead's `Agent` stays bare). The v3.4.0 checklist is docs/release-notes/v3.4.0-check.md. Next: prepare
    v3.4.0, then the final report.

@@ -77,6 +77,8 @@ export const REASONS = Object.freeze({
   woa: 'World of Agents guard: that file is in the World of Agents folder (~/.world-of-agents), which only Dima changes.',
   backlog:
     'World of Agents guard: BACKLOG.md here is a link, a folder or a file with more than one name, so the Lead may not write it.',
+  memory:
+    'World of Agents guard: agent memory is off, so no agent writes into a memory folder (.claude/agent-memory-local, .claude/agent-memory or ~/.claude/agent-memory).',
 });
 
 /** The one answer the guard ever gives. */
@@ -192,10 +194,29 @@ export function inWoaFolder(filePath, cwd, home = homedir()) {
   return within(written, folder) || within(canonical(written), canonical(folder));
 }
 
+/** The agent memory folders' names, each right under a `.claude` folder (3.4f). */
+const MEMORY_FOLDERS = ['agent-memory-local', 'agent-memory'];
+
+/**
+ * Is `filePath` in an agent memory folder (3.4f)? Claude Code keeps them in three places: `.claude/agent-memory-local`
+ * and `.claude/agent-memory` in a project, and `~/.claude/agent-memory` (all three: a `.claude` folder, then one of the
+ * two names). Agent memory is off (Dima, 14 Nov): no agent file sets `memory`, because notes an agent writes unasked are
+ * a place where a hijacked agent plants instructions it reads again next session. A write there gets its own reason, for
+ * every caller, instead of one about the backlog. By the path as written, `.` and `..` resolved against the call's
+ * cwd, case-blind on Windows: nothing loads from those folders now, so the rule is for a true reason, not a lock.
+ */
+export function inAgentMemory(filePath, cwd) {
+  const win = process.platform === 'win32';
+  const written = resolve(typeof cwd === 'string' && cwd !== '' ? cwd : '.', filePath);
+  const parts = written.split(/[\\/]+/).map((p) => (win ? p.toLowerCase() : p));
+  return parts.some((p, i) => p === '.claude' && MEMORY_FOLDERS.includes(parts[i + 1]));
+}
+
 function checkEdit(input, team, home) {
   const filePath = isObject(input.tool_input) ? input.tool_input.file_path : undefined;
   if (typeof filePath !== 'string') return denial(REASONS.input);
   if (inWoaFolder(filePath, input.cwd, home)) return denial(REASONS.woa);
+  if (inAgentMemory(filePath, input.cwd)) return denial(REASONS.memory);
   if (input.agent_id !== undefined) {
     const ours =
       typeof input.agent_id === 'string' &&

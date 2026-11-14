@@ -72,7 +72,9 @@ agent carries dozens of skills.
 1). A plugin can't set it; the setup skill writes it into `.claude/settings.local.json`, which the desktop app applies.
 
 - Who may start whom is a fixed table in the guard hook (below). An `Agent(...)` list in a subagent's file restricts
-  nothing: milestone 1 saw a guild lead start an agent its list doesn't name. Only the main thread's list is applied.
+  nothing: milestone 1 saw a guild lead start an agent its list doesn't name. The main thread's list is applied, and to the
+  whole session: nested agents inherit it, so the guild leads saw only the Lead's four (3.4f). Since then no agent file
+  has a list, the Lead's included, and the guard is the one check.
 - Specialists get no `Agent` tool.
 - Guild leads and specialists run on Sonnet. Only the Lead and the Reviewer use Opus (the Reviewer since v3.1.0, docs/v3.1-plan.md).
 
@@ -107,9 +109,10 @@ agent carries dozens of skills.
 full when it starts, and it can still call any other skill when it needs one. Preloaded skills cost context on every run, so keep
 the lists short.
 
-**Memory.** The Lead and each guild lead get `memory: local`: a notes file per agent that survives between sessions and stays out
-of git. That's how the Designer remembers your design decisions, not just best practices. Switch an agent to `memory: project`
-only if you want its notes committed, because on a public repo anyone can read them.
+**Memory.** Off from v3.4.0 (Dima, 14 Nov): no agent file sets `memory`. Notes an agent writes unasked are a place where a
+hijacked agent plants instructions it reads again next session. The guard denies an Edit or Write into
+`.claude/agent-memory-local`, `.claude/agent-memory` or `~/.claude/agent-memory` with its own reason ("agent memory is off"). Later, memory comes back only as proposals: an
+agent proposes a note and Dima approves it with a button, as with skills; nothing is written without him.
 
 The new characters need sprites and room in the hall. That's a design round before milestone 5, since the v1 look is locked.
 
@@ -340,7 +343,7 @@ decides.
 | The setup skill's settings       | A wrong line loosens permissions                                 | A fixed template copied by a script Claude Code runs, never by the model. It writes only when Dima types the write skill, never merges a file it doesn't recognize, and the file is git-ignored. No wildcard git rule, which would allow `--output`. An upgrade keeps only rules no template has; one of ours missing or changed stops it. |
 | The mod reads settings           | A secret in the settings reaches the mod                         | One key, `enabledPlugins`, from the user source only, read at session start for the every-project warning. The engine hands the mod nothing else. A source check pins that one call.                                                                                                                                                       |
 | Reading `.env`                   | An agent reads a secret                                          | `Read(.env)` deny rules (file tools and the file commands Claude Code recognizes in Bash) and the guard's best-effort rule on shell commands that name a `.env` file. Neither stops a determined attacker.                                                                                                                                 |
-| Agent memory                     | Notes with paths or decisions end up on GitHub                   | `memory: local` by default, which stays out of git.                                                                                                                                                                                                                                                                                        |
+| Agent memory                     | Planted notes steer an agent in the next session                 | Off: no agent sets `memory`, and the guard denies an Edit or Write into any of the three agent memory folders with its own reason. Later, notes only with Dima's approval.                                                                                                                                                                 |
 | Scouts reading the web (on hold) | A news page tells the scout to do something else                 | On hold with milestone 6. If scouts come back: their own repo, no connectors, an allowlist of sites, and no secret in the repo.                                                                                                                                                                                                            |
 | Tasks from Flint (later)         | Speech or a news page puts words in the Lead's prompt            | Not built in v3. When it is: its own key, off until Dima turns it on, a size cap and a rate limit. The pane shows exactly the text fill will put in the box, as text. Filled on Dima's click, sent by his Enter (see "Later: Flint Assistant").                                                                                            |
 | Installing the plugin            | People install code that changed after they trusted it           | Releases are tagged, and the README tells people to install a tagged version.                                                                                                                                                                                                                                                              |
@@ -447,7 +450,7 @@ The first three are Dima's answers from 5 Nov, the next two come from the milest
 | Scouts repo                | Public: digests are public news and good portfolio material                   | Private, but then the hall needs a token to read the reports  | On hold |
 | Everyday work vs long runs | The desktop app with approvals; a WSL terminal with the sandbox for long runs | WSL only                                                      | Open    |
 | Voice                      | PowerShell fixed script, on by default                                        | Off until you turn it on                                      | Open    |
-| Agent memory               | `local`, out of git                                                           | `project`, committed                                          | Open    |
+| Agent memory               | Off from v3.4.0 (14 Nov): no agent writes notes unasked                       | Later: a note an agent proposes, saved on Dima's button       | Agreed  |
 | Specialist models          | Sonnet; the Reviewer on Opus (v3.1.0)                                         | Opus for the whole Review guild, where security matters most  | Open    |
 | Ledger backfill            | An opt-in button                                                              | Automatic on install                                          | Open    |
 

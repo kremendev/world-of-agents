@@ -44,24 +44,20 @@ describe('the plugin agents match the roster the page shows', () => {
   });
 
   // The roster only says "Agent", so what it may start has to be checked here.
-  it('lets the Lead start exactly the other four, and nobody else start anyone', () => {
+  it('gives every agent a bare Agent, and leaves who may start whom to the guard: the Lead the other four', () => {
     const agentTools = agents.flatMap((a) =>
       toolList(a.front.tools)
         .filter((tool) => toolName(tool) === 'Agent')
         .map((tool) => ({ id: a.id, tool })),
     );
-    // v3.4: the Lead's list names the four; the guild leads have a bare Agent, held to their specialists by the guard.
-    expect(agentTools.filter((a) => a.tool !== 'Agent').map((a) => a.id)).toEqual(['lead']);
-    expect(sorted(agentTools.filter((a) => a.tool === 'Agent').map((a) => a.id))).toEqual(
-      sorted(['designer', 'frontend', 'backend', 'reviewer']),
-    );
-    const started =
-      /^Agent\((.*)\)$/.exec(agentTools.find((a) => a.id === 'lead')?.tool ?? '')?.[1]?.split(', ') ?? [];
-    expect(sorted(started)).toEqual(
+    // 3.4f: an Agent(...) list on the main thread becomes the whole session's list (Claude Code 2.1.319), and nested
+    // agents inherit it, so the guild leads never saw a specialist. In a subagent's file a list restricts nothing (the v3
+    // spike). So no agent file has one, and the guard is the one check: the Lead the four, each guild lead its specialists.
+    expect(agentTools.filter((a) => a.tool !== 'Agent')).toEqual([]);
+    expect(sorted(agentTools.map((a) => a.id))).toEqual(sorted(ROSTER.map((a) => a.id)));
+    expect(sorted([...MAY_START.main])).toEqual(
       sorted(ROSTER.filter((a) => a.id !== 'lead').map((a) => `world-of-agents:${a.id}`)),
     );
-    // The guard hook enforces the same list (a subagent's Agent(...) list restricts nothing), so the two can't drift.
-    expect(sorted([...MAY_START.main])).toEqual(sorted(started));
   });
 });
 

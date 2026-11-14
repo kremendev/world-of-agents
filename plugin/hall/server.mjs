@@ -83,13 +83,13 @@ function toolsOf(specialist) {
   return specialist.guild === "design" ? "Read, Grep, Glob, Write, Edit" : "Read, Grep, Glob, Write, Edit, Bash";
 }
 var CHECK_LAST = [
-  "- Your last step, after your last edit: run `npm run check` yourself when the project has that script, as one command",
-  "  on its own: never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that",
-  "  command run without asking. Then report what you saw: `npm run check: passed` when it ends without an error, or",
-  "  `npm run check: failed (exit N)` with the exit code Claude Code shows you (`npm run check: failed` when it shows",
-  "  none). Never run another command just to read the exit code, and never write a number you didn't see. If it fails,",
-  "  fix what it reports within your task and run it again. Where quality gates are on, the gate still runs it when your",
-  "  guild lead finishes: it stays the judge."
+  "- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that",
+  "  and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no",
+  "  `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking. Then report what",
+  "  you saw: `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit",
+  "  code Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the",
+  "  exit code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it",
+  "  again. Where quality gates are on, the gate still runs it when your guild lead finishes: it stays the judge."
 ];
 var FILES_ONLY = [
   "- Change only the files your task names. To show a test can fail, use a temporary copy (removed when you're done) or",

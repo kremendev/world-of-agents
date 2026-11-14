@@ -96,13 +96,13 @@ export function toolsOf(specialist) {
  * looks like is the devs' rule (3.3d): Claude Code shows no exit code for a command that passes.
  */
 const CHECK_LAST = [
-  '- Your last step, after your last edit: run `npm run check` yourself when the project has that script, as one command',
-  '  on its own: never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that',
-  '  command run without asking. Then report what you saw: `npm run check: passed` when it ends without an error, or',
-  '  `npm run check: failed (exit N)` with the exit code Claude Code shows you (`npm run check: failed` when it shows',
-  "  none). Never run another command just to read the exit code, and never write a number you didn't see. If it fails,",
-  '  fix what it reports within your task and run it again. Where quality gates are on, the gate still runs it when your',
-  '  guild lead finishes: it stays the judge.',
+  '- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that',
+  '  and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no',
+  '  `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking. Then report what',
+  '  you saw: `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit',
+  '  code Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the',
+  "  exit code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it",
+  '  again. Where quality gates are on, the gate still runs it when your guild lead finishes: it stays the judge.',
 ];
 /** For a specialist that edits, as for the devs (Dima's v3.3.0 desktop run, 14 Nov): its task's files only, no backups. */
 const FILES_ONLY = [

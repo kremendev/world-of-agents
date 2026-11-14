@@ -19,8 +19,10 @@ export const REASONS: {
   readonly team: string;
   readonly folder: string;
   readonly woa: string;
+  readonly memory: string;
 };
 export const EDITORS: readonly string[];
 export function denial(reason: string): string;
 export function decide(raw: string | null, team?: Team | null, home?: string): string | null;
 export function inWoaFolder(filePath: string, cwd: unknown, home?: string): boolean;
+export function inAgentMemory(filePath: string, cwd: unknown): boolean;

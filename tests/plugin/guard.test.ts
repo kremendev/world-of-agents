@@ -222,6 +222,82 @@ describe('the Lead edits BACKLOG.md and nothing else (v3.3)', () => {
   });
 });
 
+describe('agent memory is off (3.4f, Dima, 14 Nov)', () => {
+  const win = process.platform === 'win32';
+  const CWD = win ? 'C:\\Users\\dima\\project' : '/home/dima/project';
+  const at = (...parts: string[]) => [CWD, ...parts].join(win ? '\\' : '/');
+  const write = (who: string, file_path: string, tool = 'Write') =>
+    JSON.stringify({
+      ...(who === 'world-of-agents:lead' ? {} : { agent_id: 'a1' }),
+      agent_type: who,
+      cwd: CWD,
+      tool_name: tool,
+      tool_input: { file_path, content: 'x' },
+    });
+  const CALLERS = [
+    'world-of-agents:lead',
+    ...EDITORS,
+    'world-of-agents:reviewer',
+    'woa-team:frontend-react-dev',
+    'general-purpose',
+  ];
+
+  // The three places Claude Code keeps agent memory: local and project scope in the project, user scope in home.
+  const HOME = win ? 'C:\\Users\\dima' : '/home/dima';
+  const FOLDERS = [
+    [
+      '.claude/agent-memory-local',
+      at('.claude', 'agent-memory-local', 'world-of-agents-frontend', 'MEMORY.md'),
+    ],
+    ['.claude/agent-memory', at('.claude', 'agent-memory', 'world-of-agents-frontend', 'MEMORY.md')],
+    [
+      '~/.claude/agent-memory',
+      [HOME, '.claude', 'agent-memory', 'frontend', 'MEMORY.md'].join(win ? '\\' : '/'),
+    ],
+  ] as const;
+
+  it.each(FOLDERS)('denies every caller an Edit or Write into %s, with its own reason', (_, file) => {
+    for (const who of CALLERS)
+      for (const tool of ['Edit', 'Write'])
+        expect(check(write(who, file, tool)), `${who} ${tool}`).toBe(denial(REASONS.memory));
+  });
+
+  it('says why, and names all three folders', () => {
+    expect(REASONS.memory).toContain('agent memory is off');
+    for (const [name] of FOLDERS) expect(REASONS.memory).toContain(name);
+  });
+
+  it.each([
+    ['a path written with ~', '~/.claude/agent-memory/a.md'],
+    ['a relative path', '.claude/agent-memory-local/a.md'],
+    ['a path that climbs in', at('src', '..', '.claude', 'agent-memory-local', 'a.md')],
+    ['a memory folder in a subproject', at('packages', 'web', '.claude', 'agent-memory-local', 'a.md')],
+    ['a .. between the two names', at('.claude', 'x', '..', 'agent-memory-local', 'a.md')],
+  ])('catches %s', (_, file) => {
+    expect(check(write('world-of-agents:frontend', file))).toBe(denial(REASONS.memory));
+  });
+
+  it('matches case-blind on Windows only', () => {
+    const answer = check(write('world-of-agents:frontend', at('.Claude', 'Agent-Memory-Local', 'a.md')));
+    if (win) expect(answer).toBe(denial(REASONS.memory));
+    else expect(answer).toBeNull();
+  });
+
+  it('leaves look-alikes to the usual rules', () => {
+    for (const file of [
+      at('.claude', 'agent-memory-localx', 'a.md'),
+      at('.claude', 'agent-memoryx', 'a.md'),
+      at('.claude', 'agent-memories', 'a.md'),
+      at('notes', 'agent-memory-local', 'a.md'),
+      at('notes', 'agent-memory', 'a.md'),
+      at('src', 'agent-memory-local.ts'),
+      at('.claude', 'agent-memory-local', '..', 'notes.md'),
+    ])
+      expect(check(write('world-of-agents:frontend', file)), file).toBeNull();
+    expect(check(write('world-of-agents:lead', at('BACKLOG.md')))).toBeNull();
+  });
+});
+
 describe('the team table (v3.4)', () => {
   const lead = (subagent_type: string) =>
     JSON.stringify({ agent_type: 'world-of-agents:lead', tool_name: 'Agent', tool_input: { subagent_type } });
