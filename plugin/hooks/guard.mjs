@@ -80,6 +80,8 @@ export const REASONS = Object.freeze({
   memory:
     'World of Agents guard: agent memory is off, so no agent writes into a memory folder (.claude/agent-memory-local, .claude/agent-memory or ~/.claude/agent-memory).',
   off: "World of Agents guard: that specialist is switched off on the hall's Team page, so it may not start until the user switches it on.",
+  shell:
+    'World of Agents guard: this agent has no shell in its role (only the Frontend dev, the Backend dev and specialists that edit files and run checks do), so it may not run commands.',
 });
 
 /** The one answer the guard ever gives. */
@@ -242,9 +244,31 @@ function checkEdit(input, team, home) {
   return plainOrMissing(filePath) ? null : denial(REASONS.backlog);
 }
 
-function checkShell(input) {
+/** Our agents whose role has a shell (3.6f): the two devs. The Designer and the Reviewer have none. */
+export const SHELLS = Object.freeze([`${PREFIX}frontend`, `${PREFIX}backend`]);
+
+/** The team's specialists whose preset has a shell (3.6f): Edits files and runs checks, and no other. */
+const teamShells = (team) =>
+  team === null
+    ? []
+    : team.specialists.filter((p) => p.preset === 'edits-and-checks').map((p) => `${TEAM_PREFIX}${p.id}`);
+
+/**
+ * Bash and PowerShell. A subagent may run a command only when its role has a shell (3.6f, Dima's review): an agent file
+ * whose frontmatter breaks loads with every tool (3.6e), so the guard holds the shell to the roles, as it holds Edit and
+ * Write. Any other subagent, an agent type it doesn't know included, is denied. The main thread keeps exactly the rules
+ * it had: the user's own ! commands never reach this hook (checked on 2.1.319, 3.6f), and the Lead has no shell.
+ * `table` reads the team only when a subagent calls.
+ */
+function checkShell(input, table) {
   const command = isObject(input.tool_input) ? input.tool_input.command : undefined;
   if (typeof command !== 'string') return denial(REASONS.input);
+  if (input.agent_id !== undefined) {
+    const known = typeof input.agent_id === 'string' && typeof input.agent_type === 'string';
+    const shell =
+      known && (SHELLS.includes(input.agent_type) || teamShells(table()).includes(input.agent_type));
+    if (!shell) return denial(REASONS.shell);
+  }
   if (ENV_FILE.test(command)) return denial(REASONS.env);
   return TEAM_FOLDER.test(command) ? denial(REASONS.folder) : null;
 }
@@ -261,7 +285,7 @@ export function decide(raw, team, home = homedir()) {
     const input = JSON.parse(raw);
     if (!isObject(input)) return denial(REASONS.input);
     if (input.tool_name === 'Agent') return checkAgent(input, table());
-    if (input.tool_name === 'Bash' || input.tool_name === 'PowerShell') return checkShell(input);
+    if (input.tool_name === 'Bash' || input.tool_name === 'PowerShell') return checkShell(input, table);
     if (input.tool_name === 'Edit' || input.tool_name === 'Write') return checkEdit(input, table(), home);
     return denial(REASONS.input);
   } catch {

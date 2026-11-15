@@ -359,8 +359,10 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   `readTeam()` reads `~/.world-of-agents/team/team.json` through the strict team schema (Dima's decision): the guild
   leads' rows come from it (each may start its guild's `woa-team:<guild>-<name>` specialists; specialists start nobody;
   from v3.6 one switched off, `on: false`, is denied with its own reason, its agent file left as it is, so the guard is
-  the lock and a switch counts at once), and with the file missing or broken every agent start is denied, the Lead's
-  included, naming
+  the lock and a switch counts at once; from 3.6f a subagent may run Bash or PowerShell only when its role has a shell,
+  `SHELLS` (the two devs) or an `edits-and-checks` specialist, any other subagent or unknown type denied with its own
+  reason, the main thread unchanged, since the user's own `!` commands never reach `PreToolUse`, checked on 2.1.319),
+  and with the file missing or broken every agent start is denied, the Lead's included, naming
   `/world-of-agents:setup-team`. A shell command that names `.world-of-agents` is denied too (best effort). Edit and
   Write into `~/.world-of-agents` are denied for every caller, with or without the setup (v3.4 review, `inWoaFolder()`):
   by the path as written (a leading `~` is home, `.` and `..` resolved against the call's cwd, a Windows `\\?\` prefix
@@ -894,7 +896,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     every frontmatter value from the team's data quoted, since Claude Code dropped a whole frontmatter, tools included,
     for a role starting with ' or -, seen with `claude plugin validate` and a no-login run; GENERATOR 2; tests parse it
     with the `yaml` package under YAML 1.2 and 1.1; Undo puts a skill back where it was; "Change skills" is "Open Team
-    page"). Waits for Dima: v3.5.0's desktop
+    page"). 3.6f done (the guard holds the shell to the roles that have one, as it holds Edit and Write: the two devs
+    and `edits-and-checks` specialists; the main thread unchanged; Dima's `!` commands, driven through ConPTY in an
+    interactive session, reach no hook at all). Waits for Dima: v3.5.0's desktop
     check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 1f7babd) and its tag.
 
 13. v3.7.0 (docs/v3.7-plan.md): 3.7a, the spike, done (15 Nov, six real Haiku runs, $0.011): a main-thread agent, the

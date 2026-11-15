@@ -10,6 +10,7 @@ import {
   ENV_FILE,
   MAY_START,
   REASONS,
+  SHELLS,
   TEAM_FOLDER,
   teamRows,
 } from '../../plugin/hooks/guard.mjs';
@@ -599,5 +600,65 @@ describe('never allow', () => {
       "import { LEADS, readTeam } from '../team/team.mjs';",
     ]);
     expect(code).not.toMatch(/\b(fetch|require|process\.env|writeFile|readFile|child_process)\b/);
+  });
+});
+
+// 3.6f (Dima's review): 3.6e showed a broken frontmatter gives an agent every tool, so the guard holds the shell to the
+// roles that have one, as it holds Edit and Write. One row per agent type, for both shells.
+describe('who may run a command (3.6f)', () => {
+  const run = (tool: string, caller: Record<string, unknown>, command = 'npm run check') =>
+    JSON.stringify({ hook_event_name: 'PreToolUse', ...caller, tool_name: tool, tool_input: { command } });
+  const sub = (agent_type: unknown) => ({ agent_id: 'a1', agent_type });
+  const ROWS: [string, Record<string, unknown>, 'shell' | 'denied'][] = [
+    ['the Frontend dev', sub('world-of-agents:frontend'), 'shell'],
+    ['the Backend dev', sub('world-of-agents:backend'), 'shell'],
+    ['the Designer', sub('world-of-agents:designer'), 'denied'],
+    ['the Reviewer', sub('world-of-agents:reviewer'), 'denied'],
+    ['the Lead as a subagent', sub('world-of-agents:lead'), 'denied'],
+    ['an Edits files and runs checks specialist (React dev)', sub('woa-team:frontend-react-dev'), 'shell'],
+    ['an Edits files and runs checks specialist (QA tester)', sub('woa-team:review-qa-tester'), 'shell'],
+    ['an Edits files specialist (React designer)', sub('woa-team:design-react-designer'), 'denied'],
+    ['a Reads only specialist (Security warden)', sub('woa-team:review-security-warden'), 'denied'],
+    ['a specialist not in the team', sub('woa-team:frontend-nobody'), 'denied'],
+    ["Claude Code's Explore", sub('Explore'), 'denied'],
+    ["Claude Code's general-purpose", sub('general-purpose'), 'denied'],
+    ['a made-up type', sub('world-of-agents:frontendx'), 'denied'],
+    ['a subagent with no type', { agent_id: 'a1' }, 'denied'],
+    ['a subagent whose type is no string', sub(7), 'denied'],
+    ['a subagent whose id is no string', { agent_id: 1, agent_type: 'world-of-agents:backend' }, 'denied'],
+  ];
+
+  for (const tool of ['Bash', 'PowerShell']) {
+    it.each(ROWS)(`${tool}: %s`, (_, caller, expected) => {
+      expect(check(run(tool, caller))).toBe(expected === 'shell' ? null : denial(REASONS.shell));
+    });
+  }
+
+  it('leaves the main thread exactly as it was: no shell rule, only the .env and folder rules', () => {
+    for (const main of [{ agent_type: 'world-of-agents:lead' }, {}, { agent_type: 'anything' }]) {
+      expect(check(run('Bash', main))).toBeNull();
+      expect(check(run('Bash', main, 'cat .env'))).toBe(denial(REASONS.env));
+      expect(check(run('PowerShell', main, 'gc ~/.world-of-agents/token'))).toBe(denial(REASONS.folder));
+    }
+  });
+
+  it('keeps the .env and folder rules for an agent that has a shell, and reads a preset change at once', () => {
+    expect(check(run('Bash', sub('world-of-agents:backend'), 'cat .env.local'))).toBe(denial(REASONS.env));
+    expect(check(run('Bash', sub('woa-team:frontend-react-dev'), 'ls ~/.world-of-agents'))).toBe(
+      denial(REASONS.folder),
+    );
+    const team = structuredClone(TABLE);
+    team.specialists.find((p) => p.id === 'frontend-react-dev')!.preset = 'edits';
+    expect(decide(run('Bash', sub('woa-team:frontend-react-dev')), team)).toBe(denial(REASONS.shell));
+  });
+
+  it('with the team missing or broken: the two devs keep their shell, no specialist has one', () => {
+    expect(decide(run('Bash', sub('world-of-agents:frontend')), null)).toBeNull();
+    expect(decide(run('Bash', sub('woa-team:frontend-react-dev')), null)).toBe(denial(REASONS.shell));
+  });
+
+  it('names the roles in its reason', () => {
+    expect(REASONS.shell).toContain('has no shell in its role');
+    expect(SHELLS).toEqual(['world-of-agents:frontend', 'world-of-agents:backend']);
   });
 });

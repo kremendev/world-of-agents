@@ -47,8 +47,16 @@ function items(list) {
     } else item += char;
   }
   out.push(item);
-  // Which helper makes a call ("(via refreshAgents)") is no part of the surface.
-  return out.map((s) => s.replace(/\s*\(via [^)]*\)$/, '').trim()).filter(Boolean);
+  // Which helper makes a call ("(via refreshAgents)") is no part of the surface, and nor is the engine's own default for
+  // a hook's matcher ("(default matcher key: plugin)", printed from Claude Code 2.1.325 on): the mod sets neither.
+  return out
+    .map((s) =>
+      s
+        .replace(/\s*\(via [^)]*\)$/, '')
+        .replace(/\s*\(default matcher key: [a-z]+\)$/, '')
+        .trim(),
+    )
+    .filter(Boolean);
 }
 
 // Each note about a module reads "<module> <kind>: <items>".

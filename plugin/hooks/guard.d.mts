@@ -21,8 +21,10 @@ export const REASONS: {
   readonly woa: string;
   readonly memory: string;
   readonly off: string;
+  readonly shell: string;
 };
 export const EDITORS: readonly string[];
+export const SHELLS: readonly string[];
 export function denial(reason: string): string;
 export function decide(raw: string | null, team?: Team | null, home?: string): string | null;
 export function inWoaFolder(filePath: string, cwd: unknown, home?: string): boolean;
