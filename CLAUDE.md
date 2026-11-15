@@ -895,4 +895,4 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     for a role starting with ' or -, seen with `claude plugin validate` and a no-login run; GENERATOR 2; tests parse it
     with the `yaml` package under YAML 1.2 and 1.1; Undo puts a skill back where it was; "Change skills" is "Open Team
     page"). Waits for Dima: v3.5.0's desktop
-    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 23d7557) and its tag. v3.7.0 is not started.
+    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 1f7babd) and its tag. v3.7.0 is not started.
