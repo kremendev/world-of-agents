@@ -1,5 +1,5 @@
 // World of Agents team log (v3.4c, docs/v3.4-plan.md). The team pane runs it as `node <plugin>/hooks/team-log.mjs` in the
-// plugin's folder, no arguments, at session start, after the Lead's turns and for a while after "Change skills", to show
+// plugin's folder, no arguments, at session start, after the Lead's turns and for a while after "Open Team page", to show
 // every change the hall's page made to the team: the time, what changed, and names only.
 //
 // It reads ~/.world-of-agents/team/changes.json through team.mjs (only entries that are exactly entries) and prints one

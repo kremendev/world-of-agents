@@ -212,7 +212,7 @@ async function checkChanges($: EngineInterface): Promise<void> {
 }
 
 /**
- * "Change skills": a new key to the hall through hall-key.mjs's stdin, then the link that carries it, for a minute. Then the
+ * "Open Team page" (3.6e; "Change skills" before): a new key to the hall through hall-key.mjs's stdin, then the link that carries it, for a minute. Then the
  * pane looks at the change log every 20 s for ten minutes, so each change shows while Dima edits.
  */
 async function openEditor($: EngineInterface): Promise<void> {
@@ -381,7 +381,7 @@ export const register: Register = (on) => {
         onPreset: (key) => pressPreset($, key),
         onMute: () => toggleMute($),
         onRecount: () => recountPressed($),
-        onChangeSkills: () => (openEditorInSession ? openEditorInSession() : openEditor($)),
+        onOpenTeam: () => (openEditorInSession ? openEditorInSession() : openEditor($)),
       },
       editorKey,
     ),

@@ -1,4 +1,4 @@
-// The team editor in the pane (v3.4c, docs/v3.4-plan.md, T8): the one-time key "Change skills" makes, the link that
+// The team editor in the pane (v3.4c, docs/v3.4-plan.md, T8): the one-time key "Open Team page" makes, the link that
 // carries it, and the lines of the team's change log. The key is never kept in $.state or $.store: it goes only on
 // hall-key.mjs's stdin and into the link, after a #, so no server ever logs it.
 

@@ -162,9 +162,14 @@ describe('the Team page: a specialist', () => {
     expect(posts).toEqual([{ action: 'switch', id: 'design-react-designer', on: false }]);
   });
 
-  it('takes a skill off with ×, says so with Undo, and Undo gives it back', async () => {
+  it('takes a skill off with ×, says so with Undo, and Undo gives it back where it was', async () => {
     const posts = hall();
     await open();
+    const chips = () =>
+      within(details())
+        .getAllByRole('button', { name: /^Take / })
+        .map((b) => b.getAttribute('aria-label'));
+    const before = chips();
     await click(screen.getByRole('button', { name: 'Take Accessibility from React designer' }));
     expect(posts).toEqual([
       { action: 'detach', specialist: 'design-react-designer', skill: 'accessibility' },
@@ -173,14 +178,17 @@ describe('the Team page: a specialist', () => {
     expect(screen.getByRole('button', { name: '+ Add skill' })).toHaveFocus();
     expect(details()).toHaveTextContent('2 of 5');
     await click(within(status()).getByRole('button', { name: 'Undo' }));
+    // 3.6e (Dima): back in its place, the second of three, not at the end.
     expect(posts.at(-1)).toEqual({
       action: 'attach',
       specialist: 'design-react-designer',
       skill: 'accessibility',
+      at: 1,
     });
     expect(status()).toHaveTextContent('Gave Accessibility back to React designer.');
     expect(within(status()).queryByRole('button', { name: 'Undo' })).toBeNull();
     expect(details()).toHaveTextContent('3 of 5');
+    expect(chips()).toEqual(before);
   });
 
   it('"+ Add skill" lists the skills left with what each is for; Escape closes it; a card gives the skill', async () => {

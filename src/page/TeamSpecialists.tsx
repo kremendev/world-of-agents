@@ -199,10 +199,12 @@ function SpecialistDetails({
   };
   const take = async (skill: string) => {
     const name = nameOf(skill);
+    // Undo puts it back where it was, as the mockup does (3.6e).
+    const at = p.skills.indexOf(skill);
     const done = await actions.send(
       { action: 'detach', specialist: p.id, skill },
       `Took ${name} from ${p.name}.`,
-      { change: { action: 'attach', specialist: p.id, skill }, said: `Gave ${name} back to ${p.name}.` },
+      { change: { action: 'attach', specialist: p.id, skill, at }, said: `Gave ${name} back to ${p.name}.` },
     );
     if (done) actions.focus(addSkill);
   };

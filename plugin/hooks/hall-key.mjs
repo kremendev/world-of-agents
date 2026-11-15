@@ -1,4 +1,4 @@
-// World of Agents hall key (v3.4c, docs/v3.4-plan.md, T8). The team pane runs it when Dima presses "Change skills", as
+// World of Agents hall key (v3.4c, docs/v3.4-plan.md, T8). The team pane runs it when Dima presses "Open Team page", as
 // `node <plugin>/hooks/hall-key.mjs` in the plugin's folder, with {"key": "<43 base64url characters>"} on stdin: a random
 // one-time key the mod made. It hands the key to the hall the way send.mjs posts a hook: only after the hall proves it
 // holds the token, with the token, no redirect, the reply thrown away. The key never goes on a command line or in an

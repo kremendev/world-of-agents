@@ -217,3 +217,22 @@ describe('the schema and team.mjs agree on a specialist (v3.6)', () => {
       expect(teamChangeSchema.safeParse(change).success, JSON.stringify(change)).toBe(false);
   });
 });
+
+describe('attach takes a place for Undo (3.6e)', () => {
+  const attach = { action: 'attach', specialist: 'frontend-react-dev', skill: 'accessibility' };
+  it.each([
+    [undefined, true],
+    [0, true],
+    [4, true],
+    [5, false],
+    [-1, false],
+    [1.5, false],
+    ['1', false],
+  ])('at %j', (at, ok) => {
+    const change = at === undefined ? attach : { ...attach, at };
+    expect(teamChangeSchema.safeParse(change).success).toBe(ok);
+  });
+  it('a detach takes none', () => {
+    expect(teamChangeSchema.safeParse({ ...attach, action: 'detach', at: 0 }).success).toBe(false);
+  });
+});

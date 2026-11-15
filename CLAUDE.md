@@ -114,7 +114,9 @@ plugin/team/      v3.4: the team as data. team.mjs (the only writer of ~/.world-
                   loaded in place: its strict schema, the generator of agents/*.md and skills/*/SKILL.md, the refusal of a
                   skill line starting with !` and of invisible characters, init() and readTeam(); from v3.6 team.json is version 2,
                   with `preset` (reads, edits, edits-and-checks), `on` and `generator`, a version 1 file read through
-                  upgrade(), at most 5 specialists a guild), defaults.json (the 8
+                  upgrade(), at most 5 specialists a guild; from 3.6e every frontmatter value from the team's data is a
+                  double-quoted YAML string, and readTexts() also reads generator 1's unquoted skill files),
+                  defaults.json (the 8
                   specialists and 14 skills) and skills/*.md (their texts). skills/setup-team/ (team-setup.mjs) and
                   setup-team-write/: create it, never over one that is there, and from v3.6d refresh an older team's
                   generated files only (never a specialist, skill or text); tested in server/setup-team.test.ts
@@ -436,7 +438,8 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   Never text: a test plants secrets in transcripts and in the script's output.
   Agent text (an Agent call's `description`) is plain `Text`, with control and bidi characters turned to spaces and cut at
   120 code points; never `Markdown`. Two `Link`s only: the hall, exactly `http://localhost:4319`, and (v3.4c, T8) the team editor's,
-  `http://localhost:4319/#k=<key>`, shown for 60 s after Dima presses "Change skills". The key is 32 bytes from the
+  `http://localhost:4319/#k=<key>`, shown for 60 s after Dima presses "Open Team page" ("Change skills" until 3.6e). The
+  key is 32 bytes from the
   engine's `crypto.getRandomValues`, kept in a module variable of register.tsx only, never in `$.state` or `$.store`, and
   sent only on hall-key.mjs's stdin. `tests/plugin/mod.test.ts`
   checks the source: no `submit` call and no `asUser`, `$.prompt` only as the one `$.prompt.fill` in `presets.ts`, no
@@ -461,7 +464,7 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
   counts, never text), run whenever the hall becomes `running` (3.2d: a hall the mod started itself answered after session
   start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
-  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, on the press of "Change skills") and
+  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, on the press of "Open Team page") and
   `node <plugin>/hooks/team-log.mjs` (no input; whenever the hall becomes `running`, after the Lead's turns while it is, and every
   20 s for ten minutes after a key), and from v3.6d `node <plugin>/hooks/team-check.mjs` (no input, at session start, its
   exit code only: the pane says "Your team's specialist files are from an older plugin." on 6). A
@@ -887,5 +890,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     the check found the hall view never hid behind the page: `.app[hidden]`). 3.6d done (team-check.mjs answers by exit
     code; the pane says when the team's files are older; `/world-of-agents:setup-team-write` refreshes only the generated
     files of an older team, a version 1 one included, and stops at a SKILL.md changed by hand). v3.6.0 is prepared, not
-    tagged (plugin.json 3.6.0, docs/release-notes/v3.6.0.md, README pins on `#v3.6.0`). Waits for Dima: v3.5.0's desktop
+    tagged (plugin.json 3.6.0, docs/release-notes/v3.6.0.md, README pins on `#v3.6.0`). 3.6e done (Dima's review, 15 Nov:
+    every frontmatter value from the team's data quoted, since Claude Code dropped a whole frontmatter, tools included,
+    for a role starting with ' or -, seen with `claude plugin validate` and a no-login run; GENERATOR 2; tests parse it
+    with the `yaml` package under YAML 1.2 and 1.1; Undo puts a skill back where it was; "Change skills" is "Open Team
+    page"). Waits for Dima: v3.5.0's desktop
     check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 23d7557) and its tag. v3.7.0 is not started.

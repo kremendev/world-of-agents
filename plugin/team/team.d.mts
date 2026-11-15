@@ -38,7 +38,8 @@ export function readTeam(home?: string): Team | null;
 export type TeamChange =
   | { action: 'add-skill' | 'change-skill'; id: string; name: string; description: string; text: string }
   | { action: 'delete-skill'; id: string }
-  | { action: 'attach' | 'detach'; specialist: string; skill: string }
+  | { action: 'attach'; specialist: string; skill: string; at?: number }
+  | { action: 'detach'; specialist: string; skill: string }
   | { action: 'add-specialist'; name: string; guild: Guild; role: string; preset: Preset; skills: string[] }
   | { action: 'change-specialist'; id: string; role: string; preset: Preset; skills: string[] }
   | { action: 'delete-specialist'; id: string }

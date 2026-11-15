@@ -135,11 +135,11 @@ describe('the processes the mod starts', () => {
     ]);
   });
 
-  it('draws two links only: the hall, exactly, and the team editor with its key after a # (v3.4c, T8)', () => {
+  it('draws two links only: the hall, exactly, and the Team page with its key after a # (v3.4c, T8; named so in 3.6e)', () => {
     expect(using(/<Link\b/)).toEqual(['pane.tsx']);
     expect(code('pane.tsx').match(/<Link[^>]*>/g)).toEqual([
       '<Link href={HALL_URL} label="Open hall" />',
-      '<Link href={editorLink(HALL_URL, editorKey)} label="Open the team editor" />',
+      '<Link href={editorLink(HALL_URL, editorKey)} label="Open the Team page" />',
     ]);
     expect(code('pane.tsx')).toContain("export const HALL_URL = 'http://localhost:4319';");
     expect(code('team.ts')).toContain(

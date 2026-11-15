@@ -6340,7 +6340,7 @@ var MAX_SKILLS = 64;
 var MAX_PRELOADED = 5;
 var MAX_TEXT = 8e3;
 var PRESETS = Object.freeze(["reads", "edits", "edits-and-checks"]);
-var GENERATOR = 1;
+var GENERATOR = 2;
 var SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var SPECIALIST_KEYS = ["id", "name", "role", "guild", "preset", "on", "skills"];
@@ -6448,15 +6448,16 @@ var NO_CHECK = [
   "- You run no commands, so you can't run `npm run check`: say `npm run check: not run by me` in your report."
 ];
 var guildName = (guild) => guild.charAt(0).toUpperCase() + guild.slice(1);
+var quoted = (value) => JSON.stringify(value);
 function buildAgent(p) {
   const reads = p.preset === "reads";
   return [
     "---",
-    `name: ${p.id}`,
-    `description: ${p.role}. A specialist in the World of Agents ${guildName(p.guild)} guild, started by its guild lead.`,
+    `name: ${quoted(p.id)}`,
+    `description: ${quoted(`${p.role}. A specialist in the World of Agents ${guildName(p.guild)} guild, started by its guild lead.`)}`,
     "model: sonnet",
     `tools: ${toolsOf(p)}`,
-    ...p.skills.length > 0 ? [`skills: ${p.skills.join(", ")}`] : [],
+    ...p.skills.length > 0 ? [`skills: ${quoted(p.skills.join(", "))}`] : [],
     "---",
     "",
     `You are the ${p.name}, a specialist in the World of Agents ${guildName(p.guild)} guild: ${p.role}.`,
@@ -6477,10 +6478,17 @@ function buildAgent(p) {
   ].join("\n");
 }
 function buildSkill(skill, text) {
-  return ["---", `name: ${skill.id}`, `description: ${skill.description}`, "---", "", text.trim(), ""].join(
-    "\n"
-  );
+  return [
+    "---",
+    `name: ${quoted(skill.id)}`,
+    `description: ${quoted(skill.description)}`,
+    "---",
+    "",
+    text.trim(),
+    ""
+  ].join("\n");
 }
+var legacySkillHead = (skill) => ["---", `name: ${skill.id}`, `description: ${skill.description}`, "---", "", ""].join("\n");
 var teamDir = (home = homedir()) => join(home, ".world-of-agents", "team");
 function inside(dir, ...parts) {
   const path = resolve(dir, ...parts);
@@ -6524,8 +6532,8 @@ function readTexts(dir, team) {
   const texts = {};
   for (const s of team.skills) {
     const file = readFileSync(inside(dir, "skills", s.id, "SKILL.md"), "utf8").replace(/\r\n/g, "\n");
-    const head = buildSkill(s, "").slice(0, -1);
-    if (!file.startsWith(head) || !file.endsWith("\n"))
+    const head = [buildSkill(s, "").slice(0, -1), legacySkillHead(s)].find((h) => file.startsWith(h));
+    if (head === void 0 || !file.endsWith("\n"))
       throw new Error(`skill ${s.id}: not as this module wrote it`);
     texts[s.id] = file.slice(head.length, -1);
   }
@@ -6592,7 +6600,9 @@ function applyChange(team, texts, change, now) {
       if (p.skills.includes(s.id)) throw new Error("attached already");
       if (p.skills.length >= MAX_PRELOADED)
         throw new Error(`a specialist has at most ${MAX_PRELOADED} skills`);
-      p.skills.push(s.id);
+      if (change.at !== void 0 && (!Number.isSafeInteger(change.at) || change.at < 0))
+        throw new Error("no such place among its skills");
+      p.skills.splice(Math.min(change.at ?? p.skills.length, p.skills.length), 0, s.id);
     } else {
       if (!p.skills.includes(s.id)) throw new Error("not attached");
       p.skills = p.skills.filter((id2) => id2 !== s.id);
@@ -6850,7 +6860,13 @@ var teamChangeSchema = discriminatedUnion("action", [
   strictObject({ action: literal("add-skill"), ...skillFields }),
   strictObject({ action: literal("change-skill"), ...skillFields }),
   strictObject({ action: literal("delete-skill"), id: skillId }),
-  strictObject({ action: literal("attach"), specialist: specialistId, skill: skillId }),
+  // 3.6e: `at`, where Undo puts a skill back; without it the skill goes last.
+  strictObject({
+    action: literal("attach"),
+    specialist: specialistId,
+    skill: skillId,
+    at: number2().int().min(0).max(MAX_PRELOADED2 - 1).optional()
+  }),
   strictObject({ action: literal("detach"), specialist: specialistId, skill: skillId }),
   strictObject({
     action: literal("add-specialist"),

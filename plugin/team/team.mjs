@@ -35,7 +35,7 @@ export const PRESETS = Object.freeze(['reads', 'edits', 'edits-and-checks']);
  * The version of the generated text (v3.6, E9): raise it whenever buildAgent() or buildSkill() writes anything
  * different, so the pane can say a team's files are older (team-check.mjs). team.test.ts pins the text to it.
  */
-export const GENERATOR = 1;
+export const GENERATOR = 2;
 /** A specialist's id starts with its guild, so the hall and the pane can place it without reading the file. */
 const SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -189,16 +189,24 @@ const NO_CHECK = [
 
 const guildName = (guild) => guild.charAt(0).toUpperCase() + guild.slice(1);
 
+/**
+ * A frontmatter value from the team's data, as a double-quoted YAML string (3.6e, Dima's review): unquoted, a value
+ * starting with ' or - failed to parse (and Claude Code then loads the agent with every field but its name dropped, its
+ * tools included), & starts an anchor, and digits, null or yes change type. JSON's string form is a valid YAML
+ * double-quoted string for everything the name rule allows.
+ */
+const quoted = (value) => JSON.stringify(value);
+
 /** A specialist's agent file, every line built here from checked fields. */
 export function buildAgent(p) {
   const reads = p.preset === 'reads';
   return [
     '---',
-    `name: ${p.id}`,
-    `description: ${p.role}. A specialist in the World of Agents ${guildName(p.guild)} guild, started by its guild lead.`,
+    `name: ${quoted(p.id)}`,
+    `description: ${quoted(`${p.role}. A specialist in the World of Agents ${guildName(p.guild)} guild, started by its guild lead.`)}`,
     'model: sonnet',
     `tools: ${toolsOf(p)}`,
-    ...(p.skills.length > 0 ? [`skills: ${p.skills.join(', ')}`] : []),
+    ...(p.skills.length > 0 ? [`skills: ${quoted(p.skills.join(', '))}`] : []),
     '---',
     '',
     `You are the ${p.name}, a specialist in the World of Agents ${guildName(p.guild)} guild: ${p.role}.`,
@@ -223,12 +231,22 @@ export function buildAgent(p) {
   ].join('\n');
 }
 
-/** A skill's file: the frontmatter built here, the text after it as written. */
+/** A skill's file: the frontmatter built here, its values quoted (3.6e), the text after it as written. */
 export function buildSkill(skill, text) {
-  return ['---', `name: ${skill.id}`, `description: ${skill.description}`, '---', '', text.trim(), ''].join(
-    '\n',
-  );
+  return [
+    '---',
+    `name: ${quoted(skill.id)}`,
+    `description: ${quoted(skill.description)}`,
+    '---',
+    '',
+    text.trim(),
+    '',
+  ].join('\n');
 }
+
+/** The frontmatter generator 1 and earlier wrote, unquoted: readTexts() still knows it, so a refresh can read it. */
+const legacySkillHead = (skill) =>
+  ['---', `name: ${skill.id}`, `description: ${skill.description}`, '---', '', ''].join('\n');
 
 /** Where the team lives. */
 export const teamDir = (home = homedir()) => join(home, '.world-of-agents', 'team');
@@ -280,14 +298,16 @@ export function writeTeam(dir, checked, texts) {
 
 /**
  * Each skill's text as written, read back from the SKILL.md this module built (v3.4c): the file must start with exactly
- * the frontmatter buildSkill() writes for that skill. Throws when one is missing or doesn't, so a write never loses a text.
+ * the frontmatter buildSkill() writes for that skill, or the one generator 1 wrote (3.6e). Throws when one is missing or
+ * doesn't, so a write never loses a text.
  */
 export function readTexts(dir, team) {
   const texts = {};
   for (const s of team.skills) {
     const file = readFileSync(inside(dir, 'skills', s.id, 'SKILL.md'), 'utf8').replace(/\r\n/g, '\n');
-    const head = buildSkill(s, '').slice(0, -1);
-    if (!file.startsWith(head) || !file.endsWith('\n'))
+    // This generator's head, or generator 1's unquoted one (3.6e), so a team written before can still be read.
+    const head = [buildSkill(s, '').slice(0, -1), legacySkillHead(s)].find((h) => file.startsWith(h));
+    if (head === undefined || !file.endsWith('\n'))
       throw new Error(`skill ${s.id}: not as this module wrote it`);
     texts[s.id] = file.slice(head.length, -1);
   }
@@ -380,7 +400,10 @@ export function applyChange(team, texts, change, now) {
       if (p.skills.includes(s.id)) throw new Error('attached already');
       if (p.skills.length >= MAX_PRELOADED)
         throw new Error(`a specialist has at most ${MAX_PRELOADED} skills`);
-      p.skills.push(s.id);
+      // 3.6e: Undo gives a skill back where it was (`at`); without one it goes last. Past the end is the end.
+      if (change.at !== undefined && (!Number.isSafeInteger(change.at) || change.at < 0))
+        throw new Error('no such place among its skills');
+      p.skills.splice(Math.min(change.at ?? p.skills.length, p.skills.length), 0, s.id);
     } else {
       if (!p.skills.includes(s.id)) throw new Error('not attached');
       p.skills = p.skills.filter((id) => id !== s.id);

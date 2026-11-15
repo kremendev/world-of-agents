@@ -238,7 +238,7 @@ describe('POST /api/team: a change, with every control', () => {
     expect(JSON.parse(res.body).texts['release-notes']).toBe(SKILL.text);
     const skill = readFileSync(join(teamDir(home), 'skills', 'release-notes', 'SKILL.md'), 'utf8');
     expect(skill).toBe(
-      `---\nname: release-notes\ndescription: How to write a release note\n---\n\n${SKILL.text}\n`,
+      `---\nname: "release-notes"\ndescription: "How to write a release note"\n---\n\n${SKILL.text}\n`,
     );
     expect(teamJson().skills.map((s) => s.id)).toContain('release-notes');
     expect(changes()).toEqual([{ at: clock, what: 'skill-added', skill: 'Release notes' }]);

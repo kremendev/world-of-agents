@@ -333,7 +333,7 @@ export function createHall({
   }
 
   /**
-   * hall-key.mjs, when Dima presses "Change skills" in the pane (v3.4c, T8): a one-time key the mod made, with the token,
+   * hall-key.mjs, when Dima presses "Open Team page" in the pane (v3.4c, T8): a one-time key the mod made, with the token,
    * like a hook. Never from a page.
    */
   async function keyPost(req: IncomingMessage, res: ServerResponse): Promise<void> {

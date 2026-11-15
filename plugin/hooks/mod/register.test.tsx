@@ -1261,9 +1261,13 @@ describe('the team editor (v3.4c, T8)', () => {
     await clock.settle();
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
     expect(await links(ui)).toEqual(['http://localhost:4319']);
-    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeDefined();
+    // 3.6e (Dima): the button names what it opens.
+    expect((await ui.find({ type: 'Button', key: 'open-team-page' }))?.props.label).toBe('Open Team page');
+    const texts = (await ui.findAll({ type: 'Text' })).map((t) => t.text);
+    expect(texts).toContain('Team');
+    expect(texts).not.toContain('Skills');
 
-    await ui.press({ key: 'change-skills' });
+    await ui.press({ key: 'open-team-page' });
     await clock.settle();
     expect(keys()).toHaveLength(1);
     const [run] = keys();
@@ -1273,7 +1277,7 @@ describe('the team editor (v3.4c, T8)', () => {
     const { key } = JSON.parse(run!.stdin!) as { key: string };
     expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(await links(ui)).toEqual(['http://localhost:4319', `http://localhost:4319/#k=${key}`]);
-    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeUndefined();
+    expect(await ui.find({ type: 'Button', key: 'open-team-page' })).toBeUndefined();
     // The key went to hall-key.mjs's stdin and into the link, and nowhere else: no state, no store, no argument.
     expect(written.join('\n')).not.toContain(key);
     expect(
@@ -1285,7 +1289,7 @@ describe('the team editor (v3.4c, T8)', () => {
     await clock.advance(60_000);
     await clock.settle();
     expect(await links(ui)).toEqual(['http://localhost:4319']);
-    expect(await ui.find({ type: 'Button', key: 'change-skills' })).toBeDefined();
+    expect(await ui.find({ type: 'Button', key: 'open-team-page' })).toBeDefined();
     await ui.unmount();
   });
 
@@ -1294,10 +1298,10 @@ describe('the team editor (v3.4c, T8)', () => {
     await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
     await clock.settle();
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
-    await ui.press({ key: 'change-skills' });
+    await ui.press({ key: 'open-team-page' });
     await clock.advance(60_000);
     await clock.settle();
-    await ui.press({ key: 'change-skills' });
+    await ui.press({ key: 'open-team-page' });
     await clock.settle();
     const sent = keys().map((r) => (JSON.parse(r.stdin!) as { key: string }).key);
     expect(sent).toHaveLength(2);
@@ -1310,7 +1314,7 @@ describe('the team editor (v3.4c, T8)', () => {
     await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
     await clock.settle();
     const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
-    await ui.press({ key: 'change-skills' });
+    await ui.press({ key: 'open-team-page' });
     await clock.settle();
     expect(await links(ui)).toEqual(['http://localhost:4319']);
     expect(
@@ -1343,7 +1347,7 @@ describe('the team editor (v3.4c, T8)', () => {
       '12 Nov 14:05 Skill deleted: Old notes',
       '12 Nov 14:05 Skill added: Newest',
     ]);
-    await ui.press({ key: 'change-skills' });
+    await ui.press({ key: 'open-team-page' });
     await clock.settle();
     const before = logs().length;
     await clock.advance(20_000);

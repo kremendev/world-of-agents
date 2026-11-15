@@ -48,7 +48,18 @@ export const teamChangeSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('add-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('change-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('delete-skill'), id: skillId }),
-  z.strictObject({ action: z.literal('attach'), specialist: specialistId, skill: skillId }),
+  // 3.6e: `at`, where Undo puts a skill back; without it the skill goes last.
+  z.strictObject({
+    action: z.literal('attach'),
+    specialist: specialistId,
+    skill: skillId,
+    at: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_PRELOADED - 1)
+      .optional(),
+  }),
   z.strictObject({ action: z.literal('detach'), specialist: specialistId, skill: skillId }),
   z.strictObject({
     action: z.literal('add-specialist'),

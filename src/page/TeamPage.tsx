@@ -15,7 +15,7 @@ import { SpecialistsTab } from './TeamSpecialists';
 export type TeamSession = Exchange | 'none' | 'checking';
 
 export const SESSION_LINES = {
-  none: 'To change the team, press "Change skills" in the team pane, then open its link within a minute.',
+  none: 'To change the team, press "Open Team page" in the team pane, then open its link within a minute.',
   used: 'This link was already used. Open the hall again from the pane.',
   expired: 'This link has expired. Open the hall again from the pane.',
   offline: "The hall didn't answer. Open the hall again from the pane.",

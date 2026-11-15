@@ -1280,7 +1280,7 @@ describe('the Team page (v3.6)', () => {
     fireEvent.click(team);
     await settle();
     expect(screen.getByRole('heading', { level: 1, name: 'Team' })).toHaveFocus();
-    expect(screen.getByRole('status')).toHaveTextContent('press "Change skills" in the team pane');
+    expect(screen.getByRole('status')).toHaveTextContent('press "Open Team page" in the team pane');
     expect(hallView).not.toBeVisible();
     // The hall keeps listening while the Team page is open.
     view.emit(say('Server is up.'));
