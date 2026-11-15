@@ -56,6 +56,7 @@ function engine(
     start = 0 as number | 'cannot run',
     gate = undefined as Promise<void> | undefined,
     stated = `${PLUGIN_VERSION}\n`,
+    teamCheck = 0 as number | 'cannot run',
   } = {},
 ) {
   let printed = stated;
@@ -78,6 +79,11 @@ function engine(
     if (e.argv[2] === '--status') {
       statuses.push({ argv: [...e.argv], init: e.init });
       return result(5);
+    }
+    // v3.6d: the team files' check, a status check too: 0 this plugin's, 6 older, 4 no team.
+    if (e.argv[1]?.endsWith('/hooks/team-check.mjs')) {
+      statuses.push({ argv: [...e.argv], init: e.init });
+      return teamCheck === 'cannot run' ? { deny: 'cannot start' } : result(teamCheck);
     }
     const run = { argv: [...e.argv], init: e.init };
     runs.push(run);
@@ -125,6 +131,40 @@ async function mount($: Engine, surface: (typeof SURFACES)[number] = 'desktop') 
 /** The plugin's folder, as the mod passed it: every command runs there. */
 const rootOf = (runs: Run[]) => runs[0]?.init?.cwd ?? '';
 
+// v3.6d (E6, E9): the pane says when the team's generated files come from an older plugin, from an exit code alone.
+describe("the team's generated files", () => {
+  const OLDER =
+    "Your team's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+  for (const [code, shown] of [
+    [6, true],
+    [0, false],
+    [4, false],
+    [1, false],
+    ['cannot run', false],
+  ] as const) {
+    test(`team-check.mjs answering ${code}: ${shown ? 'the line' : 'no line'}`, async ($, on) => {
+      const world = engine(on, { checks: [OURS], teamCheck: code });
+      await $.session.start(SESSION);
+      await world.clock.settle();
+      for (const surface of SURFACES) {
+        const pane = await mount($, surface);
+        expect((await pane.texts()).includes(OLDER)).toBe(shown);
+        await pane.ui.unmount();
+      }
+    });
+  }
+
+  test('with no Node, it is never asked', async ($, on) => {
+    const world = engine(on, { node: 'missing', checks: [OURS], teamCheck: 6 });
+    await $.session.start(SESSION);
+    await world.clock.settle();
+    expect(world.statuses).toEqual([]);
+    const pane = await mount($);
+    expect(await pane.texts()).not.toContain(OLDER);
+    await pane.ui.unmount();
+  });
+});
+
 describe('the hall', () => {
   test('nothing on the port: one fixed start script in the plugin folder, then the handshake says it is ours', async ($, on) => {
     const world = engine(on, { checks: [DOWN, OURS] });
@@ -148,6 +188,8 @@ describe('the hall', () => {
     // v3.3: one status check for quality gates, a fixed command answered by its exit code.
     expect(world.statuses).toEqual([
       { argv: ['node', `${root}/hooks/gate.mjs`, '--status'], init: { cwd: root, timeoutMs: 10_000 } },
+      // v3.6d: one more, whether the team's generated files are this plugin's.
+      { argv: ['node', `${root}/hooks/team-check.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
     ]);
 
     for (const surface of SURFACES) {

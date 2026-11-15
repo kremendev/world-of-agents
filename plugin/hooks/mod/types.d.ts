@@ -117,6 +117,8 @@ export type PaneView = {
   teamChanges: PaneChange[];
   /** v3.3: are quality gates on in this project? `hooks/gate.mjs --status`'s exit code at session start. */
   gates: 'unknown' | 'on' | 'off';
+  /** v3.6d: are the team's generated files this plugin's? `hooks/team-check.mjs`'s exit code at session start. */
+  teamFiles: 'unknown' | 'current' | 'older' | 'none';
   /** v3.3: the last time a gate sent an agent back: which of ours, and which retry. From the gate's fixed first line only. */
   gateRetry: { agent: 'designer' | 'frontend' | 'backend'; retry: number } | null;
   /** The ids of the runs seen since the team last went quiet: "the team is done" waits until all of them are over. */

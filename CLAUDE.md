@@ -116,7 +116,8 @@ plugin/team/      v3.4: the team as data. team.mjs (the only writer of ~/.world-
                   with `preset` (reads, edits, edits-and-checks), `on` and `generator`, a version 1 file read through
                   upgrade(), at most 5 specialists a guild), defaults.json (the 8
                   specialists and 14 skills) and skills/*.md (their texts). skills/setup-team/ (team-setup.mjs) and
-                  setup-team-write/: create it, never over one that is there; tested in server/setup-team.test.ts
+                  setup-team-write/: create it, never over one that is there, and from v3.6d refresh an older team's
+                  generated files only (never a specialist, skill or text); tested in server/setup-team.test.ts
 plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
@@ -134,7 +135,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   Code's transcripts, cache writes split 5-minute and 1-hour, printed as whole numbers only, on Dima's press),
                   hooks/hall-key.mjs (v3.4c: the editor's one-time key
                   from stdin to POST /api/key after the handshake; exit code only), hooks/team-log.mjs (v3.4c: the team's
-                  change log, names only, as strict JSON), hooks/mod/ (the team pane, a mod named
+                  change log, names only, as strict JSON), hooks/team-check.mjs (v3.6d: are the team's generated files
+                  this plugin's? exit 0 yes or newer, 6 older, 4 no team; prints nothing), hooks/mod/ (the team pane, a mod named
                   under `modules` in hooks.json: register.tsx the hooks and the one $.state value, pane.tsx the drawing,
                   roster.ts, presets.ts, hall.ts (Node check, hall check and start), voice.ts (the voice: its fixed
                   command, the queue, what it may say), text.ts (plain(): agent text cleaned and capped), ledger.ts (v3.2: the token ledger: addTurn(),
@@ -461,7 +463,8 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
   v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, on the press of "Change skills") and
   `node <plugin>/hooks/team-log.mjs` (no input; whenever the hall becomes `running`, after the Lead's turns while it is, and every
-  20 s for ten minutes after a key). A
+  20 s for ten minutes after a key), and from v3.6d `node <plugin>/hooks/team-check.mjs` (no input, at session start, its
+  exit code only: the pane says "Your team's specialist files are from an older plugin." on 6). A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
@@ -881,4 +884,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     Team page as the approved mockup shows it, its own view with the hall kept running behind it; the token set and Inter;
     search, tabs with arrow keys, the switch, chips with Undo, "+ Add skill", both forms with live refusals and a live
     preview; in Edge on a throwaway hall, keyboard only, every change and the tab order passed, no console errors, and
-    the check found the hall view never hid behind the page: `.app[hidden]`).
+    the check found the hall view never hid behind the page: `.app[hidden]`). 3.6d done (team-check.mjs answers by exit
+    code; the pane says when the team's files are older; `/world-of-agents:setup-team-write` refreshes only the generated
+    files of an older team, a version 1 one included, and stops at a SKILL.md changed by hand).

@@ -49,6 +49,7 @@ const STORED_VIEW: PaneView = {
   editor: 'none',
   teamChanges: [],
   gates: 'unknown',
+  teamFiles: 'unknown',
   gateRetry: null,
   round: [],
   unheard: [],

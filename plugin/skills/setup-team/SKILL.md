@@ -1,6 +1,6 @@
 ---
 name: setup-team
-description: Shows what World of Agents would create in ~/.world-of-agents/team (the guilds' specialists and their skills, kept outside every project). Writes nothing. Only the user starts it.
+description: Shows what World of Agents would create in ~/.world-of-agents/team (the guilds' specialists and their skills, kept outside every project), or whether an existing team's files need a refresh. Writes nothing. Only the user starts it.
 disable-model-invocation: true
 allowed-tools: Bash(node '${CLAUDE_PLUGIN_ROOT}/skills/setup-team/team-setup.mjs')
 ---
@@ -14,8 +14,9 @@ no file edit, no agent. You decide nothing either.
 
 Tell the user in a few plain sentences what the output says. If it ends with "Nothing has been written.", the next step
 is to type `/world-of-agents:setup-team-write`, which creates exactly that; typing it is the yes. Say that until the team
-exists, no agent can start. If it says the team is already there, repeat the install commands it lists, exactly. If it
-says "Stopped", say why, as it does.
+exists, no agent can start. If it says the team's specialist files are from an older plugin, the next step is the same
+command, which refreshes only those files and keeps every specialist, skill and text. If it says the team is already
+there, repeat the install commands it lists, exactly. If it says "Stopped", say why, as it does.
 
 If it shows "[shell command execution disabled by policy]" instead, the script did not run, because a setting
 (`disableSkillShellExecution`) turns off shell commands in skills. Nothing changed. The user can run

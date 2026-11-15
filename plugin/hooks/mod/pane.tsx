@@ -89,6 +89,10 @@ const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
 
 /** The modes where something runs without asking you first, and what the pane says about each, the mode named first. */
 const NOTHING_ASKS = 'Nothing asks you before acting.';
+/** v3.6d: the team's generated files come from an older plugin; the setup's write refreshes only them. */
+const TEAM_OLDER =
+  "Your team's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+
 /** v3.3: quality gates, and the modes where they run with nothing else asking first. */
 const GATES_ON = 'Quality gates: on.';
 const GATES_WARNING = "Quality gates: npm run check runs after each dev's task without asking.";
@@ -183,6 +187,7 @@ export function drawPane(
           {warning}
         </Text>
       )}
+      {v.teamFiles === 'older' && <Text color="warning">{TEAM_OLDER}</Text>}
       {v.gates === 'on' && v.mode !== null && GATE_MODES.has(v.mode) && (
         <Text color="warning" bold>
           {GATES_WARNING}

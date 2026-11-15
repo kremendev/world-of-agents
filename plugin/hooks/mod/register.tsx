@@ -10,7 +10,16 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register } from 'claude-code';
 
-import { findNode, gateStatus, keepHall, recountSessions, sendKey, sendLedger, teamChanges } from './hall';
+import {
+  findNode,
+  gateStatus,
+  keepHall,
+  recountSessions,
+  sendKey,
+  sendLedger,
+  teamChanges,
+  teamFiles,
+} from './hall';
 import { addTurn, LEDGER_KEY, readLedger, recount, summarize } from './ledger';
 import type { TurnUsageLike } from './ledger';
 import { askerName, drawPane } from './pane';
@@ -35,6 +44,7 @@ const EMPTY: PaneView = {
   editor: 'none',
   teamChanges: [],
   gates: 'unknown',
+  teamFiles: 'unknown',
   gateRetry: null,
   round: [],
   unheard: [],
@@ -155,7 +165,8 @@ async function startUp($: EngineInterface): Promise<void> {
   }));
   const found = await findNode($);
   const gates = found.node === 'ok' ? await gateStatus($) : 'unknown';
-  await set($, (v) => ({ ...v, ...found, gates }));
+  const files = found.node === 'ok' ? await teamFiles($) : 'unknown';
+  await set($, (v) => ({ ...v, ...found, gates, teamFiles: files }));
   // A hall found ours gets the total as it becomes `running` (setHall).
   if (found.node === 'ok') await keepHall($, setHall($));
   else await setHall($)('stopped');

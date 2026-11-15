@@ -35,6 +35,8 @@ export const startCommand = (root: string) => ['node', `${root}/hooks/hall-start
 export const stopCommand = (root: string) => ['node', `${root}/hooks/hall-stop.mjs`];
 /** hooks/gate.mjs --status: are quality gates on in this project? An exit code only (v3.3). */
 export const gateStatusCommand = (root: string) => ['node', `${root}/hooks/gate.mjs`, '--status'];
+/** hooks/team-check.mjs (v3.6d): are the team's generated files older than this plugin? An exit code only. */
+export const teamCheckCommand = (root: string) => ['node', `${root}/hooks/team-check.mjs`];
 /** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
 export const ledgerCommand = (root: string) => ['node', `${root}/hooks/ledger-post.mjs`];
 /** hooks/ledger-past.mjs: Recount, every session's token counts from Claude Code's transcripts, numbers only. */
@@ -134,6 +136,22 @@ export async function gateStatus($: EngineInterface): Promise<'unknown' | 'on' |
       timeoutMs: TIMEOUT_MS,
     });
     return exitCode === 0 ? 'on' : exitCode === 5 ? 'off' : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+/**
+ * Are the team's generated files this plugin's (v3.6d, E6, E9)? team-check.mjs answers 0 for this generator or a newer
+ * one, 6 for an older one, 4 for no team or a broken one. Nothing it prints is read.
+ */
+export async function teamFiles($: EngineInterface): Promise<'unknown' | 'current' | 'older' | 'none'> {
+  try {
+    const { exitCode } = await $.process.run(teamCheckCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      timeoutMs: TIMEOUT_MS,
+    });
+    return exitCode === 0 ? 'current' : exitCode === 6 ? 'older' : exitCode === 4 ? 'none' : 'unknown';
   } catch {
     return 'unknown';
   }

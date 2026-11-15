@@ -1,15 +1,26 @@
 // World of Agents team setup (v3.4, docs/v3.4-plan.md). Claude Code runs it, never the model:
 //   node team-setup.mjs           shows what it would create, writes nothing   (/world-of-agents:setup-team)
-//   node team-setup.mjs --write   creates ~/.world-of-agents/team             (/world-of-agents:setup-team-write)
+//   node team-setup.mjs --write   creates ~/.world-of-agents/team, or refreshes its generated files (v3.6d)
+//                                 (/world-of-agents:setup-team-write)
 //
-// It creates the team from the plugin's defaults only when there is none, never over one, and prints no file's text.
+// It creates the team from the plugin's defaults only when there is none, never over one; on a team from an older
+// generator it rewrites only the generated files, never a specialist, skill or text (v3.6d). It prints no file's text.
 // It exits 0 whenever it printed a result: a non-zero exit aborts the skill.
 
 import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { defaults, GUILDS, init, readTeam, teamDir } from '../../team/team.mjs';
+import {
+  defaults,
+  GENERATOR,
+  GUILDS,
+  init,
+  readTeam,
+  readTexts,
+  teamDir,
+  writeTeam,
+} from '../../team/team.mjs';
 
 const GUILD = { design: 'Design', frontend: 'Frontend', backend: 'Backend', review: 'Review' };
 export const INSTALL = [
@@ -37,11 +48,37 @@ export function report(home, writing) {
         'agent start. Nothing changed. Move that folder aside and run this again to create a fresh one.',
       ];
     }
+    const size = `${team.specialists.length} specialists and ${team.skills.length} skills`;
+    // v3.6d (E6): a team whose generated files are older than this plugin's generator is refreshed on --write, and only
+    // those files: team.json keeps every specialist, skill and assignment, and each skill keeps its text.
+    if (team.generator >= GENERATOR) {
+      return [`The team is already there: ${size}. Nothing changed.`, ...listed(team), '', ...INSTALL];
+    }
+    if (!writing) {
+      return [
+        `The team is there: ${size}, its specialist files from an older plugin.`,
+        ...listed(team),
+        '',
+        'To refresh them, type /world-of-agents:setup-team-write. It rewrites only the files the plugin makes from the',
+        'team: never a specialist, a skill or a text of yours. Nothing has been written yet.',
+      ];
+    }
+    const dir = teamDir(home);
+    let texts;
+    try {
+      texts = readTexts(dir, team);
+    } catch {
+      return [
+        'Stopped: a skill file in ~/.world-of-agents/team was changed by hand, so a refresh would lose that text.',
+        'Nothing changed.',
+      ];
+    }
+    writeTeam(dir, team, texts);
     return [
-      `The team is already there: ${team.specialists.length} specialists and ${team.skills.length} skills. Nothing changed.`,
+      `Refreshed the team's files for this plugin: ${size}, each as it was.`,
       ...listed(team),
       '',
-      ...INSTALL,
+      'Type /reload-plugins in a session that is already open, so it reads the new files.',
     ];
   }
   const { team } = defaults();
