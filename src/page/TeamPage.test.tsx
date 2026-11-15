@@ -15,6 +15,8 @@ function teamView(): TeamView {
   return {
     team,
     texts: Object.fromEntries(Object.entries(texts).map(([id, t]) => [id, t.trim()])),
+    notes: { designer: [], frontend: [], backend: [], reviewer: [] },
+    proposals: [],
   } as TeamView;
 }
 
@@ -41,7 +43,7 @@ function hall(
       }
       try {
         const next = applyChange(view.team as never, view.texts, change, 1);
-        view = { team: next.team, texts: next.texts } as TeamView;
+        view = { ...view, team: next.team, texts: next.texts } as TeamView;
         return new Response(JSON.stringify(view), { status: 200 });
       } catch (error) {
         return new Response(JSON.stringify({ error: (error as Error).message }), { status: 409 });

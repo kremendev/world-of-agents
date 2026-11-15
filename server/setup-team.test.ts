@@ -5,13 +5,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { report, INSTALL } from '../plugin/skills/setup-team/team-setup.mjs';
 import {
   applyChange,
+  applyNoteChange,
   buildAgent,
+  buildNotesSkill,
+  emptyNotes,
   defaults,
   GENERATOR,
   init,
   readTeam,
   readTexts,
   teamDir,
+  writeNotes,
   writeTeam,
 } from '../plugin/team/team.mjs';
 
@@ -265,5 +269,42 @@ describe('team-setup.mjs refreshes an older team (v3.6d)', () => {
     const before = files(h);
     expect(report(h, true)[0]).toMatch(/^The team is already there: .*Nothing changed\.$/);
     expect(files(h)).toEqual(before);
+  });
+});
+
+describe('the refresh and the notes (v3.7c)', () => {
+  it("rewrites a guild lead's notes skill from notes.json, and leaves notes.json as it was", () => {
+    const h = home();
+    init(h);
+    const dir = teamDir(h);
+    const notes = applyNoteChange(
+      emptyNotes(),
+      { action: 'note-approve', id: 'p'.repeat(16) },
+      { agent: 'backend', text: 'Migrations live in db/migrations.', at: 1 },
+      2,
+    ).notes;
+    writeNotes(dir, notes, readTeam(h)!);
+    const json = readFileSync(join(dir, 'notes.json'), 'utf8');
+    writeFileSync(join(dir, 'skills', 'notes-backend', 'SKILL.md'), 'stale\n');
+    writeFileSync(join(dir, 'team.json'), JSON.stringify({ ...readTeam(h)!, generator: 0 }));
+    expect(report(h, true)[0]).toMatch(/^Refreshed the team's files/);
+    expect(readFileSync(join(dir, 'skills', 'notes-backend', 'SKILL.md'), 'utf8')).toBe(
+      buildNotesSkill('backend', notes.notes.backend),
+    );
+    expect(readFileSync(join(dir, 'notes.json'), 'utf8')).toBe(json);
+  });
+
+  it('stops at a broken notes.json, and changes nothing', () => {
+    const h = home();
+    init(h);
+    const dir = teamDir(h);
+    writeFileSync(join(dir, 'notes.json'), '{"version": 1, "notes": {}}');
+    writeFileSync(join(dir, 'team.json'), JSON.stringify({ ...readTeam(h)!, generator: 0 }));
+    const before = readFileSync(join(dir, 'team.json'), 'utf8');
+    expect(report(h, true)).toEqual([
+      "Stopped: ~/.world-of-agents/team/notes.json isn't as World of Agents wrote it, so a refresh would lose notes.",
+      'Nothing changed.',
+    ]);
+    expect(readFileSync(join(dir, 'team.json'), 'utf8')).toBe(before);
   });
 });

@@ -16,9 +16,11 @@ import {
   GENERATOR,
   GUILDS,
   init,
+  readNotes,
   readTeam,
   readTexts,
   teamDir,
+  writeNotesSkills,
   writeTeam,
 } from '../../team/team.mjs';
 
@@ -73,7 +75,18 @@ export function report(home, writing) {
         'Nothing changed.',
       ];
     }
+    // v3.7: the guild leads' notes skills are generated too, from notes.json.
+    let notes;
+    try {
+      notes = readNotes(dir);
+    } catch {
+      return [
+        "Stopped: ~/.world-of-agents/team/notes.json isn't as World of Agents wrote it, so a refresh would lose notes.",
+        'Nothing changed.',
+      ];
+    }
     writeTeam(dir, team, texts);
+    writeNotesSkills(dir, notes, team);
     return [
       `Refreshed the team's files for this plugin: ${size}, each as it was.`,
       ...listed(team),

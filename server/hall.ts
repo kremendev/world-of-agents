@@ -5,14 +5,30 @@ import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
-import { applyChange, logChange, readTeam, readTexts, teamDir, writeTeam } from '../plugin/team/team.mjs';
+import {
+  applyChange,
+  applyNoteChange,
+  logChange,
+  readNotes,
+  readTeam,
+  readTexts,
+  teamDir,
+  writeNotes,
+  writeTeam,
+} from '../plugin/team/team.mjs';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
 import { isNewer, VERSION, VERSION_SHAPE } from '../src/version';
-import { keyBodySchema, teamChangeSchema, type TeamChange, type TeamView } from '../src/team/schema';
+import {
+  keyBodySchema,
+  teamChangeSchema,
+  type TeamChange,
+  type TeamProposal,
+  type TeamView,
+} from '../src/team/schema';
 import { HALL_CSP } from './csp';
 import { hookInputSchema, type HookInput } from './hook-input';
 import { createKeys, sessionCookie } from './keys';
-import { INITIAL_MAP, mapHook, type MapState } from './map';
+import { INITIAL_MAP, mapHook, proposalIn, type MapState } from './map';
 import type { Page } from './page';
 
 /** The hall only ever listens on this machine. */
@@ -39,6 +55,8 @@ export const REPLAY = 500;
  * memory only. Going back to one shows its run as it stood.
  */
 export const KEPT_SESSIONS = 3;
+/** v3.7: the guild leads' proposed notes the hall holds, in memory only, until Dima approves or rejects them (M7). */
+export const MAX_PROPOSALS = 20;
 /**
  * The plugin's hall stops itself after this long with no hook event and no page connected (v3.5b, H1): it runs
  * detached, so no session ends it. `npm run hall` sets none and stops with Ctrl+C.
@@ -133,6 +151,8 @@ export function createHall({
   const startId = randomBytes(12).toString('base64url');
   let map = INITIAL_MAP;
   let replay: OfficeEvent[] = [];
+  // v3.7: the guild leads' proposed notes, in memory only (M7).
+  let proposals: TeamProposal[] = [];
   // The ledger's latest total, in memory only: never part of the replay, and gone when the hall stops.
   let ledger: LedgerTotals | null = null;
   const ledgerFrame = (totals: LedgerTotals) => `event: ledger\ndata: ${JSON.stringify(totals)}\n\n`;
@@ -230,6 +250,17 @@ export function createHall({
     publish(result.events);
   }
 
+  /**
+   * v3.7 (option A): a guild lead's proposed note, kept in memory only until Dima approves or rejects it: at most
+   * MAX_PROPOSALS, the oldest dropped, the same note from the same guild lead once. From any session the hall hears.
+   */
+  function propose(input: HookInput, at: number): void {
+    const note = proposalIn(input);
+    if (!note || proposals.some((p) => p.agent === note.agent && p.text === note.text)) return;
+    const id = randomBytes(12).toString('base64url');
+    proposals = [...proposals, { id, ...note, at }].slice(-MAX_PROPOSALS);
+  }
+
   function authorized(header: string | undefined): boolean {
     const sent = /^Bearer ([A-Za-z0-9_-]+)$/.exec(header ?? '')?.[1];
     // Hashing both sides gives timingSafeEqual two buffers of the same length, whatever was sent.
@@ -272,6 +303,7 @@ export function createHall({
     const input = hookInputSchema.safeParse(json);
     if (!input.success) return reply(res, 400);
     heard(input.data, Date.now());
+    propose(input.data, Date.now());
     lastActive = now();
     reply(res, 204); // no body: send.mjs throws any reply away, and there must be nothing to steer Claude Code
   }
@@ -360,12 +392,16 @@ export function createHall({
     res.end();
   }
 
-  /** The team and its skills' texts, as team.mjs reads them; null when there is no team or a file isn't as it wrote it. */
+  /**
+   * The team, its skills' texts, (v3.7) the guild leads' notes, and the proposals waiting in memory, as team.mjs reads
+   * them; null when there is no team or a file isn't as it wrote it.
+   */
   function teamView(): TeamView | null {
     const team = readTeam(teamHome);
     if (team === null) return null;
     try {
-      return { team, texts: readTexts(teamDir(teamHome), team) };
+      const dir = teamDir(teamHome);
+      return { team, texts: readTexts(dir, team), notes: readNotes(dir).notes, proposals: [...proposals] };
     } catch {
       return null;
     }
@@ -401,6 +437,12 @@ export function createHall({
   function applyToTeam(change: TeamChange): { status: number; body: unknown } {
     const view = teamView();
     if (view === null) return { status: 409, body: NO_TEAM };
+    if (
+      change.action === 'note-approve' ||
+      change.action === 'note-reject' ||
+      change.action === 'note-delete'
+    )
+      return applyToNotes(change, view);
     let next: ReturnType<typeof applyChange>;
     try {
       next = applyChange(view.team, view.texts, change, now());
@@ -411,7 +453,30 @@ export function createHall({
     const dir = teamDir(teamHome);
     const team = writeTeam(dir, next.team, next.texts);
     logChange(dir, next.entry);
-    return { status: 200, body: { team, texts: next.texts } };
+    return { status: 200, body: { ...view, team, texts: next.texts } };
+  }
+
+  /**
+   * A note's change (v3.7c): approve and reject name a proposal by its id, and the text written is the hall's own copy,
+   * never the page's (M8); delete names a kept note. team.mjs checks it again and writes notes.json and the notes skills.
+   */
+  function applyToNotes(
+    change: Extract<TeamChange, { action: 'note-approve' | 'note-reject' | 'note-delete' }>,
+    view: TeamView,
+  ): { status: number; body: unknown } {
+    const dir = teamDir(teamHome);
+    const proposal =
+      change.action === 'note-delete' ? null : (proposals.find((p) => p.id === change.id) ?? null);
+    let next: ReturnType<typeof applyNoteChange>;
+    try {
+      next = applyNoteChange(readNotes(dir), change, proposal, now());
+      if (change.action !== 'note-reject') writeNotes(dir, next.notes, view.team);
+    } catch (error) {
+      return { status: 409, body: { error: (error as Error).message } };
+    }
+    logChange(dir, next.entry);
+    if (proposal) proposals = proposals.filter((p) => p !== proposal);
+    return { status: 200, body: { ...view, notes: next.notes.notes, proposals: [...proposals] } };
   }
 
   function events(req: IncomingMessage, res: ServerResponse): void {

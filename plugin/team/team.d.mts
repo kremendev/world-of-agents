@@ -59,7 +59,7 @@ export const MAX_CHANGES: number;
 export function slugOf(name: string, max: number): string;
 export function specialistIdOf(guild: Guild, name: string): string;
 export function skillIdOf(name: string): string;
-export const CHANGE_KINDS: readonly ChangeEntry['what'][];
+export const CHANGE_KINDS: readonly (ChangeEntry['what'] | NoteEntry['what'])[];
 export function readTexts(dir: string, team: Team): Record<string, string>;
 export function applyChange(
   team: Team,
@@ -67,6 +67,37 @@ export function applyChange(
   change: TeamChange,
   now: number,
 ): { team: Team; texts: Record<string, string>; entry: ChangeEntry };
-export function isChange(entry: unknown): entry is ChangeEntry;
-export function readChanges(dir: string): ChangeEntry[];
-export function logChange(dir: string, entry: ChangeEntry): void;
+export function isChange(entry: unknown): entry is ChangeEntry | NoteEntry;
+export function readChanges(dir: string): (ChangeEntry | NoteEntry)[];
+export function logChange(dir: string, entry: ChangeEntry | NoteEntry): void;
+
+// v3.7: the guild leads' notes.
+export type NoteAgent = 'designer' | 'frontend' | 'backend' | 'reviewer';
+export type Note = { id: string; text: string; proposedAt: number; approvedAt: number };
+export type Notes = { version: 1; notes: Record<NoteAgent, Note[]> };
+export type NoteChange =
+  | { action: 'note-approve' | 'note-reject'; id: string }
+  | { action: 'note-delete'; agent: NoteAgent; id: string };
+export type NoteEntry = {
+  at: number;
+  what: 'note-approved' | 'note-rejected' | 'note-deleted';
+  agent: 'Designer' | 'Frontend dev' | 'Backend dev' | 'Reviewer';
+};
+export const NOTE_AGENTS: readonly NoteAgent[];
+export const NOTE_SKILL_IDS: readonly string[];
+export const NOTE_AGENT_NAMES: Readonly<Record<NoteAgent, NoteEntry['agent']>>;
+export const MAX_NOTES: number;
+export const MAX_NOTE: number;
+export function noteProblem(text: unknown): string | null;
+export function emptyNotes(): Notes;
+export function notesProblem(notes: unknown): string | null;
+export function readNotes(dir: string): Notes;
+export function buildNotesSkill(agent: NoteAgent, list: readonly Note[]): string;
+export function writeNotes(dir: string, notes: Notes, team: Team): void;
+export function writeNotesSkills(dir: string, notes: Notes, team: Team): void;
+export function applyNoteChange(
+  notes: Notes,
+  change: NoteChange,
+  proposal: { agent: NoteAgent; text: string; at: number } | null,
+  now: number,
+): { notes: Notes; entry: NoteEntry };

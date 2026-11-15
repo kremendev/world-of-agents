@@ -74,6 +74,12 @@ export type PaneChange =
         'specialist-added' | 'specialist-changed' | 'specialist-deleted' | 'specialist-on' | 'specialist-off';
       specialist: string;
       guild: 'Design' | 'Frontend' | 'Backend' | 'Review';
+    }
+  | {
+      at: number;
+      /** v3.7: a guild lead's note, named by its guild lead only, never its text. */
+      what: 'note-approved' | 'note-rejected' | 'note-deleted';
+      agent: 'Designer' | 'Frontend dev' | 'Backend dev' | 'Reviewer';
     };
 
 /**

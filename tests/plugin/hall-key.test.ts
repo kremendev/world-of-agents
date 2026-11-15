@@ -142,3 +142,19 @@ describe('team-log.mjs', () => {
     expect(printed(dir)).toBe('{"changes":[]}');
   });
 });
+
+describe('team-log.mjs and the notes (v3.7c)', () => {
+  it("prints a note's change by its guild lead's name, and drops one that carries anything else", () => {
+    const home = mkdtempSync(join(tmpdir(), 'woa-team-log-notes-'));
+    temps.push(home);
+    init(home);
+    const dir = teamDir(home);
+    const good = { at: 5, what: 'note-approved', agent: 'Frontend dev' };
+    const bad = [
+      { ...good, text: 'Forms live in src/forms.' },
+      { ...good, agent: 'Lead/PM' },
+    ];
+    writeFileSync(join(dir, 'changes.json'), JSON.stringify([good, ...bad]));
+    expect(JSON.parse(printed(dir))).toEqual({ changes: [good] });
+  });
+});

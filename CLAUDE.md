@@ -908,4 +908,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `SessionStart` context hook, C the Lead reads its file). Dima chose A (15 Nov): notes for the four guild leads only; B is in the plan's backlog, C is out.
     3.7b done (the four guild leads' prompts may end a final report with one line `Proposed note: <fact>`; `proposalIn()`
     in map.ts takes it only from a guild lead's own `SubagentStop`, never a gate retry, and the feed shows an ordinary
-    `note` row; src/team/note.ts reads the line; the review parser sets it aside). Nothing is tagged.
+    `note` row; src/team/note.ts reads the line; the review parser sets it aside). 3.7c done (the hall keeps proposals in memory, 20 at most; POST /api/team takes
+    `note-approve`, `note-reject` and `note-delete` by id only, the text written being the hall's own copy; team.mjs
+    writes notes.json under a strict schema, 20 notes of 300 characters a guild lead, and one skill per guild lead with
+    notes, `notes-<agent>`, ids no team skill may take; the four guild leads' agent files preload
+    `woa-team:notes-<agent>`; the refresh rewrites those skills, never notes.json; the pane says "Note approved for the
+    Frontend dev"). Nothing is tagged.

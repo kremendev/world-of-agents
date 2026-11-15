@@ -30,7 +30,11 @@ export const editorLink = (hall: string, key: string) => `${hall}/#k=${key}`;
 const NAME = /^[\p{L}\p{N} .,()'&/-]+$/u;
 const name = (v: unknown, max: number): v is string =>
   typeof v === 'string' && v.length >= 1 && v.length <= max && NAME.test(v) && v.trim() === v;
-type SkillChange = Exclude<PaneChange, { guild: string }>;
+type SkillChange = Exclude<PaneChange, { guild: string } | { agent: string }>;
+type NoteChange = Extract<PaneChange, { agent: string }>;
+/** v3.7: a guild lead's note approved, rejected or deleted, named by its guild lead only. */
+const NOTE_KINDS: readonly NoteChange['what'][] = ['note-approved', 'note-rejected', 'note-deleted'];
+const NOTE_AGENTS: readonly NoteChange['agent'][] = ['Designer', 'Frontend dev', 'Backend dev', 'Reviewer'];
 const SINGLE: readonly SkillChange['what'][] = ['skill-added', 'skill-changed', 'skill-deleted'];
 const PAIRED: readonly SkillChange['what'][] = ['skill-attached', 'skill-detached'];
 type SpecialistChange = Extract<PaneChange, { guild: string }>;
@@ -60,6 +64,9 @@ function changeOf(v: unknown): PaneChange | null {
     oneOf(GUILDS, e.guild)
   ) {
     return { at: e.at, what: e.what, specialist: e.specialist, guild: e.guild };
+  }
+  if (oneOf(NOTE_KINDS, e.what) && keysAre(e, 'agent,at,what') && oneOf(NOTE_AGENTS, e.agent)) {
+    return { at: e.at, what: e.what, agent: e.agent };
   }
   if (!name(e.skill, 60)) return null;
   if (oneOf(SINGLE, e.what) && keysAre(e, 'at,skill,what')) {
@@ -119,5 +126,11 @@ export function changeLine(c: PaneChange): string {
       return `${at} ${c.specialist} (${c.guild}) switched on`;
     case 'specialist-off':
       return `${at} ${c.specialist} (${c.guild}) switched off`;
+    case 'note-approved':
+      return `${at} Note approved for the ${c.agent}`;
+    case 'note-rejected':
+      return `${at} Note rejected for the ${c.agent}`;
+    case 'note-deleted':
+      return `${at} Note deleted for the ${c.agent}`;
   }
 }

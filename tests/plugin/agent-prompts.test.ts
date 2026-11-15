@@ -186,3 +186,13 @@ describe('proposed notes (v3.7)', () => {
     for (const p of defaults().team.specialists) expect(buildAgent(p), p.id).not.toContain('Proposed note');
   });
 });
+
+// v3.7c: each guild lead preloads its own notes skill from the team plugin (3.7a: a subagent does; the Lead can't).
+describe('the guild leads preload their notes (v3.7c)', () => {
+  it.each(['designer', 'frontend', 'backend', 'reviewer'])('the %s', (agent) => {
+    expect(raw(agent)).toMatch(new RegExp(`^skills: 'woa-team:notes-${agent}'$`, 'm'));
+  });
+  it('the Lead has no skills line', () => {
+    expect(raw('lead')).not.toMatch(/^skills:/m);
+  });
+});

@@ -4,6 +4,7 @@
 import * as z from 'zod';
 // Its z.config({ jitless: true }): the Content-Security-Policy forbids the speed-up's new Function.
 import '../events/schema';
+import { MAX_NOTE, NOTE_AGENTS } from './note';
 
 /** A one-time key and a session id: 32 random bytes as base64url. */
 export const KEY = /^[A-Za-z0-9_-]{43}$/;
@@ -38,6 +39,17 @@ const skillFields = {
 export const keyBodySchema = z.strictObject({ key: z.string().regex(KEY) });
 
 const preset = z.enum(PRESETS);
+/** v3.7: a note's or a proposal's id, 12 random bytes as base64url, and its guild lead. */
+const noteId = z.string().regex(/^[A-Za-z0-9_-]{16}$/);
+const noteAgent = z.enum(NOTE_AGENTS);
+const noteText = z
+  .string()
+  .min(1)
+  .max(MAX_NOTE * 2)
+  .refine((t) => Array.from(t).length <= MAX_NOTE);
+const stamp = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
+const noteSchema = z.strictObject({ id: noteId, text: noteText, proposedAt: stamp, approvedAt: stamp });
+const proposalSchema = z.strictObject({ id: noteId, agent: noteAgent, text: noteText, at: stamp });
 const preloaded = z.array(skillId).max(MAX_PRELOADED);
 
 /**
@@ -78,6 +90,10 @@ export const teamChangeSchema = z.discriminatedUnion('action', [
   }),
   z.strictObject({ action: z.literal('delete-specialist'), id: specialistId }),
   z.strictObject({ action: z.literal('switch'), id: specialistId, on: z.boolean() }),
+  // v3.7: a proposal's id only; the text the hall writes is its own copy (M8).
+  z.strictObject({ action: z.literal('note-approve'), id: noteId }),
+  z.strictObject({ action: z.literal('note-reject'), id: noteId }),
+  z.strictObject({ action: z.literal('note-delete'), agent: noteAgent, id: noteId }),
 ]);
 export type TeamChange = z.infer<typeof teamChangeSchema>;
 
@@ -122,8 +138,18 @@ export const teamViewSchema = z.strictObject({
     skills: z.array(skillSchema).max(64),
   }),
   texts: z.record(skillId, z.string().max(MAX_TEXT)),
+  // v3.7: the guild leads' approved notes, and the proposals the hall holds in memory.
+  notes: z.strictObject({
+    designer: z.array(noteSchema).max(20),
+    frontend: z.array(noteSchema).max(20),
+    backend: z.array(noteSchema).max(20),
+    reviewer: z.array(noteSchema).max(20),
+  }),
+  proposals: z.array(proposalSchema).max(20),
 });
 export type TeamView = z.infer<typeof teamViewSchema>;
+export type TeamNote = z.infer<typeof noteSchema>;
+export type TeamProposal = z.infer<typeof proposalSchema>;
 export type TeamSpecialist = z.infer<typeof specialistSchema>;
 export type TeamSkill = z.infer<typeof skillSchema>;
 

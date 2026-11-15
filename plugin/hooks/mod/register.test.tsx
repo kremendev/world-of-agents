@@ -6,6 +6,7 @@ import { describe, expect, mock, test } from 'claude-code/testing';
 
 import { PLUGIN_VERSION } from './hall';
 import { fillRefusal, PRESETS } from './presets';
+import { changesOf } from './team';
 import type { PaneView } from './types';
 
 const PLUGIN = 'world-of-agents';
@@ -1378,6 +1379,32 @@ describe('the team editor (v3.4c, T8)', () => {
       '15 Nov 09:30 Motion designer (Design) switched on',
       '15 Nov 09:30 Specialist deleted: Database dev (Backend)',
     ]);
+    await ui.unmount();
+  });
+
+  // v3.7c: a guild lead's notes, named by the guild lead alone.
+  test("shows the notes' changes, the guild lead only, never the note", async ($, on) => {
+    const at = new Date(2026, 10, 15, 21, 52).getTime();
+    const changes = [
+      { at, what: 'note-approved', agent: 'Frontend dev' },
+      { at, what: 'note-rejected', agent: 'Designer' },
+      { at, what: 'note-deleted', agent: 'Reviewer' },
+      { at, what: 'note-approved', agent: 'Frontend dev', text: 'Forms live in src/forms.' },
+    ];
+    const { clock } = withEditor(on, 0, JSON.stringify({ changes: changes.slice(0, 3) }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    const lines = (await ui.findAll({ type: 'Text', text: /^15 Nov 21:52 / })).map((t) => t.text);
+    expect(lines).toEqual([
+      '15 Nov 21:52 Note approved for the Frontend dev',
+      '15 Nov 21:52 Note rejected for the Designer',
+      '15 Nov 21:52 Note deleted for the Reviewer',
+    ]);
+    expect(changesOf(JSON.stringify({ changes }))).toBeNull();
+    expect(
+      changesOf(JSON.stringify({ changes: [{ at, what: 'note-approved', agent: 'Lead/PM' }] })),
+    ).toBeNull();
     await ui.unmount();
   });
 
