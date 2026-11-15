@@ -924,7 +924,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     and 3.6, updating from v3.4.0. The guard's agent start got its test for an agent id that is no string (458484b).
     docs/release-notes/v3.7.0-check.md merges the three checklists, each step marked "Claude: passed" or "failed" with
     what was seen (throwaway copies on ports 4391 and 4339, Edge, no-login sessions, three real runs, $0.71, and the real
-    30-minute idle stop), and ends with Dima's short list. The first real run failed twice, fixed in 3.7e (docs/v3.7-plan.md):
+    30-minute idle stop), and ends with Dima's short list, on ab54fc5. The first real run failed twice, fixed in 3.7e (docs/v3.7-plan.md):
     the guild leads never tell a specialist to skip its own check, and a note is proposed only as the last line, the
     Lead passing one on in the user's words. Claude Code 2.1.325 warns about the plugin setting the main agent and the
     template's `Write(~/.world-of-agents/**)` deny: Dima's decisions, unchanged. After Dima says v3.7.0 passed: tag and
