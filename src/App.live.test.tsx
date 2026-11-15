@@ -1271,28 +1271,36 @@ describe("the ledger's total in the header (v3.2)", () => {
   });
 });
 
-describe('the team editor (v3.4c)', () => {
-  it('opens from the header in Live, says how to get a session, and closes on Esc with the focus back', async () => {
-    await renderLive();
+describe('the Team page (v3.6)', () => {
+  it('takes the whole page with the hall kept behind it: one connection, events still land, Back puts the focus back', async () => {
+    const view = await renderLive(start);
+    const hallView = view.container.querySelector<HTMLElement>('main.app')!;
     const team = button('Team');
     team.focus();
     fireEvent.click(team);
-    const dialog = screen.getByRole('dialog', { name: 'Team' });
-    expect(dialog).toHaveTextContent('press "Change skills" in the team pane');
-    // The activity column under it can't be reached while it is open.
-    expect(document.querySelector('.side-content')).toHaveAttribute('inert');
-    fireEvent.keyDown(document, { key: 'Escape' });
     await settle();
-    expect(screen.queryByRole('dialog', { name: 'Team' })).toBeNull();
-    expect(button('Team')).toHaveFocus();
+    expect(screen.getByRole('heading', { level: 1, name: 'Team' })).toHaveFocus();
+    expect(screen.getByRole('status')).toHaveTextContent('press "Change skills" in the team pane');
+    expect(hallView).not.toBeVisible();
+    // The hall keeps listening while the Team page is open.
+    view.emit(say('Server is up.'));
+    expect(screen.getAllByText('Server is up.').length).toBeGreaterThan(0);
+    fireEvent.click(button('Back to the hall'));
+    await settle();
+    expect(screen.queryByRole('heading', { level: 1, name: 'Team' })).toBeNull();
+    expect(hallView).toBeVisible();
+    expect(team).toHaveFocus();
+    expect(FakeEventSource.all).toHaveLength(1);
+    expect(FakeEventSource.latest.closed).toBe(false);
   });
 
-  it('opens at once with what the hall said to the key in the address', async () => {
+  it('opens at once when the address carried a key, and says what the hall said of it', async () => {
     hallAnswers();
     render(<App teamSession={Promise.resolve('used')} />);
     await settle();
-    expect(screen.getByRole('dialog', { name: 'Team' })).toHaveTextContent(
-      'This link was already used. Open the hall again from the pane.',
-    );
+    expect(screen.getByRole('heading', { level: 1, name: 'Team' })).toBeInTheDocument();
+    expect(
+      screen.getByText('This link was already used. Open the hall again from the pane.'),
+    ).toBeInTheDocument();
   });
 });

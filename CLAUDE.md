@@ -29,7 +29,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 
 ## Stack and why
 
-- React 19 + TypeScript (strict, `noUncheckedIndexedAccess`) + Vite 7, Vitest 5 + Testing Library, Zod 4.
+- React 19 + TypeScript (strict, `noUncheckedIndexedAccess`) + Vite 7, Vitest 5 + Testing Library, Zod 4. Fonts self-hosted
+  through Fontsource: Pixelify Sans and, from v3.6, Inter.
 - Zod is imported as `import * as z from 'zod'` (Zod's own advice), never `import { z }`: with the namespace import
   esbuild drops Zod's 64 locales from the bundled hall (779 KB to 210 KB, 2d).
 - The office is drawn on **Canvas 2D**. Switch to PixiJS only if sprite handling gets painful.
@@ -84,7 +85,10 @@ src/live/         Live mode: hall.ts (health check, with the version the hall st
 src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team view, the key; team.mjs's rules mirrored,
                   team-page.test.ts holds them in step), key.ts (takeKey(): #k= out of the address bar at once;
                   startTeamSession() in main.tsx, before React), api.ts (the calls), text.ts (checkText(): refusals as
-                  team.mjs's, link and command-like flags). The panel is src/page/TeamPanel.tsx
+                  team.mjs's, link and command-like flags), view.ts (v3.6: the Team page's words, search and form
+                  refusals, tested in step with the schema and team.mjs). The Team page (v3.6, its own view: App hides
+                  the hall view and keeps it mounted, so its connection carries on) is src/page/TeamPage.tsx (top bar,
+                  search, tabs, status line with Undo), TeamSpecialists.tsx and TeamSkills.tsx
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id
@@ -184,7 +188,9 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
   hall doesn't take goes to the activity column, which goes under the hall when beside it would cost the hall over 15%.
 - **Fonts**: Pixelify Sans only on the title, room plaques, name plates and badges, never under 14 px. Everything else
   is the system font: body 15 px, nothing under 13 px. Sizes are in rem so they grow with browser zoom; `layout.test.ts`
-  reads the stylesheet and checks all of this.
+  reads the stylesheet and checks all of this. The Team page (v3.6) is Inter (`@fontsource-variable/inter`, self-hosted)
+  in the token set (`--ui-*` on `:root`), 14 px base, never Pixelify; the rest of the page moves to the tokens after
+  v3.7 (docs/v3.6-plan.md, Backlog). `.app[hidden]` needs its own `display: none`: `.app`'s flex beats the attribute.
 - **Draw order** is a list of `Drawable { z, draw }` sorted by `z` (roughly the y of an object's base).
   Surfaces (floors, walls, rugs), halos, props, station parts and agents all go into that one list.
 - **One `requestAnimationFrame` loop** in `HallView` redraws everything above the floor each frame. The
@@ -230,7 +236,9 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
 
 ## Design: v1 is locked
 
-Do not change the look without asking. New ideas go into a later version.
+Do not change the look without asking. New ideas go into a later version. Lifted for one direction only (Dima, 15 Nov):
+the modern UI for everything you work in (the Team page now, the rest of the page after v3.7) and, as its own milestone
+after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlog). Still ask before each look change.
 
 - **Forge Hall rooms**: Lead/PM room (wall dashboard, war map, Lead's desk on a red rug), great hall in the
   middle (entrance gate with the "You" sign, red carpet, skull-topped pillars, furnace = busy indicator),
@@ -869,4 +877,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     per guild; no shell preset in the Design guild; the guard denies a specialist that is off, its file kept; the
     generated text pinned to `GENERATOR` by a hash in team.test.ts). 3.6b done (POST /api/team takes `add-specialist`,
     `change-specialist`, `delete-specialist` and `switch`; the page and team.mjs make the same ids, tested in step; the
-    pane's lines say "Specialist added: Form builder (Frontend)", "React dev (Frontend) switched off").
+    pane's lines say "Specialist added: Form builder (Frontend)", "React dev (Frontend) switched off"). 3.6c done (the
+    Team page as the approved mockup shows it, its own view with the hall kept running behind it; the token set and Inter;
+    search, tabs with arrow keys, the switch, chips with Undo, "+ Add skill", both forms with live refusals and a live
+    preview; in Edge on a throwaway hall, keyboard only, every change and the tab order passed, no console errors, and
+    the check found the hall view never hid behind the page: `.app[hidden]`).

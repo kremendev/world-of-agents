@@ -91,5 +91,11 @@ describe('useStage', () => {
     act(() => remeasure());
     expect(screen.getByRole('status')).toHaveTextContent(`x${600 - 228 - 4} beside`);
     moved();
+
+    // Hidden behind the Team page (v3.6): no width, so the last measure stays for when the hall comes back.
+    const hidden = stub(0, 0);
+    act(() => remeasure());
+    expect(screen.getByRole('status')).toHaveTextContent(`x${600 - 228 - 4} beside`);
+    hidden();
   });
 });

@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/pixelify-sans/wght.css';
+// Inter for everything you work in (v3.6, E12), self-hosted like Pixelify: the Content-Security-Policy allows no font CDN.
+import '@fontsource-variable/inter/wght.css';
 import App from './App.tsx';
 import { liveEnabled } from './live/hall';
 import { startTeamSession, takeKey } from './team/key';

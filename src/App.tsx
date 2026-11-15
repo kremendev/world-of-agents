@@ -13,7 +13,7 @@ import { reviewsOf } from './page/review';
 import { ReviewBoard } from './page/ReviewBoard';
 import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
-import { TeamPanel, type TeamSession } from './page/TeamPanel';
+import { TeamPage, type TeamSession } from './page/TeamPage';
 import type { Exchange } from './team/api';
 import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
@@ -75,10 +75,11 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // What opened it, for the focus to go back to, and whether a close asked for that (another agent's click doesn't).
   const opener = useRef<HTMLElement | null>(null);
   const focusBack = useRef(false);
-  // The team editor (v3.4c): open at once when the address carried a key, and where the page stands with the hall.
+  // The Team page (v3.6): its own view, at once when the address carried a key (v3.4c), and where the page stands with
+  // the hall. The hall view stays mounted behind it, hidden, so the walks, the feed and the hall's connection carry on.
   const [teamOpen, setTeamOpen] = useState(teamSession !== null);
   const [teamState, setTeamState] = useState<TeamSession>(teamSession ? 'checking' : 'none');
-  const sideOpen = board !== null || teamOpen;
+  const sideOpen = board !== null;
   const activityHeading = useRef<HTMLHeadingElement>(null);
   const player = useRef<Player | null>(null);
   const stage = useStage();
@@ -139,21 +140,27 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     if (!(active instanceof HTMLElement && active.closest('.review-board'))) {
       opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     }
-    setTeamOpen(false);
     setBoard((was) => ({ at, n: (was?.n ?? 0) + 1 }));
   };
 
-  // The team editor takes the same place as the board; one of them at a time.
+  // The Team page takes the whole page; "Back to the hall" puts the focus back on what opened it.
+  const teamOpener = useRef<HTMLElement | null>(null);
   const openTeam = () => {
     const active = document.activeElement;
-    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
-    setBoard(null);
+    teamOpener.current = active instanceof HTMLElement && active !== document.body ? active : null;
     setTeamOpen(true);
   };
+  const teamFocusBack = useRef(false);
   const closeTeam = () => {
-    focusBack.current = true;
+    teamFocusBack.current = true;
     setTeamOpen(false);
   };
+  useEffect(() => {
+    if (teamOpen || !teamFocusBack.current) return;
+    teamFocusBack.current = false;
+    const back = teamOpener.current;
+    (back?.isConnected ? back : activityHeading.current)?.focus();
+  }, [teamOpen]);
 
   useEffect(() => {
     if (!teamSession) return;
@@ -184,7 +191,6 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
       if (e.key !== 'Escape') return;
       focusBack.current = true;
       setBoard(null);
-      setTeamOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -212,126 +218,129 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const said = demo ? [...office.messages].reverse().find((m) => m.to === 'you') : finalReport(office);
 
   return (
-    <main className="app">
-      <header className="app-header">
-        <div className="brand">
-          <h1>World of Agents</h1>
-          <span className="badge forge-badge">Forge Hall · v{hall.version ?? VERSION}</span>
-          {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
-        </div>
-        <div className="run-info">
-          {runText && (
-            <span className="run-task" title={runText}>
-              Run: {runText}
+    <>
+      <main className="app" hidden={teamOpen}>
+        <header className="app-header">
+          <div className="brand">
+            <h1>World of Agents</h1>
+            <span className="badge forge-badge">Forge Hall · v{hall.version ?? VERSION}</span>
+            {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
+          </div>
+          <div className="run-info">
+            {runText && (
+              <span className="run-task" title={runText}>
+                Run: {runText}
+              </span>
+            )}
+            <span>
+              Tasks done: {doneCount(office)} of {office.tasks.length}
             </span>
+            {live && hall.ledger && <span className="run-ledger">{ledgerText(hall.ledger)}</span>}
+          </div>
+          {demo && (
+            <div className="run-controls" role="group" aria-label="Demo run">
+              <button
+                type="button"
+                onClick={control('playing', (p) => p.play())}
+                disabled={runStatus !== 'paused'}
+              >
+                Play
+              </button>
+              <button
+                type="button"
+                onClick={control('paused', (p) => p.pause())}
+                disabled={runStatus !== 'playing'}
+              >
+                Pause
+              </button>
+              <button type="button" onClick={restart}>
+                Restart
+              </button>
+              {hall.status !== 'no-hall' && (
+                <button type="button" onClick={backToLive}>
+                  Back to live
+                </button>
+              )}
+              {hall.hallFound && (
+                <button type="button" onClick={goLive}>
+                  Go live
+                </button>
+              )}
+            </div>
           )}
-          <span>
-            Tasks done: {doneCount(office)} of {office.tasks.length}
-          </span>
-          {live && hall.ledger && <span className="run-ledger">{ledgerText(hall.ledger)}</span>}
-        </div>
-        {demo && (
-          <div className="run-controls" role="group" aria-label="Demo run">
-            <button
-              type="button"
-              onClick={control('playing', (p) => p.play())}
-              disabled={runStatus !== 'paused'}
-            >
-              Play
-            </button>
-            <button
-              type="button"
-              onClick={control('paused', (p) => p.pause())}
-              disabled={runStatus !== 'playing'}
-            >
-              Pause
-            </button>
-            <button type="button" onClick={restart}>
-              Restart
-            </button>
-            {hall.status !== 'no-hall' && (
-              <button type="button" onClick={backToLive}>
-                Back to live
+          {live && hall.status !== 'checking' && (
+            <div className="run-controls">
+              <button type="button" onClick={playDemo}>
+                Play demo
               </button>
-            )}
-            {hall.hallFound && (
-              <button type="button" onClick={goLive}>
-                Go live
+              <button type="button" onClick={openTeam}>
+                Team
               </button>
-            )}
-          </div>
-        )}
-        {live && hall.status !== 'checking' && (
-          <div className="run-controls">
-            <button type="button" onClick={playDemo}>
-              Play demo
-            </button>
-            <button type="button" aria-haspopup="dialog" onClick={openTeam}>
-              Team
-            </button>
-          </div>
-        )}
-      </header>
+            </div>
+          )}
+        </header>
 
-      <p
-        className={
-          waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'
-        }
-        title={status}
-      >
-        {hosted ? (
-          <>
-            {HOSTED_STATUS}{' '}
-            <a href={REPO_URL} rel="noreferrer">
-              README
-            </a>
-          </>
-        ) : (
-          status
-        )}
-      </p>
+        <p
+          className={
+            waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'
+          }
+          title={status}
+        >
+          {hosted ? (
+            <>
+              {HOSTED_STATUS}{' '}
+              <a href={REPO_URL} rel="noreferrer">
+                README
+              </a>
+            </>
+          ) : (
+            status
+          )}
+        </p>
 
-      <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
-        <section aria-label="Forge Hall office" className="scene">
-          <HallView
-            office={office}
-            run={run}
-            selected={selected}
-            onSelect={select}
-            live={live}
-            hushed={live && hall.hushed}
-            room={stage.fit}
-          />
-        </section>
-        {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}
-        <div className="side">
-          <div className="side-content" inert={sideOpen}>
-            {demo && <TaskBar onSend={send} />}
-            <ActivityFeed
+        <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
+          <section aria-label="Forge Hall office" className="scene">
+            <HallView
               office={office}
-              agent={feedAgent}
-              onShowEveryone={() => setFeedAgent(null)}
-              onOpenReview={openBoard}
-              headingRef={activityHeading}
-              readScope={demo ? null : hall.start}
+              run={run}
+              selected={selected}
+              onSelect={select}
+              live={live}
+              hushed={live && hall.hushed}
+              room={stage.fit}
             />
+          </section>
+          {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}
+          <div className="side">
+            <div className="side-content" inert={sideOpen}>
+              {demo && <TaskBar onSend={send} />}
+              <ActivityFeed
+                office={office}
+                agent={feedAgent}
+                onShowEveryone={() => setFeedAgent(null)}
+                onOpenReview={openBoard}
+                headingRef={activityHeading}
+                readScope={demo ? null : hall.start}
+              />
+            </div>
+            {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
           </div>
-          {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
-          {teamOpen && !board && <TeamPanel session={teamState} onClose={closeTeam} />}
         </div>
-      </div>
 
-      <div className="lower">
-        <TaskBoard office={office} />
-        <AgentPanel office={office} agent={selected} live={live} />
-      </div>
+        <div className="lower">
+          <TaskBoard office={office} />
+          <AgentPanel office={office} agent={selected} live={live} />
+        </div>
+      </main>
 
-      {/* The bubbles are hidden from screen readers; this reads out what they must not miss. */}
+      {teamOpen && <TeamPage session={teamState} onBack={closeTeam} />}
+
+      {/* The bubbles are hidden from screen readers; this reads out what they must not miss, the Team page open or not. */}
       <div className="sr-only" aria-live="polite">
         <p>{said ? shortLine(`${agentById(said.from).name}: ${withoutMarkers(said.text)}`) : ''}</p>
         <p>{waiting.join('. ')}</p>
         <p>{hall.office.sessionEnded ? 'Session ended' : ''}</p>
       </div>
-    </main>
+    </>
   );
 }

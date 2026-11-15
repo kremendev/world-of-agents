@@ -77,13 +77,32 @@ describe('text sizes and fonts', () => {
     expect(sizes.find((s) => s.selector === 'body')?.size).toBe('0.9375rem');
   });
 
-  it('Pixelify Sans is only on the title, room plaques, name plates and badges, never under 14 px', () => {
+  // v3.6 (E13): until the rest of the page moves to the tokens (after v3.7), the hall view keeps Pixelify where it had it.
+  it('Pixelify Sans stays in the hall view (its title, badges, room plaques and name plates), never under 14 px', () => {
     const pixel = rules.filter((r) => r.body.includes('var(--pixel-font)'));
     expect(pixel.map((r) => r.selector).sort()).toEqual(['.badge', '.nameplate', '.plaque', 'h1']);
     for (const r of pixel) {
       const size = /font-size:\s*([^;]+);/.exec(r.body)?.[1] ?? '';
       expect(rem(size), r.selector).toBeGreaterThanOrEqual(14 / 16);
     }
+  });
+
+  it('the Team page is Inter, never Pixelify: 14 px base, nothing under 13 px, and its h1 drops the hall view font', () => {
+    const team = rules.filter((r) => /\.team-page|(^|[\s,])\.tp-/.test(r.selector));
+    expect(team.length).toBeGreaterThan(40);
+    for (const r of team) expect(r.body, r.selector).not.toMatch(/pixel-font|Pixelify/);
+    const page = rules.find((r) => r.selector === '.team-page')!.body;
+    expect(page).toMatch(/font-family: var\(--ui-font\);/);
+    expect(page).toMatch(/font-size: 0\.875rem;/);
+    expect(css).toMatch(/--ui-font: 'Inter Variable',/);
+    // The global h1 is Pixelify: the Team page's own heading takes the page's font back.
+    expect(rules.find((r) => r.selector === '.team-page h1')!.body).toMatch(/font-family: inherit;/);
+  });
+
+  it('the hall view behind the Team page is really hidden: its display: flex would beat the hidden attribute', () => {
+    // jsdom reads only the attribute; in Edge the Tab key went on from the Team page into "Play demo" (3.6c).
+    expect(rules.find((r) => r.selector === '.app')!.body).toMatch(/display: flex/);
+    expect(rules.find((r) => r.selector === '.app[hidden]')!.body).toMatch(/display: none;/);
   });
 
   it('the status line has no box until someone waits for approval: it must not look like an input', () => {

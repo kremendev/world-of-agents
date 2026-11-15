@@ -9,6 +9,32 @@
   --focus: #ffd27a;
   --pixel-font: 'Pixelify Sans Variable', ui-monospace, Consolas, monospace;
 
+  /*
+   * The token set (v3.6, Dima, 15 Nov): the Team page uses it now, the rest of the page after v3.7. The hall stays pixel
+   * art and keeps its own colours.
+   */
+  --ui-bg: #141210;
+  --ui-surface: #1c1916;
+  --ui-raised: #24201c;
+  --ui-selected: #2a2521;
+  --ui-line: #2c2722;
+  --ui-line-strong: #3a332c;
+  --ui-text: #f2ebe1;
+  --ui-muted: #b3a797;
+  --ui-accent: #ee8a45;
+  --ui-on-accent: #1a120b;
+  --ui-link: #ffb27a;
+  --ui-success: #bfe6b5;
+  --ui-danger: #ff9d8f;
+  --ui-danger-fill: #b5442f;
+  --ui-on-danger: #fff4ef;
+  --ui-flag: #ffd27a;
+  --ui-flag-bg: #3d3111;
+  --ui-font: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --ui-mono: ui-monospace, Consolas, monospace;
+  --ui-radius: 8px;
+  --ui-radius-panel: 12px;
+
   color-scheme: dark;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
@@ -33,6 +59,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+/* Behind the Team page (v3.6): `display: flex` above would beat the browser's own rule for `hidden`. */
+.app[hidden] {
+  display: none;
 }
 
 /* Desktop first: brand, run info and controls on one row; they wrap onto more rows on narrow screens. */
@@ -982,4 +1013,863 @@ p {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/*
+ * ---- The Team page (v3.6, Dima's approved mockup of 15 Nov) ----
+ * Its own view over the whole page, in the token set and Inter: 14 px base, nothing under 13 px, sizes in rem, 8 px
+ * corners (12 px for panels), pill badges and 1 px lines. Never Pixelify: that stays in the hall view.
+ */
+.team-page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+
+.team-page *,
+.team-page *::before,
+.team-page *::after {
+  box-sizing: border-box;
+}
+
+.team-page :focus-visible {
+  outline: 2px solid var(--ui-link);
+  outline-offset: 2px;
+}
+
+.team-page h1 {
+  font-family: inherit;
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin-top: 28px;
+}
+
+.team-page h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* A heading that takes the focus rings its own words, not the whole width. */
+.team-page h1,
+.team-page h2 {
+  width: fit-content;
+}
+
+.team-page h3 {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.team-page ul,
+.team-page ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.team-page code {
+  font-family: var(--ui-mono);
+  font-size: 0.8125rem;
+}
+
+/* Buttons: neutral, primary (the accent), danger; links in the lighter accent. */
+.tp-button {
+  min-height: 2.5rem;
+  padding: 0 16px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--ui-radius);
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tp-button:hover:not(:disabled) {
+  border-color: var(--ui-muted);
+}
+
+.tp-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tp-primary {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}
+
+.tp-primary:hover:not(:disabled) {
+  border-color: var(--ui-link);
+  background: var(--ui-link);
+}
+
+.tp-danger {
+  border-color: var(--ui-danger-fill);
+  background: var(--ui-danger-fill);
+  color: var(--ui-on-danger);
+}
+
+.tp-danger-outline {
+  border-color: var(--ui-danger-fill);
+  background: transparent;
+  color: var(--ui-danger);
+}
+
+.tp-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ui-link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tp-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* The top bar: Back to the hall, where you are, and the search. */
+.tp-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--ui-line);
+}
+
+.tp-back {
+  font-weight: 500;
+}
+
+.tp-crumb {
+  flex: 1 1 auto;
+  font-size: 0.9375rem;
+}
+
+.tp-crumb span {
+  color: var(--ui-muted);
+}
+
+.tp-search {
+  position: relative;
+  flex: 0 1 23rem;
+  min-width: 14rem;
+  display: flex;
+  align-items: center;
+}
+
+.tp-search input {
+  width: 100%;
+  height: 2.75rem;
+  padding: 0 36px 0 38px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--ui-radius);
+  background: var(--ui-surface);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 0.9375rem;
+  appearance: none;
+}
+
+.tp-search input::placeholder {
+  color: var(--ui-muted);
+}
+
+/* The page's own clear button, not the browser's. */
+.tp-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.tp-search-icon {
+  position: absolute;
+  left: 13px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--ui-muted);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.tp-search-clear {
+  position: absolute;
+  right: 6px;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: none;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 1.125rem;
+  cursor: pointer;
+}
+
+.tp-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 26px 32px;
+}
+
+.tp-intro {
+  max-width: 46rem;
+  color: var(--ui-muted);
+  font-size: 1rem;
+}
+
+.tp-note {
+  margin-top: 16px;
+  color: var(--ui-muted);
+}
+
+.tp-problem {
+  margin-top: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-danger-fill);
+  border-radius: var(--ui-radius);
+  color: var(--ui-danger);
+}
+
+/* Tabs on the left; the status line and the tab's own button on the right. */
+.tp-tabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 24px;
+  margin-top: 20px;
+  border-bottom: 1px solid var(--ui-line);
+}
+
+.tp-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.tp-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tp-tab[aria-selected='true'] {
+  border-bottom-color: var(--ui-accent);
+  color: var(--ui-text);
+}
+
+.tp-count {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ui-raised);
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
+.tp-tab[aria-selected='true'] .tp-count {
+  background: rgb(238 138 69 / 18%);
+  color: var(--ui-link);
+}
+
+.tp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 16px;
+  padding-bottom: 8px;
+}
+
+.tp-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ui-success);
+}
+
+/* The list on the left, the details on the right; stacked in a narrow window. */
+.tp-split-view {
+  display: grid;
+  grid-template-columns: minmax(17.5rem, 22.5rem) minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 20px;
+  align-items: start;
+}
+
+.tp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.team-page .tp-group-head {
+  width: auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 10px 4px;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tp-group-lead {
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.tp-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: none;
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tp-row:hover {
+  background: var(--ui-surface);
+}
+
+.tp-row[aria-current='true'] {
+  background: var(--ui-selected);
+}
+
+.tp-row-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.tp-row-name {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.tp-row-name.off {
+  color: var(--ui-muted);
+}
+
+.tp-row-sub {
+  overflow: hidden;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tp-used {
+  flex: none;
+  color: var(--ui-link);
+  font-size: 0.8125rem;
+}
+
+.tp-used.none {
+  color: var(--ui-muted);
+}
+
+.tp-empty {
+  padding: 8px 10px;
+  color: var(--ui-muted);
+}
+
+/* The details pane: one panel, its sections split by 1 px lines. */
+.tp-details,
+.tp-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 26px 28px;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-surface);
+  overflow-wrap: anywhere;
+}
+
+.tp-details-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.tp-sub {
+  margin-top: 2px;
+  color: var(--ui-muted);
+  font-size: 0.9375rem;
+}
+
+.tp-role {
+  font-size: 1rem;
+}
+
+.tp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 18px;
+  border-top: 1px solid var(--ui-line);
+}
+
+.tp-section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.tp-muted {
+  color: var(--ui-muted);
+}
+
+.tp-may {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  color: var(--ui-muted);
+}
+
+/* Pills: what a specialist may do, Off, and a flagged line. */
+.tp-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tp-pill-edits {
+  background: rgb(238 138 69 / 18%);
+  color: var(--ui-link);
+}
+
+.tp-pill-edits-and-checks,
+.tp-pill-flag {
+  background: var(--ui-flag-bg);
+  color: var(--ui-flag);
+}
+
+.tp-pill-off {
+  flex: none;
+  color: var(--ui-muted);
+  font-weight: 500;
+}
+
+/* The switch: a track and a knob, "On" or "Off" beside it. */
+.tp-switch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--ui-radius);
+  background: none;
+  color: var(--ui-text);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tp-switch-track {
+  position: relative;
+  width: 2.25rem;
+  height: 1.25rem;
+  border-radius: 999px;
+  background: var(--ui-line-strong);
+}
+
+.tp-switch-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: calc(1.25rem - 6px);
+  height: calc(1.25rem - 6px);
+  border-radius: 50%;
+  background: var(--ui-muted);
+}
+
+.tp-switch[aria-checked='true'] .tp-switch-track {
+  background: var(--ui-accent);
+}
+
+.tp-switch[aria-checked='true'] .tp-switch-knob {
+  left: auto;
+  right: 3px;
+  background: var(--ui-on-accent);
+}
+
+/* Skill chips: the name opens the skill, the cross takes it off; "+ Add skill" dashed. */
+.tp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tp-chip {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 999px;
+  background: var(--ui-raised);
+}
+
+.tp-chip-name,
+.tp-chip-x,
+.tp-chip-add,
+.tp-chip-link {
+  min-height: 2.25rem;
+  border: 0;
+  background: none;
+  color: var(--ui-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.tp-chip-name {
+  padding: 0 4px 0 14px;
+  border-radius: 999px 0 0 999px;
+  font-weight: 500;
+}
+
+.tp-chip-x {
+  padding: 0 12px 0 6px;
+  border-radius: 0 999px 999px 0;
+  color: var(--ui-muted);
+  font-size: 1rem;
+}
+
+.tp-chip-add {
+  padding: 0 14px;
+  border: 1px dashed var(--ui-accent);
+  border-radius: 999px;
+  color: var(--ui-link);
+  font-weight: 600;
+}
+
+.tp-chip-link {
+  padding: 0 14px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 999px;
+  background: var(--ui-raised);
+  font-weight: 500;
+}
+
+/* "+ Add skill": the skills left to give, with what each is for. */
+.tp-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 10px;
+  background: var(--ui-raised);
+}
+
+.tp-picker-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
+.tp-picker-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 8px;
+  max-height: 15rem;
+  overflow-y: auto;
+}
+
+/* Cards: a skill to give, and every choice in the forms. */
+.tp-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.tp-card:hover {
+  border-color: var(--ui-muted);
+}
+
+.tp-card-title {
+  font-weight: 600;
+}
+
+.tp-card-text {
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
+.tp-choice {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.tp-choice > span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tp-choice input {
+  flex: none;
+  margin: 3px 0 0;
+  accent-color: var(--ui-accent);
+}
+
+.tp-choice:has(input:checked) {
+  border-color: var(--ui-accent);
+  background: rgb(238 138 69 / 8%);
+}
+
+.tp-choice:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tp-choice:has(input:focus-visible) {
+  outline: 2px solid var(--ui-link);
+  outline-offset: 2px;
+}
+
+.tp-cards {
+  display: grid;
+  gap: 8px;
+}
+
+.tp-cards-4 {
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+}
+
+.tp-cards-3 {
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
+}
+
+/* Model, Started by, Its id. */
+.tp-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 36px;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--ui-line);
+}
+
+.tp-facts dt {
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
+.tp-facts dd {
+  margin: 2px 0 0;
+}
+
+.tp-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--ui-danger-fill);
+  border-radius: 10px;
+}
+
+/* A text line by line, numbered, flagged lines marked at the left. */
+.tp-lines {
+  display: flex;
+  flex-direction: column;
+  padding: 10px 0;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
+}
+
+.tp-lines li {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 2px 12px 2px 0;
+  border-left: 3px solid transparent;
+}
+
+.tp-lines li.flagged {
+  border-left-color: var(--ui-flag);
+}
+
+.tp-lines code {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.tp-num {
+  flex: none;
+  width: 2.25rem;
+  color: var(--ui-muted);
+  font-family: var(--ui-mono);
+  font-size: 0.8125rem;
+  text-align: right;
+}
+
+.tp-flagline {
+  color: var(--ui-flag);
+}
+
+/* The forms: label over field, hints under it. */
+.tp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.tp-field > label,
+.tp-field > legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.tp-field > legend {
+  margin-bottom: 8px;
+}
+
+.tp-input {
+  width: 100%;
+  min-height: 2.5rem;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font: inherit;
+}
+
+.tp-input-half {
+  max-width: 28rem;
+}
+
+.tp-textarea {
+  resize: vertical;
+  font-family: var(--ui-mono);
+  font-size: 0.8125rem;
+}
+
+.tp-hint {
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
+.tp-text-split {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.tp-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tp-model {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 28rem;
+  padding: 10px 14px;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--ui-radius);
+  font-weight: 600;
+}
+
+.tp-model .tp-muted {
+  font-weight: 400;
+}
+
+.tp-refusals {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ui-danger);
+}
+
+/* A narrow window: the list over the details, and the phone's 16 px gutter. */
+@media (max-width: 52rem) {
+  .tp-split-view {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tp-bar {
+    padding: 12px 16px;
+  }
+
+  .tp-main {
+    padding: 0 16px 24px;
+  }
+
+  .tp-search {
+    flex: 1 1 100%;
+  }
+
+  .tp-details,
+  .tp-form {
+    padding: 18px 16px;
+  }
 }

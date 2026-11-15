@@ -36,6 +36,8 @@ export function useStage() {
     if (!stage || typeof ResizeObserver === 'undefined') return;
     const page = stage.parentElement ?? stage;
     const measure = () => {
+      // Hidden behind the Team page (v3.6): no width to measure, so the hall keeps its size for when it comes back.
+      if (stage.clientWidth === 0) return;
       const top = stage.getBoundingClientRect().top + window.scrollY;
       const pageBottom = parseFloat(getComputedStyle(page).paddingBottom) || 0;
       const gap = parseFloat(getComputedStyle(stage).columnGap) || 0;
