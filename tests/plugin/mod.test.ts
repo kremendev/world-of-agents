@@ -70,15 +70,19 @@ describe('the mod sends nothing as Dima', () => {
 describe('the processes the mod starts', () => {
   const code = (name: string) => sources.find((s) => s.name === name)?.code ?? '';
 
-  it('starts them in hall.ts and voice.ts only, and runs one-shot commands in hall.ts only', () => {
-    expect(using(/\bprocess\.spawn\b/)).toEqual(['hall.ts', 'voice.ts']);
+  it('starts a long-lived one in voice.ts only, and runs one-shot commands in hall.ts only', () => {
+    // v3.5b: the hall starts detached through hall-start.mjs, a one-shot command, so no session holds it.
+    expect(using(/\bprocess\.spawn\b/)).toEqual(['voice.ts']);
     expect(using(/\bprocess\.run\b/)).toEqual(['hall.ts']);
   });
 
   it('runs node with --version or a script in the plugin, and powershell.exe with -File and the fixed script only', () => {
     expect(code('hall.ts')).toContain("export const NODE_VERSION = ['node', '--version'] as const;");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-check.mjs`]");
-    expect(code('hall.ts')).toContain("['node', `${root}/hall/server.mjs`]");
+    expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-start.mjs`]");
+    expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-stop.mjs`]");
+    // Never a process ended by its id: an older hall stops only through its own API (v3.5b, H2).
+    expect(using(/\b(kill|taskkill|Stop-Process|pid)\b/i)).toEqual([]);
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-post.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/ledger-past.mjs`]");
     expect(code('hall.ts')).toContain("['node', `${root}/hooks/hall-key.mjs`]");

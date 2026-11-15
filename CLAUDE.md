@@ -90,12 +90,16 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id,
                   /api/health, and from v3.4c the team editor: POST /api/key (hall-key.mjs, token, no Origin), POST
                   /api/session (the page's key, once, within 60 s, for a cookie), GET and POST /api/team (that cookie,
-                  the page's exact Origin, the schema, a 64 KiB cap; writes through team.mjs only); serves only the page
+                  the page's exact Origin, the schema, a 64 KiB cap; writes through team.mjs only), and from v3.5b POST
+                  /api/stop (hall-stop.mjs: token, no Origin, `{ "version" }` under 256 bytes; stops only for a newer
+                  version than its own, after its 204) and the idle stop (`idleMs`: no hook event and no page for that
+                  long); serves only the page
                   files it is given, by exact match; the handshake answer and /api/health state the plugin version, from
                   src/version.ts, 3.2d), keys.ts (the one-time keys and sessions, digests in memory only),
                   page.ts (PAGE_TYPES, listPage()
-                  for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals),
-                  plugin-hall.ts (the plugin's hall: its page and manifest beside its own file), hook-input.ts
+                  for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals;
+                  shutdown(): the token file first, then the port, then exit),
+                  plugin-hall.ts (the plugin's hall: its page and manifest beside its own file, 30 idle minutes), hook-input.ts
                   (Zod schema of the fields send.mjs forwards), map.ts (pure mapHook(): one hook to
                   OfficeEvents, following the run table in docs/v2-brief.md), token.ts, main.ts (npm run hall).
                   csp.ts: the Content-Security-Policy, for the hall's header and the Pages build's meta tag.
@@ -114,7 +118,10 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.j
                   env WOA_QUALITY_GATE; runs npm run check, sends a dev back at most 3 times, forwards those stops to the
                   hall with its verdict; --status answers by exit code), hooks/hall-check.mjs (send.mjs's handshake against 127.0.0.1:4319, answered
                   by exit code: 0 ours, 3 nothing listens, 4 anything else; with 0, the plugin version the hall states, one line of
-                  digits and dots, 3.2d), hooks/ledger-post.mjs (v3.2: the ledger's
+                  digits and dots, 3.2d), hooks/hall-start.mjs (v3.5b: starts hall/server.mjs detached, hidden, silent,
+                  with its own Node, then waits up to 5 s for the handshake; exit code only), hooks/hall-stop.mjs (v3.5b:
+                  after the handshake, POST /api/stop with the token and its own version from plugin.json, then waits
+                  for the port to be free; exit code only), hooks/ledger-post.mjs (v3.2: the ledger's
                   totals from stdin, checked to the exact shape, posted to /api/ledger after the handshake; prints nothing),
                   hooks/ledger-past.mjs (Recount, v3.2c, per session since 3.2d: every session's token counts from Claude
                   Code's transcripts, cache writes split 5-minute and 1-hour, printed as whole numbers only, on Dima's press),
@@ -428,7 +435,9 @@ Do not change the look without asking. New ideas go into a later version.
   answers its `command.run` without `next`, opening the pane, so the skill's text reaches the model only if the mod isn't
   loaded, and then only tells Dima so.
 - The mod's processes (2c) are fixed commands, each with the plugin's own folder as `cwd`: `node --version`,
-  `node <plugin>/hooks/hall-check.mjs`, `node <plugin>/hall/server.mjs` (cwd `<plugin>/hall`), the voice, and from v3.2
+  `node <plugin>/hooks/hall-check.mjs`, from v3.5b `node <plugin>/hooks/hall-start.mjs` (which starts
+  `<plugin>/hall/server.mjs` detached with its own Node, cwd `<plugin>/hall`: `detached`, `windowsHide`, `stdio: 'ignore'`,
+  no shell, then waits for the handshake) and `node <plugin>/hooks/hall-stop.mjs`, the voice, and from v3.2
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
   counts, never text), run whenever the hall becomes `running` (3.2d: a hall the mod started itself answered after session
   start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
@@ -444,22 +453,27 @@ Do not change the look without asking. New ideas go into a later version.
   `node --version`, the version hall-check.mjs prints for our hall through `hallVersionOf()` (3.2d),
   ledger-past.mjs's recount of whole numbers through `recountOf()` (v3.2c, L7, Dima's decision), and
   team-log.mjs's change log through `changesOf()` (v3.4c: time, a fixed kind, and names that pass team.mjs's name rule,
-  the newest five shown; Dima's T8 asked for a line per change); `mod.test.ts` pins `.stdout` to those four lines. The hall is started through the session's `$`, never a turn's: a child dies
-  when the dispatch it was started in is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
+  the newest five shown; Dima's T8 asked for a line per change); `mod.test.ts` pins `.stdout` to those four lines. The
+  only long-lived child is the voice (`process.spawn` in voice.ts alone, since v3.5b); the mod ends no process by its id
+  (`mod.test.ts`). The hall check still goes through the session's `$`, never a turn's: a run dies with the dispatch it
+  was started in when that is abandoned, and an interrupted turn abandons its own. `claude plugin validate`
   refuses a `$` kept in a variable, so register.tsx keeps a closure made in `session.start` instead.
 - "Is the hall up?" is `hall-check.mjs`: send.mjs's own handshake (no redirect, capped answer, `timingSafeEqual`), never
   a 200 from `/api/health`. 0 is ours; 3 is a refused connection; 4 is anything else (no token file, a wrong or late
   answer, a redirect, a closed connection). Only 0 shows "Open hall", and since 3.2d only when the hall states this
   plugin's version (`PLUGIN_VERSION` in `hall.ts`, which `mod.test.ts` holds to plugin.json's): two installs on one PC
-  share one token file, so another install's hall passes the handshake. That one is `other-version`: "An older hall
-  (vX) is running. Close your other sessions, here and in other projects." ("A newer hall" when it is, "before v3.2.0"
-  when it states none), no link, no ledger, and nothing started or stopped; the session that started it stops it when it
-  ends. That session is never this one (3.4h): a reload that brings new mod code (an update) unloads the module, which
-  kills the hall it started (the engine's types; the spike and 2c saw it), and a `/reload-plugins` that brings nothing
-  new reloads nothing and keeps the hall (the spike; Dima's four reloads of 14 Nov). But it can be another session in
-  this very project, still on the version it loaded, so the line names every other session, not only other projects'.
+  share one token file, so another install's hall passes the handshake. That one is `other-version`, no link, no
+  ledger. From v3.5b (H2, H6): an older hall from 3.5.0 on (`stoppable()`) is asked to stop through hall-stop.mjs, then
+  the port is checked again and ours started if it is free; if it is still there, "An older hall (vX) is running. Your
+  next message replaces it." A hall before 3.5.0, or one that states no version, keeps today's line, "An older hall (vX)
+  is running. Close your other sessions, here and in other projects." ("before v3.2.0" when it states none), and nothing
+  is started or stopped: such a hall lives with the session that started it, which can be another one in this very
+  project still on the version it loaded (3.4h). A newer hall is never stopped from here: "A newer hall (vX) is running.
+  Update World of Agents in this project to use it." `keepHall()` and `otherHallLine()` take the pane's own version so
+  the kit tests can play a later one; no version this plugin can meet yet is older and from 3.5.0 on.
   askHall() in send.mjs takes the version only beside an answer that proves the token, and only as digits and dots.
-  4 shows "Port 4319 is used by another program." and starts and stops nothing. A start happens only on 3 with no start of ours alive, one check at a time; checks run at
+  4 shows "Port 4319 is used by another program." and starts and stops nothing. A start happens only on 3, one check at
+  a time, and hall-start.mjs waits for the handshake inside that check; checks run at
   session start and at each of the Lead's turns, never a subagent's. A hall that loses the race for the port exits 0
   without a word and writes no token (checked by hand with a hall on 4319; `install.test.ts` pins the line).
 - The plugin's hall (`plugin/hall/`, written by `npm run build:plugin-hall`, tracked) finds its page with
@@ -601,7 +615,13 @@ Do not change the look without asking. New ideas go into a later version.
   `woa-dev/plugin/hall`, Windows won't remove that folder, and the copy then lands in a nested `plugin/plugin/`.
   `/reload-plugins` reloads the mod only when its own files changed, so after a change to `server/` or the page alone
   the old hall keeps running, old build and all, and the pane calls it running (same version): stop it first, as each
-  checklist's step 1 does (3.4h; it served v3.4.0's first test the old code).
+  checklist's step 1 does (3.4h; it served v3.4.0's first test the old code). From v3.5b the hall outlives every
+  session and reload until it has been idle for 30 minutes, so this holds after any change: stop it by hand.
+- The hall's start, end to end, without port 4319 (3.5b): copy `plugin/` to a throwaway folder, replace 4319 with
+  another port in every file of the copy (11 files), shorten `HALL_IDLE_MS` in its `hall/server.mjs`, and run
+  `claude -p` with no login and `--plugin-dir` on the copy, with `CLAUDE_CONFIG_DIR`, `HOME` and `USERPROFILE` in temp
+  folders: the mod's `session.start` starts the hall through hall-start.mjs. `IsProcessInJob` (kernel32, from PowerShell)
+  tells whether a process is in a job; on this PC VS Code, its terminals and the desktop app all are.
   The marketplace name can't be `world-of-agents`: the user settings already pin that one to GitHub.
 - `setup-skill.test.ts` runs `setup.mjs` in temp git repos. The script ignores your global git ignore on purpose
   (`core.excludesFile` points at the null device), so the tests don't depend on it either.
@@ -818,6 +838,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     from `C:\`, `check:hall` when the hall changes, planted bugs, and this status. Dima's real team is
     `~/.world-of-agents/team`: tests use a throwaway HOME. Stop for Dima on a rule to loosen, new art, or Pro limits.
     v3.5.0 (docs/v3.5-plan.md): 3.5a done (TypeScript 6.0.3, typescript-eslint 8.72.2, ESLint 10.15.0, `npm audit` clean
-    through the minimatch override; the hooks plugin keeps its two classic rules). Next: 3.5b (the hall that stops
-    itself), 3.5c (each session's activity), 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
+    through the minimatch override; the hooks plugin keeps its two classic rules). 3.5b done (the hall starts detached
+    through hall-start.mjs, stops itself after 30 idle minutes, and a newer pane stops an older one from 3.5.0 on
+    through POST /api/stop; proven end to end in the terminal CLI on port 4329; the desktop app keeps its processes in
+    its package job, which is for Dima's checklist). Next: 3.5c (each session's activity), 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
     checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.

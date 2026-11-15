@@ -5,7 +5,7 @@ import type { EngineInterface, RenderInput } from 'claude-code';
 
 import { PRESETS } from './presets';
 import type { PresetKey } from './presets';
-import { compareVersions, PLUGIN_VERSION } from './hall';
+import { compareVersions, PLUGIN_VERSION, stoppable } from './hall';
 import { ledgerLines, scopeLine } from './ledger';
 import { nameOf, ROSTER } from './roster';
 import { changeLine, editorLink, KEY } from './team';
@@ -27,19 +27,18 @@ const HALL_LINES: Record<Exclude<PaneHall, 'other-version'>, string> = {
 
 /**
  * Another install's hall holds the port (3.2d): it knows the same token file, so the handshake passes, but it is another
- * version, and the pane neither links to it nor sends it the ledger. It never stops it: the session that started it
- * does, when it ends. A hall that states no version is from before 3.2.0.
- * That session is never this one (3.4h): a reload that brings new mod code, as an update does, unloads the module and
- * kills the hall it started, and one that brings nothing new keeps both, at this version. It can be a session in this
- * project, though, still on the version it loaded before the update, so the line names every other session.
+ * version, and the pane neither links to it nor sends it the ledger. A hall that states no version is from before 3.2.0.
+ * A hall before 3.5.0 lives with the session that started it, which can be one in this project still on the version it
+ * loaded before an update (3.4h), so the line names every other session. From 3.5.0 a hall runs detached and stops
+ * itself when idle (v3.5b): a newer pane stops an older one itself, so one still here only didn't stop in time, and a
+ * newer one can't be closed from here at all. `own` is this plugin's version; tests give another.
  */
-export function otherHallLine(version: string | null): string {
-  const which =
-    version === null
-      ? 'An older hall (before v3.2.0)'
-      : compareVersions(version, PLUGIN_VERSION) < 0
-        ? `An older hall (v${version})`
-        : `A newer hall (v${version})`;
+export function otherHallLine(version: string | null, own: string = PLUGIN_VERSION): string {
+  if (version !== null && compareVersions(version, own) > 0) {
+    return `A newer hall (v${version}) is running. Update World of Agents in this project to use it.`;
+  }
+  const which = version === null ? 'An older hall (before v3.2.0)' : `An older hall (v${version})`;
+  if (stoppable(version, own)) return `${which} is running. Your next message replaces it.`;
   return `${which} is running. Close your other sessions, here and in other projects.`;
 }
 

@@ -4,9 +4,10 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import * as z from 'zod';
 import { applyChange, logChange, readTeam, readTexts, teamDir, writeTeam } from '../plugin/team/team.mjs';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
-import { VERSION } from '../src/version';
+import { isNewer, VERSION, VERSION_SHAPE } from '../src/version';
 import { keyBodySchema, teamChangeSchema, type TeamChange, type TeamView } from '../src/team/schema';
 import { HALL_CSP } from './csp';
 import { hookInputSchema } from './hook-input';
@@ -29,8 +30,19 @@ export const MAX_LEDGER_BODY = 4096;
 export const MAX_KEY_BODY = 256;
 /** One change to the team: a skill's text is at most 8,000 characters, four bytes each at most in UTF-8. */
 export const MAX_TEAM_BODY = 64 * 1024;
+/** `POST /api/stop`'s body, `{"version": "3.5.1"}`: a few dozen bytes (v3.5b). */
+export const MAX_STOP_BODY = 256;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
+/**
+ * The plugin's hall stops itself after this long with no hook event and no page connected (v3.5b, H1): it runs
+ * detached, so no session ends it. `npm run hall` sets none and stops with Ctrl+C.
+ */
+export const HALL_IDLE_MS = 30 * 60_000;
+/** How often an idle hall looks at the clock: it stops within a minute of its time. */
+export const IDLE_CHECK_MS = 60_000;
+/** The caller's own plugin version, digits and dots: a hall stops only for a newer one (H5). */
+const stopBodySchema = z.strictObject({ version: z.string().regex(VERSION_SHAPE) });
 /** What send.mjs sends to the handshake: 32 random bytes as base64url. Anything else is not a handshake. */
 const NONCE = /^[A-Za-z0-9_-]{43}$/;
 
@@ -76,7 +88,8 @@ const isJson = (type: string | undefined) => type?.split(';')[0]?.trim().toLower
 
 /**
  * The hall server: POST /api/handshake and POST /api/hook (from send.mjs), POST /api/ledger (from ledger-post.mjs),
- * POST /api/key (from hall-key.mjs), POST /api/session and GET and POST /api/team (the team editor, v3.4c), GET /api/events (Server-Sent Events for the
+ * POST /api/key (from hall-key.mjs), POST /api/session and GET and POST /api/team (the team editor, v3.4c), POST
+ * /api/stop (from hall-stop.mjs, v3.5b), GET /api/events (Server-Sent Events for the
  * page), GET /api/health, and the built page: only the files `page` names. Events live in memory only; it starts and
  * runs nothing. `port` is the one the Host check expects. listen() binds it; tests listen anywhere and send that Host.
  * `version` is the plugin's (3.2d), which the handshake answer and /api/health state, so the team pane and the page can
@@ -89,6 +102,8 @@ export function createHall({
   version = VERSION,
   teamHome = homedir(),
   now = Date.now,
+  idleMs,
+  onStop,
 }: {
   token: string;
   port?: number;
@@ -97,6 +112,13 @@ export function createHall({
   /** The home folder whose ~/.world-of-agents/team the team editor reads and writes (v3.4c); tests give a temp one. */
   teamHome?: string;
   now?: () => number;
+  /** v3.5b: stop after this long with no hook event and no page connected; none never stops on its own. */
+  idleMs?: number;
+  /**
+   * v3.5b: how the hall stops, called once: when it has been idle `idleMs`, or after it answered a newer plugin's
+   * `POST /api/stop`. Without it, /api/stop refuses everyone.
+   */
+  onStop?: () => void;
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
@@ -113,6 +135,26 @@ export function createHall({
   const keys = createKeys(now);
   // One team write at a time: each reads the team the last one wrote.
   let writing: Promise<unknown> = Promise.resolve();
+  // v3.5b: the later of the last hook event and the moment the last page left. While a page is open, it never idles.
+  let lastActive = now();
+  let stopped = false;
+  const stop = () => {
+    if (stopped) return;
+    stopped = true;
+    clearInterval(idleTimer);
+    onStop?.();
+  };
+  const idleTimer =
+    idleMs === undefined
+      ? undefined
+      : setInterval(
+          () => {
+            if (pages.size === 0 && now() - lastActive >= idleMs) stop();
+          },
+          Math.min(IDLE_CHECK_MS, idleMs),
+        );
+  // The clock alone never keeps the process alive: the server does, until it closes.
+  idleTimer?.unref();
 
   function publish(events: readonly OfficeEvent[]): void {
     for (const event of events) {
@@ -166,7 +208,25 @@ export function createHall({
     const result = mapHook(map, input.data, Date.now());
     map = result.state;
     publish(result.events);
+    lastActive = now();
     reply(res, 204); // no body: send.mjs throws any reply away, and there must be nothing to steer Claude Code
+  }
+
+  /**
+   * hall-stop.mjs, from a newer plugin's team pane, before it starts its own hall (v3.5b, H2, H5): with the token, like a
+   * hook, never from a page. It stops only for a caller that states a newer version than its own, so an older pane never
+   * stops a newer hall; and only after the 204 has gone out.
+   */
+  async function stopPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (req.headers.origin !== undefined) return reply(res, 403);
+    if (!authorized(req.headers.authorization)) return reply(res, 401);
+    const json = await jsonBody(req, res, MAX_STOP_BODY);
+    if (json === undefined) return;
+    const body = stopBodySchema.safeParse(json);
+    if (!body.success) return reply(res, 400);
+    if (onStop === undefined || !isNewer(body.data.version, version)) return reply(res, 409);
+    res.on('finish', stop);
+    reply(res, 204);
   }
 
   /**
@@ -300,7 +360,10 @@ export function createHall({
       `${replay.map(frame).join('')}event: replayed\ndata: ${startId}\n\n${ledger ? ledgerFrame(ledger) : ''}`,
     );
     pages.add(res);
-    req.on('close', () => pages.delete(res));
+    req.on('close', () => {
+      pages.delete(res);
+      if (pages.size === 0) lastActive = now();
+    });
   }
 
   async function servePage(path: string, method: string, res: ServerResponse): Promise<void> {
@@ -328,6 +391,7 @@ export function createHall({
     if (path === '/api/hook') return method === 'POST' ? hook(req, res) : reply(res, 405);
     if (path === '/api/ledger') return method === 'POST' ? ledgerPost(req, res) : reply(res, 405);
     if (path === '/api/key') return method === 'POST' ? keyPost(req, res) : reply(res, 405);
+    if (path === '/api/stop') return method === 'POST' ? stopPost(req, res) : reply(res, 405);
     if (path === '/api/session') return method === 'POST' ? sessionPost(req, res) : reply(res, 405);
     if (path === '/api/team') {
       if (method === 'GET') return teamGet(req, res);
@@ -350,6 +414,7 @@ export function createHall({
     startId,
     close: () =>
       new Promise((done) => {
+        clearInterval(idleTimer);
         for (const page of pages) page.end();
         server.close(() => done());
         server.closeAllConnections();

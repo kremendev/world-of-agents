@@ -1,5 +1,6 @@
 // Node and the hall. The mod checks for Node at session start, then asks what holds port 4319 (at session start and at
-// each of the Lead's turns) and starts the hall only when nothing does.
+// each of the Lead's turns) and starts the hall only when nothing does. From v3.5b the hall runs detached and stops
+// itself when idle; an older one from 3.5.0 on is asked to stop through its API first. The mod ends no process itself.
 //
 // Every command here is fixed: `node` with `--version` or with a script inside the plugin, no other argument, no shell,
 // nothing from an agent, a file, the page or the environment. Each runs in the plugin's own folder. Claude Code already
@@ -25,8 +26,13 @@ export const PLUGIN_VERSION = '3.4.0';
 export const NODE_VERSION = ['node', '--version'] as const;
 /** hooks/hall-check.mjs: send.mjs's handshake, answered with an exit code only. */
 export const checkCommand = (root: string) => ['node', `${root}/hooks/hall-check.mjs`];
-/** The prebuilt hall: it finds its page beside itself and serves only what its manifest names. */
-export const hallCommand = (root: string) => ['node', `${root}/hall/server.mjs`];
+/**
+ * hooks/hall-start.mjs (v3.5b): starts the prebuilt hall detached, so it outlives this session and any reload, and waits
+ * for its handshake. An exit code only.
+ */
+export const startCommand = (root: string) => ['node', `${root}/hooks/hall-start.mjs`];
+/** hooks/hall-stop.mjs (v3.5b): asks an older hall, 3.5.0 or later, to stop through its API, never by process id. */
+export const stopCommand = (root: string) => ['node', `${root}/hooks/hall-stop.mjs`];
 /** hooks/gate.mjs --status: are quality gates on in this project? An exit code only (v3.3). */
 export const gateStatusCommand = (root: string) => ['node', `${root}/hooks/gate.mjs`, '--status'];
 /** hooks/ledger-post.mjs: the token ledger's total, on stdin, posted to the hall after the handshake (v3.2). */
@@ -167,10 +173,18 @@ export async function teamChanges($: EngineInterface): Promise<PaneChange[] | nu
  */
 export type SetHall = (hall: PaneHall, version?: string | null) => Promise<unknown>;
 
-/** A check is under way (and maybe a start): one at a time. */
+/** A check is under way (and maybe a stop and a start): one at a time. */
 let busy = false;
-/** The hall this module started is still running. Unloading the module kills it, and with it this flag. */
-let child = false;
+
+/** The first version whose hall has `/api/stop` (v3.5b): an older one can only be closed with its sessions. */
+export const STOPPABLE_FROM = '3.5.0';
+
+/**
+ * May a pane of version `own` stop the hall that states `stated` (H2)? Only an older one, from 3.5.0 on: never a newer
+ * one, never one that states no version.
+ */
+export const stoppable = (stated: string | null, own: string = PLUGIN_VERSION): boolean =>
+  stated !== null && compareVersions(stated, STOPPABLE_FROM) >= 0 && compareVersions(stated, own) < 0;
 
 type Found = { state: 'ours' | 'down' | 'taken' | 'unknown'; version: string | null };
 
@@ -192,59 +206,51 @@ async function ask($: EngineInterface): Promise<Found> {
 
 /**
  * The hall is running only once it answered the handshake as this version (3.2d): another install's hall knows the same
- * token file, and is another version's. Until it answers, while our start is alive, it is starting.
+ * token file, and is another version's.
  */
-async function show(found: Found, setHall: SetHall): Promise<unknown> {
+async function show(found: Found, setHall: SetHall, own: string): Promise<unknown> {
   if (found.state === 'ours') {
-    return found.version === PLUGIN_VERSION ? setHall('running') : setHall('other-version', found.version);
+    return found.version === own ? setHall('running') : setHall('other-version', found.version);
   }
-  return setHall(found.state === 'taken' ? 'taken' : child ? 'starting' : 'stopped');
+  return setHall(found.state === 'taken' ? 'taken' : 'stopped');
+}
+
+/** Runs one of the fixed hall scripts. Its exit code says what happened, but the check after it is what counts. */
+async function runScript($: EngineInterface, argv: string[]): Promise<void> {
+  try {
+    await $.process.run(argv, { cwd: $.plugin.root, timeoutMs: TIMEOUT_MS });
+  } catch {
+    // It couldn't run: the check after it says what holds the port.
+  }
 }
 
 /**
- * Checks the hall, and starts it when nothing holds the port and no start of ours is alive. Never two halls: one check
- * at a time here, and a hall that loses the race for the port to another session's exits without a word.
- * Called with the session's own `$` (register.tsx): a child started through a turn's would die if that turn were
- * interrupted.
+ * Checks the hall (v3.5b): an older hall from 3.5.0 on is asked to stop, and when nothing holds the port ours is
+ * started, detached, so it outlives this session (hall-start.mjs). Never two halls: one check at a time here, and a hall
+ * that loses the race for the port to another session's exits without a word. Never a newer hall stopped, and never a
+ * process ended by its id. `own` is this plugin's version; tests give another.
  */
-export async function keepHall($: EngineInterface, setHall: SetHall): Promise<void> {
+export async function keepHall(
+  $: EngineInterface,
+  setHall: SetHall,
+  own: string = PLUGIN_VERSION,
+): Promise<void> {
   if (busy) return;
   busy = true;
   try {
-    const found = await ask($);
-    if (found.state === 'down' && !child) {
+    let found = await ask($);
+    if (found.state === 'ours' && stoppable(found.version, own)) {
       await setHall('starting');
-      start($, setHall);
-    } else {
-      await show(found, setHall);
+      await runScript($, stopCommand($.plugin.root));
+      found = await ask($);
     }
+    if (found.state === 'down') {
+      await setHall('starting');
+      await runScript($, startCommand($.plugin.root));
+      found = await ask($);
+    }
+    await show(found, setHall, own);
   } finally {
     busy = false;
   }
-}
-
-function start($: EngineInterface, setHall: SetHall): void {
-  child = true;
-  const recheck = async () => show(await ask($), setHall);
-  void (async () => {
-    try {
-      const hall = $.process.spawn({ argv: hallCommand($.plugin.root), cwd: `${$.plugin.root}/hall` });
-      let heard = false;
-      // Read for the hall's whole life: output nobody reads would block it. What it prints is dropped. Its first line
-      // means it listens; then the handshake, not the line, says whether the port holds our hall.
-      for await (const piece of hall) {
-        if (!heard && piece.stream === 'stdout') {
-          heard = true;
-          void recheck().catch(() => {});
-        }
-      }
-    } catch {
-      // It couldn't start.
-    } finally {
-      // It ended: it lost the race to another hall, failed, or was stopped. Say what holds the port now; the next turn
-      // starts another if nothing does.
-      child = false;
-      await recheck().catch(() => {});
-    }
-  })();
 }

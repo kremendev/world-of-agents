@@ -160,10 +160,12 @@ from the URL; tests try `../`, `%2e%2e` and a backslash path. `plugin/hall/` is 
 `scripts/build-plugin-hall.mjs`; a freshness check rebuilds it and fails if it differs from what's committed, and every release
 runs it. "Open hall" links to `http://localhost:4319`, which opened the hall from the desktop app in milestone 1.
 
-A hall the mod started is the mod's child: a plugin reload kills it, and after the sessions closed it was gone too. A reload
-runs `session.start` again, so the health check brings it back. Each kill leaves the token file behind; the handshake makes that
-harmless and the next hall writes a new one. With two sessions open, closing the one that started the hall costs the other at
-most one turn without it. A restarted hall starts with an empty replay, and it stays that way: no event log on disk, because
+Up to v3.4.0 a hall the mod started was the mod's child: a reload that brought new mod code killed it, and so did closing
+the session that started it. From v3.5.0 (docs/v3.5-plan.md) the mod starts it detached through a fixed script, so it
+outlives the session and any reload, and it stops itself after 30 minutes with no hook event and no page connected; a newer
+plugin stops an older hall (3.5.0 or later) through a token-checked `POST /api/stop`, never by process id. The desktop app
+keeps every process it starts in its package's job, so quitting the app may still end it. A kill leaves the token file
+behind; the handshake makes that harmless and the next hall writes a new one. A restarted hall starts with an empty replay, and it stays that way: no event log on disk, because
 agent text on disk would be a new leak. The page rebuilds from nothing and says "Hall restarted".
 
 **Voice.** `$.audio.speak` has no voice on Windows (milestone 1), so the mod speaks through Windows' own synthesizer:
