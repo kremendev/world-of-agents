@@ -331,6 +331,18 @@ describe('the team table (v3.4)', () => {
     expect(check(lead('woa-team:frontend-react-dev'))).toBe(denial(REASONS.agent));
   });
 
+  it('denies a guild lead whose agent id is there but no string: an unknown caller', () => {
+    for (const agent_id of [1, null, true, {}, [], ['a1']]) {
+      const call = JSON.stringify({
+        agent_id,
+        agent_type: 'world-of-agents:frontend',
+        tool_name: 'Agent',
+        tool_input: { subagent_type: 'woa-team:frontend-react-dev' },
+      });
+      expect(check(call), JSON.stringify(agent_id)).toBe(denial(REASONS.agent));
+    }
+  });
+
   it("denies every agent start, the Lead's included, when the table is missing or broken", () => {
     for (const call of [
       lead('world-of-agents:backend'),
