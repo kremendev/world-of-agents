@@ -14,15 +14,15 @@ A recorded run, played back at twice the speed:
 
 ## New in v3.7
 
+v3.7.0 brings three steps at once: v3.5.0 and v3.6.0 were never released on their own. The details are in the
+[release notes](docs/release-notes/v3.7.0.md).
+
 **Notes for the guild leads, only with your approval.** The Designer, the Frontend dev, the Backend dev and the
 Reviewer may end a report with one proposed note: a fact about the project worth remembering, such as where something
 lives or how it is tested. The hall holds it in memory and the feed says one came; nothing is written until you approve
 it on the Team page's new **Notes** tab, where you see each one whole, flagged for links, commands and wording that
 reads like an instruction. An approved note reaches that guild lead at the start of its later runs; you can remove it
-at any time. No agent writes notes itself, and the Lead keeps none: it keeps a project's state in `BACKLOG.md`. The
-details are in the [release notes](docs/release-notes/v3.7.0.md).
-
-## New in v3.6
+at any time. No agent writes notes itself, and the Lead keeps none: it keeps a project's state in `BACKLOG.md`.
 
 **The Team page.** **Open Team page** in the pane (until now **Change skills**) opens the hall's Team page, its own view with the hall kept
 running behind it: search, a Specialists tab and a Skills tab. Add specialists of your own (a name, a guild, one line of
@@ -30,16 +30,13 @@ what it does, Reads only, Edits files or Edits files and runs checks, up to 5 sk
 delete them, or switch one off: its guild lead can't start it until you switch it on again, and the guard says why.
 Take a skill off with Undo at hand. After an update the pane says when your team's specialist files come from an older
 plugin, and `/world-of-agents:setup-team-write` refreshes only those. The page you work in has a new, plainer look; the
-hall stays pixel art. The details are in the [release notes](docs/release-notes/v3.6.0.md).
+hall stays pixel art.
 
-## New in v3.5
-
-The hall runs on its own: closing the session that started it, or reloading the plugin, no longer stops it, and it
-stops itself after 30 minutes with no agent activity and no hall page open. A newer plugin replaces an older hall
-(3.5.0 or later) through the hall's own API. The hall keeps the last three sessions' activity in memory, so going back
+**The hall runs on its own.** Closing the session that started it, or reloading the plugin, no longer stops it, and it
+stops itself after 30 minutes with no agent activity and no hall page open. From now on a newer plugin replaces an
+older hall through the hall's own API. The hall keeps the last three sessions' activity in memory, so going back
 to a session shows its run as it was. The devs and every specialist with a shell run `npm run check` themselves as their
-last step, always, and never `cd` first. TypeScript 6, ESLint 10, `npm audit` clean. The details are in the
-[release notes](docs/release-notes/v3.5.0.md).
+last step, always, and never `cd` first. TypeScript 6, ESLint 10, `npm audit` clean.
 
 ## New in v3.4
 
@@ -48,7 +45,7 @@ team in `~/.world-of-agents/team` and prints the two commands that add it to a p
 hand focused work to 8 specialists (React designer, Motion designer, React dev, Test writer, API dev, Database dev,
 Security warden, QA tester), each with a few short skills, when you ask for one or when the work is more than a small
 change; the guard reads who may start whom from the team, and the setup's new version keeps agents out of that folder.
-Agent memory is off. **Change skills** (from v3.6 **Open Team page**)
+Agent memory is off. **Change skills** (from v3.7 **Open Team page**)
 in the pane opens the hall's Team panel through a one-time link, to add, change and delete skills and give them to
 specialists, each change a line in the pane. The details are in the [release notes](docs/release-notes/v3.4.0.md).
 
@@ -185,7 +182,7 @@ From v3.0.0 the plugin does this for you, once per project, in two steps you typ
 
 **The team pane.** From v3.0.0 the plugin also draws a pane beside the conversation: the five agents with their state and task, who is waiting for your approval, a warning in the modes that don't ask before acting (Auto, Bypass permissions) or before edits (Accept edits), how full the context is and how much of your plan's limits is used, three preset prompts ("Plan the next milestone", "Run the quality check", "Review what changed") and an "Open hall" link. A preset puts its prompt in the prompt box, after anything you've already typed, and you send it with Enter: the pane never sends a prompt itself. It appears after you send the first message, because that is when the session, and with it the pane, starts. If you close the pane, `/world-of-agents:team` opens it again. Only you can run that command, and it costs no plan: the pane answers it, so it never reaches the model. From v3.0.1 it also warns "World of Agents is on for every project." when your user settings turn the plugin on, and gives the command that turns it off there: `claude plugin disable world-of-agents@world-of-agents --scope user`. Projects where you installed it with `--scope local` keep it.
 
-**The hall starts itself.** At your first message the pane checks that Node.js 20.19 or later is on PATH (and warns if not), then starts the hall the plugin carries, unless one is already running. From v3.5.0 the hall runs on its own, with no window: closing the session that started it, or reloading the plugin, leaves it running, and it stops itself after 30 minutes with no agent activity and no hall page open. It checks again at each of the Lead's turns and starts it again if it's gone. "Open hall" shows only once the hall has proved it holds the token, the same handshake the hook script uses, so the link never points at another program. If another program holds port 4319, the pane says "Port 4319 is used by another program." and starts nothing.
+**The hall starts itself.** At your first message the pane checks that Node.js 20.19 or later is on PATH (and warns if not), then starts the hall the plugin carries, unless one is already running. From v3.7.0 the hall runs on its own, with no window: closing the session that started it, or reloading the plugin, leaves it running, and it stops itself after 30 minutes with no agent activity and no hall page open. It checks again at each of the Lead's turns and starts it again if it's gone. "Open hall" shows only once the hall has proved it holds the token, the same handshake the hook script uses, so the link never points at another program. If another program holds port 4319, the pane says "Port 4319 is used by another program." and starts nothing.
 
 **The voice (Windows).** The pane says two things out loud: "Backend dev needs your approval." when an agent waits for you, and, once the team has finished and the Lead has answered, "The team is done." with the first sentence of that answer, or "The team stopped. Backend dev failed." It uses Windows' own speech synthesizer through a fixed script, `plugin/voice/speak.ps1`, started as `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File …`. The text goes in on stdin, never into the command. `RemoteSigned` applies to that one process and changes nothing on your PC: it runs the plugin's own local script and refuses one marked as downloaded from the internet. If a Group Policy sets the execution policy, it wins, and the voice stays silent. **Mute voice** in the pane turns it off, and it stays off in later sessions.
 
@@ -236,7 +233,7 @@ The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, w
 - **In one project:** run `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder. In a project where you installed it with `--scope local`, the desktop app's switch under Customize, then Plugins, does the same: on 11 Nov 2026 (app 5.1231.2) it wrote that project's `.claude/settings.local.json` and left your user settings alone. The agents, the guard, the pane, the hall and the voice all go with it. `claude plugin enable world-of-agents@world-of-agents --scope local` turns it back on.
 - **The voice only:** press **Mute voice** in the pane. It stays muted in later sessions.
 - **The pane only:** close it. `/world-of-agents:team` opens it again.
-- **The hall:** it stops itself after 30 minutes with no agent activity and no hall page open; closing sessions doesn't stop it (from v3.5.0). A newer version of the plugin stops an older one (3.5.0 or later) before it starts its own. To stop it at once, run `Get-NetTCPConnection -LocalPort 4319 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess }` in PowerShell. A hall you started with `npm run hall` stops with Ctrl+C.
+- **The hall:** it stops itself after 30 minutes with no agent activity and no hall page open; closing sessions doesn't stop it (from v3.7.0). A newer version of the plugin stops an older one (3.7.0 or later) before it starts its own. To stop it at once, run `Get-NetTCPConnection -LocalPort 4319 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess }` in PowerShell. A hall you started with `npm run hall` stops with Ctrl+C.
 - **The setup's settings:** disabling or removing the plugin leaves them in the project's `.claude/settings.local.json`. Delete `permissions` and `env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` there to remove them.
 - **For good:** run this in the project folder:
 
@@ -277,7 +274,7 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
 - **No sandbox on native Windows.** Commands run with your user's rights, so your approval is the guard. Read each command before you approve it. Claude Code's sandbox needs macOS, Linux or WSL2.
 - **One session at a time.** The hall follows one session. Starting, clearing or resuming a session takes it over, and so does a prompt you type in another open session: the hall follows the session you type into. From v3.5.0 it keeps the last three sessions' activity in memory (never on disk), up to 500 events each, so going back to one shows its run as it was, with what its agents did meanwhile.
 - **The desktop app's mode can beat Manual.** In our tests the app used the setup's Manual only in a git repository; in a folder without git it used your own default mode. A mode you pick in the selector also sticks to that folder and wins over the file. Check the selector in the first new session, and if it doesn't say Manual, pick Manual once: the app remembers it for that folder. The pane warns in Auto, Bypass permissions and Accept edits.
-- **The pane's hall runs on its own (from v3.5.0).** It outlives the session that started it and any reload, and stops itself after 30 minutes with no agent activity and no hall page open. The desktop app keeps every process it starts in its own job, so quitting the app may stop the hall too. A newer plugin stops an older hall (3.5.0 or later) through the hall's own API, never the other way round; a hall from before 3.5.0 still lives with the session that started it, and the pane names its version and links to nothing until you close your other sessions. A newer hall than your plugin is never stopped from here: the pane says to update. A stopped or restarted hall remembers nothing from before, and the page says "Hall restarted" until your next prompt.
+- **The pane's hall runs on its own (from v3.7.0).** It outlives the session that started it and any reload, and stops itself after 30 minutes with no agent activity and no hall page open. The desktop app keeps every process it starts in its own job, so quitting the app may stop the hall too. A newer plugin stops an older hall (3.7.0 or later) through the hall's own API, never the other way round; a hall from before 3.7.0 still lives with the session that started it, and the pane names its version and links to nothing until you close your other sessions. A newer hall than your plugin is never stopped from here: the pane says to update. A stopped or restarted hall remembers nothing from before, and the page says "Hall restarted" until your next prompt.
 - **Port 4319 is fixed.** If another program holds it, the pane starts no hall.
 - **Apostrophes in the plugin's path.** The setup skills put the plugin's path in single quotes. One apostrophe in it makes them fail safely, as above. Two balance the quotes again, so the shell reads the text between them unquoted: it splits the path there, and a `$(...)` in that text would run. Only the names of your own folders reach that path, never a project's or the conversation's, so keep apostrophes out of the folders above the plugin, your user folder included.
 - **Where an organization manages Claude Code.** If its managed settings turn on `allowManagedHooksOnly`, a plugin you install yourself loads no hooks. The agents and the Lead still load, but with no guard, no team pane and no reports to the hall, so nothing denies what the guard would. Claude Code's own mods API reference (2.1.318) says so; it hasn't been tested. The validators of 2.1.299 to 2.1.301 also warned that the pane's `classic.*` hooks don't run where an organization manages Claude Code, which would leave the pane without its approval list, the approval voice and the mode warning. Later validators no longer print that warning.

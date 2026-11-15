@@ -334,7 +334,8 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   anything: commands already run in the project folder (the Frontend dev's `cd <project> && npm run check`, 14 Nov;
   a real run on 15 Nov saw both run exactly `npm run check`, the React dev as its last step); they change only the files their task names, prove a
   test can fail with a temporary copy or a fixture, and leave no backup copies (Dima's desktop run, 14 Nov); the Designer runs no commands and says so; the Lead
-  passes on what they reported ("checked, passed"). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
+  passes on what they reported ("checked, passed"); from 3.7e a guild lead never tells a specialist to skip its own check
+  (the Frontend dev did, and the Form builder obeyed). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
   `BACKLOG.md` directly in its `cwd` (exact match, no `.` or `..` segment, case-blind on Windows only), and only when that
   file is missing or a plain file with one name (v3.3 review: `lstat`, never through a link; a symbolic link, a junction,
@@ -916,5 +917,15 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     Frontend dev"). 3.7d done (the Notes tab, as mockup pages 1 and 6 show it: "Waiting for you" and "Kept", a note
     whole with its link, command-like and instruction-like flags, Approve and Reject, Remove this note after a question;
     search finds notes by text and guild lead; in Edge, keyboard only, every change landed on disk). v3.7.0 is prepared, not tagged (plugin.json 3.7.0,
-    docs/release-notes/v3.7.0.md, README pins on `#v3.7.0`; its checklist docs/release-notes/v3.7.0-check.md, on dc6c664). Waits for Dima: v3.5.0's check, then v3.6.0's and v3.7.0's,
-    each then tagged on its own commit.
+    docs/release-notes/v3.7.0.md, README pins on `#v3.7.0`).
+
+14. Dima's change of plan (15 Nov): Claude runs the desktop checks it can; Dima tests once, on v3.7.0. v3.5.0 and
+    v3.6.0 are never tagged (their notes and checklists stay in docs as history); v3.7.0's notes and README cover 3.5
+    and 3.6, updating from v3.4.0. The guard's agent start got its test for an agent id that is no string (458484b).
+    docs/release-notes/v3.7.0-check.md merges the three checklists, each step marked "Claude: passed" or "failed" with
+    what was seen (throwaway copies on ports 4391 and 4339, Edge, no-login sessions, three real runs, $0.71, and the real
+    30-minute idle stop), and ends with Dima's short list. The first real run failed twice, fixed in 3.7e (docs/v3.7-plan.md):
+    the guild leads never tell a specialist to skip its own check, and a note is proposed only as the last line, the
+    Lead passing one on in the user's words. Claude Code 2.1.325 warns about the plugin setting the main agent and the
+    template's `Write(~/.world-of-agents/**)` deny: Dima's decisions, unchanged. After Dima says v3.7.0 passed: tag and
+    release v3.7.0 only, main fast-forwarded to it.
