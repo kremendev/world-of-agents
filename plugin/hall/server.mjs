@@ -6334,12 +6334,16 @@ var LEADS = Object.freeze({
   backend: "backend",
   review: "reviewer"
 });
-var MAX_SPECIALISTS = 32;
+var MAX_PER_GUILD = 5;
+var MAX_SPECIALISTS = GUILDS.length * MAX_PER_GUILD;
 var MAX_SKILLS = 64;
 var MAX_PRELOADED = 5;
 var MAX_TEXT = 8e3;
+var PRESETS = Object.freeze(["reads", "edits", "edits-and-checks"]);
+var GENERATOR = 1;
 var SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+var SPECIALIST_KEYS = ["id", "name", "role", "guild", "preset", "on", "skills"];
 var LINE = /^[\p{L}\p{N} .,()'&/-]+$/u;
 var INJECTED = /^\s*!`/m;
 var INVISIBLE = /[\p{Cc}\p{Cf}]/u;
@@ -6349,8 +6353,10 @@ var isObject2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var keysAre = (v, keys) => Object.keys(v).sort().join() === [...keys].sort().join();
 var line = (v, max) => typeof v === "string" && v.length >= 1 && v.length <= max && LINE.test(v) && v.trim() === v;
 function problem(team) {
-  if (!isObject2(team) || !keysAre(team, ["version", "specialists", "skills"])) return "not a team";
-  if (team.version !== 1) return "an unknown version";
+  if (!isObject2(team) || !keysAre(team, ["version", "generator", "specialists", "skills"]))
+    return "not a team";
+  if (team.version !== 2) return "an unknown version";
+  if (!Number.isSafeInteger(team.generator) || team.generator < 0) return "the generator";
   if (!Array.isArray(team.skills) || team.skills.length > MAX_SKILLS) return "skills";
   const skills = /* @__PURE__ */ new Set();
   for (const s of team.skills) {
@@ -6363,19 +6369,47 @@ function problem(team) {
   if (!Array.isArray(team.specialists) || team.specialists.length > MAX_SPECIALISTS) return "specialists";
   const ids = /* @__PURE__ */ new Set();
   for (const p of team.specialists) {
-    if (!isObject2(p) || !keysAre(p, ["id", "name", "role", "guild", "kind", "skills"])) return "a specialist";
+    if (!isObject2(p) || !keysAre(p, SPECIALIST_KEYS)) return "a specialist";
     if (typeof p.id !== "string" || p.id.length > 48 || !SPECIALIST_ID.test(p.id) || ids.has(p.id))
       return "a specialist id";
     if (!GUILDS.includes(p.guild) || !p.id.startsWith(`${p.guild}-`)) return `specialist ${p.id}'s guild`;
-    if (p.kind !== "reads" && p.kind !== "edits") return `specialist ${p.id}'s kind`;
+    if (!PRESETS.includes(p.preset)) return `specialist ${p.id}'s preset`;
+    if (p.guild === "design" && p.preset === "edits-and-checks") return `specialist ${p.id}'s preset`;
+    if (typeof p.on !== "boolean") return `specialist ${p.id}'s switch`;
     if (!line(p.name, 40) || !line(p.role, 200)) return `specialist ${p.id}`;
     if (!Array.isArray(p.skills) || p.skills.length > MAX_PRELOADED) return `specialist ${p.id}'s skills`;
     if (new Set(p.skills).size !== p.skills.length || !p.skills.every((s) => skills.has(s)))
       return `specialist ${p.id}'s skills`;
     ids.add(p.id);
   }
+  for (const guild of GUILDS) {
+    if (team.specialists.filter((p) => p.guild === guild).length > MAX_PER_GUILD) return `the ${guild} guild`;
+  }
   return null;
 }
+function upgrade(team) {
+  if (!isObject2(team) || !Array.isArray(team.specialists)) return team;
+  const v1 = team.version === 1 && keysAre(team, ["version", "specialists", "skills"]);
+  if (!v1 && team.version !== 2) return team;
+  const specialists = team.specialists.map((p) => {
+    if (!isObject2(p)) return p;
+    const next = { ...p };
+    if (v1) {
+      if (!Object.hasOwn(next, "kind") || Object.hasOwn(next, "preset")) return p;
+      next.preset = next.kind === "edits" && next.guild !== "design" ? "edits-and-checks" : next.kind;
+      delete next.kind;
+    }
+    if (!Object.hasOwn(next, "on")) next.on = true;
+    return next;
+  });
+  return v1 ? { version: 2, generator: 0, specialists, skills: team.skills } : { ...team, specialists };
+}
+var canonical = (team) => ({
+  version: 2,
+  generator: GENERATOR,
+  specialists: team.specialists.map((p) => Object.fromEntries(SPECIALIST_KEYS.map((k) => [k, p[k]]))),
+  skills: team.skills.map((s) => ({ id: s.id, name: s.name, description: s.description }))
+});
 function textProblem(text) {
   if (typeof text !== "string" || text.trim() === "") return "empty";
   if (text.length > MAX_TEXT) return "too long";
@@ -6384,8 +6418,8 @@ function textProblem(text) {
   return null;
 }
 function toolsOf(specialist) {
-  if (specialist.kind === "reads") return "Read, Grep, Glob";
-  return specialist.guild === "design" ? "Read, Grep, Glob, Write, Edit" : "Read, Grep, Glob, Write, Edit, Bash";
+  if (specialist.preset === "reads") return "Read, Grep, Glob";
+  return specialist.preset === "edits" ? "Read, Grep, Glob, Write, Edit" : "Read, Grep, Glob, Write, Edit, Bash";
 }
 var TESTS_ONLY = [
   "- Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner",
@@ -6415,7 +6449,7 @@ var NO_CHECK = [
 ];
 var guildName = (guild) => guild.charAt(0).toUpperCase() + guild.slice(1);
 function buildAgent(p) {
-  const reads = p.kind === "reads";
+  const reads = p.preset === "reads";
   return [
     "---",
     `name: ${p.id}`,
@@ -6453,9 +6487,10 @@ function inside(dir, ...parts) {
   if (!path.startsWith(resolve(dir) + sep)) throw new Error("a path outside the team folder");
   return path;
 }
-function writeTeam(dir, team, texts) {
-  const why = problem(team);
+function writeTeam(dir, checked, texts) {
+  const why = problem(checked);
   if (why) throw new Error(`not a team: ${why}`);
+  const team = canonical(checked);
   for (const s of team.skills) {
     const textWhy = textProblem(texts[s.id]);
     if (textWhy) throw new Error(`skill ${s.id}: ${textWhy}`);
@@ -6483,6 +6518,7 @@ function writeTeam(dir, team, texts) {
   }
   writeFileSync(inside(dir, "team.json"), `${JSON.stringify(team, null, 2)}
 `);
+  return team;
 }
 function readTexts(dir, team) {
   const texts = {};
@@ -6579,7 +6615,7 @@ function logChange(dir, entry) {
 }
 function readTeam(home = homedir()) {
   try {
-    const team = JSON.parse(readFileSync(join(teamDir(home), "team.json"), "utf8"));
+    const team = upgrade(JSON.parse(readFileSync(join(teamDir(home), "team.json"), "utf8")));
     return problem(team) === null ? team : null;
   } catch {
     return null;
@@ -6723,6 +6759,8 @@ var LINE2 = /^[\p{L}\p{N} .,()'&/-]+$/u;
 var MAX_TEXT2 = 8e3;
 var MAX_PRELOADED2 = 5;
 var GUILDS2 = ["design", "frontend", "backend", "review"];
+var PRESETS2 = ["reads", "edits", "edits-and-checks"];
+var MAX_PER_GUILD2 = 5;
 var line2 = (max) => string2().min(1).max(max).regex(LINE2).refine((s) => s.trim() === s);
 var skillId = string2().max(48).regex(SKILL_ID2);
 var specialistId = string2().max(48).regex(SPECIALIST_ID2);
@@ -6745,14 +6783,16 @@ var specialistSchema = strictObject({
   name: line2(40),
   role: line2(200),
   guild: _enum(GUILDS2),
-  kind: _enum(["reads", "edits"]),
+  preset: _enum(PRESETS2),
+  on: boolean2(),
   skills: array(skillId).max(MAX_PRELOADED2)
 });
 var skillSchema = strictObject({ id: skillId, name: line2(60), description: line2(200) });
 var teamViewSchema = strictObject({
   team: strictObject({
-    version: literal(1),
-    specialists: array(specialistSchema).max(32),
+    version: literal(2),
+    generator: number2().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    specialists: array(specialistSchema).max(GUILDS2.length * MAX_PER_GUILD2),
     skills: array(skillSchema).max(64)
   }),
   texts: record(skillId, string2().max(MAX_TEXT2))
@@ -7454,9 +7494,9 @@ data: ${startId}
       return { status: 409, body: { error: error2.message } };
     }
     const dir = teamDir(teamHome);
-    writeTeam(dir, next.team, next.texts);
+    const team = writeTeam(dir, next.team, next.texts);
     logChange(dir, next.entry);
-    return { status: 200, body: { team: next.team, texts: next.texts } };
+    return { status: 200, body: { team, texts: next.texts } };
   }
   function events(req, res) {
     res.writeHead(200, { ...BASE_HEADERS, "Content-Type": "text/event-stream; charset=utf-8" });

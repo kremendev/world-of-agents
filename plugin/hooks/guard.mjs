@@ -79,6 +79,7 @@ export const REASONS = Object.freeze({
     'World of Agents guard: BACKLOG.md here is a link, a folder or a file with more than one name, so the Lead may not write it.',
   memory:
     'World of Agents guard: agent memory is off, so no agent writes into a memory folder (.claude/agent-memory-local, .claude/agent-memory or ~/.claude/agent-memory).',
+  off: "World of Agents guard: that specialist is switched off on the hall's Team page, so it may not start until the user switches it on.",
 });
 
 /** The one answer the guard ever gives. */
@@ -117,8 +118,16 @@ function checkAgent(input, team) {
   if (team === null) return denial(REASONS.team);
   if (Object.hasOwn(call, 'model')) return denial(REASONS.model);
   if (Object.hasOwn(call, 'isolation') && call.isolation !== 'worktree') return denial(REASONS.isolation);
-  return rowOf(input, team)?.includes(call.subagent_type) ? null : denial(REASONS.agent);
+  if (!rowOf(input, team)?.includes(call.subagent_type)) return denial(REASONS.agent);
+  return switchedOff(team, call.subagent_type) ? denial(REASONS.off) : null;
 }
+
+/**
+ * A specialist switched off on the Team page (v3.6, E10, E11): its agent file stays as it is, so the guard is the lock.
+ * It reads team.json on every call, so a switch counts at once, both ways, with no reload.
+ */
+const switchedOff = (team, type) =>
+  team.specialists.some((p) => `${TEAM_PREFIX}${p.id}` === type && p.on !== true);
 
 /** The agents whose edits the guard leaves to their own permission prompts (v3.3): the ones that write files. */
 export const EDITORS = Object.freeze([`${PREFIX}designer`, `${PREFIX}frontend`, `${PREFIX}backend`]);
@@ -154,9 +163,14 @@ function plainOrMissing(filePath) {
   return stat.isFile() && stat.nlink === 1;
 }
 
-/** The team's specialists that edit (v3.4): their edits go to their own permission prompts, as the guild leads' do. */
+/**
+ * The team's specialists that edit (v3.4; by preset since v3.6): their edits go to their own permission prompts, as the
+ * guild leads' do.
+ */
 const teamEditors = (team) =>
-  team === null ? [] : team.specialists.filter((p) => p.kind === 'edits').map((p) => `${TEAM_PREFIX}${p.id}`);
+  team === null
+    ? []
+    : team.specialists.filter((p) => p.preset !== 'reads').map((p) => `${TEAM_PREFIX}${p.id}`);
 
 /** The deepest part of `path` that exists, through realpathSync.native, then the rest as written. */
 function canonical(path) {

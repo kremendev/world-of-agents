@@ -20,13 +20,27 @@ export const LEADS = Object.freeze({
   backend: 'backend',
   review: 'reviewer',
 });
-export const MAX_SPECIALISTS = 32;
+/** At most this many specialists in one guild (v3.6, E3), so 20 in the team. */
+export const MAX_PER_GUILD = 5;
+export const MAX_SPECIALISTS = GUILDS.length * MAX_PER_GUILD;
 export const MAX_SKILLS = 64;
 export const MAX_PRELOADED = 5;
 export const MAX_TEXT = 8000;
+/**
+ * What a specialist may do (v3.6, E7): reads only; edits files; edits files and runs checks (a shell, which the setup's
+ * allow rules hold to npm test and npm run check: everything else asks). The third is not for the Design guild.
+ */
+export const PRESETS = Object.freeze(['reads', 'edits', 'edits-and-checks']);
+/**
+ * The version of the generated text (v3.6, E9): raise it whenever buildAgent() or buildSkill() writes anything
+ * different, so the pane can say a team's files are older (team-check.mjs). team.test.ts pins the text to it.
+ */
+export const GENERATOR = 1;
 /** A specialist's id starts with its guild, so the hall and the pane can place it without reading the file. */
 const SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** A specialist's keys in version 2 (v3.6), in the order team.json is written. */
+const SPECIALIST_KEYS = ['id', 'name', 'role', 'guild', 'preset', 'on', 'skills'];
 /**
  * A name, role or description goes into YAML frontmatter, so it may hold letters, digits, spaces and a little
  * punctuation, and nothing that could start a new key, a comment or a quote: no colon, no line break, no #.
@@ -44,10 +58,15 @@ const keysAre = (v, keys) => Object.keys(v).sort().join() === [...keys].sort().j
 const line = (v, max) =>
   typeof v === 'string' && v.length >= 1 && v.length <= max && LINE.test(v) && v.trim() === v;
 
-/** Why `team` isn't a team, or null when it is one. Strict: an unknown key, a bad value or a dangling skill is a reason. */
+/**
+ * Why `team` isn't a team (version 2, v3.6), or null when it is one. Strict: an unknown key, a bad value or a dangling
+ * skill is a reason. A version 1 file goes through upgrade() first, as readTeam() does.
+ */
 export function problem(team) {
-  if (!isObject(team) || !keysAre(team, ['version', 'specialists', 'skills'])) return 'not a team';
-  if (team.version !== 1) return 'an unknown version';
+  if (!isObject(team) || !keysAre(team, ['version', 'generator', 'specialists', 'skills']))
+    return 'not a team';
+  if (team.version !== 2) return 'an unknown version';
+  if (!Number.isSafeInteger(team.generator) || team.generator < 0) return 'the generator';
   if (!Array.isArray(team.skills) || team.skills.length > MAX_SKILLS) return 'skills';
   const skills = new Set();
   for (const s of team.skills) {
@@ -60,19 +79,55 @@ export function problem(team) {
   if (!Array.isArray(team.specialists) || team.specialists.length > MAX_SPECIALISTS) return 'specialists';
   const ids = new Set();
   for (const p of team.specialists) {
-    if (!isObject(p) || !keysAre(p, ['id', 'name', 'role', 'guild', 'kind', 'skills'])) return 'a specialist';
+    if (!isObject(p) || !keysAre(p, SPECIALIST_KEYS)) return 'a specialist';
     if (typeof p.id !== 'string' || p.id.length > 48 || !SPECIALIST_ID.test(p.id) || ids.has(p.id))
       return 'a specialist id';
     if (!GUILDS.includes(p.guild) || !p.id.startsWith(`${p.guild}-`)) return `specialist ${p.id}'s guild`;
-    if (p.kind !== 'reads' && p.kind !== 'edits') return `specialist ${p.id}'s kind`;
+    if (!PRESETS.includes(p.preset)) return `specialist ${p.id}'s preset`;
+    if (p.guild === 'design' && p.preset === 'edits-and-checks') return `specialist ${p.id}'s preset`;
+    if (typeof p.on !== 'boolean') return `specialist ${p.id}'s switch`;
     if (!line(p.name, 40) || !line(p.role, 200)) return `specialist ${p.id}`;
     if (!Array.isArray(p.skills) || p.skills.length > MAX_PRELOADED) return `specialist ${p.id}'s skills`;
     if (new Set(p.skills).size !== p.skills.length || !p.skills.every((s) => skills.has(s)))
       return `specialist ${p.id}'s skills`;
     ids.add(p.id);
   }
+  for (const guild of GUILDS) {
+    if (team.specialists.filter((p) => p.guild === guild).length > MAX_PER_GUILD) return `the ${guild} guild`;
+  }
   return null;
 }
+
+/**
+ * The team as this version reads it (v3.6, E8): version 1's `kind` becomes a preset (`reads` stays, a Design guild
+ * editor stays `edits`, any other editor gets `edits-and-checks`, the shell it has today) and its generator is 0, older
+ * than any; a specialist without `on` is on. Anything it doesn't know is left as it is, for problem() to refuse.
+ */
+export function upgrade(team) {
+  if (!isObject(team) || !Array.isArray(team.specialists)) return team;
+  const v1 = team.version === 1 && keysAre(team, ['version', 'specialists', 'skills']);
+  if (!v1 && team.version !== 2) return team;
+  const specialists = team.specialists.map((p) => {
+    if (!isObject(p)) return p;
+    const next = { ...p };
+    if (v1) {
+      if (!Object.hasOwn(next, 'kind') || Object.hasOwn(next, 'preset')) return p;
+      next.preset = next.kind === 'edits' && next.guild !== 'design' ? 'edits-and-checks' : next.kind;
+      delete next.kind;
+    }
+    if (!Object.hasOwn(next, 'on')) next.on = true;
+    return next;
+  });
+  return v1 ? { version: 2, generator: 0, specialists, skills: team.skills } : { ...team, specialists };
+}
+
+/** A checked team in one key order, with this generator's number: what writeTeam() writes. */
+const canonical = (team) => ({
+  version: 2,
+  generator: GENERATOR,
+  specialists: team.specialists.map((p) => Object.fromEntries(SPECIALIST_KEYS.map((k) => [k, p[k]]))),
+  skills: team.skills.map((s) => ({ id: s.id, name: s.name, description: s.description })),
+});
 
 /** Why a skill's text can't be saved, or null. */
 export function textProblem(text) {
@@ -83,10 +138,10 @@ export function textProblem(text) {
   return null;
 }
 
-/** The tools a specialist gets: a reader reads; an editor gets its guild lead's tools, minus Agent. */
+/** The tools a specialist gets, from its preset alone (v3.6, E7). */
 export function toolsOf(specialist) {
-  if (specialist.kind === 'reads') return 'Read, Grep, Glob';
-  return specialist.guild === 'design'
+  if (specialist.preset === 'reads') return 'Read, Grep, Glob';
+  return specialist.preset === 'edits'
     ? 'Read, Grep, Glob, Write, Edit'
     : 'Read, Grep, Glob, Write, Edit, Bash';
 }
@@ -136,7 +191,7 @@ const guildName = (guild) => guild.charAt(0).toUpperCase() + guild.slice(1);
 
 /** A specialist's agent file, every line built here from checked fields. */
 export function buildAgent(p) {
-  const reads = p.kind === 'reads';
+  const reads = p.preset === 'reads';
   return [
     '---',
     `name: ${p.id}`,
@@ -188,11 +243,13 @@ function inside(dir, ...parts) {
 /**
  * Writes the team into `dir`: team.json, one agent file per specialist, one skill file per skill, the plugin manifest.
  * `texts` maps each skill id to its text. Removes the agent and skill files of anything no longer in the team, and
- * touches no other file. Throws, writing nothing, when the team or a text doesn't pass.
+ * touches no other file. Throws, writing nothing, when the team or a text doesn't pass. Every file is this generator's,
+ * so team.json gets its number (v3.6); returns the team as written.
  */
-export function writeTeam(dir, team, texts) {
-  const why = problem(team);
+export function writeTeam(dir, checked, texts) {
+  const why = problem(checked);
   if (why) throw new Error(`not a team: ${why}`);
+  const team = canonical(checked);
   for (const s of team.skills) {
     const textWhy = textProblem(texts[s.id]);
     if (textWhy) throw new Error(`skill ${s.id}: ${textWhy}`);
@@ -218,6 +275,7 @@ export function writeTeam(dir, team, texts) {
     if (SKILL_ID.test(name) && !skills.has(name)) rmSync(inside(dir, 'skills', name), { recursive: true });
   }
   writeFileSync(inside(dir, 'team.json'), `${JSON.stringify(team, null, 2)}\n`);
+  return team;
 }
 
 /**
@@ -337,7 +395,8 @@ export function logChange(dir, entry) {
 /** The defaults this plugin ships: the brief's 8 specialists and their skills, with the texts beside them. */
 export function defaults() {
   const here = import.meta.dirname;
-  const team = JSON.parse(readFileSync(join(here, 'defaults.json'), 'utf8'));
+  const { version, specialists, skills } = JSON.parse(readFileSync(join(here, 'defaults.json'), 'utf8'));
+  const team = { version, generator: GENERATOR, specialists, skills };
   const texts = Object.fromEntries(
     team.skills.map((s) => [s.id, readFileSync(join(here, 'skills', `${s.id}.md`), 'utf8')]),
   );
@@ -365,10 +424,13 @@ export function init(home = homedir()) {
   return 'created';
 }
 
-/** The team in `home`, or null when it is missing or isn't a team: the guard and the setup read it this way. */
+/**
+ * The team in `home`, as version 2 (a version 1 file upgraded in memory), or null when it is missing or isn't a team:
+ * the guard, the hall and the setup read it this way.
+ */
 export function readTeam(home = homedir()) {
   try {
-    const team = JSON.parse(readFileSync(join(teamDir(home), 'team.json'), 'utf8'));
+    const team = upgrade(JSON.parse(readFileSync(join(teamDir(home), 'team.json'), 'utf8')));
     return problem(team) === null ? team : null;
   } catch {
     return null;

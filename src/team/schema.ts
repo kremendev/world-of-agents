@@ -14,6 +14,9 @@ export const LINE = /^[\p{L}\p{N} .,()'&/-]+$/u;
 export const MAX_TEXT = 8000;
 export const MAX_PRELOADED = 5;
 export const GUILDS = ['design', 'frontend', 'backend', 'review'] as const;
+/** What a specialist may do (v3.6, E7). The third is not for the Design guild. */
+export const PRESETS = ['reads', 'edits', 'edits-and-checks'] as const;
+export const MAX_PER_GUILD = 5;
 
 const line = (max: number) =>
   z
@@ -49,7 +52,8 @@ const specialistSchema = z.strictObject({
   name: line(40),
   role: line(200),
   guild: z.enum(GUILDS),
-  kind: z.enum(['reads', 'edits']),
+  preset: z.enum(PRESETS),
+  on: z.boolean(),
   skills: z.array(skillId).max(MAX_PRELOADED),
 });
 const skillSchema = z.strictObject({ id: skillId, name: line(60), description: line(200) });
@@ -57,8 +61,9 @@ const skillSchema = z.strictObject({ id: skillId, name: line(60), description: l
 /** The team as GET and POST /api/team answer: the team and each skill's text. */
 export const teamViewSchema = z.strictObject({
   team: z.strictObject({
-    version: z.literal(1),
-    specialists: z.array(specialistSchema).max(32),
+    version: z.literal(2),
+    generator: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+    specialists: z.array(specialistSchema).max(GUILDS.length * MAX_PER_GUILD),
     skills: z.array(skillSchema).max(64),
   }),
   texts: z.record(skillId, z.string().max(MAX_TEXT)),

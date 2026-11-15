@@ -20,6 +20,7 @@ export const REASONS: {
   readonly folder: string;
   readonly woa: string;
   readonly memory: string;
+  readonly off: string;
 };
 export const EDITORS: readonly string[];
 export function denial(reason: string): string;

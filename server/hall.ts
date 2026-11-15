@@ -409,9 +409,9 @@ export function createHall({
       return { status: 409, body: { error: (error as Error).message } };
     }
     const dir = teamDir(teamHome);
-    writeTeam(dir, next.team, next.texts);
+    const team = writeTeam(dir, next.team, next.texts);
     logChange(dir, next.entry);
-    return { status: 200, body: { team: next.team, texts: next.texts } };
+    return { status: 200, body: { team, texts: next.texts } };
   }
 
   function events(req: IncomingMessage, res: ServerResponse): void {

@@ -108,7 +108,9 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
 .claude-plugin/   marketplace.json: the repo is its own marketplace, listing the plugin from ./plugin
 plugin/team/      v3.4: the team as data. team.mjs (the only writer of ~/.world-of-agents/team, a local plugin `woa-team`
                   loaded in place: its strict schema, the generator of agents/*.md and skills/*/SKILL.md, the refusal of a
-                  skill line starting with !` and of invisible characters, init() and readTeam()), defaults.json (the 8
+                  skill line starting with !` and of invisible characters, init() and readTeam(); from v3.6 team.json is version 2,
+                  with `preset` (reads, edits, edits-and-checks), `on` and `generator`, a version 1 file read through
+                  upgrade(), at most 5 specialists a guild), defaults.json (the 8
                   specialists and 14 skills) and skills/*.md (their texts). skills/setup-team/ (team-setup.mjs) and
                   setup-team-write/: create it, never over one that is there; tested in server/setup-team.test.ts
 plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
@@ -343,8 +345,10 @@ Do not change the look without asking. New ideas go into a later version.
   rule is best effort; don't sell it as more. Its imports are `node:fs` and `node:url` (for `runAsScript()` and, from
   v3.3, the `lstat` of BACKLOG.md) and from v3.4 `plugin/team/team.mjs`, whose
   `readTeam()` reads `~/.world-of-agents/team/team.json` through the strict team schema (Dima's decision): the guild
-  leads' rows come from it (each may start its guild's `woa-team:<guild>-<name>` specialists; specialists start nobody),
-  and with the file missing or broken every agent start is denied, the Lead's included, naming
+  leads' rows come from it (each may start its guild's `woa-team:<guild>-<name>` specialists; specialists start nobody;
+  from v3.6 one switched off, `on: false`, is denied with its own reason, its agent file left as it is, so the guard is
+  the lock and a switch counts at once), and with the file missing or broken every agent start is denied, the Lead's
+  included, naming
   `/world-of-agents:setup-team`. A shell command that names `.world-of-agents` is denied too (best effort). Edit and
   Write into `~/.world-of-agents` are denied for every caller, with or without the setup (v3.4 review, `inWoaFolder()`):
   by the path as written (a leading `~` is home, `.` and `..` resolved against the call's cwd, a Windows `\\?\` prefix
@@ -856,3 +860,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     docs/release-notes/v3.5.0.md, README pins on `#v3.5.0`). v3.5.0 is `ed42ec6`; its checklist is
     docs/release-notes/v3.5.0-check.md. docs/v3.6-plan.md and docs/v3.7-plan.md are written. Stopped (15 Nov) for
     Dima: his v3.5.0 check (then its tag), and the approved Team panel mockup before anything of v3.6.0 is built.
+
+12. v3.6.0 (docs/v3.6-plan.md), after Dima approved the Team page mockup and sent its spec (15 Nov); the plan follows the
+    spec. Nothing is tagged until Dima says v3.5.0 passed. 3.6a done (team.json version 2: `preset`, `on`, `generator`;
+    a version 1 team reads as version 2 with every tool it had, the 8 defaults' agent files byte for byte as 3.5.0's; 5
+    per guild; no shell preset in the Design guild; the guard denies a specialist that is off, its file kept; the
+    generated text pinned to `GENERATOR` by a hash in team.test.ts).

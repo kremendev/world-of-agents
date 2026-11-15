@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -13,7 +13,7 @@ import {
   TEAM_FOLDER,
   teamRows,
 } from '../../plugin/hooks/guard.mjs';
-import { defaults, init } from '../../plugin/team/team.mjs';
+import { defaults, init, readTeam } from '../../plugin/team/team.mjs';
 
 const SCRIPT = resolve(import.meta.dirname, '../../plugin/hooks/guard.mjs');
 /** The default team (v3.4): the guard reads its rows from the team table. */
@@ -349,6 +349,59 @@ describe('the team table (v3.4)', () => {
       });
     expect(check(edit('woa-team:frontend-react-dev'))).toBeNull();
     expect(check(edit('woa-team:review-security-warden'))).toBe(denial(REASONS.edit));
+    // v3.6: by preset, so an Edits files specialist outside the Design guild edits too, and a reader never does.
+    const team = structuredClone(TABLE);
+    team.specialists.find((p) => p.id === 'frontend-react-dev')!.preset = 'edits';
+    team.specialists.find((p) => p.id === 'backend-api-dev')!.preset = 'reads';
+    expect(decide(edit('woa-team:frontend-react-dev'), team)).toBeNull();
+    expect(decide(edit('woa-team:backend-api-dev'), team)).toBe(denial(REASONS.edit));
+  });
+
+  // v3.6 (Dima, E10, E11): the agent file stays, so the guard is the lock, and a switch counts on the next call.
+  it('denies a guild lead a specialist that is switched off, with its own reason; on again, it starts', () => {
+    const team = structuredClone(TABLE);
+    const dev = team.specialists.find((p) => p.id === 'frontend-react-dev')!;
+    dev.on = false;
+    const start = guildLead('frontend', 'woa-team:frontend-react-dev');
+    expect(decide(start, team)).toBe(denial(REASONS.off));
+    expect(REASONS.off).toContain('switched off');
+    // Only that one: the rest of its guild still starts.
+    expect(decide(guildLead('frontend', 'woa-team:frontend-test-writer'), team)).toBeNull();
+    // Another guild's lead still gets the table's answer, not the switch's.
+    expect(decide(guildLead('backend', 'woa-team:frontend-react-dev'), team)).toBe(denial(REASONS.agent));
+    dev.on = true;
+    expect(decide(start, team)).toBeNull();
+  });
+
+  it('reads the switch from team.json on every call, a version 1 file as on', () => {
+    const home = mkdtempSync(join(tmpdir(), 'woa-guard-off-'));
+    try {
+      init(home);
+      const file = join(home, '.world-of-agents', 'team', 'team.json');
+      const start = guildLead('frontend', 'woa-team:frontend-react-dev');
+      const at = (team: unknown) => {
+        writeFileSync(file, JSON.stringify(team));
+        return decide(start, readTeam(home) ?? null);
+      };
+      const team = structuredClone(TABLE);
+      team.specialists.find((p) => p.id === 'frontend-react-dev')!.on = false;
+      expect(at(team)).toBe(denial(REASONS.off));
+      const v1 = {
+        version: 1,
+        specialists: TABLE.specialists.map(({ id, name, role, guild, preset, skills }) => ({
+          id,
+          name,
+          role,
+          guild,
+          kind: preset === 'reads' ? 'reads' : 'edits',
+          skills,
+        })),
+        skills: TABLE.skills,
+      };
+      expect(at(v1)).toBeNull();
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 
   it.each([
