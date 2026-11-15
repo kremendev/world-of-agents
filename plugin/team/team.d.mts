@@ -38,12 +38,26 @@ export function readTeam(home?: string): Team | null;
 export type TeamChange =
   | { action: 'add-skill' | 'change-skill'; id: string; name: string; description: string; text: string }
   | { action: 'delete-skill'; id: string }
-  | { action: 'attach' | 'detach'; specialist: string; skill: string };
+  | { action: 'attach' | 'detach'; specialist: string; skill: string }
+  | { action: 'add-specialist'; name: string; guild: Guild; role: string; preset: Preset; skills: string[] }
+  | { action: 'change-specialist'; id: string; role: string; preset: Preset; skills: string[] }
+  | { action: 'delete-specialist'; id: string }
+  | { action: 'switch'; id: string; on: boolean };
 export type ChangeEntry =
   | { at: number; what: 'skill-added' | 'skill-changed' | 'skill-deleted'; skill: string }
-  | { at: number; what: 'skill-attached' | 'skill-detached'; skill: string; specialist: string };
+  | { at: number; what: 'skill-attached' | 'skill-detached'; skill: string; specialist: string }
+  | {
+      at: number;
+      what:
+        'specialist-added' | 'specialist-changed' | 'specialist-deleted' | 'specialist-on' | 'specialist-off';
+      specialist: string;
+      guild: 'Design' | 'Frontend' | 'Backend' | 'Review';
+    };
 export const ACTIONS: readonly TeamChange['action'][];
 export const MAX_CHANGES: number;
+export function slugOf(name: string, max: number): string;
+export function specialistIdOf(guild: Guild, name: string): string;
+export function skillIdOf(name: string): string;
 export const CHANGE_KINDS: readonly ChangeEntry['what'][];
 export function readTexts(dir: string, team: Team): Record<string, string>;
 export function applyChange(

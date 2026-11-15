@@ -6531,7 +6531,31 @@ function readTexts(dir, team) {
   }
   return texts;
 }
-var ACTIONS = Object.freeze(["add-skill", "change-skill", "delete-skill", "attach", "detach"]);
+var ACTIONS = Object.freeze([
+  "add-skill",
+  "change-skill",
+  "delete-skill",
+  "attach",
+  "detach",
+  "add-specialist",
+  "change-specialist",
+  "delete-specialist",
+  "switch"
+]);
+function slugOf(name, max) {
+  return String(name).normalize("NFKD").replace(new RegExp("\\p{M}", "gu"), "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, max).replace(/-+$/, "");
+}
+function specialistIdOf(guild, name) {
+  const slug = slugOf(name, 48 - guild.length - 1);
+  return slug === "" ? "" : `${guild}-${slug}`;
+}
+var GUILD_NAMES = Object.freeze({
+  design: "Design",
+  frontend: "Frontend",
+  backend: "Backend",
+  review: "Review"
+});
+var NO_SHELL = "the Design guild runs no commands: pick Reads only or Edits files";
 function applyChange(team, texts, change, now) {
   const next = structuredClone(team);
   const nextTexts = { ...texts };
@@ -6578,6 +6602,46 @@ function applyChange(team, texts, change, now) {
       skill: s.name,
       specialist: p.name
     };
+  } else if (change.action === "add-specialist") {
+    const id2 = specialistIdOf(change.guild, change.name);
+    if (id2 === "") throw new Error("the name needs a letter from a to z or a digit, for its id");
+    if (specialist(id2)) throw new Error("a specialist with that id is there already");
+    if (next.specialists.filter((p) => p.guild === change.guild).length >= MAX_PER_GUILD)
+      throw new Error(`a guild has at most ${MAX_PER_GUILD} specialists`);
+    if (change.guild === "design" && change.preset === "edits-and-checks") throw new Error(NO_SHELL);
+    next.specialists.push({
+      id: id2,
+      name: change.name,
+      role: change.role,
+      guild: change.guild,
+      preset: change.preset,
+      on: true,
+      skills: [...change.skills]
+    });
+    entry = { what: "specialist-added", specialist: change.name, guild: GUILD_NAMES[change.guild] };
+  } else if (change.action === "change-specialist") {
+    const p = specialist(change.id);
+    if (!p) throw new Error("no such specialist");
+    if (p.guild === "design" && change.preset === "edits-and-checks") throw new Error(NO_SHELL);
+    p.role = change.role;
+    p.preset = change.preset;
+    p.skills = [...change.skills];
+    entry = { what: "specialist-changed", specialist: p.name, guild: GUILD_NAMES[p.guild] };
+  } else if (change.action === "delete-specialist") {
+    const gone = specialist(change.id);
+    if (!gone) throw new Error("no such specialist");
+    next.specialists = next.specialists.filter((p) => p.id !== change.id);
+    entry = { what: "specialist-deleted", specialist: gone.name, guild: GUILD_NAMES[gone.guild] };
+  } else if (change.action === "switch") {
+    const p = specialist(change.id);
+    if (!p) throw new Error("no such specialist");
+    if (p.on === change.on) throw new Error(change.on ? "it is on already" : "it is off already");
+    p.on = change.on;
+    entry = {
+      what: change.on ? "specialist-on" : "specialist-off",
+      specialist: p.name,
+      guild: GUILD_NAMES[p.guild]
+    };
   } else {
     throw new Error("an unknown change");
   }
@@ -6591,13 +6655,22 @@ var CHANGE_KINDS = Object.freeze([
   "skill-changed",
   "skill-deleted",
   "skill-attached",
-  "skill-detached"
+  "skill-detached",
+  "specialist-added",
+  "specialist-changed",
+  "specialist-deleted",
+  "specialist-on",
+  "specialist-off"
 ]);
+var SKILL_KINDS = ["skill-added", "skill-changed", "skill-deleted"];
+var PAIRED_KINDS = ["skill-attached", "skill-detached"];
 function isChange(entry) {
   if (!isObject2(entry) || !Number.isSafeInteger(entry.at) || entry.at <= 0) return false;
-  if (!CHANGE_KINDS.includes(entry.what) || !line(entry.skill, 60)) return false;
-  const paired = entry.what === "skill-attached" || entry.what === "skill-detached";
-  return paired ? keysAre(entry, ["at", "what", "skill", "specialist"]) && line(entry.specialist, 40) : keysAre(entry, ["at", "what", "skill"]);
+  if (SKILL_KINDS.includes(entry.what))
+    return keysAre(entry, ["at", "what", "skill"]) && line(entry.skill, 60);
+  if (PAIRED_KINDS.includes(entry.what))
+    return keysAre(entry, ["at", "what", "skill", "specialist"]) && line(entry.skill, 60) && line(entry.specialist, 40);
+  return CHANGE_KINDS.includes(entry.what) && keysAre(entry, ["at", "what", "specialist", "guild"]) && line(entry.specialist, 40) && Object.values(GUILD_NAMES).includes(entry.guild);
 }
 function readChanges(dir) {
   try {
@@ -6771,12 +6844,31 @@ var skillFields = {
   text: string2().min(1).max(MAX_TEXT2)
 };
 var keyBodySchema = strictObject({ key: string2().regex(KEY) });
+var preset = _enum(PRESETS2);
+var preloaded = array(skillId).max(MAX_PRELOADED2);
 var teamChangeSchema = discriminatedUnion("action", [
   strictObject({ action: literal("add-skill"), ...skillFields }),
   strictObject({ action: literal("change-skill"), ...skillFields }),
   strictObject({ action: literal("delete-skill"), id: skillId }),
   strictObject({ action: literal("attach"), specialist: specialistId, skill: skillId }),
-  strictObject({ action: literal("detach"), specialist: specialistId, skill: skillId })
+  strictObject({ action: literal("detach"), specialist: specialistId, skill: skillId }),
+  strictObject({
+    action: literal("add-specialist"),
+    name: line2(40),
+    guild: _enum(GUILDS2),
+    role: line2(200),
+    preset,
+    skills: preloaded
+  }),
+  strictObject({
+    action: literal("change-specialist"),
+    id: specialistId,
+    role: line2(200),
+    preset,
+    skills: preloaded
+  }),
+  strictObject({ action: literal("delete-specialist"), id: specialistId }),
+  strictObject({ action: literal("switch"), id: specialistId, on: boolean2() })
 ]);
 var specialistSchema = strictObject({
   id: specialistId,

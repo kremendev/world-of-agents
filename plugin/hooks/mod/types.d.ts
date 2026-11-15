@@ -60,13 +60,21 @@ export type PaneLedger = {
  */
 export type PanePast = { state: 'idle' | 'counting' | 'failed'; counted: number | null };
 
-/** One change the hall's page made to the team (v3.4c): when, what, and names only. */
-export type PaneChange = {
-  at: number;
-  what: 'skill-added' | 'skill-changed' | 'skill-deleted' | 'skill-attached' | 'skill-detached';
-  skill: string;
-  specialist?: string;
-};
+/** One change the hall's page made to the team (v3.4c; specialists from v3.6): when, what, and names only. */
+export type PaneChange =
+  | {
+      at: number;
+      what: 'skill-added' | 'skill-changed' | 'skill-deleted' | 'skill-attached' | 'skill-detached';
+      skill: string;
+      specialist?: string;
+    }
+  | {
+      at: number;
+      what:
+        'specialist-added' | 'specialist-changed' | 'specialist-deleted' | 'specialist-on' | 'specialist-off';
+      specialist: string;
+      guild: 'Design' | 'Frontend' | 'Backend' | 'Review';
+    };
 
 /**
  * The team editor's link (v3.4c): none, a key on its way to the hall, a link open for a minute, or the hall didn't take

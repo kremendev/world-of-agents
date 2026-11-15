@@ -294,8 +294,51 @@ export function readTexts(dir, team) {
   return texts;
 }
 
-/** What the hall's page may change (v3.4c): skills only. Specialists wait for v3.5.0. */
-export const ACTIONS = Object.freeze(['add-skill', 'change-skill', 'delete-skill', 'attach', 'detach']);
+/** What the hall's page may change: skills (v3.4c) and, from v3.6, specialists. */
+export const ACTIONS = Object.freeze([
+  'add-skill',
+  'change-skill',
+  'delete-skill',
+  'attach',
+  'detach',
+  'add-specialist',
+  'change-specialist',
+  'delete-specialist',
+  'switch',
+]);
+
+/**
+ * A name as an id's words (v3.6): a to z, 0 to 9 and single dashes, accents dropped, at most `max` characters, never
+ * ending in a dash. Empty when nothing of the name is left. src/team/schema.ts has the same function for the page.
+ */
+export function slugOf(name, max) {
+  return String(name)
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, max)
+    .replace(/-+$/, '');
+}
+
+/** A new specialist's id (v3.6, E3): its guild, then its name, 48 characters at most; '' when the name has no a-z or 0-9. */
+export function specialistIdOf(guild, name) {
+  const slug = slugOf(name, 48 - guild.length - 1);
+  return slug === '' ? '' : `${guild}-${slug}`;
+}
+
+/** A new skill's id (v3.6): its name, 48 characters at most. */
+export const skillIdOf = (name) => slugOf(name, 48);
+
+const GUILD_NAMES = Object.freeze({
+  design: 'Design',
+  frontend: 'Frontend',
+  backend: 'Backend',
+  review: 'Review',
+});
+/** The Design guild runs no commands, as its lead doesn't (v3.6, E7). */
+const NO_SHELL = 'the Design guild runs no commands: pick Reads only or Edits files';
 
 /**
  * One change applied (v3.4c): a new team and texts, and the log entry, names only. Pure: the team and texts given are left
@@ -347,6 +390,49 @@ export function applyChange(team, texts, change, now) {
       skill: s.name,
       specialist: p.name,
     };
+  } else if (change.action === 'add-specialist') {
+    // v3.6: the id is made here, from the guild and the name, never taken from the page.
+    const id = specialistIdOf(change.guild, change.name);
+    if (id === '') throw new Error('the name needs a letter from a to z or a digit, for its id');
+    if (specialist(id)) throw new Error('a specialist with that id is there already');
+    if (next.specialists.filter((p) => p.guild === change.guild).length >= MAX_PER_GUILD)
+      throw new Error(`a guild has at most ${MAX_PER_GUILD} specialists`);
+    if (change.guild === 'design' && change.preset === 'edits-and-checks') throw new Error(NO_SHELL);
+    next.specialists.push({
+      id,
+      name: change.name,
+      role: change.role,
+      guild: change.guild,
+      preset: change.preset,
+      on: true,
+      skills: [...change.skills],
+    });
+    entry = { what: 'specialist-added', specialist: change.name, guild: GUILD_NAMES[change.guild] };
+  } else if (change.action === 'change-specialist') {
+    // Its name and guild stay: together they make its id.
+    const p = specialist(change.id);
+    if (!p) throw new Error('no such specialist');
+    if (p.guild === 'design' && change.preset === 'edits-and-checks') throw new Error(NO_SHELL);
+    p.role = change.role;
+    p.preset = change.preset;
+    p.skills = [...change.skills];
+    entry = { what: 'specialist-changed', specialist: p.name, guild: GUILD_NAMES[p.guild] };
+  } else if (change.action === 'delete-specialist') {
+    // Its skills stay in the team. A run of it under way finishes; the guard denies the next start.
+    const gone = specialist(change.id);
+    if (!gone) throw new Error('no such specialist');
+    next.specialists = next.specialists.filter((p) => p.id !== change.id);
+    entry = { what: 'specialist-deleted', specialist: gone.name, guild: GUILD_NAMES[gone.guild] };
+  } else if (change.action === 'switch') {
+    const p = specialist(change.id);
+    if (!p) throw new Error('no such specialist');
+    if (p.on === change.on) throw new Error(change.on ? 'it is on already' : 'it is off already');
+    p.on = change.on;
+    entry = {
+      what: change.on ? 'specialist-on' : 'specialist-off',
+      specialist: p.name,
+      guild: GUILD_NAMES[p.guild],
+    };
   } else {
     throw new Error('an unknown change');
   }
@@ -363,16 +449,32 @@ export const CHANGE_KINDS = Object.freeze([
   'skill-deleted',
   'skill-attached',
   'skill-detached',
+  'specialist-added',
+  'specialist-changed',
+  'specialist-deleted',
+  'specialist-on',
+  'specialist-off',
 ]);
+const SKILL_KINDS = ['skill-added', 'skill-changed', 'skill-deleted'];
+const PAIRED_KINDS = ['skill-attached', 'skill-detached'];
 
-/** Is `entry` exactly a log entry? */
+/** Is `entry` exactly a log entry? A skill's, a skill and a specialist's, or (v3.6) a specialist's with its guild. */
 export function isChange(entry) {
   if (!isObject(entry) || !Number.isSafeInteger(entry.at) || entry.at <= 0) return false;
-  if (!CHANGE_KINDS.includes(entry.what) || !line(entry.skill, 60)) return false;
-  const paired = entry.what === 'skill-attached' || entry.what === 'skill-detached';
-  return paired
-    ? keysAre(entry, ['at', 'what', 'skill', 'specialist']) && line(entry.specialist, 40)
-    : keysAre(entry, ['at', 'what', 'skill']);
+  if (SKILL_KINDS.includes(entry.what))
+    return keysAre(entry, ['at', 'what', 'skill']) && line(entry.skill, 60);
+  if (PAIRED_KINDS.includes(entry.what))
+    return (
+      keysAre(entry, ['at', 'what', 'skill', 'specialist']) &&
+      line(entry.skill, 60) &&
+      line(entry.specialist, 40)
+    );
+  return (
+    CHANGE_KINDS.includes(entry.what) &&
+    keysAre(entry, ['at', 'what', 'specialist', 'guild']) &&
+    line(entry.specialist, 40) &&
+    Object.values(GUILD_NAMES).includes(entry.guild)
+  );
 }
 
 /** The log in `dir`: only the entries that are exactly entries, newest last. None when it is missing or broken. */

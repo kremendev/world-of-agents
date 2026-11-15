@@ -10,6 +10,8 @@ import {
   MAX_PER_GUILD,
   MAX_PRELOADED,
   MAX_TEXT,
+  skillIdOf,
+  specialistIdOf,
   PRESETS,
   applyChange,
   buildAgent,
@@ -507,5 +509,139 @@ describe('the editing functions (v3.4c)', () => {
     );
     expect(isChange({ at: 1, what: 'skill-attached', skill: 'A', specialist: 'B' })).toBe(true);
     expect(isChange({ at: 1, what: 'skill-attached', skill: 'A' })).toBe(false);
+  });
+});
+
+describe('the specialist changes (v3.6)', () => {
+  const NOW = Date.UTC(2026, 10, 15, 12);
+  const apply = (change: Parameters<typeof applyChange>[2], team = copy()) =>
+    applyChange(team, TEXTS, change, NOW);
+  const ADD = {
+    action: 'add-specialist',
+    name: 'Form builder',
+    guild: 'frontend',
+    role: 'Builds accessible forms with clear validation messages',
+    preset: 'reads',
+    skills: ['accessibility', 'react-typescript'],
+  } as const;
+
+  it('adds one with the id made from its guild and name, switched on, and logs its name and guild', () => {
+    const next = apply({ ...ADD, skills: [...ADD.skills] });
+    const added = next.team.specialists.at(-1)!;
+    expect(added).toEqual({
+      id: 'frontend-form-builder',
+      name: 'Form builder',
+      role: ADD.role,
+      guild: 'frontend',
+      preset: 'reads',
+      on: true,
+      skills: ['accessibility', 'react-typescript'],
+    });
+    expect(toolsOf(added)).toBe('Read, Grep, Glob');
+    expect(next.entry).toEqual({
+      at: NOW,
+      what: 'specialist-added',
+      specialist: 'Form builder',
+      guild: 'Frontend',
+    });
+    expect(isChange(next.entry)).toBe(true);
+  });
+
+  it('refuses a name with no id in it, one whose id is taken, a sixth in a guild, and a shell in the Design guild', () => {
+    const add =
+      (more: Partial<typeof ADD> | Record<string, unknown>, team = copy()) =>
+      () =>
+        apply({ ...ADD, skills: [], ...more } as never, team);
+    expect(add({ name: 'Гном' })).toThrow('the name needs a letter from a to z or a digit');
+    expect(add({ name: 'React dev' })).toThrow('a specialist with that id is there already');
+    expect(add({ name: 'React-dev' })).toThrow('a specialist with that id is there already');
+    let full = copy();
+    for (const n of [1, 2, 3]) full = apply({ ...ADD, name: `Extra ${n}`, skills: [] }, full).team;
+    expect(add({}, full)).toThrow(`a guild has at most ${MAX_PER_GUILD} specialists`);
+    expect(add({ guild: 'design', preset: 'edits-and-checks' })).toThrow('the Design guild runs no commands');
+    expect(add({ skills: ['no-such-skill'] })).toThrow('not a team');
+    expect(add({ role: 'Builds: forms' })).toThrow('not a team');
+  });
+
+  it('changes only the role, the preset and the skills: never its name, guild, id or switch', () => {
+    const next = apply({
+      action: 'change-specialist',
+      id: 'frontend-react-dev',
+      role: 'Builds React screens',
+      preset: 'edits',
+      skills: ['accessibility'],
+    });
+    const dev = next.team.specialists.find((p) => p.id === 'frontend-react-dev')!;
+    expect(dev).toEqual({
+      ...copy().specialists.find((p) => p.id === 'frontend-react-dev')!,
+      role: 'Builds React screens',
+      preset: 'edits',
+      skills: ['accessibility'],
+    });
+    expect(toolsOf(dev)).toBe('Read, Grep, Glob, Write, Edit');
+    expect(next.entry).toMatchObject({
+      what: 'specialist-changed',
+      specialist: 'React dev',
+      guild: 'Frontend',
+    });
+    expect(() =>
+      apply({
+        action: 'change-specialist',
+        id: 'design-react-designer',
+        role: 'x',
+        preset: 'edits-and-checks',
+        skills: [],
+      }),
+    ).toThrow('the Design guild runs no commands');
+    expect(() =>
+      apply({ action: 'change-specialist', id: 'frontend-nobody', role: 'x', preset: 'reads', skills: [] }),
+    ).toThrow('no such specialist');
+  });
+
+  it('deletes one and keeps its skills in the team', () => {
+    const next = apply({ action: 'delete-specialist', id: 'review-security-warden' });
+    expect(next.team.specialists.map((p) => p.id)).not.toContain('review-security-warden');
+    expect(next.team.skills).toEqual(copy().skills);
+    expect(next.entry).toMatchObject({
+      what: 'specialist-deleted',
+      specialist: 'Security warden',
+      guild: 'Review',
+    });
+    expect(() => apply({ action: 'delete-specialist', id: 'review-nobody' })).toThrow('no such specialist');
+  });
+
+  it('switches one off and on, and refuses a switch to where it is', () => {
+    const off = apply({ action: 'switch', id: 'design-motion-designer', on: false });
+    expect(off.team.specialists.find((p) => p.id === 'design-motion-designer')!.on).toBe(false);
+    expect(off.entry).toMatchObject({
+      what: 'specialist-off',
+      specialist: 'Motion designer',
+      guild: 'Design',
+    });
+    const on = apply({ action: 'switch', id: 'design-motion-designer', on: true }, off.team);
+    expect(on.team.specialists.find((p) => p.id === 'design-motion-designer')!.on).toBe(true);
+    expect(on.entry.what).toBe('specialist-on');
+    expect(() => apply({ action: 'switch', id: 'design-motion-designer', on: true })).toThrow(
+      'it is on already',
+    );
+  });
+
+  it('makes ids from names: accents dropped, anything else a single dash, never past 48 characters', () => {
+    expect(specialistIdOf('frontend', 'Form builder')).toBe('frontend-form-builder');
+    expect(specialistIdOf('design', 'Ünïcode  Designer (2)')).toBe('design-unicode-designer-2');
+    expect(specialistIdOf('review', ' -- ')).toBe('');
+    const long = specialistIdOf('frontend', 'a b '.repeat(20).trim());
+    expect(long.length).toBeLessThanOrEqual(48);
+    expect(long).toMatch(/^frontend-[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    expect(skillIdOf('SQL, migrations and indexes')).toBe('sql-migrations-and-indexes');
+  });
+
+  it("logs a specialist's change only as exactly its shape", () => {
+    const entry = { at: 1, what: 'specialist-off', specialist: 'React dev', guild: 'Frontend' };
+    expect(isChange(entry)).toBe(true);
+    expect(isChange({ ...entry, guild: 'frontend' })).toBe(false);
+    expect(isChange({ ...entry, skill: 'X' })).toBe(false);
+    expect(isChange({ ...entry, specialist: 'see https://x' })).toBe(false);
+    expect(isChange({ at: 1, what: 'specialist-off', specialist: 'React dev' })).toBe(false);
   });
 });

@@ -30,21 +30,43 @@ export const editorLink = (hall: string, key: string) => `${hall}/#k=${key}`;
 const NAME = /^[\p{L}\p{N} .,()'&/-]+$/u;
 const name = (v: unknown, max: number): v is string =>
   typeof v === 'string' && v.length >= 1 && v.length <= max && NAME.test(v) && v.trim() === v;
-const SINGLE = ['skill-added', 'skill-changed', 'skill-deleted'];
-const PAIRED = ['skill-attached', 'skill-detached'];
+type SkillChange = Exclude<PaneChange, { guild: string }>;
+const SINGLE: readonly SkillChange['what'][] = ['skill-added', 'skill-changed', 'skill-deleted'];
+const PAIRED: readonly SkillChange['what'][] = ['skill-attached', 'skill-detached'];
+type SpecialistChange = Extract<PaneChange, { guild: string }>;
+/** v3.6: a specialist's changes, with its guild's name. */
+const SPECIALIST: readonly SpecialistChange['what'][] = [
+  'specialist-added',
+  'specialist-changed',
+  'specialist-deleted',
+  'specialist-on',
+  'specialist-off',
+];
+const GUILDS: readonly SpecialistChange['guild'][] = ['Design', 'Frontend', 'Backend', 'Review'];
+const oneOf = <T extends string>(list: readonly T[], v: unknown): v is T =>
+  typeof v === 'string' && (list as readonly string[]).includes(v);
 const keysAre = (v: object, keys: string) => Object.keys(v).sort().join() === keys;
 
 /** One entry when it is exactly one: a time, what changed, and names. */
 function changeOf(v: unknown): PaneChange | null {
   if (typeof v !== 'object' || v === null || Array.isArray(v)) return null;
   const e = v as Record<string, unknown>;
-  if (typeof e.at !== 'number' || !Number.isSafeInteger(e.at) || e.at <= 0 || !name(e.skill, 60)) return null;
+  if (typeof e.at !== 'number' || !Number.isSafeInteger(e.at) || e.at <= 0) return null;
   if (typeof e.what !== 'string') return null;
-  if (SINGLE.includes(e.what) && keysAre(e, 'at,skill,what')) {
-    return { at: e.at, what: e.what as PaneChange['what'], skill: e.skill };
+  if (
+    oneOf(SPECIALIST, e.what) &&
+    keysAre(e, 'at,guild,specialist,what') &&
+    name(e.specialist, 40) &&
+    oneOf(GUILDS, e.guild)
+  ) {
+    return { at: e.at, what: e.what, specialist: e.specialist, guild: e.guild };
   }
-  if (PAIRED.includes(e.what) && keysAre(e, 'at,skill,specialist,what') && name(e.specialist, 40)) {
-    return { at: e.at, what: e.what as PaneChange['what'], skill: e.skill, specialist: e.specialist };
+  if (!name(e.skill, 60)) return null;
+  if (oneOf(SINGLE, e.what) && keysAre(e, 'at,skill,what')) {
+    return { at: e.at, what: e.what, skill: e.skill };
+  }
+  if (oneOf(PAIRED, e.what) && keysAre(e, 'at,skill,specialist,what') && name(e.specialist, 40)) {
+    return { at: e.at, what: e.what, skill: e.skill, specialist: e.specialist };
   }
   return null;
 }
@@ -87,5 +109,15 @@ export function changeLine(c: PaneChange): string {
       return `${at} ${c.specialist ?? ''} got the skill ${c.skill}`;
     case 'skill-detached':
       return `${at} ${c.specialist ?? ''} lost the skill ${c.skill}`;
+    case 'specialist-added':
+      return `${at} Specialist added: ${c.specialist} (${c.guild})`;
+    case 'specialist-changed':
+      return `${at} Specialist changed: ${c.specialist} (${c.guild})`;
+    case 'specialist-deleted':
+      return `${at} Specialist deleted: ${c.specialist} (${c.guild})`;
+    case 'specialist-on':
+      return `${at} ${c.specialist} (${c.guild}) switched on`;
+    case 'specialist-off':
+      return `${at} ${c.specialist} (${c.guild}) switched off`;
   }
 }

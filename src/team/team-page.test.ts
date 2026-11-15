@@ -1,10 +1,16 @@
 // The team editor's page side (v3.4c, T8): the key out of the address bar before anything else, its one exchange, the
 // text checks, and the schema's agreement with team.mjs, which checks every write again.
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { defaults, problem, textProblem } from '../../plugin/team/team.mjs';
+import {
+  defaults,
+  problem,
+  skillIdOf as teamSkillIdOf,
+  specialistIdOf as teamIdOf,
+  textProblem,
+} from '../../plugin/team/team.mjs';
 import { exchangeKey } from './api';
 import { startTeamSession, takeKey } from './key';
-import { teamChangeSchema } from './schema';
+import { GUILDS, skillIdOf, specialistIdOf, teamChangeSchema } from './schema';
 import { checkText } from './text';
 
 const KEY = `${'a'.repeat(42)}Z`;
@@ -133,5 +139,81 @@ describe('the schema and team.mjs agree on names', () => {
   ])('%j', (name) => {
     const change = { action: 'change-skill', id: 'x', name, description: 'D', text: 'T' };
     expect(teamChangeSchema.safeParse(change).success).toBe(problem(named(name)) === null);
+  });
+});
+
+describe('the page and team.mjs make the same ids (v3.6)', () => {
+  it.each([
+    'Form builder',
+    'React dev',
+    'Ünïcode  Designer (2)',
+    'C++ & Rust',
+    'Гном',
+    ' -- ',
+    'a/b-c.d',
+    'x'.repeat(60),
+    'word '.repeat(12).trim(),
+  ])('%j', (name) => {
+    for (const guild of GUILDS) expect(specialistIdOf(guild, name)).toBe(teamIdOf(guild, name));
+    expect(skillIdOf(name)).toBe(teamSkillIdOf(name));
+  });
+});
+
+describe('the schema and team.mjs agree on a specialist (v3.6)', () => {
+  const { team } = defaults();
+  const withRole = (role: string) => ({
+    ...team,
+    specialists: team.specialists.map((p, i) => (i === 0 ? { ...p, role } : p)),
+  });
+  it.each(['Builds forms', 'Builds: forms', 'Line\nbreak', ' Leading', 'x'.repeat(201), 'Tests & (fixes)'])(
+    'role %j',
+    (role) => {
+      const change = {
+        action: 'change-specialist',
+        id: 'design-react-designer',
+        role,
+        preset: 'edits',
+        skills: [],
+      };
+      expect(teamChangeSchema.safeParse(change).success).toBe(problem(withRole(role)) === null);
+    },
+  );
+
+  it('takes each new change in its exact shape only', () => {
+    const ok = [
+      {
+        action: 'add-specialist',
+        name: 'Form builder',
+        guild: 'frontend',
+        role: 'R',
+        preset: 'reads',
+        skills: [],
+      },
+      {
+        action: 'change-specialist',
+        id: 'frontend-react-dev',
+        role: 'R',
+        preset: 'edits',
+        skills: ['accessibility'],
+      },
+      { action: 'delete-specialist', id: 'frontend-react-dev' },
+      { action: 'switch', id: 'frontend-react-dev', on: false },
+    ];
+    for (const change of ok) expect(teamChangeSchema.safeParse(change).success, change.action).toBe(true);
+    const bad = [
+      { ...ok[0], id: 'frontend-chosen-by-page' },
+      { ...ok[0], guild: 'ops' },
+      { ...ok[0], preset: 'admin' },
+      { ...ok[0], on: false },
+      { ...ok[0], skills: ['a', 'b', 'c', 'd', 'e', 'f'] },
+      { ...ok[1], name: 'New name' },
+      { ...ok[1], guild: 'backend' },
+      { ...ok[1], id: '../hooks' },
+      { ...ok[2], id: 'world-of-agents:lead' },
+      { ...ok[3], on: 'false' },
+      { ...ok[3], role: 'R' },
+    ];
+    for (const change of bad)
+      expect(teamChangeSchema.safeParse(change).success, JSON.stringify(change)).toBe(false);
   });
 });

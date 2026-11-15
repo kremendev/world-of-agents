@@ -37,15 +37,59 @@ const skillFields = {
 /** {"key": "..."}: the body of POST /api/key (from hall-key.mjs) and POST /api/session (from the page). */
 export const keyBodySchema = z.strictObject({ key: z.string().regex(KEY) });
 
-/** One change, the body of POST /api/team: skills only (specialists wait for v3.5.0). */
+const preset = z.enum(PRESETS);
+const preloaded = z.array(skillId).max(MAX_PRELOADED);
+
+/**
+ * One change, the body of POST /api/team: skills (v3.4c) and specialists (v3.6). A new specialist sends no id: team.mjs
+ * makes it from the guild and the name. Its name and guild never change after that.
+ */
 export const teamChangeSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('add-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('change-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('delete-skill'), id: skillId }),
   z.strictObject({ action: z.literal('attach'), specialist: specialistId, skill: skillId }),
   z.strictObject({ action: z.literal('detach'), specialist: specialistId, skill: skillId }),
+  z.strictObject({
+    action: z.literal('add-specialist'),
+    name: line(40),
+    guild: z.enum(GUILDS),
+    role: line(200),
+    preset,
+    skills: preloaded,
+  }),
+  z.strictObject({
+    action: z.literal('change-specialist'),
+    id: specialistId,
+    role: line(200),
+    preset,
+    skills: preloaded,
+  }),
+  z.strictObject({ action: z.literal('delete-specialist'), id: specialistId }),
+  z.strictObject({ action: z.literal('switch'), id: specialistId, on: z.boolean() }),
 ]);
 export type TeamChange = z.infer<typeof teamChangeSchema>;
+
+/** team.mjs's slugOf(), for the page to show the id a name will get (team-page.test.ts keeps the two in step). */
+export function slugOf(name: string, max: number): string {
+  return name
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, max)
+    .replace(/-+$/, '');
+}
+
+/** team.mjs's specialistIdOf(): '' when the name has nothing for an id. */
+export function specialistIdOf(guild: (typeof GUILDS)[number], name: string): string {
+  const slug = slugOf(name, 48 - guild.length - 1);
+  return slug === '' ? '' : `${guild}-${slug}`;
+}
+
+/** team.mjs's skillIdOf(). */
+export const skillIdOf = (name: string) => slugOf(name, 48);
 
 const specialistSchema = z.strictObject({
   id: specialistId,

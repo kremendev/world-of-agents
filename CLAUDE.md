@@ -527,8 +527,10 @@ Do not change the look without asking. New ideas go into a later version.
   same name, so nothing loads twice (tested for milestone 0, with hooks counted and a real hall). Don't add a warning.
 - `version` in `plugin.json` pins installs: people on GitHub get a new copy only when that string changes. Change it with
   every release. A marketplace added from a local folder loads `plugin/` in place, so it ignores the version.
-- The team editor (v3.4c, T8, Dima's decision) is the one way the hall's page writes anything: skills only (add, change,
-  delete, give, take; at most 5 per specialist; specialists wait for v3.5.0). A write needs the session cookie, which only
+- The team editor (v3.4c, T8, Dima's decision) is the one way the hall's page writes anything: skills (add, change,
+  delete, give, take; at most 5 per specialist) and from v3.6 specialists (add, change, delete, switch: `team.mjs` makes a
+  new one's id from its guild and name, which never change after; role, preset and skills change; at most 5 a guild; no
+  shell in the Design guild). A write needs the session cookie, which only
   a one-time key buys: made by the mod, handed to the hall only on hall-key.mjs's stdin and through the token-checked
   `POST /api/key`, carried in the link after a `#`, taken out of the address bar before React renders, and exchanged once,
   within 60 s (`server/keys.ts`: digests only, the newest 10 keys and 5 sessions, in memory). The cookie is HttpOnly,
@@ -865,4 +867,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     spec. Nothing is tagged until Dima says v3.5.0 passed. 3.6a done (team.json version 2: `preset`, `on`, `generator`;
     a version 1 team reads as version 2 with every tool it had, the 8 defaults' agent files byte for byte as 3.5.0's; 5
     per guild; no shell preset in the Design guild; the guard denies a specialist that is off, its file kept; the
-    generated text pinned to `GENERATOR` by a hash in team.test.ts).
+    generated text pinned to `GENERATOR` by a hash in team.test.ts). 3.6b done (POST /api/team takes `add-specialist`,
+    `change-specialist`, `delete-specialist` and `switch`; the page and team.mjs make the same ids, tested in step; the
+    pane's lines say "Specialist added: Form builder (Frontend)", "React dev (Frontend) switched off").

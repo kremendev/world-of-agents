@@ -5,7 +5,8 @@ import { request, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { init, MAX_PRELOADED, teamDir } from '../plugin/team/team.mjs';
+import { decide, denial, REASONS } from '../plugin/hooks/guard.mjs';
+import { init, MAX_PER_GUILD, MAX_PRELOADED, readTeam, teamDir } from '../plugin/team/team.mjs';
 import { createHall, listen, MAX_TEAM_BODY, type Hall } from './hall';
 import { KEY_LIFE_MS, MAX_SESSIONS } from './keys';
 import { newToken } from './token';
@@ -342,5 +343,147 @@ describe('POST /api/team: a change, with every control', () => {
     expect(results.map((r) => r.status)).toEqual([200, 200]);
     expect(changes()).toHaveLength(2);
     expect(teamJson().skills.map((s) => s.id)).toContain('release-notes');
+  });
+});
+
+describe('POST /api/team: the specialists (v3.6)', () => {
+  const ADD = {
+    action: 'add-specialist',
+    name: 'Form builder',
+    guild: 'frontend',
+    role: 'Builds accessible forms with clear validation messages',
+    preset: 'edits-and-checks',
+    skills: ['accessibility'],
+  };
+  const agentFile = (id: string) => join(teamDir(home), 'agents', `${id}.md`);
+  const toolsLine = (id: string) => /^tools: (.*)$/m.exec(readFileSync(agentFile(id), 'utf8'))?.[1];
+  const start = (lead: string, id: string) =>
+    decide(
+      JSON.stringify({
+        agent_id: 'a1',
+        agent_type: `world-of-agents:${lead}`,
+        tool_name: 'Agent',
+        tool_input: { subagent_type: `woa-team:${id}` },
+      }),
+      readTeam(home),
+      home,
+    );
+
+  it('adds one: its agent file, team.json and one log line, and its guild lead may start it', async () => {
+    const cookie = await session();
+    const before = snapshot();
+    const res = await teamPost(cookie, ADD);
+    expect(res.status).toBe(200);
+    expect(toolsLine('frontend-form-builder')).toBe('Read, Grep, Glob, Write, Edit, Bash');
+    expect(readTeam(home)!.specialists.at(-1)).toMatchObject({ id: 'frontend-form-builder', on: true });
+    expect(changes()).toEqual([
+      { at: clock, what: 'specialist-added', specialist: 'Form builder', guild: 'Frontend' },
+    ]);
+    const after = snapshot();
+    const touched = [...after.keys()].filter((f) => after.get(f) !== before.get(f));
+    expect(touched.sort()).toEqual([
+      '.world-of-agents/team/agents/frontend-form-builder.md',
+      '.world-of-agents/team/changes.json',
+      '.world-of-agents/team/team.json',
+    ]);
+    expect(start('frontend', 'frontend-form-builder')).toBeNull();
+    expect(start('backend', 'frontend-form-builder')).toBe(denial(REASONS.agent));
+  });
+
+  it("changes one's role, preset and skills, and its agent file's tools with them", async () => {
+    const cookie = await session();
+    const res = await teamPost(cookie, {
+      action: 'change-specialist',
+      id: 'frontend-react-dev',
+      role: 'Builds React screens',
+      preset: 'reads',
+      skills: [],
+    });
+    expect(res.status).toBe(200);
+    expect(toolsLine('frontend-react-dev')).toBe('Read, Grep, Glob');
+    expect(readFileSync(agentFile('frontend-react-dev'), 'utf8')).toContain('Builds React screens');
+    expect(readTeam(home)!.specialists.find((p) => p.id === 'frontend-react-dev')).toMatchObject({
+      name: 'React dev',
+      guild: 'frontend',
+      on: true,
+      skills: [],
+    });
+  });
+
+  it('deletes one: its agent file goes, its skills stay, and its guild lead may no longer start it', async () => {
+    const cookie = await session();
+    expect(start('reviewer', 'review-security-warden')).toBeNull();
+    const res = await teamPost(cookie, { action: 'delete-specialist', id: 'review-security-warden' });
+    expect(res.status).toBe(200);
+    expect(existsSync(agentFile('review-security-warden'))).toBe(false);
+    expect(existsSync(join(teamDir(home), 'skills', 'owasp-checks', 'SKILL.md'))).toBe(true);
+    expect(start('reviewer', 'review-security-warden')).toBe(denial(REASONS.agent));
+  });
+
+  it('switches one off and on: the guard denies it while off, and its agent file never changes (E11)', async () => {
+    const cookie = await session();
+    const file = readFileSync(agentFile('design-motion-designer'), 'utf8');
+    expect(
+      (await teamPost(cookie, { action: 'switch', id: 'design-motion-designer', on: false })).status,
+    ).toBe(200);
+    expect(start('designer', 'design-motion-designer')).toBe(denial(REASONS.off));
+    expect(readFileSync(agentFile('design-motion-designer'), 'utf8')).toBe(file);
+    expect(
+      (await teamPost(cookie, { action: 'switch', id: 'design-motion-designer', on: true })).status,
+    ).toBe(200);
+    expect(start('designer', 'design-motion-designer')).toBeNull();
+    expect(changes().map((c) => (c as { what: string }).what)).toEqual(['specialist-off', 'specialist-on']);
+  });
+
+  it('refuses what the schema does not take (400) and what team.mjs does not (409), and writes nothing', async () => {
+    const cookie = await session();
+    const before = snapshot();
+    for (const change of [
+      { ...ADD, id: 'frontend-chosen-by-page' },
+      { ...ADD, name: 'Form: builder' },
+      { ...ADD, preset: 'admin' },
+      { ...ADD, skills: ['a', 'b', 'c', 'd', 'e', 'f'] },
+      { action: 'switch', id: 'design-motion-designer', on: 'false' },
+      {
+        action: 'change-specialist',
+        id: 'frontend-react-dev',
+        name: 'Renamed',
+        role: 'R',
+        preset: 'reads',
+        skills: [],
+      },
+      { action: 'delete-specialist', id: 'world-of-agents:lead' },
+    ]) {
+      expect((await teamPost(cookie, change)).status, JSON.stringify(change).slice(0, 70)).toBe(400);
+    }
+    for (const change of [
+      { ...ADD, name: 'React dev' },
+      { ...ADD, guild: 'design', preset: 'edits-and-checks' },
+      { ...ADD, skills: ['no-such-skill'] },
+      { action: 'delete-specialist', id: 'frontend-nobody' },
+      { action: 'switch', id: 'frontend-react-dev', on: true },
+    ]) {
+      expect((await teamPost(cookie, change)).status, JSON.stringify(change).slice(0, 70)).toBe(409);
+    }
+    expect(snapshot()).toEqual(before);
+  });
+
+  it(`takes ${MAX_PER_GUILD} in a guild and refuses a sixth, in team.mjs's words`, async () => {
+    const cookie = await session();
+    for (const name of ['Extra one', 'Extra two', 'Extra three'])
+      expect((await teamPost(cookie, { ...ADD, name })).status, name).toBe(200);
+    const sixth = await teamPost(cookie, { ...ADD, name: 'Extra four' });
+    expect([sixth.status, JSON.parse(sixth.body)]).toEqual([
+      409,
+      { error: 'a guild has at most 5 specialists' },
+    ]);
+  });
+
+  it('asks the same of a specialist change as of a skill change: the cookie and the exact Origin', async () => {
+    const cookie = await session();
+    expect((await teamPost(null, ADD)).status).toBe(401);
+    expect((await teamPost(cookie, ADD, { Origin: 'http://evil.example' })).status).toBe(403);
+    expect((await teamPost(cookie, ADD, {})).status).toBe(403);
+    expect(existsSync(agentFile('frontend-form-builder'))).toBe(false);
   });
 });

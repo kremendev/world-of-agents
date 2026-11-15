@@ -124,6 +124,18 @@ describe('team-log.mjs', () => {
     expect(printed(dir)).not.toMatch(/PLANTED|evil|run-started/);
   });
 
+  it("prints a specialist's change with its guild (v3.6), and drops one with anything else", () => {
+    const dir = folder();
+    const good = { at: 5, what: 'specialist-off', specialist: 'React dev', guild: 'Frontend' };
+    const bad = [
+      { ...good, note: 'sk-ant-PLANTED' },
+      { ...good, guild: 'Ops' },
+      { ...good, specialist: 'see https://evil.example' },
+    ];
+    writeFileSync(join(dir, 'changes.json'), JSON.stringify([good, ...bad]));
+    expect(JSON.parse(printed(dir))).toEqual({ changes: [good] });
+  });
+
   it('prints nothing of a broken log', () => {
     const dir = folder();
     writeFileSync(join(dir, 'changes.json'), '{"not": "a list"}');

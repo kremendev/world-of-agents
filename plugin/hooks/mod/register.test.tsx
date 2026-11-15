@@ -1351,6 +1351,31 @@ describe('the team editor (v3.4c, T8)', () => {
     await ui.unmount();
   });
 
+  // v3.6: the Team page's specialist changes, each with its guild.
+  test("shows the specialists' changes, names and guilds only", async ($, on) => {
+    const at = new Date(2026, 10, 15, 9, 30).getTime();
+    const changes = [
+      { at, what: 'specialist-added', specialist: 'Form builder', guild: 'Frontend' },
+      { at, what: 'specialist-changed', specialist: 'React dev', guild: 'Frontend' },
+      { at, what: 'specialist-off', specialist: 'Motion designer', guild: 'Design' },
+      { at, what: 'specialist-on', specialist: 'Motion designer', guild: 'Design' },
+      { at, what: 'specialist-deleted', specialist: 'Database dev', guild: 'Backend' },
+    ];
+    const { clock } = withEditor(on, 0, JSON.stringify({ changes }));
+    await $.session.start({ cwd: '/project', surface: 'desktop', isInteractive: true });
+    await clock.settle();
+    const ui = await $.ui.mount({ ...PANE, surface: 'desktop' });
+    const lines = (await ui.findAll({ type: 'Text', text: /^15 Nov 09:30 / })).map((t) => t.text);
+    expect(lines).toEqual([
+      '15 Nov 09:30 Specialist added: Form builder (Frontend)',
+      '15 Nov 09:30 Specialist changed: React dev (Frontend)',
+      '15 Nov 09:30 Motion designer (Design) switched off',
+      '15 Nov 09:30 Motion designer (Design) switched on',
+      '15 Nov 09:30 Specialist deleted: Database dev (Backend)',
+    ]);
+    await ui.unmount();
+  });
+
   const BAD_LOGS: [name: string, log: string][] = [
     ['text', 'Skill added: Release notes'],
     ['a key besides changes', JSON.stringify({ changes: [], note: 'x' })],
@@ -1364,7 +1389,23 @@ describe('the team editor (v3.4c, T8)', () => {
     ],
     [
       'an unknown kind of change',
+      JSON.stringify({ changes: [{ at: 1, what: 'skill-renamed', skill: 'Notes' }] }),
+    ],
+    [
+      "a specialist's change shaped as a skill's",
       JSON.stringify({ changes: [{ at: 1, what: 'specialist-added', skill: 'Notes' }] }),
+    ],
+    [
+      'a specialist in a guild there is none of',
+      JSON.stringify({
+        changes: [{ at: 1, what: 'specialist-added', specialist: 'Notes', guild: 'Ops' }],
+      }),
+    ],
+    [
+      'a specialist with a skill besides',
+      JSON.stringify({
+        changes: [{ at: 1, what: 'specialist-on', specialist: 'Notes', guild: 'Design', skill: 'Notes' }],
+      }),
     ],
     [
       'a pair without its specialist',
