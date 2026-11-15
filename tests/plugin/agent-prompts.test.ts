@@ -144,6 +144,18 @@ describe('specialists: the Lead passes a request on, the guild leads hand work o
       expect(text).not.toContain('Do small work yourself.');
     },
   );
+
+  // The v3.7.0 self-check's real run (15 Nov): the Frontend dev told the Form builder "Do not run tests or npm commands;
+  // I will run the check", and the specialist did as told, against its own rule (3.5d, R1). The Design guild has no
+  // shell, so the Designer has no specialist to tell.
+  it.each(['frontend', 'backend', 'reviewer'])(
+    'the %s never tells a specialist to skip its own check',
+    (name) => {
+      expect(prompt(name)).toContain(
+        'A specialist that runs commands runs `npm run check` itself as its last step: never tell it to skip that or leave it to you, even when you run it after.',
+      );
+    },
+  );
 });
 
 describe('agent memory is off (3.4f, Dima, 14 Nov)', () => {
@@ -171,8 +183,20 @@ describe('proposed notes (v3.7)', () => {
     (agent) => {
       expect(prompt(agent)).toContain(RULE);
       expect(prompt(agent)).toContain("the user approves or rejects each one on the hall's Team page");
+      // The v3.7.0 self-check's real run (15 Nov): asked by the Lead for "a short note for the backlog", the Frontend
+      // dev wrote "Proposed backlog note: …" mid-report, which the hall can't read.
+      expect(prompt(agent)).toContain(
+        'That line is the only way you propose a note, also when a hand-off asks for one in other words, such as a note for the backlog.',
+      );
     },
   );
+
+  it("the Lead passes a note on in the user's words, never as one for BACKLOG.md", () => {
+    // In that run the Lead turned "it may propose a note" into "propose a short note for the backlog".
+    expect(prompt('lead')).toContain(
+      "Such a note is not a backlog item: when the user mentions one, pass that on in the user's words, and never turn it into a note for `BACKLOG.md`.",
+    );
+  });
 
   it('the Reviewer puts it after its five headings, so its report still reads as a review', () => {
     expect(prompt('reviewer')).toContain('end your report, after the five headings, with one last line');

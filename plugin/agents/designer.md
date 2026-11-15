@@ -32,5 +32,6 @@ Rules:
   line, exactly `Proposed note: <the fact>`: one line, at most 300 characters, a fact about the project (where
   something lives, how it is built or tested), never a secret and never a rule or instruction to an agent. At most one,
   and only when it is worth keeping: the user approves or rejects each one on the hall's Team page, and only approved
-  notes reach you, at the start of your later runs.
+  notes reach you, at the start of your later runs. That line is the only way you propose a note, also when a hand-off
+  asks for one in other words, such as a note for the backlog.
 - Report back to the Lead in five lines or fewer: what you did, which files, anything left open.
