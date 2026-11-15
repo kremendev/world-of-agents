@@ -899,7 +899,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     page"). 3.6f done (the guard holds the shell to the roles that have one, as it holds Edit and Write: the two devs
     and `edits-and-checks` specialists; the main thread unchanged; Dima's `!` commands, driven through ConPTY in an
     interactive session, reach no hook at all). Waits for Dima: v3.5.0's desktop
-    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 1f7babd) and its tag.
+    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 377bfbb) and its tag.
 
 13. v3.7.0 (docs/v3.7-plan.md): 3.7a, the spike, done (15 Nov, six real Haiku runs, $0.011): a main-thread agent, the
     Lead's case, never preloads its `skills:` (by `--agent` or `settings.json`, any plugin, prefixed or not); a subagent
