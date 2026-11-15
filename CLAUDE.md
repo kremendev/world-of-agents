@@ -888,4 +888,4 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     code; the pane says when the team's files are older; `/world-of-agents:setup-team-write` refreshes only the generated
     files of an older team, a version 1 one included, and stops at a SKILL.md changed by hand). v3.6.0 is prepared, not
     tagged (plugin.json 3.6.0, docs/release-notes/v3.6.0.md, README pins on `#v3.6.0`). Waits for Dima: v3.5.0's desktop
-    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md) and its tag. v3.7.0 is not started.
+    check and its tag first, then v3.6.0's check (docs/release-notes/v3.6.0-check.md, on 23d7557) and its tag. v3.7.0 is not started.
