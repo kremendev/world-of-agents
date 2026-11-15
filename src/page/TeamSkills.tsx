@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { TeamSkill, TeamView } from '../team/schema';
 import { checkText, type TextCheck } from '../team/text';
 import {
+  FLAG_LABEL,
   flagged,
   flagSummary,
   skillDraftId,
@@ -131,7 +132,7 @@ export function SkillsTab({
 }
 
 /** A text line by line, numbered, with checkText()'s link and command-like flags. */
-function TextLines({ lines }: { lines: TextCheck['lines'] }) {
+export function TextLines({ lines }: { lines: TextCheck['lines'] }) {
   return (
     <ol className="tp-lines">
       {lines.map((line, i) => (
@@ -142,7 +143,7 @@ function TextLines({ lines }: { lines: TextCheck['lines'] }) {
           <code>{line.text === '' ? ' ' : line.text}</code>
           {line.flags.map((flag) => (
             <span key={flag} className="tp-pill tp-pill-flag">
-              {flag === 'link' ? 'link' : 'command-like'}
+              {FLAG_LABEL[flag]}
             </span>
           ))}
         </li>

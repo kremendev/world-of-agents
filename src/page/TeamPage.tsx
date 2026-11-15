@@ -2,12 +2,14 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { loadTeam, sendChange, type Exchange, type TeamAnswer } from '../team/api';
 import type { TeamChange, TeamView } from '../team/schema';
 import {
+  noteItems,
   skillMatches,
   specialistMatches,
   type SkillDraft,
   type SpecialistDraft,
   type TeamActions,
 } from '../team/view';
+import { NotesTab } from './TeamNotes';
 import { SkillsTab } from './TeamSkills';
 import { SpecialistsTab } from './TeamSpecialists';
 
@@ -24,10 +26,12 @@ export const SESSION_LINES = {
 export const INTRO =
   'Specialists are helpers a guild lead can call. Skills are short guides a specialist reads before it starts. Changes apply to new runs.';
 
-type Tab = 'specialists' | 'skills';
-const TABS: { id: Tab; label: string; action: string }[] = [
+type Tab = 'specialists' | 'skills' | 'notes';
+/** Each tab, and its main button on the right; the Notes tab (v3.7d) has none. */
+const TABS: { id: Tab; label: string; action: string | null }[] = [
   { id: 'specialists', label: 'Specialists', action: 'Add specialist' },
   { id: 'skills', label: 'Skills', action: 'New skill' },
+  { id: 'notes', label: 'Notes', action: null },
 ];
 type Status = { text: string; undo?: { change: TeamChange; said: string } };
 
@@ -48,6 +52,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   const [query, setQuery] = useState('');
   const [specialist, setSpecialist] = useState<string | null>(null);
   const [skill, setSkill] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [specialistDraft, setSpecialistDraft] = useState<SpecialistDraft | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
   // An element to focus once the render that shows it is done; `n` makes asking twice for one id count.
@@ -164,8 +169,9 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
         specialists: view.team.specialists.filter((p) => specialistMatches(p, view.team.skills, query))
           .length,
         skills: view.team.skills.filter((s) => skillMatches(s, query)).length,
+        notes: ((n) => n.waiting.length + n.kept.length)(noteItems(view, query)),
       }
-    : { specialists: 0, skills: 0 };
+    : { specialists: 0, skills: 0, notes: 0 };
 
   const startAdding = () => {
     if (tab === 'specialists') {
@@ -184,6 +190,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   };
 
   const ready = locked === null && view !== null;
+  const action = TABS.find((t) => t.id === tab)!.action;
 
   return (
     <div className="team-page">
@@ -203,8 +210,8 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
             <input
               id={ids.search}
               type="search"
-              aria-label="Search specialists and skills"
-              placeholder="Search specialists and skills"
+              aria-label="Search specialists, skills and notes"
+              placeholder="Search specialists, skills and notes"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
@@ -279,9 +286,11 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
                     </>
                   )}
                 </p>
-                <button id={ids.main} type="button" className="tp-button tp-primary" onClick={startAdding}>
-                  {`+ ${TABS.find((t) => t.id === tab)!.action}`}
-                </button>
+                {action !== null && (
+                  <button id={ids.main} type="button" className="tp-button tp-primary" onClick={startAdding}>
+                    {`+ ${action}`}
+                  </button>
+                )}
               </div>
             </div>
 
@@ -300,6 +309,15 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
                   actions={actions}
                   ids={{ details: ids.details, main: ids.main, base }}
                   onOpenSkill={openSkill}
+                />
+              ) : tab === 'notes' ? (
+                <NotesTab
+                  view={view}
+                  query={query}
+                  selected={note}
+                  onSelect={setNote}
+                  actions={actions}
+                  ids={{ details: ids.details, main: ids.main, base }}
                 />
               ) : (
                 <SkillsTab

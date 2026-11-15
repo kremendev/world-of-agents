@@ -1113,6 +1113,17 @@ p {
   background: var(--ui-link);
 }
 
+/* Approve (v3.7d): the one green button, as the mockup shows it. */
+.tp-approve {
+  border-color: var(--ui-success);
+  background: var(--ui-success);
+  color: var(--ui-on-accent);
+}
+
+.tp-notes-intro {
+  padding: 0 10px 4px;
+}
+
 .tp-danger {
   border-color: var(--ui-danger-fill);
   background: var(--ui-danger-fill);

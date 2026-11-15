@@ -11,7 +11,8 @@ const LINK = /https?:\/\/|\bwww\.|\]\(|<[a-z][a-z0-9+.-]*:/i;
 const SHELL =
   /^\s*(?:\$ |> |PS> ?|(?:npm|npx|node|git|curl|wget|rm|del|powershell|pwsh|bash|sh|cmd|iwr|iex|irm|Invoke-\w+)\b)/i;
 
-export type Flag = 'link' | 'command';
+/** `instruction` (v3.7d) is set by noteLines() in view.ts for a note, never by checkText(). */
+export type Flag = 'link' | 'command' | 'instruction';
 export type TextCheck = { refusals: string[]; lines: { text: string; flags: Flag[] }[] };
 
 export function checkText(text: string): TextCheck {

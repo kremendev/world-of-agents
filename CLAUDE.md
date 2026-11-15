@@ -913,4 +913,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     writes notes.json under a strict schema, 20 notes of 300 characters a guild lead, and one skill per guild lead with
     notes, `notes-<agent>`, ids no team skill may take; the four guild leads' agent files preload
     `woa-team:notes-<agent>`; the refresh rewrites those skills, never notes.json; the pane says "Note approved for the
-    Frontend dev"). Nothing is tagged.
+    Frontend dev"). 3.7d done (the Notes tab, as mockup pages 1 and 6 show it: "Waiting for you" and "Kept", a note
+    whole with its link, command-like and instruction-like flags, Approve and Reject, Remove this note after a question;
+    search finds notes by text and guild lead; in Edge, keyboard only, every change landed on disk). Nothing is tagged.

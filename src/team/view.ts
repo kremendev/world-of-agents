@@ -1,7 +1,8 @@
 // The Team page's words and rules (v3.6, docs/v3.6-plan.md, Dima's approved mockup of 15 Nov): what a preset, a guild
 // and a flag say, what search finds, and why a form can't be saved yet. Pure, so the page and its tests share them. The
 // hall and team.mjs check every change again; these only say it first.
-import { checkText, type TextCheck } from './text';
+import { NOTE_AGENTS, type NoteAgent } from './note';
+import { checkText, type Flag, type TextCheck } from './text';
 import {
   GUILDS,
   LINE,
@@ -11,6 +12,8 @@ import {
   skillIdOf,
   specialistIdOf,
   type TeamChange,
+  type TeamNote,
+  type TeamProposal,
   type TeamSkill,
   type TeamSpecialist,
   type TeamView,
@@ -96,16 +99,56 @@ export const flagged = (lines: TextCheck['lines']) => lines.some((l) => l.flags.
 
 /** The line under a text: what was flagged, or that nothing was. */
 export function flagSummary(lines: TextCheck['lines']): string {
-  const links = lines.filter((l) => l.flags.includes('link')).length;
-  const commands = lines.filter((l) => l.flags.includes('command')).length;
-  if (links === 0 && commands === 0) return 'No links, and nothing that looks like a command.';
-  const look = `that ${commands === 1 ? 'looks' : 'look'} like a command`;
-  const parts = [
-    ...(links > 0 ? [`${plural(links, 'line')} with a link`] : []),
-    ...(commands > 0 ? [`${links > 0 ? commands : plural(commands, 'line')} ${look}`] : []),
+  const count = (flag: Flag) => lines.filter((l) => l.flags.includes(flag)).length;
+  const kinds: [number, (n: number) => string][] = [
+    [count('link'), () => 'with a link'],
+    [count('command'), (n) => `that ${n === 1 ? 'looks' : 'look'} like a command`],
+    [count('instruction'), (n) => `that ${n === 1 ? 'reads' : 'read'} like an instruction`],
   ];
-  return `${parts.join(' and ')}. Read them before you go on.`;
+  const parts = kinds
+    .filter(([n]) => n > 0)
+    .map(([n, words], i) => `${i === 0 ? plural(n, 'line') : n} ${words(n)}`);
+  if (parts.length === 0) return 'No links, and nothing that looks like a command.';
+  const said = parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)!}`;
+  return `${said}. Read them before you go on.`;
 }
+
+/** How each flag shows on its line. */
+export const FLAG_LABEL: Record<Flag, string> = {
+  link: 'link',
+  command: 'command-like',
+  instruction: 'instruction-like',
+};
+
+/**
+ * A note's text, flagged as a skill's is (links, command-like lines) and, since a note should be a fact, wording that
+ * reads like an instruction to an agent (v3.7d).
+ */
+const INSTRUCTION =
+  /\b(ignore|disregard|override|always|never|must|from now on|instead of|do not|don't|you should|you are)\b/i;
+export function noteLines(text: string): TextCheck['lines'] {
+  return checkText(text).lines.map((line) =>
+    INSTRUCTION.test(line.text) ? { ...line, flags: [...line.flags, 'instruction' as const] } : line,
+  );
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const two = (n: number) => String(n).padStart(2, '0');
+/** "just now", "today, 21:52", or "14 Nov, 09:30": when a note was proposed or approved. */
+export function whenSaid(at: number, now: number): string {
+  if (now - at >= 0 && now - at < 60_000) return 'just now';
+  const d = new Date(at);
+  const time = `${two(d.getHours())}:${two(d.getMinutes())}`;
+  return d.toDateString() === new Date(now).toDateString()
+    ? `today, ${time}`
+    : `${d.getDate()} ${MONTHS[d.getMonth()]}, ${time}`;
+}
+
+/** Search (E14, v3.7d): a note by its text, or by its guild lead's name. */
+export const noteMatches = (text: string, agentName: string, query: string) => {
+  const q = normal(query);
+  return q === '' || has(text, q) || has(agentName, q);
+};
 
 const lineRule = (field: string, max: number) =>
   `${field} may hold only letters, digits, spaces and . , ( ) ' & / -, ${max} at most, no space at either end.`;
@@ -177,4 +220,30 @@ export function skillRefusals(d: SkillDraft, view: TeamView): string[] {
   if (d.description === '') out.push("Say what it's for, in one line.");
   else if (!isLine(d.description, 200)) out.push(lineRule("What it's for", 200));
   return [...out, ...checkText(d.text).refusals];
+}
+
+/** Each guild lead by its role's name, as the hall says it. */
+export const NOTE_NAME: Record<NoteAgent, string> = {
+  designer: LEAD_NAME.design,
+  frontend: LEAD_NAME.frontend,
+  backend: LEAD_NAME.backend,
+  reviewer: LEAD_NAME.review,
+};
+
+/** A proposal waiting, or a note kept, as the list and the details show it. */
+export type NoteItem =
+  | { kind: 'waiting'; key: string; agent: NoteAgent; proposal: TeamProposal }
+  | { kind: 'kept'; key: string; agent: NoteAgent; note: TeamNote };
+
+/** What the Notes tab lists, matching the search: the proposals waiting, then each guild lead's kept notes. */
+export function noteItems(view: TeamView, query: string): { waiting: NoteItem[]; kept: NoteItem[] } {
+  const waiting: NoteItem[] = view.proposals
+    .filter((p) => noteMatches(p.text, NOTE_NAME[p.agent], query))
+    .map((p) => ({ kind: 'waiting', key: `p:${p.id}`, agent: p.agent, proposal: p }));
+  const kept: NoteItem[] = NOTE_AGENTS.flatMap((agent) =>
+    view.notes[agent]
+      .filter((n) => noteMatches(n.text, NOTE_NAME[agent], query))
+      .map((n): NoteItem => ({ kind: 'kept', key: `k:${agent}:${n.id}`, agent, note: n })),
+  );
+  return { waiting, kept };
 }
