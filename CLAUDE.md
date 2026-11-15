@@ -161,7 +161,9 @@ bin/              woa: the launcher, bash for Git Bash (finds the repo from its 
 .github/workflows/ pages.yml: builds the demo and hosts it on GitHub Pages
 docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milestone 1's findings: what the desktop app and mods
                   really do), v3-m2-plan.md (milestone 2 in parts), v3.1-plan.md (v3.1.0, better reviews: parts 3.1a to 3.1e),
-                  v3.2-plan.md (v3.2.0, the token ledger; L7, the backfill, waits for Dima), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  v3.2-plan.md (v3.2.0, the token ledger; L7, the backfill, waits for Dima), v3.5-plan.md (v3.5.0, the hall and the rules),
+                  v3.6-plan.md (v3.6.0, the team editor: waits for Dima's mockup), v3.7-plan.md (v3.7.0, memory with
+                  approval: a design, a spike first), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -851,4 +853,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     events each; going back to one sends it as one replay with the same start id; a kept session's own hooks keep it up
     to date; checked in Edge on the built page). 3.5d done (the check always, by every specialist with a shell, and
     never a `cd` first or anything chained; one real run, $0.26, saw both run exactly `npm run check`). v3.5.0 is prepared, not tagged (plugin.json 3.5.0,
-    docs/release-notes/v3.5.0.md, README pins on `#v3.5.0`). Next: v3.5.0's desktop checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.
+    docs/release-notes/v3.5.0.md, README pins on `#v3.5.0`). v3.5.0 is `ed42ec6`; its checklist is
+    docs/release-notes/v3.5.0-check.md. docs/v3.6-plan.md and docs/v3.7-plan.md are written. Stopped (15 Nov) for
+    Dima: his v3.5.0 check (then its tag), and the approved Team panel mockup before anything of v3.6.0 is built.
