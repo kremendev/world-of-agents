@@ -1,5 +1,6 @@
 import type { AgentState, ToolCounts } from '../events/schema';
 import type { Message } from '../state/office';
+import { withoutProposal } from '../team/note';
 
 /**
  * The Reviewer's report format (plugin/agents/reviewer.md, v3.1) and the parser the review board reads it with. A
@@ -88,7 +89,8 @@ function findingOf(item: string): Finding {
  * headings, once each and in order, and no other line starting with `#`. One pass over the lines.
  */
 export function parseReview(text: string): Review | null {
-  const lines = text.split(/\r?\n/);
+  // v3.7: a proposed note goes after the report, as its last line; it is no part of the review.
+  const lines = withoutProposal(text).split(/\r?\n/);
   let start = -1;
   for (let i = lines.length - 1; i >= 0 && start < 0; i -= 1) {
     if (lines[i]!.trimEnd() === heading(HEADINGS[0])) start = i;

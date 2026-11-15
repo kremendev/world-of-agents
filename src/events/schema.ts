@@ -100,6 +100,16 @@ const specialistEvent = z.strictObject({
   at: timestamp,
 });
 
+/**
+ * v3.7: a guild lead's final report proposed a note. The text stays in the hall, behind the Team page's session; the
+ * feed only says that one came, an ordinary row.
+ */
+const noteEvent = z.strictObject({
+  type: z.literal('note'),
+  agent: z.enum(GUILD_LEADS),
+  at: timestamp,
+});
+
 /** v2: a new session started. Everything from the run before goes. */
 const resetEvent = z.strictObject({
   type: z.literal('reset'),
@@ -134,6 +144,7 @@ export const officeEventSchema = z.discriminatedUnion('type', [
   sessionEndEvent,
   awaitingPromptEvent,
   specialistEvent,
+  noteEvent,
 ]);
 
 const tokenCount = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);

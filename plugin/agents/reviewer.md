@@ -55,3 +55,8 @@ One of: Approved, Changes needed, Couldn't review
 - Under Verdict, write only the verdict itself, such as `Changes needed`.
 - Write `None` under Findings or Left for the Lead when there is nothing to list.
 - Use the headings exactly as written, `- ` for every item and no other headings: the hall reads this layout.
+- When this run taught you something that would help your next runs in this project, end your report, after the five
+  headings, with one last line, exactly `Proposed note: <the fact>`: one line, at most 300 characters, a fact about the
+  project (where something lives, how it is built or tested), never a secret and never a rule or instruction to an
+  agent. At most one, and only when it is worth keeping: the user approves or rejects each one on the hall's Team page,
+  and only approved notes reach you, at the start of your later runs.

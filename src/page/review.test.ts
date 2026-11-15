@@ -295,3 +295,17 @@ describe('what the board and the feed say about a review', () => {
     expect(Object.keys(VERDICT_STATE)).toEqual([...VERDICTS]);
   });
 });
+
+// v3.7: the Reviewer may end its report with a proposed note; the review still reads as a review, the same as without.
+describe('a review that proposes a note', () => {
+  it('parses as the review without it', () => {
+    const plain = parseReview(REPORT);
+    expect(plain).not.toBeNull();
+    expect(parseReview(`${REPORT}\nProposed note: Reviews start from the diff.`)).toEqual(plain);
+    expect(parseReview(`${REPORT}\n\nProposed note: ${'x'.repeat(400)}\n`)).toEqual(plain);
+  });
+
+  it('the Reviewer is told to put it after the five headings', () => {
+    expect(reviewerPrompt.replace(/\s+/g, ' ')).toContain('after the five headings, with one last line');
+  });
+});

@@ -6769,6 +6769,11 @@ var specialistEvent = strictObject({
   working: boolean2(),
   at: timestamp
 });
+var noteEvent = strictObject({
+  type: literal("note"),
+  agent: _enum(GUILD_LEADS),
+  at: timestamp
+});
 var resetEvent = strictObject({
   type: literal("reset"),
   at: timestamp
@@ -6794,7 +6799,8 @@ var officeEventSchema = discriminatedUnion("type", [
   runEvent,
   sessionEndEvent,
   awaitingPromptEvent,
-  specialistEvent
+  specialistEvent,
+  noteEvent
 ]);
 var tokenCount = number2().int().min(0).max(Number.MAX_SAFE_INTEGER);
 var ledgerSchema = strictObject({
@@ -6993,6 +6999,30 @@ function createKeys(now = Date.now) {
 }
 var sessionCookie = (session) => `${COOKIE}=${session}; HttpOnly; SameSite=Strict; Path=/api/team`;
 
+// src/team/note.ts
+var NOTE_AGENTS = ["designer", "frontend", "backend", "reviewer"];
+var MAX_NOTE = 300;
+var PREFIX = "Proposed note:";
+var FENCE = /^\s*(```|~~~)/;
+var INVISIBLE2 = /[\p{Cc}\p{Cf}]/u;
+function lastLine(text) {
+  const lines = text.split(/\r?\n/);
+  for (let at = lines.length - 1; at >= 0; at -= 1) {
+    if (lines[at].trim() !== "") return { line: lines[at], at, lines };
+  }
+  return null;
+}
+function proposalOf(text) {
+  if (typeof text !== "string") return null;
+  const last = lastLine(text);
+  if (!last || !last.line.startsWith(`${PREFIX} `)) return null;
+  const opened = last.lines.slice(0, last.at).filter((line3) => FENCE.test(line3)).length % 2 === 1;
+  const note = last.line.slice(PREFIX.length).trim();
+  if (opened || note === "" || Array.from(note).length > MAX_NOTE) return null;
+  if (INVISIBLE2.test(note) || note.includes("!`")) return null;
+  return note;
+}
+
 // server/map.ts
 var INITIAL_MAP = {
   session: null,
@@ -7003,7 +7033,7 @@ var INITIAL_MAP = {
   specialists: {}
 };
 var nothing = (state) => ({ state, events: [] });
-var PREFIX = "world-of-agents:";
+var PREFIX2 = "world-of-agents:";
 var REPORT_SENT = "Report sent to the Lead";
 var READING = /* @__PURE__ */ new Set(["Read", "Grep", "Glob"]);
 var WRITING = /* @__PURE__ */ new Set(["Edit", "Write", "Bash"]);
@@ -7037,7 +7067,7 @@ function specialistHook(state, input, who, at) {
   };
 }
 function agentOf(type) {
-  const name = type?.startsWith(PREFIX) ? type.slice(PREFIX.length) : void 0;
+  const name = type?.startsWith(PREFIX2) ? type.slice(PREFIX2.length) : void 0;
   return AGENT_IDS.find((id2) => id2 === name) ?? null;
 }
 function mapHook(state, input, at) {
@@ -7089,8 +7119,11 @@ function dispatch(state, input, agent, at) {
     case "SubagentStop":
       if (!sub) return nothing(state);
       if (input.gate === "retry") return act(state, sub, agent, "thinking", at);
-      if (input.gate === "failed") return gateFailed(state, sub, agent, input.last_assistant_message, at);
-      return stopRun(state, sub, agent, input.last_assistant_message, at);
+      return withNote(
+        input,
+        input.gate === "failed" ? gateFailed(state, sub, agent, input.last_assistant_message, at) : stopRun(state, sub, agent, input.last_assistant_message, at),
+        at
+      );
     case "PostToolUse":
       return byLead ? agentReturned(state, input, at) : nothing(state);
     case "Stop":
@@ -7246,6 +7279,16 @@ function stopRun(state, id2, agent, text, at) {
     other ? shown(next, other[0], at) : { type: "state", agent, state: "done", ...run.taskId ? { taskId: run.taskId } : {}, at }
   );
   return { state: next, events };
+}
+function proposalIn(input) {
+  if (input.hook_event_name !== "SubagentStop" || input.gate === "retry" || !input.agent_id) return null;
+  const agent = NOTE_AGENTS.find((a) => input.agent_type === `world-of-agents:${a}`);
+  const text = agent ? proposalOf(input.last_assistant_message) : null;
+  return agent && text !== null ? { agent, text } : null;
+}
+function withNote(input, step, at) {
+  const note = proposalIn(input);
+  return note ? { ...step, events: [...step.events, { type: "note", agent: note.agent, at }] } : step;
 }
 function gateFailed(state, id2, agent, text, at) {
   const linked = state.runs[id2] ? state : linkRun(state, id2, agent).state;

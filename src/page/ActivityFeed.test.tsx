@@ -493,3 +493,15 @@ describe('Copy on an opened row (v3.1)', () => {
     expect(screen.getByRole('button', { name: 'Show less' })).toBeInTheDocument();
   });
 });
+
+// v3.7: a proposed note is an ordinary row: its agent, what happened, and where it waits. No flag, no text of the note.
+describe('a proposed note in the feed', () => {
+  it('says who proposed one and where it waits', () => {
+    const noted = office({ type: 'note', agent: 'reviewer', at: time(10, 0, 0) });
+    render(<ActivityFeed office={noted} agent={null} onShowEveryone={() => {}} />);
+    expect(lines()).toEqual([
+      '10:00:00 | Reviewer | proposed a note to keep. It waits for you on the Team page.',
+    ]);
+    expect(document.querySelector('.feed-line.flagged')).toBeNull();
+  });
+});

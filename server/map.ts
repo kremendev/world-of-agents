@@ -8,6 +8,7 @@ import {
   type ToolCounts,
 } from '../src/events/schema';
 import type { GuildLead } from '../src/state/office';
+import { NOTE_AGENTS, proposalOf, type NoteAgent } from '../src/team/note';
 import type { HookInput } from './hook-input';
 
 /** A task card: one Agent call by the Lead, keyed by that call's `tool_use_id`. */
@@ -186,8 +187,13 @@ function dispatch(state: MapState, input: HookInput, agent: AgentId, at: number)
       if (!sub) return nothing(state);
       // v3.3: the quality gate sent the agent back, or it failed its last try (gate.mjs forwards these stops).
       if (input.gate === 'retry') return act(state, sub, agent, 'thinking', at);
-      if (input.gate === 'failed') return gateFailed(state, sub, agent, input.last_assistant_message, at);
-      return stopRun(state, sub, agent, input.last_assistant_message, at);
+      return withNote(
+        input,
+        input.gate === 'failed'
+          ? gateFailed(state, sub, agent, input.last_assistant_message, at)
+          : stopRun(state, sub, agent, input.last_assistant_message, at),
+        at,
+      );
     case 'PostToolUse':
       return byLead ? agentReturned(state, input, at) : nothing(state);
     case 'Stop':
@@ -427,6 +433,24 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
       : { type: 'state', agent, state: 'done', ...(run.taskId ? { taskId: run.taskId } : {}), at },
   );
   return { state: next, events };
+}
+
+/**
+ * v3.7 (option A, Dima): a guild lead's note, proposed in the last line of its own final report, or null. Only a
+ * `SubagentStop` of one of the four guild leads, by the agent type Claude Code set, and never one the quality gate sent
+ * back to work: never the Lead, a specialist, a frame or a text that only claims to be one. The hall keeps the text.
+ */
+export function proposalIn(input: HookInput): { agent: NoteAgent; text: string } | null {
+  if (input.hook_event_name !== 'SubagentStop' || input.gate === 'retry' || !input.agent_id) return null;
+  const agent = NOTE_AGENTS.find((a) => input.agent_type === `world-of-agents:${a}`);
+  const text = agent ? proposalOf(input.last_assistant_message) : null;
+  return agent && text !== null ? { agent, text } : null;
+}
+
+/** A stop's step, and after it the feed's "proposed a note" row when its report proposed one. */
+function withNote(input: HookInput, step: Step, at: number): Step {
+  const note = proposalIn(input);
+  return note ? { ...step, events: [...step.events, { type: 'note', agent: note.agent, at }] } : step;
 }
 
 /**

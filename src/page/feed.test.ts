@@ -24,7 +24,9 @@ const short = (lines: FeedLine[]) =>
       ? 'everyone'
       : l.kind === 'state'
         ? `${l.agent} ${l.state}${l.taskId ? ` ${l.taskId}` : ''}`
-        : `${l.from}: ${l.text}`,
+        : l.kind === 'note'
+          ? `${l.agent} proposed a note`
+          : `${l.from}: ${l.text}`,
   );
 
 describe('feedLines', () => {
@@ -267,5 +269,18 @@ describe('the "For you" strip and "Only for me" (v3.1)', () => {
     const long = stripShort('word '.repeat(40));
     expect(Array.from(long).length).toBeLessThanOrEqual(STRIP_CHARS);
     expect(long.endsWith('…')).toBe(true);
+  });
+});
+
+// v3.7: a proposed note is an ordinary row of its agent's: never a flag, as flags come only from hook types.
+describe('a proposed note', () => {
+  const note: OfficeEvent = { type: 'note', agent: 'frontend', at: 7 };
+  it("shows as its agent's row, in the agent filter too, with no flag and no read mark", () => {
+    const lines = feedLines(log(note), null);
+    expect(short(lines)).toEqual(['frontend proposed a note']);
+    expect(short(feedLines(log(note), 'frontend'))).toEqual(['frontend proposed a note']);
+    expect(feedLines(log(note), 'backend')).toEqual([]);
+    expect(flagOf(lines[0]!)).toBeNull();
+    expect(flagKey(lines[0]!)).toBeNull();
   });
 });

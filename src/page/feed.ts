@@ -83,6 +83,11 @@ export function feedLines(log: readonly LogEntry[], agent: AgentId | null): Feed
       if (!agent || entry.from === agent || entry.to === agent) lines.push(entry);
       continue;
     }
+    // v3.7: a proposed note, an ordinary row of its agent's.
+    if (entry.kind === 'note') {
+      if (!agent || entry.agent === agent) lines.push(entry);
+      continue;
+    }
     const was = now[entry.agent];
     if (was.state === entry.state && was.taskId === entry.taskId) continue;
     now[entry.agent] = entry;

@@ -22,6 +22,8 @@ import { isReview, parseReview, reviewLine } from './review';
 
 /** A flag's word, so a row never stands out by its colour alone. */
 const FLAG_WORDS: Record<Flag, string> = { 'to-you': 'To you', 'needs-you': 'Needs you', failed: 'Failed' };
+/** v3.7: a guild lead proposed a note. An ordinary row: never a flag, as flags come only from hook types. */
+const NOTE_WORDS = 'proposed a note to keep. It waits for you on the Team page.';
 
 /** How many unread items the "For you" strip shows; the rest are "and N more". */
 const STRIP_ITEMS = 3;
@@ -85,6 +87,8 @@ function Line({
               </>
             )}
       </>
+    ) : entry.kind === 'note' ? (
+      NOTE_WORDS
     ) : (
       [flag === 'needs-you' ? null : stateWords(entry.state), task?.title].filter(Boolean).join(' · ')
     );
@@ -119,7 +123,7 @@ function Line({
       onClick={onClick}
     >
       <time className="feed-time">{clock(entry.at)}</time>
-      <span className="feed-who">{nameOf(entry.kind === 'state' ? entry.agent : entry.from)}</span>
+      <span className="feed-who">{nameOf(entry.kind === 'message' ? entry.from : entry.agent)}</span>
       {flag && <span className="feed-flag">{FLAG_WORDS[flag]}</span>}
       {what !== '' && <span className="feed-what">{what}</span>}
       {review && (

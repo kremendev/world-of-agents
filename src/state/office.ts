@@ -11,7 +11,9 @@ export type Message = { from: AgentId; to: AgentId | 'you'; text: string; tools?
 /** One line of activity: an agent changing state, or a message between agents. */
 export type LogEntry =
   | { kind: 'state'; agent: AgentId; state: AgentState; taskId?: string; at: number }
-  | ({ kind: 'message' } & Message);
+  | ({ kind: 'message' } & Message)
+  /** v3.7: a guild lead proposed a note. */
+  | { kind: 'note'; agent: AgentId; at: number };
 
 export type OfficeState = {
   agents: Readonly<Record<AgentId, AgentStatus>>;
@@ -102,6 +104,8 @@ export function officeReducer(state: OfficeState, event: OfficeEvent): OfficeSta
         : was.filter((name) => name !== event.name);
       return now === was ? state : { ...state, specialists: { ...state.specialists, [event.lead]: now } };
     }
+    case 'note':
+      return { ...state, log: logged(state, { kind: 'note', agent: event.agent, at: event.at }) };
   }
 }
 

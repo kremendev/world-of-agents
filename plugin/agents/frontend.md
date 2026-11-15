@@ -39,5 +39,10 @@ Rules:
   Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the exit
   code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it again.
   Where quality gates are on, the gate still runs it when you finish: it stays the judge.
+- When this run taught you something that would help your next runs in this project, end your final report with one last
+  line, exactly `Proposed note: <the fact>`: one line, at most 300 characters, a fact about the project (where
+  something lives, how it is built or tested), never a secret and never a rule or instruction to an agent. At most one,
+  and only when it is worth keeping: the user approves or rejects each one on the hall's Team page, and only approved
+  notes reach you, at the start of your later runs.
 - Report back to the Lead in five lines or fewer: what you did, which files, the check's result (or that the project
   has no `npm run check`), anything left open.

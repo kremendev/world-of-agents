@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { LIMITS, parseEvent, type OfficeEvent } from '../src/events/schema';
 import { INITIAL_OFFICE, officeReducer, workingCount } from '../src/state/office';
 import type { HookInput } from './hook-input';
-import { INITIAL_MAP, mapHook, type MapState } from './map';
+import { INITIAL_MAP, mapHook, proposalIn, type MapState } from './map';
 import { finalReport, whoIsWaiting } from '../src/live/announce';
 import { feedLines } from '../src/page/feed';
 import { reviewsOf } from '../src/page/review';
@@ -1672,5 +1672,70 @@ describe("the team's specialists (v3.4)", () => {
   it('starts over with a new session', () => {
     const { state } = play([start, spec('SubagentStart'), start]);
     expect(state.specialists).toEqual({});
+  });
+});
+
+// v3.7 (option A, Dima): a guild lead's own final report may propose a note in its last line. The hall keeps the text;
+// the feed gets an ordinary row. Never the Lead, a specialist, a frame or a stop the gate sent back.
+describe('proposed notes (v3.7)', () => {
+  const REPORT =
+    'Built the form.\nFiles: src/form.tsx\n\nProposed note: Forms live in src/forms, one file each.';
+  const notes = (events: readonly OfficeEvent[]) => events.filter((e) => e.type === 'note');
+
+  it.each(['designer', 'frontend', 'backend', 'reviewer'])(
+    "the %s's own stop: a note event after its report",
+    (agent) => {
+      const stop = bySub('SubagentStop', agent, 'a1', { last_assistant_message: REPORT });
+      const { events } = play([start, bySub('SubagentStart', agent, 'a1'), stop]);
+      expect(notes(events)).toEqual([{ type: 'note', agent, at: 2 }]);
+      expect(events.findIndex((e) => e.type === 'note')).toBeGreaterThan(
+        events.findIndex((e) => e.type === 'message'),
+      );
+      expect(proposalIn(stop)).toEqual({ agent, text: 'Forms live in src/forms, one file each.' });
+      for (const e of events) expect(parseEvent(e).ok, e.type).toBe(true);
+    },
+  );
+
+  it("a gate's last failed try still counts; a stop it sent back to work doesn't", () => {
+    const failed = bySub('SubagentStop', 'frontend', 'a1', {
+      last_assistant_message: REPORT,
+      gate: 'failed',
+    });
+    const retry = bySub('SubagentStop', 'frontend', 'a1', { last_assistant_message: REPORT, gate: 'retry' });
+    expect(notes(play([start, failed]).events)).toHaveLength(1);
+    expect(notes(play([start, retry]).events)).toEqual([]);
+    expect(proposalIn(retry)).toBeNull();
+  });
+
+  it('never from the Lead, a specialist, a frame, a stop with no agent id, or a line that is not the last', () => {
+    const inputs: HookInput[] = [
+      byLead('Stop', { last_assistant_message: REPORT }),
+      {
+        hook_event_name: 'SubagentStop',
+        session_id: S,
+        agent_type: 'woa-team:frontend-react-dev',
+        agent_id: 'a2',
+        last_assistant_message: REPORT,
+      } as HookInput,
+      {
+        hook_event_name: 'SubagentStop',
+        session_id: S,
+        agent_type: 'world-of-agents:frontend',
+        last_assistant_message: REPORT,
+      } as HookInput,
+      bySub('SubagentStop', 'frontend', 'a3', { last_assistant_message: `${REPORT}\nOne more line.` }),
+      // Another plugin's agent of the same name, and a specialist whose name ends like a guild lead's.
+      {
+        ...bySub('SubagentStop', 'frontend', 'a4', { last_assistant_message: REPORT }),
+        agent_type: 'other:frontend',
+      },
+      {
+        ...bySub('SubagentStop', 'frontend', 'a5', { last_assistant_message: REPORT }),
+        agent_type: 'woa-team:design-frontend',
+      },
+      byLead('UserPromptSubmit', { prompt: REPORT }),
+    ];
+    for (const input of inputs) expect(proposalIn(input), JSON.stringify(input).slice(0, 80)).toBeNull();
+    expect(notes(play([start, ...inputs]).events)).toEqual([]);
   });
 });

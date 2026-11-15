@@ -905,4 +905,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     Lead's case, never preloads its `skills:` (by `--agent` or `settings.json`, any plugin, prefixed or not); a subagent
     preloads another plugin's skill (`woa-team:<name>`), so the guild leads can have notes as planned; a missing skill
     is one `[WARN]` in the debug log and the agent starts. Stopped for Dima: notes for the Lead (A guild leads only, B a
-    `SessionStart` context hook, C the Lead reads its file). Nothing of 3.7b on is built, and nothing is tagged.
+    `SessionStart` context hook, C the Lead reads its file). Dima chose A (15 Nov): notes for the four guild leads only; B is in the plan's backlog, C is out.
+    3.7b done (the four guild leads' prompts may end a final report with one line `Proposed note: <fact>`; `proposalIn()`
+    in map.ts takes it only from a guild lead's own `SubagentStop`, never a gate retry, and the feed shows an ordinary
+    `note` row; src/team/note.ts reads the line; the review parser sets it aside). Nothing is tagged.

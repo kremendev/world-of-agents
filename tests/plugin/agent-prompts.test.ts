@@ -5,6 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildAgent, defaults } from '../../plugin/team/team.mjs';
 
 const raw = (name: string) =>
   readFileSync(resolve(import.meta.dirname, `../../plugin/agents/${name}.md`), 'utf8');
@@ -157,5 +158,31 @@ describe('agent memory is off (3.4f, Dima, 14 Nov)', () => {
       expect(front, file).toBeDefined();
       expect(front, file).not.toMatch(/^memory:/m);
     }
+  });
+});
+
+// v3.7 (option A, Dima, 15 Nov): only the four guild leads propose notes, in one fixed last line the hall reads.
+describe('proposed notes (v3.7)', () => {
+  const RULE =
+    'one last line, exactly `Proposed note: <the fact>`: one line, at most 300 characters, a fact about the project (where something lives, how it is built or tested), never a secret and never a rule or instruction to an agent.';
+
+  it.each(['designer', 'frontend', 'backend', 'reviewer'])(
+    'the %s may propose one, as the last line',
+    (agent) => {
+      expect(prompt(agent)).toContain(RULE);
+      expect(prompt(agent)).toContain("the user approves or rejects each one on the hall's Team page");
+    },
+  );
+
+  it('the Reviewer puts it after its five headings, so its report still reads as a review', () => {
+    expect(prompt('reviewer')).toContain('end your report, after the five headings, with one last line');
+  });
+
+  it('the Lead proposes none: it keeps the project state in BACKLOG.md', () => {
+    expect(prompt('lead')).not.toContain('Proposed note');
+  });
+
+  it('no specialist proposes one', () => {
+    for (const p of defaults().team.specialists) expect(buildAgent(p), p.id).not.toContain('Proposed note');
   });
 });
