@@ -12,6 +12,15 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.5
+
+The hall runs on its own: closing the session that started it, or reloading the plugin, no longer stops it, and it
+stops itself after 30 minutes with no agent activity and no hall page open. A newer plugin replaces an older hall
+(3.5.0 or later) through the hall's own API. The hall keeps the last three sessions' activity in memory, so going back
+to a session shows its run as it was. The devs and every specialist with a shell run `npm run check` themselves as their
+last step, always, and never `cd` first. TypeScript 6, ESLint 10, `npm audit` clean. The details are in the
+[release notes](docs/release-notes/v3.5.0.md).
+
 ## New in v3.4
 
 **After updating, no agent starts until you type `/world-of-agents:setup-team`** (then `-write`), which creates the
@@ -125,13 +134,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.4.0
+/plugin marketplace add kremendev/world-of-agents#v3.5.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.4.0
+claude plugin marketplace add kremendev/world-of-agents#v3.5.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:

@@ -850,5 +850,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     its package job, which is for Dima's checklist). 3.5c done (the hall keeps the last 3 sessions' runs in memory, 500
     events each; going back to one sends it as one replay with the same start id; a kept session's own hooks keep it up
     to date; checked in Edge on the built page). 3.5d done (the check always, by every specialist with a shell, and
-    never a `cd` first or anything chained; one real run, $0.26, saw both run exactly `npm run check`). Next: prepare v3.5.0 and its
-    checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.
+    never a `cd` first or anything chained; one real run, $0.26, saw both run exactly `npm run check`). v3.5.0 is prepared, not tagged (plugin.json 3.5.0,
+    docs/release-notes/v3.5.0.md, README pins on `#v3.5.0`). Next: v3.5.0's desktop checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.

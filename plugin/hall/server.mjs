@@ -6392,11 +6392,16 @@ var TESTS_ONLY = [
   "  itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets",
   "  exactly those two run without asking; anything else waits for the user's approval."
 ];
+var IN_PROJECT = [
+  "- Your commands already run in the project folder: never `cd` anywhere first, and never chain anything onto a",
+  "  command (no `&&`, `;` or `|`). A `cd` before `npm run check` makes it another command than the one the setup allows."
+];
 var CHECK_LAST = [
-  "- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that",
-  "  and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no",
-  "  `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking. Then report what",
-  "  you saw: `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit",
+  "- Your last step, always, after your last edit: run `npm run check` yourself when the project has that script, even",
+  "  for a small change and even when your guild lead will run it after you. Run exactly that, as one command on its",
+  "  own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd`",
+  "  before it), because the setup lets exactly that command run without asking. Then report what you saw:",
+  "  `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit",
   "  code Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the",
   "  exit code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it",
   "  again. Where quality gates are on, the gate still runs it when your guild lead finishes: it stays the judge."
@@ -6432,7 +6437,7 @@ function buildAgent(p) {
     ...reads ? [] : FILES_ONLY,
     ...reads ? ["- You read and report; you change nothing."] : ["- Your guild lead's quality gate, when the project has one on, checks your work too."],
     // v3.3 review: a gate that passes says nothing, so whoever can run the check runs it last and gives its exit code.
-    ...reads ? [] : toolsOf(p).includes("Bash") ? [...TESTS_ONLY, ...CHECK_LAST] : NO_CHECK,
+    ...reads ? [] : toolsOf(p).includes("Bash") ? [...TESTS_ONLY, ...IN_PROJECT, ...CHECK_LAST] : NO_CHECK,
     toolsOf(p).includes("Bash") && !reads ? "- Report back to your guild lead in five lines or fewer: what you did, which files, the check's result (or\n  that the project has no `npm run check`), anything left open." : "- Report back to your guild lead in five lines or fewer: what you did, which files, anything left open.",
     ""
   ].join("\n");
@@ -6695,7 +6700,7 @@ function parseEvent(input) {
 }
 
 // plugin/.claude-plugin/plugin.json
-var version2 = "3.4.0";
+var version2 = "3.5.0";
 
 // src/version.ts
 var VERSION = version2;
