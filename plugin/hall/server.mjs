@@ -6952,7 +6952,7 @@ function parseEvent(input) {
 }
 
 // plugin/.claude-plugin/plugin.json
-var version2 = "3.6.0";
+var version2 = "3.7.0";
 
 // src/version.ts
 var VERSION = version2;

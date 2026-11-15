@@ -12,6 +12,16 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.7
+
+**Notes for the guild leads, only with your approval.** The Designer, the Frontend dev, the Backend dev and the
+Reviewer may end a report with one proposed note: a fact about the project worth remembering, such as where something
+lives or how it is tested. The hall holds it in memory and the feed says one came; nothing is written until you approve
+it on the Team page's new **Notes** tab, where you see each one whole, flagged for links, commands and wording that
+reads like an instruction. An approved note reaches that guild lead at the start of its later runs; you can remove it
+at any time. No agent writes notes itself, and the Lead keeps none: it keeps a project's state in `BACKLOG.md`. The
+details are in the [release notes](docs/release-notes/v3.7.0.md).
+
 ## New in v3.6
 
 **The Team page.** **Open Team page** in the pane (until now **Change skills**) opens the hall's Team page, its own view with the hall kept
@@ -144,13 +154,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.6.0
+/plugin marketplace add kremendev/world-of-agents#v3.7.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.6.0
+claude plugin marketplace add kremendev/world-of-agents#v3.7.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -247,6 +257,9 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
   agents away from that folder.
 - **No team, no agents.** From v3.4 the guard reads who may start whom from `~/.world-of-agents/team/team.json`; with that
   file missing or broken it lets no agent start, and says to run `/world-of-agents:setup-team`.
+- **A note is text an agent proposed.** You approve each one, and it then reaches its guild lead under a header that
+  says it is context, not instructions; the guild lead's limits stay its tools and the guard. A hijacked agent can still
+  propose a planted instruction, which is why the Notes tab flags wording that reads like one: keep plain facts only.
 - **Team changes count from the next reload.** Claude Code reads the team's files when a session starts or reloads its
   plugins, so a new or changed specialist, or a changed skill, counts from the next `/reload-plugins` or a new session.
   Switching a specialist off or on counts at once: the guard reads it on every agent start, and the specialist's file

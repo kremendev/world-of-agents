@@ -915,4 +915,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `woa-team:notes-<agent>`; the refresh rewrites those skills, never notes.json; the pane says "Note approved for the
     Frontend dev"). 3.7d done (the Notes tab, as mockup pages 1 and 6 show it: "Waiting for you" and "Kept", a note
     whole with its link, command-like and instruction-like flags, Approve and Reject, Remove this note after a question;
-    search finds notes by text and guild lead; in Edge, keyboard only, every change landed on disk). Nothing is tagged.
+    search finds notes by text and guild lead; in Edge, keyboard only, every change landed on disk). v3.7.0 is prepared, not tagged (plugin.json 3.7.0,
+    docs/release-notes/v3.7.0.md, README pins on `#v3.7.0`). Waits for Dima: v3.5.0's check, then v3.6.0's and v3.7.0's,
+    each then tagged on its own commit.
