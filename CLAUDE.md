@@ -313,7 +313,10 @@ Do not change the look without asking. New ideas go into a later version.
   read one (it asks for approval) and never a number they didn't see, and they run it exactly, as one command on its own,
   nothing added (no `--prefix`, 3.4f) and never chained, so the setup's `Bash(npm run check)` covers it; they run tests
   only as `npm test` or `npm run check`, exactly, never the runner itself or with output cut (3.4g: the React dev's
-  `node --test 2>&1 | tail -15` asked Dima); they change only the files their task names, prove a
+  `node --test 2>&1 | tail -15` asked Dima); from 3.5d they and every specialist with a shell run the check always, even
+  for a small change and even when someone runs it after them (the React dev skipped it), and never `cd` first or chain
+  anything: commands already run in the project folder (the Frontend dev's `cd <project> && npm run check`, 14 Nov;
+  a real run on 15 Nov saw both run exactly `npm run check`, the React dev as its last step); they change only the files their task names, prove a
   test can fail with a temporary copy or a fixture, and leave no backup copies (Dima's desktop run, 14 Nov); the Designer runs no commands and says so; the Lead
   passes on what they reported ("checked, passed"). The gate stays the enforcer. `tests/plugin/agent-prompts.test.ts` pins those lines.
 - From v3.3 the guard also sees `Edit` and `Write`: the Lead (main thread, `world-of-agents:lead`) may edit only
@@ -846,5 +849,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     through POST /api/stop; proven end to end in the terminal CLI on port 4329; the desktop app keeps its processes in
     its package job, which is for Dima's checklist). 3.5c done (the hall keeps the last 3 sessions' runs in memory, 500
     events each; going back to one sends it as one replay with the same start id; a kept session's own hooks keep it up
-    to date; checked in Edge on the built page). Next: 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
+    to date; checked in Edge on the built page). 3.5d done (the check always, by every specialist with a shell, and
+    never a `cd` first or anything chained; one real run, $0.26, saw both run exactly `npm run check`). Next: prepare v3.5.0 and its
     checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.

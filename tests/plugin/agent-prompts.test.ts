@@ -15,11 +15,14 @@ describe('npm run check in the prompts', () => {
     'the %s dev runs it last and reports what it saw, passed or failed',
     (name) => {
       const text = prompt(name);
-      expect(text).toContain('Your last step, after your last edit: run `npm run check` yourself');
+      // Always, itself (v3.5d, R1): the React dev skipped its own check on 14 Nov because its guild lead ran it after.
+      expect(text).toContain(
+        'Your last step, always, after your last edit: run `npm run check` yourself when the project has that script, even for a small change and even where quality gates will run it after you.',
+      );
       // On its own (Dima, 14 Nov): the setup's `Bash(npm run check)` covers only that command, so a chained one asked him.
       // Nothing added either (3.4f): a specialist's `npm run check --prefix <project>` would have asked too.
       expect(text).toContain(
-        'exactly that and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
+        'Run exactly that, as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
       );
       expect(text).toContain('`npm run check: passed` when it ends without an error');
       expect(text).toContain(
@@ -60,8 +63,21 @@ describe('npm run check in the prompts', () => {
     },
   );
 
+  // v3.5d (Dima, R1): the Frontend dev ran `cd <project> && npm run check` on 14 Nov, which the setup's rule doesn't cover.
+  it.each(['frontend', 'backend'])(
+    'the %s dev never cds or chains anything: its commands already run in the project folder',
+    (name) => {
+      const text = prompt(name);
+      const rule =
+        '- Your commands already run in the project folder: never `cd` anywhere first, and never chain anything onto a command (no `&&`, `;` or `|`). A `cd` before `npm run check` makes it another command than the one the setup allows.';
+      expect(text).toContain(rule);
+      expect(text.indexOf(rule)).toBeLessThan(text.indexOf('- Your last step'));
+    },
+  );
+
   it('the Designer, who runs no commands, says it did not run it', () => {
     expect(prompt('designer')).not.toContain('Run tests only');
+    expect(prompt('designer')).not.toContain('Your commands already run in the project folder');
     expect(prompt('designer')).toContain('say `npm run check: not run by me` in your report');
     const tools = /^tools: (.*)$/m.exec(raw('designer'))?.[1]?.split(', ');
     expect(tools).toContain('Edit');

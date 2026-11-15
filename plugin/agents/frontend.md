@@ -29,10 +29,13 @@ Rules:
 - Run tests only as `npm test` or `npm run check`, exactly that and as one command on its own: never the test runner
   itself (such as `node --test` or `npx vitest`), and nothing added (no `2>&1`, no `| tail`, no flags). The setup lets
   exactly those two run without asking; anything else waits for the user's approval.
-- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that and
-  as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`,
-  `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking. Then report what you
-  saw: `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit code
+- Your commands already run in the project folder: never `cd` anywhere first, and never chain anything onto a
+  command (no `&&`, `;` or `|`). A `cd` before `npm run check` makes it another command than the one the setup allows.
+- Your last step, always, after your last edit: run `npm run check` yourself when the project has that script, even
+  for a small change and even where quality gates will run it after you. Run exactly that, as one command on its own:
+  nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before
+  it), because the setup lets exactly that command run without asking. Then report what you saw:
+  `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit code
   Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the exit
   code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it again.
   Where quality gates are on, the gate still runs it when you finish: it stays the judge.

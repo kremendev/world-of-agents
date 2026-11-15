@@ -104,11 +104,21 @@ const TESTS_ONLY = [
  * The check, for a specialist that edits and has a shell, and for one that edits without one (v3.3 review). What a pass
  * looks like is the devs' rule (3.3d): Claude Code shows no exit code for a command that passes.
  */
+/**
+ * v3.5d (Dima, R1): the Frontend dev ran `cd <project> && npm run check` on 14 Nov, which the setup's rule doesn't
+ * cover. Commands already start in the project folder.
+ */
+const IN_PROJECT = [
+  '- Your commands already run in the project folder: never `cd` anywhere first, and never chain anything onto a',
+  '  command (no `&&`, `;` or `|`). A `cd` before `npm run check` makes it another command than the one the setup allows.',
+];
+/** The React dev skipped its own check on 14 Nov, its guild lead ran it after: every specialist runs it itself (R1). */
 const CHECK_LAST = [
-  '- Your last step, after your last edit: run `npm run check` yourself when the project has that script, exactly that',
-  '  and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no',
-  '  `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking. Then report what',
-  '  you saw: `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit',
+  '- Your last step, always, after your last edit: run `npm run check` yourself when the project has that script, even',
+  '  for a small change and even when your guild lead will run it after you. Run exactly that, as one command on its',
+  '  own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd`',
+  '  before it), because the setup lets exactly that command run without asking. Then report what you saw:',
+  '  `npm run check: passed` when it ends without an error, or `npm run check: failed (exit N)` with the exit',
   '  code Claude Code shows you (`npm run check: failed` when it shows none). Never run another command just to read the',
   "  exit code, and never write a number you didn't see. If it fails, fix what it reports within your task and run it",
   '  again. Where quality gates are on, the gate still runs it when your guild lead finishes: it stays the judge.',
@@ -150,7 +160,7 @@ export function buildAgent(p) {
       ? ['- You read and report; you change nothing.']
       : ["- Your guild lead's quality gate, when the project has one on, checks your work too."]),
     // v3.3 review: a gate that passes says nothing, so whoever can run the check runs it last and gives its exit code.
-    ...(reads ? [] : toolsOf(p).includes('Bash') ? [...TESTS_ONLY, ...CHECK_LAST] : NO_CHECK),
+    ...(reads ? [] : toolsOf(p).includes('Bash') ? [...TESTS_ONLY, ...IN_PROJECT, ...CHECK_LAST] : NO_CHECK),
     toolsOf(p).includes('Bash') && !reads
       ? "- Report back to your guild lead in five lines or fewer: what you did, which files, the check's result (or\n  that the project has no `npm run check`), anything left open."
       : '- Report back to your guild lead in five lines or fewer: what you did, which files, anything left open.',

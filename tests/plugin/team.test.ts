@@ -150,10 +150,13 @@ describe('the files it builds', () => {
       'backend-database-dev',
       'review-qa-tester',
     ]) {
-      expect(flat(id), id).toContain('Your last step, after your last edit: run `npm run check` yourself');
+      // Always, itself (v3.5d, R1): the React dev skipped its own check on 14 Nov because its guild lead ran it after.
+      expect(flat(id), id).toContain(
+        'Your last step, always, after your last edit: run `npm run check` yourself when the project has that script, even for a small change and even when your guild lead will run it after you.',
+      );
       // On its own and with nothing added (Dima, 14 Nov; 3.4f): the setup's `Bash(npm run check)` covers only that command.
       expect(flat(id), id).toContain(
-        'exactly that and as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
+        'Run exactly that, as one command on its own: nothing added (no `--prefix`, no path, no flags) and never chained with another (no `&&`, `;`, `|` or `cd` before it), because the setup lets exactly that command run without asking.',
       );
       expect(flat(id), id).toContain('`npm run check: passed` when it ends without an error');
       expect(flat(id), id).toContain(
@@ -168,6 +171,27 @@ describe('the files it builds', () => {
     for (const id of ['design-react-designer', 'design-motion-designer']) {
       expect(flat(id), id).toContain('say `npm run check: not run by me` in your report');
       expect(flat(id), id).not.toContain('Your last step');
+    }
+  });
+
+  // v3.5d (Dima, R1): the Frontend dev ran `cd <project> && npm run check` on 14 Nov, which the setup's rule doesn't cover.
+  it('a specialist with a shell never cds or chains anything, before its check; one without has no such line', () => {
+    const rule =
+      '- Your commands already run in the project folder: never `cd` anywhere first, and never chain anything onto a command (no `&&`, `;` or `|`). A `cd` before `npm run check` makes it another command than the one the setup allows.';
+    const shells = DEFAULTS.specialists.filter((p) => p.kind !== 'reads' && toolsOf(p).includes('Bash'));
+    expect(shells.map((p) => p.id)).toEqual([
+      'frontend-react-dev',
+      'frontend-test-writer',
+      'backend-api-dev',
+      'backend-database-dev',
+      'review-qa-tester',
+    ]);
+    for (const p of DEFAULTS.specialists) {
+      const flat = buildAgent(p).replace(/\s+/g, ' ');
+      if (shells.includes(p)) {
+        expect(flat, p.id).toContain(rule);
+        expect(flat.indexOf(rule), p.id).toBeLessThan(flat.indexOf('- Your last step'));
+      } else expect(flat, p.id).not.toContain('Your commands already run in the project folder');
     }
   });
 
