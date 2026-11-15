@@ -357,6 +357,44 @@ describe('Hall offline and reconnecting', () => {
   });
 });
 
+describe('back to a session the hall kept (v3.5c)', () => {
+  it('shows that run again in one go: nothing doubled, nothing said again, no "Hall restarted"', async () => {
+    const app = await renderLive([...start, say('Backend is on it.')]);
+    app.tick(WALK_MS);
+    // Another session takes the hall over: its own run, live.
+    app.emit({ type: 'reset', at: 10 }, { type: 'run', text: 'Something else', at: 11 });
+    expect(screen.queryByText('Tasks done: 0 of 1')).toBeNull();
+    const said = app.live().textContent;
+
+    // Back in the first one: the hall sends its run as it stood, then the prompt typed now.
+    act(() => {
+      app.source().emit('replaying', 'hall-start-id-01');
+      for (const event of [
+        ...start,
+        say('Backend is on it.'),
+        { type: 'run', text: 'Add a test', at: 12 } as const,
+      ]) {
+        app.source().send(event);
+      }
+      // Still coming: the page shows the other session until the whole run is there.
+      expect(screen.queryByText('Tasks done: 0 of 1')).toBeNull();
+      app.source().replayed();
+    });
+    app.tick();
+    expect(app.badge()).toBe('Live');
+    expect(app.status()).toBe(LIVE_NOTE);
+    expect(screen.getByText('Tasks done: 0 of 1')).toBeInTheDocument();
+    expect(screen.getAllByText('to you: Backend is on it.')).toHaveLength(1);
+    expect(app.speech('lead')).not.toBe('Backend is on it.');
+    // Old news: the live region says nothing new.
+    expect(app.live().textContent).toBe(said);
+
+    // Then live again: a new event is news.
+    app.emit(say('All done.'));
+    expect(app.speech('lead')).toBe('All done.');
+  });
+});
+
 describe('Session ended', () => {
   const ended: OfficeEvent = { type: 'session-end', at: 9 };
 

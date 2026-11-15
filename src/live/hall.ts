@@ -48,8 +48,8 @@ function read(data: unknown): OfficeEvent | null {
 
 export type HallHandlers = {
   /**
-   * Everything the hall holds since its last reset, in one go. Comes on connecting and on every reconnect, with the
-   * hall's start id (null from a hall that sends none).
+   * Everything the hall holds since its last reset, in one go. Comes on connecting, on every reconnect, and (v3.5c) when
+   * the hall goes back to a session it kept, with the hall's start id (null from a hall that sends none).
    */
   onReplay: (events: OfficeEvent[], startId: string | null) => void;
   /** Each new event after the replay. */
@@ -88,6 +88,11 @@ export function connectHall(handlers: HallHandlers): () => void {
       }
       const totals = parseLedger(data);
       if (totals) handlers.onLedger?.(totals);
+    });
+    // v3.5c: the hall went back to a session it kept. What follows, up to `replayed`, is that session's run: the page
+    // rebuilds it in one go, as after a reconnect, instead of playing it event by event.
+    stream.addEventListener('replaying', () => {
+      replay = [];
     });
     stream.addEventListener('replayed', (message) => {
       const id = hallStartId.safeParse(message.data);

@@ -10,9 +10,9 @@ import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events
 import { isNewer, VERSION, VERSION_SHAPE } from '../src/version';
 import { keyBodySchema, teamChangeSchema, type TeamChange, type TeamView } from '../src/team/schema';
 import { HALL_CSP } from './csp';
-import { hookInputSchema } from './hook-input';
+import { hookInputSchema, type HookInput } from './hook-input';
 import { createKeys, sessionCookie } from './keys';
-import { INITIAL_MAP, mapHook } from './map';
+import { INITIAL_MAP, mapHook, type MapState } from './map';
 import type { Page } from './page';
 
 /** The hall only ever listens on this machine. */
@@ -34,6 +34,11 @@ export const MAX_TEAM_BODY = 64 * 1024;
 export const MAX_STOP_BODY = 256;
 /** How many past events a page gets when it connects. */
 export const REPLAY = 500;
+/**
+ * v3.5c (S1, S2): the sessions whose runs the hall keeps, the one it follows included, each up to REPLAY events, in
+ * memory only. Going back to one shows its run as it stood.
+ */
+export const KEPT_SESSIONS = 3;
 /**
  * The plugin's hall stops itself after this long with no hook event and no page connected (v3.5b, H1): it runs
  * detached, so no session ends it. `npm run hall` sets none and stops with Ctrl+C.
@@ -156,12 +161,73 @@ export function createHall({
   // The clock alone never keeps the process alive: the server does, until it closes.
   idleTimer?.unref();
 
+  // v3.5c: the sessions the hall followed before, the oldest first, each with its run as it stood: at most
+  // KEPT_SESSIONS - 1 of them, beside the one it follows. In memory only, gone when the hall stops.
+  const kept = new Map<string, { map: MapState; replay: OfficeEvent[] }>();
+
+  /** `events` added to a run as a page sees them: a reset starts it again, and it keeps the newest REPLAY. */
+  const grow = (run: readonly OfficeEvent[], events: readonly OfficeEvent[]): OfficeEvent[] =>
+    events.reduce<OfficeEvent[]>((r, e) => (e.type === 'reset' ? [e] : [...r, e].slice(-REPLAY)), [...run]);
+
   function publish(events: readonly OfficeEvent[]): void {
     for (const event of events) {
       // A reset starts a new run, so a page that connects later doesn't replay the old one first.
-      replay = event.type === 'reset' ? [event] : [...replay, event].slice(-REPLAY);
+      replay = grow(replay, [event]);
       for (const page of pages) page.write(frame(event));
     }
+  }
+
+  /** The session the hall leaves, kept with its run; the oldest kept one goes when there are too many. */
+  function keep(session: string, run: { map: MapState; replay: OfficeEvent[] }): void {
+    kept.delete(session);
+    kept.set(session, run);
+    for (const old of kept.keys()) {
+      if (kept.size < KEPT_SESSIONS) break;
+      kept.delete(old);
+    }
+  }
+
+  /**
+   * Back to a session the hall kept: its run as it stood, then this hook's events, sent to every page as one replay
+   * (`replaying`, the events, `replayed` with the same start id), so each rebuilds it in one go. It starts with a reset,
+   * so a page never keeps the other session's run.
+   */
+  function restore(run: readonly OfficeEvent[], at: number): void {
+    replay = grow([], run[0]?.type === 'reset' ? run : [{ type: 'reset', at }, ...run]);
+    const block = `event: replaying\ndata: ${startId}\n\n${replay.map(frame).join('')}event: replayed\ndata: ${startId}\n\n`;
+    for (const page of pages) page.write(block);
+  }
+
+  /**
+   * One hook (v3.5c): the session the hall follows moves the page as before. When the hall switches, the session it
+   * leaves is kept; one it kept comes back as it stood, unless this hook starts it new. A kept session's own hooks keep
+   * its run up to date while the hall follows another, and reach no page.
+   */
+  function heard(input: HookInput, at: number): void {
+    const before = map;
+    const result = mapHook(map, input, at);
+    const from = before.session;
+    const to = result.state.session;
+    if (from !== null && to !== null && to !== from) {
+      const back = kept.get(to);
+      kept.delete(to);
+      keep(from, { map: before, replay });
+      const again = back ? mapHook(back.map, input, at) : null;
+      if (back && again && !again.events.some((e) => e.type === 'reset')) {
+        map = again.state;
+        restore([...back.replay, ...again.events], at);
+        return;
+      }
+    } else if (from !== null && input.session_id && input.session_id !== from) {
+      const other = kept.get(input.session_id);
+      if (other) {
+        const own = mapHook(other.map, input, at);
+        kept.set(input.session_id, { map: own.state, replay: grow(other.replay, own.events) });
+      }
+      return;
+    }
+    map = result.state;
+    publish(result.events);
   }
 
   function authorized(header: string | undefined): boolean {
@@ -205,9 +271,7 @@ export function createHall({
     }
     const input = hookInputSchema.safeParse(json);
     if (!input.success) return reply(res, 400);
-    const result = mapHook(map, input.data, Date.now());
-    map = result.state;
-    publish(result.events);
+    heard(input.data, Date.now());
     lastActive = now();
     reply(res, 204); // no body: send.mjs throws any reply away, and there must be nothing to steer Claude Code
   }

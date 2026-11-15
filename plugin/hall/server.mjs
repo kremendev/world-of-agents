@@ -7185,6 +7185,7 @@ var MAX_KEY_BODY = 256;
 var MAX_TEAM_BODY = 64 * 1024;
 var MAX_STOP_BODY = 256;
 var REPLAY = 500;
+var KEPT_SESSIONS = 3;
 var HALL_IDLE_MS = 30 * 6e4;
 var IDLE_CHECK_MS = 6e4;
 var stopBodySchema = strictObject({ version: string2().regex(VERSION_SHAPE) });
@@ -7258,11 +7259,58 @@ data: ${JSON.stringify(totals)}
     Math.min(IDLE_CHECK_MS, idleMs)
   );
   idleTimer?.unref();
+  const kept = /* @__PURE__ */ new Map();
+  const grow = (run, events2) => events2.reduce((r, e) => e.type === "reset" ? [e] : [...r, e].slice(-REPLAY), [...run]);
   function publish(events2) {
     for (const event of events2) {
-      replay = event.type === "reset" ? [event] : [...replay, event].slice(-REPLAY);
+      replay = grow(replay, [event]);
       for (const page2 of pages) page2.write(frame(event));
     }
+  }
+  function keep(session, run) {
+    kept.delete(session);
+    kept.set(session, run);
+    for (const old of kept.keys()) {
+      if (kept.size < KEPT_SESSIONS) break;
+      kept.delete(old);
+    }
+  }
+  function restore(run, at) {
+    replay = grow([], run[0]?.type === "reset" ? run : [{ type: "reset", at }, ...run]);
+    const block = `event: replaying
+data: ${startId}
+
+${replay.map(frame).join("")}event: replayed
+data: ${startId}
+
+`;
+    for (const page2 of pages) page2.write(block);
+  }
+  function heard(input, at) {
+    const before = map;
+    const result = mapHook(map, input, at);
+    const from = before.session;
+    const to = result.state.session;
+    if (from !== null && to !== null && to !== from) {
+      const back = kept.get(to);
+      kept.delete(to);
+      keep(from, { map: before, replay });
+      const again = back ? mapHook(back.map, input, at) : null;
+      if (back && again && !again.events.some((e) => e.type === "reset")) {
+        map = again.state;
+        restore([...back.replay, ...again.events], at);
+        return;
+      }
+    } else if (from !== null && input.session_id && input.session_id !== from) {
+      const other = kept.get(input.session_id);
+      if (other) {
+        const own2 = mapHook(other.map, input, at);
+        kept.set(input.session_id, { map: own2.state, replay: grow(other.replay, own2.events) });
+      }
+      return;
+    }
+    map = result.state;
+    publish(result.events);
   }
   function authorized(header) {
     const sent = /^Bearer ([A-Za-z0-9_-]+)$/.exec(header ?? "")?.[1];
@@ -7296,9 +7344,7 @@ data: ${JSON.stringify(totals)}
     }
     const input = hookInputSchema.safeParse(json);
     if (!input.success) return reply(res, 400);
-    const result = mapHook(map, input.data, Date.now());
-    map = result.state;
-    publish(result.events);
+    heard(input.data, Date.now());
     lastActive = now();
     reply(res, 204);
   }

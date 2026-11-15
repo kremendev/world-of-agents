@@ -78,7 +78,7 @@ src/page/         the page around the hall: TaskBar (+ task.ts: cleanTask, 500-c
                   a try/catch; memory only in the demo), ledgerText.ts (v3.2: the header's "This PC" line, Live only), copy.ts and CopyButton (v3.1: Copy on an opened row and on each
                   review card: links as their text, every Cc and Cf character but tab and line breaks left out, and said)
 src/live/         Live mode: hall.ts (health check, with the version the hall states, EventSource with its own reconnect, parseEvent() on every
-                  message, the hall's start id after each replay), useLiveHall.ts (status, office, the 5 s re-check in
+                  message, the hall's start id after each replay; from 3.5c `replaying` starts a new batch: a switch back), useLiveHall.ts (status, office, the 5 s re-check in
                   Demo; another start id rebuilds from nothing and says "Hall restarted" until a run starts),
                   announce.ts (what the aria-live region says, cut at the last full sentence)
 src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team view, the key; team.mjs's rules mirrored,
@@ -87,7 +87,8 @@ src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team v
                   team.mjs's, link and command-like flags). The panel is src/page/TeamPanel.tsx
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
-                  named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id,
+                  named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id
+                  (from 3.5c the last 3 sessions' runs kept, one sent as `replaying` … `replayed` on a switch back),
                   /api/health, and from v3.4c the team editor: POST /api/key (hall-key.mjs, token, no Origin), POST
                   /api/session (the page's key, once, within 60 s, for a cookie), GET and POST /api/team (that cookie,
                   the page's exact Origin, the schema, a 64 KiB cap; writes through team.mjs only), and from v3.5b POST
@@ -666,7 +667,9 @@ Done: project setup, event schema, sprite pipeline, the full Forge Hall, and:
    serves it with the API on 127.0.0.1:4319. The token in ~/.world-of-agents/token is new at every start and
    deleted on Ctrl+C or when the terminal closes. The hall adopts the first session it hears from; after
    that a new, cleared or resumed session switches it, and from 3.4g so does a prompt typed in another session (never a
-   frame): the session you type into is the one you watch. A resume of the session it already follows keeps the run
+   frame): the session you type into is the one you watch. From 3.5c it keeps the runs of the last 3 sessions (the one it
+   follows included, 500 events each, memory only): going back to one sends `replaying`, its run as it stood, then
+   `replayed` with the same start id, and a kept session's own hooks keep its run up to date. A resume of the session it already follows keeps the run
    (2d): the desktop app resumes a session in a fresh process after a focus change, and that wiped the Lead's answer
    from the feed. A card goes Done at its agent's SubagentStop; a
    `<task-notification>` status other than completed reopens it. Claude Code frames (any prompt that starts
@@ -841,5 +844,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     through the minimatch override; the hooks plugin keeps its two classic rules). 3.5b done (the hall starts detached
     through hall-start.mjs, stops itself after 30 idle minutes, and a newer pane stops an older one from 3.5.0 on
     through POST /api/stop; proven end to end in the terminal CLI on port 4329; the desktop app keeps its processes in
-    its package job, which is for Dima's checklist). Next: 3.5c (each session's activity), 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
+    its package job, which is for Dima's checklist). 3.5c done (the hall keeps the last 3 sessions' runs in memory, 500
+    events each; going back to one sends it as one replay with the same start id; a kept session's own hooks keep it up
+    to date; checked in Edge on the built page). Next: 3.5d (the agent rules and one small run), then prepare v3.5.0 and its
     checklist, then docs/v3.6-plan.md and docs/v3.7-plan.md, then stop until Dima sends the approved editor mockup.

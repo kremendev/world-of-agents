@@ -138,6 +138,28 @@ describe('connectHall', () => {
     expect(handlers.onEvent).toHaveBeenCalledExactlyOnceWith(later);
   });
 
+  it('v3.5c: when the hall goes back to a session it kept, hands over that run in one go, not event by event', () => {
+    connectHall(handlers);
+    const source = FakeEventSource.latest;
+    source.send(event);
+    source.replayed();
+    source.send(later);
+    expect(handlers.onEvent).toHaveBeenCalledExactlyOnceWith(later);
+
+    source.emit('replaying', HALL_START_ID);
+    source.send(event);
+    source.send({ type: 'nope' }); // still checked, and dropped
+    source.send(later);
+    expect(handlers.onReplay).toHaveBeenCalledTimes(1);
+    source.replayed();
+    expect(handlers.onReplay).toHaveBeenLastCalledWith([event, later], HALL_START_ID);
+    expect(handlers.onEvent).toHaveBeenCalledTimes(1);
+
+    // Then live again.
+    source.send(event);
+    expect(handlers.onEvent).toHaveBeenLastCalledWith(event);
+  });
+
   it('sends an empty replay too: that is how the page knows the hall is back', () => {
     connectHall(handlers);
     FakeEventSource.latest.replayed();
