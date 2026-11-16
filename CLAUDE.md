@@ -186,8 +186,8 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
                   approval: a design, a spike first), v3.8-plan.md (v3.8.0, template 4: the project names the Lead;
                   the probe's results), and plans only, waiting for Dima (16 Nov): v3.9-plan.md (a team per project,
                   one skill library), v3.10-plan.md (adding skills three ways, the hall's one network call),
-                  v3.11-plan.md (the rest of the page on the Team page's tokens), v4.0-plan.md (the detailed pixel
-                  art), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  v3.11-plan.md (the rest of the page on the Team page's tokens; folded into v4.0, kept as history),
+                  v4.0-plan.md (the Forge Keep in 3D: waits for Dima's review), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -1089,3 +1089,12 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     without World of Agents (its settings hold the plugin's switch, the Lead and the denies). Started as the desktop app
     starts it, Claude Code read the project's settings with no trust record (no-login probe); the app itself is a step on
     his list. The README's setup has "4. Trust the project", and both parts of the list a trust step. Stopped for Dima.
+
+18. v4.0.0 changes direction (Dima, 16 Nov): the Forge Keep in 3D. three.js, pinned and bundled; an anime style with
+    cel shading, ink outlines and chibi proportions; nine areas joined by paths; states mapped to places; idle life
+    that never shows work that isn't happening; and the page as a HUD over the world in the Team page's tokens. The 2x
+    pixel redraw is dropped, and v3.11.0 (C) folds into the HUD part, 4d; its plan stays as history. docs/v4.0-plan.md
+    is a plan only (parts 4a to 4f, with Dima's decisions, Claude's proposals and the questions marked apart). It waits
+    for his review, and nothing of it is built before he approves. His question on where project specialists appear
+    comes before 4b, as do Claude's on the 3 s desk hold and the places that depend on the task. Who makes the models
+    is a question before 4e. Packed GLB images need `blob:`, which the CSP doesn't allow, so models carry none.
