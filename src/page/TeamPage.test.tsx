@@ -310,6 +310,39 @@ describe('the Team page: a specialist', () => {
     expect(status()).toHaveTextContent('Gave Reduced motion to React designer.');
   });
 
+  it("v3.10: says what its skills cost every start, and offers no skill too big for what's left of 40,000", async () => {
+    const view = teamView();
+    const [first, second, third] = view.team!.specialists[0]!.skills;
+    view.texts[first!] = 'a'.repeat(15000);
+    view.texts[second!] = 'b'.repeat(15000);
+    view.texts[third!] = 'c'.repeat(5000);
+    // 35,000 used, 5,000 left: a skill of 5,001 is too big, one of 5,000 fits.
+    view.texts['reduced-motion'] = 'd'.repeat(5001);
+    view.texts['animation-principles'] = 'e'.repeat(5000);
+    hall(view);
+    await open();
+    expect(details()).toHaveTextContent(
+      'About 9,500 tokens every time it starts · 35,000 of 40,000 characters',
+    );
+    expect(details().querySelector('.tp-meter')).toHaveClass('near');
+    await click(screen.getByRole('button', { name: '+ Add from library' }));
+    const picker = screen.getByRole('group', { name: /Give React designer a skill/ });
+    expect(within(picker).queryByRole('button', { name: /^Reduced motion/ })).toBeNull();
+    expect(within(picker).getByRole('button', { name: /^Animation principles/ })).toBeInTheDocument();
+    expect(picker).toHaveTextContent(
+      /skills? (is|are) too big for the 5,000 characters left, so not offered/,
+    );
+  });
+
+  it('v3.10: a specialist with few skills has a plain bar, and one with none costs nothing', async () => {
+    const view = teamView();
+    view.team!.specialists[0]!.skills = [];
+    hall(view);
+    await open();
+    expect(details()).toHaveTextContent('About 0 tokens every time it starts · 0 of 40,000 characters');
+    expect(details().querySelector('.tp-meter')).not.toHaveClass('near');
+  });
+
   it('offers no "+ Add from library" past five', async () => {
     const view = teamView();
     view.team!.specialists[0]!.skills = view.library.slice(0, 5).map((s) => s.id);

@@ -6348,7 +6348,9 @@ var MAX_PER_GUILD = 5;
 var MAX_SPECIALISTS = GUILDS.length * MAX_PER_GUILD;
 var MAX_SKILLS = 64;
 var MAX_PRELOADED = 5;
-var MAX_TEXT = 8e3;
+var MAX_TEXT = 2e4;
+var MAX_DESCRIPTION = 1024;
+var MAX_SPECIALIST_TEXT = 4e4;
 var PRESETS = Object.freeze(["reads", "edits", "edits-and-checks"]);
 var GENERATOR = 2;
 var SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -6362,6 +6364,8 @@ var hasHidden = (text) => [...text].some((c) => INVISIBLE.test(c) && !KEPT.has(c
 var isObject2 = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 var keysAre = (v, keys) => Object.keys(v).sort().join() === [...keys].sort().join();
 var line = (v, max) => typeof v === "string" && v.length >= 1 && v.length <= max && LINE.test(v) && v.trim() === v;
+var UNPRINTED = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;
+var isDescription = (v, max = MAX_DESCRIPTION) => typeof v === "string" && v.length >= 1 && v.length <= max && v.trim() === v && !UNPRINTED.test(v);
 function problem(team) {
   if (!isObject2(team) || !keysAre(team, ["version", "generator", "specialists", "skills"]))
     return "not a team";
@@ -6868,9 +6872,30 @@ function readProjectTeam(home, key) {
     return null;
   }
 }
-var SOURCES = Object.freeze(["team", "starter", "written"]);
+var SOURCES = Object.freeze(["team", "starter", "written", "github", "claude", "pasted"]);
+var CLAUDE_LABELS = Object.freeze(["mine", "built-in", "unlabelled"]);
 var LIBRARY_SKILL_KEYS = ["id", "name", "description", "source", "addedAt"];
-var sourceOk = (source) => isObject2(source) && keysAre(source, ["kind"]) && SOURCES.includes(source.kind);
+var GITHUB_OWNER = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/;
+var SEGMENT = /^[A-Za-z0-9._-]{1,100}$/;
+var isSegment = (s) => typeof s === "string" && SEGMENT.test(s) && s !== "." && s !== "..";
+var isGithubPath = (path) => typeof path === "string" && path.length <= 300 && path.split("/").length <= 10 && path.split("/").every(isSegment) && path.split("/").at(-1) === "SKILL.md";
+var isSkillFile = (file) => typeof file === "string" && file.length <= 1024 && file.split("/").length <= 4 && file.split("/").at(-1) === "SKILL.md" && file.split("/").every((s) => isDescription(s, 255) && s !== "." && s !== ".." && !s.includes("\\"));
+var licenseOk = (v) => v === null || isDescription(v, 200);
+function sourceOk(source) {
+  if (!isObject2(source) || !SOURCES.includes(source.kind)) return false;
+  const { kind } = source;
+  if (["team", "starter", "written"].includes(kind)) return keysAre(source, ["kind"]);
+  if (kind === "pasted") return keysAre(source, ["kind", "license"]) && licenseOk(source.license);
+  if (kind === "github")
+    return keysAre(source, ["kind", "owner", "repo", "ref", "path", "license"]) && GITHUB_OWNER.test(source.owner) && isSegment(source.repo) && (isSegment(source.ref) || /^[0-9a-f]{40}$/.test(source.ref)) && isGithubPath(source.path) && licenseOk(source.license);
+  return keysAre(source, ["kind", "label", "file", "license"]) && CLAUDE_LABELS.includes(source.label) && isSkillFile(source.file) && licenseOk(source.license);
+}
+var specialistText = (p, texts) => p.skills.reduce((n, id2) => n + (texts[id2]?.length ?? 0), 0);
+function overCap(specialists2, texts) {
+  return specialists2.find((p) => specialistText(p, texts) > MAX_SPECIALIST_TEXT) ?? null;
+}
+var thousands = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+var capWords = (p, texts, where = "") => `${where}the ${p.name}'s skills would come to ${thousands(specialistText(p, texts))} characters, over ${thousands(MAX_SPECIALIST_TEXT)}`;
 var emptyLibrary = () => ({ version: 1, skills: [] });
 function libraryProblem(library) {
   if (!isObject2(library) || !keysAre(library, ["version", "skills"]) || library.version !== 1)
@@ -6882,7 +6907,7 @@ function libraryProblem(library) {
     if (typeof s.id !== "string" || s.id.length > 48 || !SKILL_ID.test(s.id) || ids.has(s.id))
       return "a skill id";
     if (NOTE_SKILL_IDS.includes(s.id)) return "a skill id";
-    if (!line(s.name, 60) || !line(s.description, 200)) return `skill ${s.id}`;
+    if (!line(s.name, 60) || !isDescription(s.description)) return `skill ${s.id}`;
     if (!sourceOk(s.source)) return `skill ${s.id}'s source`;
     if (!Number.isSafeInteger(s.addedAt) || s.addedAt <= 0) return `skill ${s.id}'s date`;
     ids.add(s.id);
@@ -6929,6 +6954,8 @@ function writeProjectTeam(home, key, checked, library, texts, notes) {
   const used = [...new Set(checked.specialists.flatMap((p) => p.skills))];
   const missing = used.find((id2) => !known.has(id2));
   if (missing !== void 0) throw new Error(`skill ${missing} is not in the library`);
+  const over = overCap(checked.specialists, texts);
+  if (over) throw new Error(capWords(over, texts));
   const skills = used.map((id2) => {
     const s = known.get(id2);
     return { id: id2, name: s.name, description: s.description };
@@ -7164,7 +7191,7 @@ function changeProject(home, key, change, now, proposal = null, teamFiles = impo
         id: change.id,
         name: change.name,
         description: change.description,
-        source: { kind: "written" },
+        source: change.source ?? { kind: "written" },
         addedAt: now
       });
     } else {
@@ -7211,6 +7238,13 @@ function changeProject(home, key, change, now, proposal = null, teamFiles = impo
   const next = { ...team, specialists: specialists2 };
   const why = projectTeamProblem(next);
   if (why) throw new Error(`not a team: ${why}`);
+  const over = overCap(next.specialists, texts);
+  if (over) throw new Error(capWords(over, texts));
+  for (const other of touched?.length ? listProjects(home) : []) {
+    if (other.key === key || other.team === null) continue;
+    const there = overCap(other.team.specialists, texts);
+    if (there) throw new Error(capWords(there, texts, `in ${other.name}, `));
+  }
   if (touched !== null) writeLibrary(home, library, texts);
   writeProjectTeam(home, key, next, library, texts, notes);
   writeFileSync(inside(dir, "notes.json"), `${JSON.stringify(notes, null, 2)}
@@ -7408,25 +7442,53 @@ var KEY = /^[A-Za-z0-9_-]{43}$/;
 var SKILL_ID2 = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var SPECIALIST_ID2 = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 var LINE2 = /^[\p{L}\p{N} .,()'&/-]+$/u;
-var MAX_TEXT2 = 8e3;
+var MAX_TEXT2 = 2e4;
+var MAX_DESCRIPTION2 = 1024;
+var UNPRINTED2 = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;
+var isDescription2 = (v, max = MAX_DESCRIPTION2) => v.length >= 1 && v.length <= max && v.trim() === v && !UNPRINTED2.test(v);
 var MAX_PRELOADED2 = 5;
 var GUILDS2 = ["design", "frontend", "backend", "review"];
 var PRESETS2 = ["reads", "edits", "edits-and-checks"];
 var MAX_PER_GUILD2 = 5;
 var PROJECT_KEY2 = /^[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{10}$/;
-var SOURCES2 = ["team", "starter", "written"];
+var CLAUDE_LABELS2 = ["mine", "built-in", "unlabelled"];
 var MAX_LIBRARY2 = 200;
+var GITHUB_OWNER2 = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/;
+var SEGMENT2 = /^[A-Za-z0-9._-]{1,100}$/;
+var isSegment2 = (s) => SEGMENT2.test(s) && s !== "." && s !== "..";
+var isGithubPath2 = (path) => path.length <= 300 && path.split("/").length <= 10 && path.split("/").every(isSegment2) && path.split("/").at(-1) === "SKILL.md";
+var isSkillFile2 = (file) => file.length <= 1024 && file.split("/").length <= 4 && file.split("/").at(-1) === "SKILL.md" && file.split("/").every((s) => isDescription2(s, 255) && s !== "." && s !== ".." && !s.includes("\\"));
 var line2 = (max) => string2().min(1).max(max).regex(LINE2).refine((s) => s.trim() === s);
 var skillId = string2().max(48).regex(SKILL_ID2);
 var specialistId = string2().max(48).regex(SPECIALIST_ID2);
 var projectKey = string2().max(40).regex(PROJECT_KEY2);
 var shown = (max) => string2().min(1).max(max);
+var described = (max = MAX_DESCRIPTION2) => string2().max(max).refine((v) => isDescription2(v, max));
 var skillFields = {
   id: skillId,
   name: line2(60),
-  description: line2(200),
+  description: described(),
   text: string2().min(1).max(MAX_TEXT2)
 };
+var license = described(200).nullable();
+var sourceSchema = discriminatedUnion("kind", [
+  strictObject({ kind: _enum(["team", "starter", "written"]) }),
+  strictObject({ kind: literal("pasted"), license }),
+  strictObject({
+    kind: literal("github"),
+    owner: string2().regex(GITHUB_OWNER2),
+    repo: string2().refine(isSegment2),
+    ref: string2().refine((r) => isSegment2(r) || /^[0-9a-f]{40}$/.test(r)),
+    path: string2().refine(isGithubPath2),
+    license
+  }),
+  strictObject({
+    kind: literal("claude"),
+    label: _enum(CLAUDE_LABELS2),
+    file: string2().refine(isSkillFile2),
+    license
+  })
+]);
 var keyBodySchema = strictObject({ key: string2().regex(KEY) });
 var keyPostSchema = strictObject({ key: string2().regex(KEY), project: shown(1024) });
 var preset = _enum(PRESETS2);
@@ -7486,13 +7548,13 @@ var specialistSchema = strictObject({
   on: boolean2(),
   skills: array(skillId).max(MAX_PRELOADED2)
 });
-var skillSchema = strictObject({ id: skillId, name: line2(60), description: line2(200) });
+var skillSchema = strictObject({ id: skillId, name: line2(60), description: described() });
 var specialists = array(specialistSchema).max(GUILDS2.length * MAX_PER_GUILD2);
 var librarySkillSchema = strictObject({
   id: skillId,
   name: line2(60),
-  description: line2(200),
-  source: strictObject({ kind: _enum(SOURCES2) }),
+  description: described(),
+  source: sourceSchema,
   addedAt: stamp
 });
 var usageSchema = strictObject({

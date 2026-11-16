@@ -35,7 +35,14 @@ export const MAX_PER_GUILD = 5;
 export const MAX_SPECIALISTS = GUILDS.length * MAX_PER_GUILD;
 export const MAX_SKILLS = 64;
 export const MAX_PRELOADED = 5;
-export const MAX_TEXT = 8000;
+/**
+ * v3.10 (Dima, 16 Nov): a skill's text up to 20,000 characters (93% of the catalog he counted fit), a library skill's
+ * description up to 1,024 (Anthropic's skill format), and a specialist's preloaded skills up to 40,000 characters
+ * together, about 10,800 tokens on every start of it.
+ */
+export const MAX_TEXT = 20000;
+export const MAX_DESCRIPTION = 1024;
+export const MAX_SPECIALIST_TEXT = 40000;
 /**
  * What a specialist may do (v3.6, E7): reads only; edits files; edits files and runs checks (a shell, which the setup's
  * allow rules hold to npm test and npm run check: everything else asks). The third is not for the Design guild.
@@ -67,6 +74,14 @@ const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v)
 const keysAre = (v, keys) => Object.keys(v).sort().join() === [...keys].sort().join();
 const line = (v, max) =>
   typeof v === 'string' && v.length >= 1 && v.length <= max && LINE.test(v) && v.trim() === v;
+/**
+ * v3.10: a library skill's description, or a license as written: any single line of printable text, trimmed, of `max`
+ * characters at most. No control or format character, no line or paragraph separator (YAML 1.1 reads those as line
+ * breaks), no lone surrogate (Cs, in a u pattern). buildSkill() quotes it, so a colon, a quote or a # is only text.
+ */
+export const UNPRINTED = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;
+export const isDescription = (v, max = MAX_DESCRIPTION) =>
+  typeof v === 'string' && v.length >= 1 && v.length <= max && v.trim() === v && !UNPRINTED.test(v);
 
 /**
  * Why `team` isn't a team (version 2, v3.6), or null when it is one. Strict: an unknown key, a bad value or a dangling
@@ -889,11 +904,67 @@ export function projectTeamOf(home, folder) {
 
 /**
  * Where a library skill came from: the shared team of v3.7 ("From your team (v3.7)"), the plugin's starter team, or
- * written on the Team page. v3.10 adds the ways in from outside.
+ * written on the Team page; from v3.10 also GitHub, Dima's Claude skills and a pasted SKILL.md, each with its facts.
  */
-export const SOURCES = Object.freeze(['team', 'starter', 'written']);
+export const SOURCES = Object.freeze(['team', 'starter', 'written', 'github', 'claude', 'pasted']);
+/** v3.10: how the app's manifest labels a Claude skill: his own, Anthropic's, or no label it could read. */
+export const CLAUDE_LABELS = Object.freeze(['mine', 'built-in', 'unlabelled']);
 const LIBRARY_SKILL_KEYS = ['id', 'name', 'description', 'source', 'addedAt'];
-const sourceOk = (source) => isObject(source) && keysAre(source, ['kind']) && SOURCES.includes(source.kind);
+/**
+ * v3.10: a GitHub link's parts, as server/github.ts parses them and the library keeps them. Owner: letters, digits and
+ * single hyphens, 1 to 39. Repository: letters, digits, `.`, `_`, `-`, 1 to 100, never `.` or `..`. Ref: one such
+ * segment or a 40-hex commit. Path: such segments, at most 10 and 300 characters, ending in SKILL.md.
+ */
+export const GITHUB_OWNER = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/;
+const SEGMENT = /^[A-Za-z0-9._-]{1,100}$/;
+export const isSegment = (s) => typeof s === 'string' && SEGMENT.test(s) && s !== '.' && s !== '..';
+export const isGithubPath = (path) =>
+  typeof path === 'string' &&
+  path.length <= 300 &&
+  path.split('/').length <= 10 &&
+  path.split('/').every(isSegment) &&
+  path.split('/').at(-1) === 'SKILL.md';
+/** v3.10: a Claude skill's file, relative to ~/.claude/skills, as the hall found it: shown, and matched, never opened. */
+const isSkillFile = (file) =>
+  typeof file === 'string' &&
+  file.length <= 1024 &&
+  file.split('/').length <= 4 &&
+  file.split('/').at(-1) === 'SKILL.md' &&
+  file.split('/').every((s) => isDescription(s, 255) && s !== '.' && s !== '..' && !s.includes('\\'));
+const licenseOk = (v) => v === null || isDescription(v, 200);
+function sourceOk(source) {
+  if (!isObject(source) || !SOURCES.includes(source.kind)) return false;
+  const { kind } = source;
+  if (['team', 'starter', 'written'].includes(kind)) return keysAre(source, ['kind']);
+  if (kind === 'pasted') return keysAre(source, ['kind', 'license']) && licenseOk(source.license);
+  if (kind === 'github')
+    return (
+      keysAre(source, ['kind', 'owner', 'repo', 'ref', 'path', 'license']) &&
+      GITHUB_OWNER.test(source.owner) &&
+      isSegment(source.repo) &&
+      (isSegment(source.ref) || /^[0-9a-f]{40}$/.test(source.ref)) &&
+      isGithubPath(source.path) &&
+      licenseOk(source.license)
+    );
+  return (
+    keysAre(source, ['kind', 'label', 'file', 'license']) &&
+    CLAUDE_LABELS.includes(source.label) &&
+    isSkillFile(source.file) &&
+    licenseOk(source.license)
+  );
+}
+
+/**
+ * v3.10: what each specialist's preloaded skills come to, in characters, with `texts`: the first one over
+ * MAX_SPECIALIST_TEXT, or null when none is.
+ */
+export const specialistText = (p, texts) => p.skills.reduce((n, id) => n + (texts[id]?.length ?? 0), 0);
+export function overCap(specialists, texts) {
+  return specialists.find((p) => specialistText(p, texts) > MAX_SPECIALIST_TEXT) ?? null;
+}
+const thousands = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+const capWords = (p, texts, where = '') =>
+  `${where}the ${p.name}'s skills would come to ${thousands(specialistText(p, texts))} characters, over ${thousands(MAX_SPECIALIST_TEXT)}`;
 
 export const emptyLibrary = () => ({ version: 1, skills: [] });
 
@@ -908,7 +979,7 @@ export function libraryProblem(library) {
     if (typeof s.id !== 'string' || s.id.length > 48 || !SKILL_ID.test(s.id) || ids.has(s.id))
       return 'a skill id';
     if (NOTE_SKILL_IDS.includes(s.id)) return 'a skill id';
-    if (!line(s.name, 60) || !line(s.description, 200)) return `skill ${s.id}`;
+    if (!line(s.name, 60) || !isDescription(s.description)) return `skill ${s.id}`;
     if (!sourceOk(s.source)) return `skill ${s.id}'s source`;
     if (!Number.isSafeInteger(s.addedAt) || s.addedAt <= 0) return `skill ${s.id}'s date`;
     ids.add(s.id);
@@ -970,6 +1041,8 @@ export function writeProjectTeam(home, key, checked, library, texts, notes) {
   const used = [...new Set(checked.specialists.flatMap((p) => p.skills))];
   const missing = used.find((id) => !known.has(id));
   if (missing !== undefined) throw new Error(`skill ${missing} is not in the library`);
+  const over = overCap(checked.specialists, texts);
+  if (over) throw new Error(capWords(over, texts));
   const skills = used.map((id) => {
     const s = known.get(id);
     return { id, name: s.name, description: s.description };
@@ -1239,11 +1312,12 @@ export function changeProject(home, key, change, now, proposal = null, teamFiles
       if (NOTE_SKILL_IDS.includes(change.id)) throw new Error("that id is kept for the guild leads' notes");
       if (library.skills.length >= MAX_LIBRARY)
         throw new Error(`the library has ${MAX_LIBRARY} skills already`);
+      // v3.10: the hall says where a skill it checked came from; anything the page writes is written here.
       library.skills.push({
         id: change.id,
         name: change.name,
         description: change.description,
-        source: { kind: 'written' },
+        source: change.source ?? { kind: 'written' },
         addedAt: now,
       });
     } else {
@@ -1290,6 +1364,15 @@ export function changeProject(home, key, change, now, proposal = null, teamFiles
   const next = { ...team, specialists };
   const why = projectTeamProblem(next);
   if (why) throw new Error(`not a team: ${why}`);
+  // v3.10: a longer text must leave every specialist that has it, here and in every other project, under the cap,
+  // checked before anything is written.
+  const over = overCap(next.specialists, texts);
+  if (over) throw new Error(capWords(over, texts));
+  for (const other of touched?.length ? listProjects(home) : []) {
+    if (other.key === key || other.team === null) continue;
+    const there = overCap(other.team.specialists, texts);
+    if (there) throw new Error(capWords(there, texts, `in ${other.name}, `));
+  }
   if (touched !== null) writeLibrary(home, library, texts);
   writeProjectTeam(home, key, next, library, texts, notes);
   writeFileSync(inside(dir, 'notes.json'), `${JSON.stringify(notes, null, 2)}\n`);

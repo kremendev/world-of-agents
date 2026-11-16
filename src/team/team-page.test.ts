@@ -12,6 +12,8 @@ import { exchangeKey } from './api';
 import { startTeamSession, takeKey } from './key';
 import { GUILDS, skillIdOf, specialistIdOf, teamChangeSchema } from './schema';
 import { checkText } from './text';
+import * as team from '../../plugin/team/team.mjs';
+import * as schema from './schema';
 
 const KEY = `${'a'.repeat(42)}Z`;
 
@@ -234,5 +236,51 @@ describe('attach takes a place for Undo (3.6e)', () => {
   });
   it('a detach takes none', () => {
     expect(teamChangeSchema.safeParse({ ...attach, action: 'detach', at: 0 }).success).toBe(false);
+  });
+});
+
+describe('the schema and team.mjs agree on the v3.10 rules', () => {
+  it('the same limits, kinds and labels', () => {
+    expect(schema.MAX_TEXT).toBe(team.MAX_TEXT);
+    expect(schema.MAX_DESCRIPTION).toBe(team.MAX_DESCRIPTION);
+    expect(schema.MAX_SPECIALIST_TEXT).toBe(team.MAX_SPECIALIST_TEXT);
+    expect([...schema.SOURCES]).toEqual([...team.SOURCES]);
+    expect([...schema.CLAUDE_LABELS]).toEqual([...team.CLAUDE_LABELS]);
+    expect(schema.GITHUB_OWNER.source).toBe(team.GITHUB_OWNER.source);
+    expect(schema.UNPRINTED.source).toBe(team.UNPRINTED.source);
+  });
+
+  it('the same descriptions and sources, taken or refused', () => {
+    const descriptions = [
+      'Plain',
+      'Use it when: # "x"',
+      'x'.repeat(1024),
+      'x'.repeat(1025),
+      'two\nlines',
+      ` padded`,
+      `a${String.fromCharCode(0x2028)}b`,
+      `a${String.fromCharCode(0xd800)}b`,
+    ];
+    for (const d of descriptions)
+      expect(schema.isDescription(d), JSON.stringify(d).slice(0, 40)).toBe(team.isDescription(d));
+    const sources = [
+      { kind: 'written' },
+      { kind: 'pasted', license: null },
+      { kind: 'pasted' },
+      { kind: 'github', owner: 'a', repo: 'b', ref: 'main', path: 'SKILL.md', license: null },
+      { kind: 'github', owner: 'a--b', repo: 'b', ref: 'main', path: 'SKILL.md', license: null },
+      { kind: 'github', owner: 'a', repo: '..', ref: 'main', path: 'SKILL.md', license: null },
+      { kind: 'github', owner: 'a', repo: 'b', ref: 'a/b', path: 'SKILL.md', license: null },
+      { kind: 'github', owner: 'a', repo: 'b', ref: 'main', path: 'x/../SKILL.md', license: null },
+      { kind: 'claude', label: 'mine', file: 'x/SKILL.md', license: 'MIT' },
+      { kind: 'claude', label: 'mine', file: '../x/SKILL.md', license: 'MIT' },
+      { kind: 'claude', label: 'theirs', file: 'x/SKILL.md', license: null },
+    ];
+    for (const source of sources) {
+      const library = { version: 1, skills: [{ id: 'x', name: 'X', description: 'X', source, addedAt: 1 }] };
+      expect(schema.sourceSchema.safeParse(source).success, JSON.stringify(source)).toBe(
+        team.libraryProblem(library) === null,
+      );
+    }
   });
 });

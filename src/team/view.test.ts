@@ -1,6 +1,6 @@
 // The Team page's words and rules (v3.6): its refusals say first what the hall would refuse, never less and never more.
 import { describe, expect, it } from 'vitest';
-import { applyChange, defaults } from '../../plugin/team/team.mjs';
+import { applyChange, defaults, libraryProblem, overCap, textProblem } from '../../plugin/team/team.mjs';
 import { teamChangeSchema, type TeamView } from './schema';
 import { checkText } from './text';
 import {
@@ -109,6 +109,20 @@ describe('the refusals agree with the hall', () => {
     expect(specialistRefusals(d, view()).length === 0).toBe(hallTakes(d));
   });
 
+  it("v3.10: a specialist's skills over 40,000 characters together, as team.mjs refuses them", () => {
+    const v = view();
+    const ids = v.library.slice(0, 3).map((s) => s.id);
+    const texts = { ...v.texts, [ids[0]!]: 'a'.repeat(20000), [ids[1]!]: 'b'.repeat(20000), [ids[2]!]: 'c' };
+    const draft = add({ skills: ids });
+    expect(specialistRefusals(draft, { ...v, texts })).toContain(
+      'Its skills would come to 40,001 characters, over 40,000.',
+    );
+    expect(overCap([{ skills: ids }], texts)).not.toBeNull();
+    const fits = { ...texts, [ids[2]!]: '' };
+    expect(specialistRefusals(draft, { ...v, texts: fits })).toEqual([]);
+    expect(overCap([{ skills: ids }], fits)).toBeNull();
+  });
+
   it('a skill: the page refuses what team.mjs refuses', () => {
     const skill = (more: Partial<SkillDraft>): SkillDraft => ({
       mode: 'add',
@@ -118,6 +132,8 @@ describe('the refusals agree with the hall', () => {
       text: 'Write what changed.',
       ...more,
     });
+    // v3.9: a new skill goes into the library: the schema, then what team.mjs's add-skill checks (the text, and the
+    // library with the skill in it).
     const hallTakes = (d: SkillDraft) => {
       const change = {
         action: 'add-skill',
@@ -127,12 +143,12 @@ describe('the refusals agree with the hall', () => {
         text: d.text,
       };
       if (!teamChangeSchema.safeParse(change).success) return false;
-      try {
-        applyChange(hallTeam() as never, view().texts, change as never, 1);
-        return true;
-      } catch {
-        return false;
-      }
+      const { id, name, description } = change;
+      const library = {
+        version: 1,
+        skills: [...view().library, { id, name, description, source: { kind: 'written' }, addedAt: 1 }],
+      };
+      return textProblem(d.text) === null && libraryProblem(library) === null;
     };
     for (const d of [
       skill({}),
@@ -140,7 +156,17 @@ describe('the refusals agree with the hall', () => {
       skill({ text: `a${String.fromCodePoint(0x200b)}b` }),
       skill({ text: '   ' }),
       skill({ name: 'OWASP checks' }),
-      skill({ description: 'For: this' }),
+      // v3.10: a description is any one line of printable text, up to 1,024 characters; a text up to 20,000.
+      skill({ description: 'For: this, and # that "quoted"' }),
+      skill({ description: 'x'.repeat(1024) }),
+      skill({ description: 'x'.repeat(1025) }),
+      skill({ description: 'Two\nlines' }),
+      skill({ description: `Hidden${String.fromCodePoint(0x200b)}` }),
+      skill({ description: `Separator${String.fromCharCode(0x2028)}here` }),
+      skill({ description: `Half ${String.fromCharCode(0xd800)} a pair` }),
+      skill({ description: ' padded ' }),
+      skill({ text: 'x'.repeat(20000) }),
+      skill({ text: 'x'.repeat(20001) }),
     ])
       expect(skillRefusals(d, view()).length === 0, JSON.stringify(d).slice(0, 80)).toBe(hallTakes(d));
   });

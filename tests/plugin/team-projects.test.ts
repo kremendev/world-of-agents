@@ -23,6 +23,9 @@ import {
   isChange,
   isProjectKey,
   libraryDir,
+  libraryProblem,
+  MAX_SPECIALIST_TEXT,
+  MAX_TEXT,
   listProjects,
   projectDir,
   projectOf,
@@ -36,6 +39,7 @@ import {
   readReview,
   teamDir,
   teamFilesOf,
+  textProblem,
   writeNotes,
   type Notes,
 } from '../../plugin/team/team.mjs';
@@ -437,5 +441,185 @@ describe('the projects on this PC, and their team files', () => {
     expect(isChange({ at: 1, what: 'team-copied', project: 'secret name' })).toBe(false);
     expect(isChange({ at: 1, what: 'note-kept', agent: 'Reviewer' })).toBe(true);
     expect(isChange({ at: 1, what: 'note-dropped', agent: 'Somebody' })).toBe(false);
+  });
+});
+
+// v3.10 (docs/v3.10-plan.md): longer texts and descriptions, each library skill's source with its facts, and a
+// specialist's skills held to 40,000 characters together, here and in every project that shares a skill.
+describe('v3.10: the library rules', () => {
+  const library = (source: unknown, more: Record<string, unknown> = {}) => ({
+    version: 1,
+    skills: [{ id: 'one', name: 'One', description: 'What it is for', source, addedAt: 1, ...more }],
+  });
+  const GITHUB = {
+    kind: 'github',
+    owner: 'davila7',
+    repo: 'claude-code-templates',
+    ref: 'main',
+    path: 'cli-tool/components/skills/owasp/SKILL.md',
+    license: 'MIT',
+  };
+  const CLAUDE = {
+    kind: 'claude',
+    label: 'built-in',
+    file: 'synced/org_account/pdf/SKILL.md',
+    license: null,
+  };
+
+  it('keeps where a skill came from, with its facts, and nothing it does not know', () => {
+    for (const source of [
+      { kind: 'team' },
+      { kind: 'starter' },
+      { kind: 'written' },
+      { kind: 'pasted', license: null },
+      { kind: 'pasted', license: 'Apache-2.0' },
+      GITHUB,
+      { ...GITHUB, ref: 'a'.repeat(40) },
+      { ...GITHUB, owner: 'a-b-c', repo: 'x.y_z-1' },
+      CLAUDE,
+      { ...CLAUDE, label: 'mine', file: 'my-skill/SKILL.md' },
+      { ...CLAUDE, label: 'unlabelled', license: 'Proprietary. LICENSE.txt has complete terms' },
+    ])
+      expect(libraryProblem(library(source)), JSON.stringify(source)).toBeNull();
+    for (const source of [
+      { kind: 'written', license: null },
+      { kind: 'pasted' },
+      { kind: 'pasted', license: 'two\nlines' },
+      { kind: 'elsewhere' },
+      { ...GITHUB, extra: 1 },
+      { ...GITHUB, owner: 'a--b' },
+      { ...GITHUB, owner: '-a' },
+      { ...GITHUB, owner: 'a'.repeat(40) },
+      { ...GITHUB, repo: '..' },
+      { ...GITHUB, repo: 'a/b' },
+      { ...GITHUB, ref: 'feature/x' },
+      { ...GITHUB, path: 'skills/../SKILL.md' },
+      { ...GITHUB, path: 'skills/README.md' },
+      { ...GITHUB, path: `${'a/'.repeat(10)}SKILL.md` },
+      { ...GITHUB, license: 'x'.repeat(201) },
+      { ...CLAUDE, label: 'theirs' },
+      { ...CLAUDE, file: '../secrets/SKILL.md' },
+      { ...CLAUDE, file: 'a/b/c/d/SKILL.md' },
+      { ...CLAUDE, file: `a${String.fromCharCode(92)}b/SKILL.md` },
+      { ...CLAUDE, file: 'pdf/notes.md' },
+    ])
+      expect(libraryProblem(library(source)), JSON.stringify(source)).not.toBeNull();
+  });
+
+  it('takes a description of 1,024 characters and a text of 20,000, and no more', () => {
+    const written = { kind: 'written' };
+    expect(libraryProblem(library(written, { description: 'x'.repeat(1024) }))).toBeNull();
+    expect(libraryProblem(library(written, { description: 'x'.repeat(1025) }))).not.toBeNull();
+    expect(libraryProblem(library(written, { description: 'Use it when: # "anything"' }))).toBeNull();
+    expect(MAX_TEXT).toBe(20000);
+    expect(textProblem('x'.repeat(20000))).toBeNull();
+    expect(textProblem('x'.repeat(20001))).toBe('too long');
+  });
+
+  it('a skill the hall checked keeps the source it gives; the page writes only written skills', () => {
+    const home = temp('woa-home-');
+    const key = giveOwnTeam(home, temp('woa-proj-'), 'empty', NOW).project.key;
+    const skill = {
+      id: 'owasp',
+      name: 'OWASP',
+      description: 'Checks for OWASP issues',
+      text: 'Read the diff.',
+    };
+    changeProject(home, key, { action: 'add-skill', ...skill, source: GITHUB as never }, NOW + 1);
+    expect(readLibrary(home).library.skills.at(-1)).toEqual({
+      id: 'owasp',
+      name: 'OWASP',
+      description: 'Checks for OWASP issues',
+      source: GITHUB,
+      addedAt: NOW + 1,
+    });
+    expect(() =>
+      changeProject(
+        home,
+        key,
+        { action: 'add-skill', ...skill, id: 'bad', source: { ...GITHUB, repo: '..' } as never },
+        NOW + 2,
+      ),
+    ).toThrow("skill bad's source");
+  });
+
+  describe("a specialist's skills, 40,000 characters together at most", () => {
+    /** Two projects, each with a specialist holding four 9,000-character skills: 36,000. A fifth waits in the library. */
+    function nearTheCap() {
+      const home = homeWithShared();
+      const a = giveOwnTeam(home, temp('woa-a-'), 'empty', NOW).project.key;
+      const b = giveOwnTeam(home, temp('woa-b-'), 'empty', NOW + 1).project.key;
+      const ids = ['big-1', 'big-2', 'big-3', 'big-4', 'big-5'];
+      for (const [i, id] of ids.entries()) {
+        const text = (i < 4 ? 'a' : 'b').repeat(9000);
+        changeProject(
+          home,
+          a,
+          { action: 'add-skill', id, name: `Big ${i + 1}`, description: 'Big', text },
+          NOW + 2 + i,
+        );
+      }
+      const specialist = {
+        action: 'add-specialist' as const,
+        name: 'Packer',
+        guild: 'frontend' as const,
+        role: 'Packs skills',
+        preset: 'reads' as const,
+        skills: ids.slice(0, 4),
+      };
+      changeProject(home, a, specialist, NOW + 10);
+      changeProject(home, b, specialist, NOW + 11);
+      return { home, a, b };
+    }
+
+    it('a fifth skill that would pass 40,000 is refused, naming the specialist, and nothing is written', () => {
+      const { home, a } = nearTheCap();
+      expect(MAX_SPECIALIST_TEXT).toBe(40000);
+      const before = snapshot(join(home, '.world-of-agents'));
+      expect(() =>
+        changeProject(home, a, { action: 'attach', specialist: 'frontend-packer', skill: 'big-5' }, NOW + 12),
+      ).toThrow("the Packer's skills would come to 45,000 characters, over 40,000");
+      expect(snapshot(join(home, '.world-of-agents'))).toEqual(before);
+    });
+
+    it('a text grown past the cap of a specialist in this project is refused before the library is written', () => {
+      const { home, a, b } = nearTheCap();
+      // Only this project's specialist has it, so the refusal is this project's own.
+      changeProject(home, b, { action: 'detach', specialist: 'frontend-packer', skill: 'big-1' }, NOW + 11);
+      const before = snapshot(join(home, '.world-of-agents'));
+      const change = {
+        action: 'change-skill' as const,
+        id: 'big-1',
+        name: 'Big 1',
+        description: 'Big',
+        text: 'c'.repeat(13001),
+      };
+      expect(() => changeProject(home, a, change, NOW + 12)).toThrow(
+        /^the Packer's skills would come to 40,001 characters, over 40,000$/,
+      );
+      expect(snapshot(join(home, '.world-of-agents'))).toEqual(before);
+    });
+
+    it('a text grown in the library past the cap of a specialist in another project is refused, naming it', () => {
+      const { home, a, b } = nearTheCap();
+      // A project where no specialist has it any more, so only the other project's specialist goes over.
+      changeProject(home, a, { action: 'detach', specialist: 'frontend-packer', skill: 'big-1' }, NOW + 12);
+      const before = snapshot(join(home, '.world-of-agents'));
+      const change = {
+        action: 'change-skill' as const,
+        id: 'big-1',
+        name: 'Big 1',
+        description: 'Big',
+        text: 'c'.repeat(13001),
+      };
+      const name = readProject(home, b)!.name;
+      expect(() => changeProject(home, a, change, NOW + 13)).toThrow(
+        `in ${name}, the Packer's skills would come to 40,001 characters, over 40,000`,
+      );
+      expect(snapshot(join(home, '.world-of-agents'))).toEqual(before);
+      // At the cap exactly, it goes through, everywhere.
+      changeProject(home, a, { ...change, text: 'c'.repeat(13000) }, NOW + 14);
+      expect(readLibrary(home).texts['big-1']).toHaveLength(13000);
+    });
   });
 });

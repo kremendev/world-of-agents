@@ -1,7 +1,18 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { GUILDS, MAX_PRELOADED, PRESETS, type TeamSpecialist, type TeamView } from '../team/schema';
+import {
+  GUILDS,
+  MAX_PRELOADED,
+  MAX_SPECIALIST_TEXT,
+  PRESETS,
+  type TeamSpecialist,
+  type TeamView,
+} from '../team/schema';
 import {
   aboutTokens,
+  charsOf,
+  nearCap,
+  startLine,
+  thousands,
   draftId,
   GUILD_NAME,
   LEAD_NAME,
@@ -216,7 +227,12 @@ function SpecialistDetails({
   const deleteButton = `${own}-delete`;
   const lead = LEAD_NAME[p.guild];
   const nameOf = (id: string) => view.library.find((s) => s.id === id)?.name ?? id;
-  const free = view.library.filter((s) => !p.skills.includes(s.id));
+  // v3.10: a skill too big for what the 40,000 characters leave is not offered.
+  const used = charsOf(p.skills, view.texts);
+  const left = MAX_SPECIALIST_TEXT - used;
+  const others = view.library.filter((s) => !p.skills.includes(s.id));
+  const free = others.filter((s) => (view.texts[s.id]?.length ?? 0) <= left);
+  const tooBig = others.length - free.length;
   const full = p.skills.length >= MAX_PRELOADED;
 
   const give = async (skill: string) => {
@@ -325,6 +341,10 @@ function SpecialistDetails({
             </li>
           )}
         </ul>
+        <p className="tp-muted tp-start-cost">{startLine(used)}</p>
+        <div className={nearCap(used) ? 'tp-meter near' : 'tp-meter'} aria-hidden="true">
+          <span style={{ width: `${Math.min(100, (used / MAX_SPECIALIST_TEXT) * 100)}%` }} />
+        </div>
         {picking && !full && (
           <div
             className="tp-picker"
@@ -352,6 +372,12 @@ function SpecialistDetails({
                 Cancel
               </button>
             </div>
+            {tooBig > 0 && (
+              <p className="tp-muted">
+                {tooBig === 1 ? '1 skill is' : `${tooBig} skills are`} too big for the {thousands(left)}{' '}
+                characters left, so not offered.
+              </p>
+            )}
             <ul className="tp-picker-list">
               {free.map((s, i) => (
                 <li key={s.id}>

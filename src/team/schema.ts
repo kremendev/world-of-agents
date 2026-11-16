@@ -12,7 +12,14 @@ export const SKILL_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const SPECIALIST_ID = /^(design|frontend|backend|review)-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** A name, role or description: it goes into YAML frontmatter, so no colon, no line break, no #. */
 export const LINE = /^[\p{L}\p{N} .,()'&/-]+$/u;
-export const MAX_TEXT = 8000;
+/** v3.10 (Dima, 16 Nov): a skill's text, a library skill's description, a specialist's skills together. */
+export const MAX_TEXT = 20000;
+export const MAX_DESCRIPTION = 1024;
+export const MAX_SPECIALIST_TEXT = 40000;
+/** team.mjs's isDescription(): one line of printable text, no control, format or separator character, no lone surrogate. */
+export const UNPRINTED = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}\p{Cs}]/u;
+export const isDescription = (v: string, max = MAX_DESCRIPTION) =>
+  v.length >= 1 && v.length <= max && v.trim() === v && !UNPRINTED.test(v);
 export const MAX_PRELOADED = 5;
 export const GUILDS = ['design', 'frontend', 'backend', 'review'] as const;
 /** What a specialist may do (v3.6, E7). The third is not for the Design guild. */
@@ -20,8 +27,23 @@ export const PRESETS = ['reads', 'edits', 'edits-and-checks'] as const;
 export const MAX_PER_GUILD = 5;
 /** v3.9: a project's key (team.mjs's projectOf()), where a library skill came from, and the library's size. */
 export const PROJECT_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{10}$/;
-export const SOURCES = ['team', 'starter', 'written'] as const;
+export const SOURCES = ['team', 'starter', 'written', 'github', 'claude', 'pasted'] as const;
+export const CLAUDE_LABELS = ['mine', 'built-in', 'unlabelled'] as const;
 export const MAX_LIBRARY = 200;
+/** v3.10: team.mjs's GitHub parts (server/github.ts parses a link into them). */
+export const GITHUB_OWNER = /^[A-Za-z0-9](?:-?[A-Za-z0-9]){0,38}$/;
+const SEGMENT = /^[A-Za-z0-9._-]{1,100}$/;
+const isSegment = (s: string) => SEGMENT.test(s) && s !== '.' && s !== '..';
+const isGithubPath = (path: string) =>
+  path.length <= 300 &&
+  path.split('/').length <= 10 &&
+  path.split('/').every(isSegment) &&
+  path.split('/').at(-1) === 'SKILL.md';
+const isSkillFile = (file: string) =>
+  file.length <= 1024 &&
+  file.split('/').length <= 4 &&
+  file.split('/').at(-1) === 'SKILL.md' &&
+  file.split('/').every((s) => isDescription(s, 255) && s !== '.' && s !== '..' && !s.includes('\\'));
 
 const line = (max: number) =>
   z
@@ -35,12 +57,39 @@ const specialistId = z.string().max(48).regex(SPECIALIST_ID);
 const projectKey = z.string().max(40).regex(PROJECT_KEY);
 /** A folder's name or path: only ever shown as text. */
 const shown = (max: number) => z.string().min(1).max(max);
+/** v3.10: a library skill's description, or a license as written (team.mjs's isDescription()). */
+const described = (max = MAX_DESCRIPTION) =>
+  z
+    .string()
+    .max(max)
+    .refine((v) => isDescription(v, max));
 const skillFields = {
   id: skillId,
   name: line(60),
-  description: line(200),
+  description: described(),
   text: z.string().min(1).max(MAX_TEXT),
 };
+const license = described(200).nullable();
+/** v3.10: where a library skill came from, with its facts (team.mjs's sourceOk()). */
+export const sourceSchema = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.enum(['team', 'starter', 'written']) }),
+  z.strictObject({ kind: z.literal('pasted'), license }),
+  z.strictObject({
+    kind: z.literal('github'),
+    owner: z.string().regex(GITHUB_OWNER),
+    repo: z.string().refine(isSegment),
+    ref: z.string().refine((r) => isSegment(r) || /^[0-9a-f]{40}$/.test(r)),
+    path: z.string().refine(isGithubPath),
+    license,
+  }),
+  z.strictObject({
+    kind: z.literal('claude'),
+    label: z.enum(CLAUDE_LABELS),
+    file: z.string().refine(isSkillFile),
+    license,
+  }),
+]);
+export type SkillSource = z.infer<typeof sourceSchema>;
 
 /** {"key": "..."}: the body of POST /api/session, from the page. */
 export const keyBodySchema = z.strictObject({ key: z.string().regex(KEY) });
@@ -142,15 +191,15 @@ const specialistSchema = z.strictObject({
   on: z.boolean(),
   skills: z.array(skillId).max(MAX_PRELOADED),
 });
-const skillSchema = z.strictObject({ id: skillId, name: line(60), description: line(200) });
+const skillSchema = z.strictObject({ id: skillId, name: line(60), description: described() });
 
 const specialists = z.array(specialistSchema).max(GUILDS.length * MAX_PER_GUILD);
 /** v3.9: a library skill, with where it came from and when. */
 const librarySkillSchema = z.strictObject({
   id: skillId,
   name: line(60),
-  description: line(200),
-  source: z.strictObject({ kind: z.enum(SOURCES) }),
+  description: described(),
+  source: sourceSchema,
   addedAt: stamp,
 });
 /** A project that uses a skill: its key, its folder's name, and which of its specialists have it. */

@@ -5,14 +5,17 @@ import { NOTE_AGENTS, type NoteAgent } from './note';
 import { checkText, type Flag, type TextCheck } from './text';
 import {
   GUILDS,
+  isDescription,
   LINE,
+  MAX_DESCRIPTION,
+  MAX_SPECIALIST_TEXT,
   MAX_PER_GUILD,
   MAX_PRELOADED,
   PRESETS,
   skillIdOf,
   specialistIdOf,
   type ReviewNote,
-  type SOURCES,
+  type SkillSource,
   type TeamChange,
   type TeamNote,
   type TeamProposal,
@@ -111,19 +114,45 @@ export function whoLoses(view: TeamView, id: string): string {
     .join(' ');
 }
 
-type Source = (typeof SOURCES)[number];
-/** v3.9: the Library tab's groups, by where a skill came from, in this order. */
-export const SOURCE_GROUP: Record<Source, string> = {
-  team: 'From your team (v3.7)',
-  starter: 'From the starter team',
-  written: 'Written here',
-};
+/**
+ * The Library tab's groups (v3.9; v3.10 the approved mockup), by where a skill came from, in this order: a Claude skill
+ * goes under yours or the built-in ones by the app's label, and one with no label under yours.
+ */
+export const GROUPS = [
+  { id: 'team', label: 'From your team (v3.7)' },
+  { id: 'starter', label: 'From the starter team' },
+  { id: 'github', label: 'From GitHub' },
+  { id: 'mine', label: 'From your Claude skills' },
+  { id: 'built-in', label: 'Built-in Claude skills' },
+  { id: 'pasted', label: 'Pasted' },
+  { id: 'written', label: 'Written here' },
+] as const;
+export type Group = (typeof GROUPS)[number]['id'];
+export function groupOf(source: SkillSource): Group {
+  if (source.kind !== 'claude') return source.kind;
+  return source.label === 'built-in' ? 'built-in' : 'mine';
+}
 /** Where a skill came from, in its facts box. */
-export const SOURCE_FROM: Record<Source, string> = {
-  team: 'Your team (v3.7)',
-  starter: 'The starter team',
-  written: 'Written here',
-};
+export function sourceFrom(source: SkillSource): string {
+  switch (source.kind) {
+    case 'team':
+      return 'Your team (v3.7)';
+    case 'starter':
+      return 'The starter team';
+    case 'written':
+      return 'Written here';
+    case 'pasted':
+      return 'Pasted';
+    case 'github':
+      return 'GitHub';
+    case 'claude':
+      return source.label === 'built-in'
+        ? 'Built-in Claude skills'
+        : source.label === 'mine'
+          ? 'Your Claude skills'
+          : 'Your Claude skills (no label in the app)';
+  }
+}
 
 /** "Used in 2 projects", or "Not used yet". */
 export const usedLine = (projects: number) =>
@@ -133,13 +162,25 @@ export const usedLine = (projects: number) =>
  * About how many tokens a text costs a specialist that preloads it, every time it starts: its characters over 3.7, as
  * measured on 16 Nov (docs/v3.10-plan.md), to the nearest ten, or hundred from a thousand on.
  */
-export function tokensOf(text: string): number {
-  const n = Math.round(text.length / 3.7);
+export const tokensOf = (text: string) => tokensFor(text.length);
+/** The same for a number of characters: none costs nothing. */
+export function tokensFor(chars: number): number {
+  if (chars === 0) return 0;
+  const n = Math.round(chars / 3.7);
   return n < 1000 ? Math.max(10, Math.round(n / 10) * 10) : Math.round(n / 100) * 100;
 }
+/** v3.10: what a specialist's skills come to together, in characters (team.mjs's specialistText()). */
+export const charsOf = (skills: readonly string[], texts: Readonly<Record<string, string>>) =>
+  skills.reduce((n, id) => n + (texts[id]?.length ?? 0), 0);
+/** "About 2,300 tokens every time it starts · 8,512 of 40,000 characters": a specialist's cost, on its page. */
+export const startLine = (chars: number) =>
+  `About ${thousands(tokensFor(chars))} tokens every time it starts · ${thousands(chars)} of ${thousands(MAX_SPECIALIST_TEXT)} characters`;
+/** Past 85% of the cap, its bar turns amber. */
+export const nearCap = (chars: number) => chars > MAX_SPECIALIST_TEXT * 0.85;
+/** "40,000". */
+export const thousands = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 /** "about 2,300 tokens". */
-export const aboutTokens = (text: string) =>
-  `about ${String(tokensOf(text)).replace(/\B(?=(\d{3})+(?!\d))/g, ',')} tokens`;
+export const aboutTokens = (text: string) => `about ${thousands(tokensOf(text))} tokens`;
 
 /** "14 Nov 2026": when a skill came into the library. */
 export function dayOf(at: number): string {
@@ -207,6 +248,8 @@ const lineRule = (field: string, max: number) =>
   `${field} may hold only letters, digits, spaces and . , ( ) ' & / -, ${max} at most, no space at either end.`;
 const isLine = (value: string, max: number) =>
   value.length <= max && LINE.test(value) && value.trim() === value;
+/** v3.10: what a library skill's description may hold (team.mjs's isDescription()). */
+export const DESCRIPTION_RULE = `What it's for must be one line of ${thousands(MAX_DESCRIPTION)} characters at most, with no hidden characters and no space at either end.`;
 
 export type SpecialistDraft = {
   mode: 'add' | 'change';
@@ -246,6 +289,11 @@ export function specialistRefusals(d: SpecialistDraft, view: TeamView): string[]
   if (!presetAllowed(d.guild, d.preset))
     out.push('The Design guild runs no commands: pick Reads only or Edits files.');
   if (d.skills.length > MAX_PRELOADED) out.push(`A specialist has at most ${MAX_PRELOADED} skills.`);
+  const chars = charsOf(d.skills, view.texts);
+  if (chars > MAX_SPECIALIST_TEXT)
+    out.push(
+      `Its skills would come to ${thousands(chars)} characters, over ${thousands(MAX_SPECIALIST_TEXT)}.`,
+    );
   return out;
 }
 
@@ -272,7 +320,7 @@ export function skillRefusals(d: SkillDraft, view: TeamView): string[] {
       out.push(`A skill with the id woa-team:${id} is in the library already.`);
   }
   if (d.description === '') out.push("Say what it's for, in one line.");
-  else if (!isLine(d.description, 200)) out.push(lineRule("What it's for", 200));
+  else if (!isDescription(d.description)) out.push(DESCRIPTION_RULE);
   return [...out, ...checkText(d.text).refusals];
 }
 

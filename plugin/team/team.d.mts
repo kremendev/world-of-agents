@@ -23,6 +23,10 @@ export const GENERATOR: number;
 export const MAX_SKILLS: number;
 export const MAX_PRELOADED: number;
 export const MAX_TEXT: number;
+export const MAX_DESCRIPTION: number;
+export const UNPRINTED: RegExp;
+export const MAX_SPECIALIST_TEXT: number;
+export function isDescription(value: unknown, max?: number): boolean;
 export function problem(team: unknown): string | null;
 export function upgrade(team: unknown): unknown;
 export function textProblem(text: unknown): string | null;
@@ -107,8 +111,15 @@ export type FilledEntry =
   | { at: number; what: 'starter-added' | 'team-copied' }
   | { at: number; what: 'team-given'; from: 'shared' | 'empty' };
 export type LogEntry = ChangeEntry | NoteEntry | FilledEntry;
-export type SourceKind = 'team' | 'starter' | 'written';
-export type LibrarySkill = Skill & { source: { kind: SourceKind }; addedAt: number };
+export type SourceKind = 'team' | 'starter' | 'written' | 'github' | 'claude' | 'pasted';
+export type ClaudeLabel = 'mine' | 'built-in' | 'unlabelled';
+/** v3.10: where a library skill came from, with its facts. */
+export type SkillSource =
+  | { kind: 'team' | 'starter' | 'written' }
+  | { kind: 'pasted'; license: string | null }
+  | { kind: 'github'; owner: string; repo: string; ref: string; path: string; license: string | null }
+  | { kind: 'claude'; label: ClaudeLabel; file: string; license: string | null };
+export type LibrarySkill = Skill & { source: SkillSource; addedAt: number };
 export type Library = { version: 1; skills: LibrarySkill[] };
 export type ProjectTeam = { version: 3; generator: number; specialists: Specialist[] };
 export type Project = { key: string; folder: string; name: string };
@@ -126,7 +137,9 @@ export type ProjectChange =
         action: 'add-specialist' | 'change-specialist' | 'delete-specialist' | 'switch' | 'attach' | 'detach';
       }
     >
-  | Extract<TeamChange, { action: 'add-skill' | 'change-skill' | 'delete-skill' }>
+  | Extract<TeamChange, { action: 'delete-skill' }>
+  | { action: 'change-skill'; id: string; name: string; description: string; text: string }
+  | { action: 'add-skill'; id: string; name: string; description: string; text: string; source?: SkillSource }
   | NoteChange
   | { action: 'add-starter' }
   | { action: 'copy-from'; project: string }
@@ -136,6 +149,15 @@ export type ProjectStatus = { status: 'own'; team: ProjectTeam } | { status: 'br
 export const MAX_LIBRARY: number;
 export const MAX_PROJECTS: number;
 export const SOURCES: readonly SourceKind[];
+export const CLAUDE_LABELS: readonly ClaudeLabel[];
+export const GITHUB_OWNER: RegExp;
+export function isSegment(segment: unknown): boolean;
+export function isGithubPath(path: unknown): boolean;
+export function specialistText(specialist: { skills: string[] }, texts: Record<string, string>): number;
+export function overCap<T extends { skills: string[] }>(
+  specialists: T[],
+  texts: Record<string, string>,
+): T | null;
 export const PROJECT_ACTIONS: readonly ProjectChange['action'][];
 export function isProjectKey(key: unknown): boolean;
 export function woaDir(home?: string): string;

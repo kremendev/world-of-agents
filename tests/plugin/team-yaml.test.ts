@@ -12,6 +12,7 @@ import {
   buildSkill,
   defaults,
   GENERATOR,
+  isDescription,
   problem,
   readTexts,
   skillIdOf,
@@ -132,5 +133,50 @@ describe('a team written by generator 1 is still read (3.6e)', () => {
       '---\nname: accessibility\nhooks: x\n---\n\nx\n',
     );
     expect(() => readTexts(dir, team)).toThrow('not as this module wrote it');
+  });
+});
+
+// v3.10: a library skill's description is any one line of printable text up to 1,024 characters (Anthropic's skill
+// format), so it may hold everything YAML treats as syntax. Quoted, each parses back as exactly itself.
+describe('v3.10: descriptions with YAML syntax in them', () => {
+  const BS = String.fromCharCode(92);
+  const WILD = [
+    'Use it when: the user asks # about forms',
+    '"Quoted" and \'single\' and `ticks`',
+    `A back${BS}slash, ${BS}n and ${BS}u0041 as text`,
+    '--- not a header',
+    '{ not: a map } and [not, a list]',
+    '*alias &anchor !tag %directive @at |pipe >fold',
+    '- dash first',
+    '? question first',
+    'Ends in a colon:',
+    'Yes',
+    '0x1F',
+    'Ünïcode, 漢字 and 🙂',
+    'x'.repeat(1024),
+  ];
+
+  it.each(WILD)('%s', (description) => {
+    expect(isDescription(description)).toBe(true);
+    const file = buildSkill({ id: 'wild', name: 'Wild', description }, 'Text.');
+    for (const version of VERSIONS) {
+      expect(parse(front(file), { version, uniqueKeys: true })).toEqual({ name: 'wild', description });
+    }
+  });
+
+  it('refuses what is not one printable line: a break, a tab, a separator, a hidden character, a lone half', () => {
+    for (const description of [
+      'two\nlines',
+      'a\ttab',
+      `line${String.fromCharCode(0x2028)}separator`,
+      `para${String.fromCharCode(0x2029)}separator`,
+      `next${String.fromCharCode(0x85)}line`,
+      `zero${String.fromCodePoint(0x200b)}width`,
+      `half ${String.fromCharCode(0xdc00)} pair`,
+      ' padded',
+      '',
+      'x'.repeat(1025),
+    ])
+      expect(isDescription(description), JSON.stringify(description)).toBe(false);
   });
 });

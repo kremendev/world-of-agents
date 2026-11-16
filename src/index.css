@@ -1846,6 +1846,28 @@ button.tp-card:hover {
   font-size: 0.8125rem;
 }
 
+/* v3.10: what a specialist's skills cost every start, and a thin bar of its 40,000 characters, amber past 85%. */
+.tp-start-cost {
+  margin: 10px 0 6px;
+}
+
+.tp-meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ui-line-strong);
+  overflow: hidden;
+}
+
+.tp-meter > span {
+  display: block;
+  height: 100%;
+  background: var(--ui-accent);
+}
+
+.tp-meter.near > span {
+  background: var(--ui-flag);
+}
+
 /* Model, Started by, Its id. */
 .tp-facts {
   display: flex;

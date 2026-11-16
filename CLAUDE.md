@@ -584,7 +584,8 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   (`copy-from` only reads one). A stop carries its project's key (`send.mjs`, `CLAUDE_PROJECT_DIR`, the folder name and a
   hash, never the path), so a proposed note shows only on its own project's page and only that session may approve it.
   What it writes: skills (add, change,
-  delete, give, take; at most 5 per specialist) and from v3.6 specialists (add, change, delete, switch: `team.mjs` makes a
+  delete, give, take; at most 5 per specialist, and from v3.10 at most 40,000 characters together, each text up to 20,000
+  and each description one printable line up to 1,024) and from v3.6 specialists (add, change, delete, switch: `team.mjs` makes a
   new one's id from its guild and name, which never change after; role, preset and skills change; at most 5 a guild; no
   shell in the Design guild). A write needs the session cookie, which only
   a one-time key buys: made by the mod, handed to the hall only on hall-key.mjs's stdin and through the token-checked
@@ -1016,3 +1017,13 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     and the Team page in Edge on the plugin's own hall; it found that hall answering 409 for every project, because the
     bundled `defaults()` looked for the starter team in `plugin/hall`; fixed with `teamFiles`, two planted bugs caught).
     Its checklist is docs/release-notes/v3.9.0-check.md, with Dima's short list.
+
+17. v3.10.0 (docs/v3.10-plan.md), built to the same approved mockup, after v3.9.0's self-check. 3.10a done (the probes:
+    the skill format's 1,024-character description, which Claude Code itself doesn't enforce; the header keys of 30
+    catalog skills; raw.githubusercontent.com sends gzip, 404s a folder or a missing file, and answers an old owner's name
+    with 200; the synced folder now has a manifest of its own, a question for Dima). 3.10b done (team.mjs: a text up to
+    20,000 characters, a library description one printable line up to 1,024, a specialist's skills up to 40,000
+    characters together, checked in this project and every other before anything is written; each library skill's
+    source with its facts (GitHub owner, repository, ref, path and license; a Claude skill's label and file; a pasted
+    one's license); the specialist's page says what its skills cost every start, with a bar that turns amber past 85%,
+    and "+ Add from library" leaves out what no longer fits; eleven planted bugs caught after two tests were sharpened).

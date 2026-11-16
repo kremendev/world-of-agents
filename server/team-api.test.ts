@@ -400,7 +400,8 @@ describe('POST /api/team: a change, with every control', () => {
       { ...SKILL, id: '../../hooks' },
       { ...SKILL, name: 'Name: with a colon' },
       { ...SKILL, description: 'line\nbreak' },
-      { ...SKILL, text: 'x'.repeat(8001) },
+      { ...SKILL, text: 'x'.repeat(20001) },
+      { ...SKILL, description: 'x'.repeat(1025) },
       { action: 'attach', specialist: 'evil-dev', skill: 'vitest' },
       { action: 'give-own-team', from: 'everything' },
       { action: 'copy-from', project: '../team' },
@@ -410,6 +411,17 @@ describe('POST /api/team: a change, with every control', () => {
     }
     // A fixed size, not one built from the constant: 64 KiB is the cap, and a little more is refused whole.
     expect(MAX_TEAM_BODY).toBe(64 * 1024);
+    // v3.10: the largest skill a page can write fits it: 20,000 characters of three bytes each in UTF-8 (a UTF-16 unit is
+    // never more), a description of 1,024 such, and a name of 60.
+    const largest = {
+      ...SKILL,
+      id: 'largest',
+      name: 'L'.repeat(60),
+      description: '€'.repeat(1024),
+      text: '€'.repeat(20000),
+    };
+    expect(Buffer.byteLength(JSON.stringify(largest))).toBeLessThan(MAX_TEAM_BODY);
+    expect((await teamPost(cookie, largest)).status).toBe(200);
     const big = JSON.stringify({ ...SKILL, text: 'x'.repeat(64 * 1024) });
     expect((await call('POST', '/api/team', { ...json, Origin: ORIGIN, Cookie: cookie }, big)).status).toBe(
       413,

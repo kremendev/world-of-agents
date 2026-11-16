@@ -1,11 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import {
-  MAX_PRELOADED,
-  SOURCES,
-  type LibrarySkill,
-  type TeamSpecialist,
-  type TeamView,
-} from '../team/schema';
+import { MAX_PRELOADED, type LibrarySkill, type TeamSpecialist, type TeamView } from '../team/schema';
 import { checkText, type TextCheck } from '../team/text';
 import {
   aboutTokens,
@@ -17,8 +11,9 @@ import {
   skillDraftId,
   skillMatches,
   skillRefusals,
-  SOURCE_FROM,
-  SOURCE_GROUP,
+  GROUPS,
+  groupOf,
+  sourceFrom,
   usedLine,
   usersOf,
   whoLoses,
@@ -79,14 +74,14 @@ export function LibraryTab({
         {shown.length === 0 && (
           <p className="tp-empty">{query.trim() ? 'Nothing matches' : 'The library is empty.'}</p>
         )}
-        {SOURCES.map((source) => {
-          const members = shown.filter((s) => s.source.kind === source);
+        {GROUPS.map((group) => {
+          const members = shown.filter((s) => groupOf(s.source) === group.id);
           if (members.length === 0) return null;
-          const head = `${ids.base}-source-${source}`;
+          const head = `${ids.base}-source-${group.id}`;
           return (
-            <section key={source} className="tp-group" aria-labelledby={head}>
+            <section key={group.id} className="tp-group" aria-labelledby={head}>
               <h2 id={head} className="tp-group-head">
-                <span>{SOURCE_GROUP[source]}</span>
+                <span>{group.label}</span>
               </h2>
               <ul>
                 {members.map((s) => {
@@ -232,7 +227,7 @@ function SkillDetails({
       <dl className="tp-facts">
         <div>
           <dt>From</dt>
-          <dd>{SOURCE_FROM[s.source.kind]}</dd>
+          <dd>{sourceFrom(s.source)}</dd>
         </div>
         <div>
           <dt>Added</dt>
