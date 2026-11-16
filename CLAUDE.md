@@ -174,7 +174,8 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
                   really do), v3-m2-plan.md (milestone 2 in parts), v3.1-plan.md (v3.1.0, better reviews: parts 3.1a to 3.1e),
                   v3.2-plan.md (v3.2.0, the token ledger; L7, the backfill, waits for Dima), v3.5-plan.md (v3.5.0, the hall and the rules),
                   v3.6-plan.md (v3.6.0, the team editor: waits for Dima's mockup), v3.7-plan.md (v3.7.0, memory with
-                  approval: a design, a spike first), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  approval: a design, a spike first), v3.8-plan.md (v3.8.0, template 4: the project names the Lead;
+                  the probe's results), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -941,5 +942,15 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     30-minute idle stop), and ends with Dima's short list, on ab54fc5. The first real run failed twice, fixed in 3.7e (docs/v3.7-plan.md):
     the guild leads never tell a specialist to skip its own check, and a note is proposed only as the last line, the
     Lead passing one on in the user's words. Claude Code 2.1.325 warns about the plugin setting the main agent and the
-    template's `Write(~/.world-of-agents/**)` deny: Dima's decisions, unchanged. After Dima says v3.7.0 passed: tag and
-    release v3.7.0 only, main fast-forwarded to it.
+    template's `Write(~/.world-of-agents/**)` deny: Dima's decisions, unchanged. v3.7.0 is released (16 Nov, after Dima's
+    test): tag `v3.7.0` on `d89cdf2`, main fast-forwarded to it, the GitHub release from docs/release-notes/v3.7.0.md.
+
+15. v3.8.0 (docs/v3.8-plan.md, Dima's brief of 16 Nov): template version 4, for those two warnings. 3.8a done (the
+    probe on 2.1.325 and 2.1.318 with the desktop app's own setting sources; the setup writes `agent`, the plugin's
+    settings.json is gone, the Write deny is gone; the guard's own reason for a main thread that isn't the Lead; nine
+    planted bugs caught; a real run, $0.003, saw the Edit deny stop the Write tool). v3.8.0 is prepared, not tagged
+    (plugin.json 3.8.0, docs/release-notes/v3.8.0.md, README pins on `#v3.8.0`). The desktop app couldn't be driven or
+    its code unpacked (auto mode refused that), so its step is first on Dima's list in docs/release-notes/v3.8.0-check.md,
+    and a stop. Commits carry no Claude trailer (Dima, 16 Nov). Then the plans Dima asked for, not built: A and B (a team
+    per project, a skill library and three ways to add skills), C (the rest of the page on the Team page's tokens), D (the
+    detailed pixel art), each waiting for his review and, for the Team page and the art, a mockup from Claude first.

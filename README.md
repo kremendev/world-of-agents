@@ -12,6 +12,16 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.8
+
+**The project names the Lead.** Claude Code 2.1.325 warns that a plugin setting a session's main agent will stop
+working, so the plugin no longer does: the project setup writes it into `.claude/settings.local.json` with the rest of
+its settings. After updating, type `/world-of-agents:setup-project-write` in each project (it upgrades the settings and
+keeps the rules you added), then start a new session. Until then a session there is plain Claude Code, and the guard
+tells it to run the setup when it tries to edit a file or start an agent. `woa` needs nothing. The setup also drops a
+rule Claude Code said matches nothing, `Write(~/.world-of-agents/**)`: the `Edit` rule beside it covers writes too. The
+details are in the [release notes](docs/release-notes/v3.8.0.md).
+
 ## New in v3.7
 
 v3.7.0 brings three steps at once: v3.5.0 and v3.6.0 were never released on their own. The details are in the
@@ -83,7 +93,7 @@ are in the [release notes](docs/release-notes/v3.1.0.md).
 v3 brings the team into the Claude desktop app. Installed as a plugin in one project, it adds:
 
 - **The guard.** A hook that can only deny: an agent start outside the team's table, Claude Code's own agents included, and a shell command that names a `.env` or `.envrc` file.
-- **The setup skills.** `/world-of-agents:setup-project` shows, and `/world-of-agents:setup-project-write` writes, Manual mode, subagent depth 2 and a safe-command list for that project. A project set up by an earlier version is upgraded.
+- **The setup skills.** `/world-of-agents:setup-project` shows, and `/world-of-agents:setup-project-write` writes, the Lead/PM as the main agent (from v3.8), Manual mode, subagent depth 2 and a safe-command list for that project. A project set up by an earlier version is upgraded.
 - **The team pane.** Beside the conversation: what each agent is doing, who waits for your approval, a warning when nothing asks before acting or when the plugin is on for every project, your context and plan limits, three preset prompts and the link to the hall.
 - **A hall that starts itself.** The plugin carries a prebuilt hall and starts it at your first message: no `npm run hall`, no clone and no `npm install`.
 - **A voice on Windows.** "Backend dev needs your approval." and "The team is done." out loud, muted with one click.
@@ -151,13 +161,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.7.0
+/plugin marketplace add kremendev/world-of-agents#v3.8.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.7.0
+claude plugin marketplace add kremendev/world-of-agents#v3.8.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -174,11 +184,11 @@ claude plugin list
 
 No `world-of-agents` entry may say `Scope: user`. The list shows every project's install, each with its status in the folder you run it from. If one says `Scope: user`, run `claude plugin uninstall world-of-agents@world-of-agents --scope user`, then install it again in each project.
 
-**Never install it at user scope.** The Lead/PM becomes the main agent wherever the plugin is enabled, so every session in every project would start as the Lead and report to the hall. Project scope is only for a team: it writes to `.claude/settings.json`, which you commit, and turns the plugin on for everyone who clones the repo.
+**Never install it at user scope.** Its hooks would run in every session of every project: each would report to the hall, and the guard would let no session but the Lead's start an agent or edit a file, so everywhere else you'd get a Claude Code that can't edit. (Up to v3.7 it also made every session the Lead.) Project scope is only for a team: it writes to `.claude/settings.json`, which you commit, and turns the plugin on for everyone who clones the repo.
 
-**3. Check the permission mode says Manual.** The selector is under the prompt box. `woa` always starts in Manual, but an installed plugin can't choose a mode. In Auto, nothing asks for your approval, so the hall never shows "needs you".
+**3. Set up the project, and check the permission mode says Manual.** From v3.8.0 the setup below is also what makes the Lead/PM the main agent: until it is written, a session in the project is plain Claude Code, and the guard lets it start no agent and edit no file. The selector is under the prompt box. `woa` always starts in Manual, but an installed plugin can't choose a mode. In Auto, nothing asks for your approval, so the hall never shows "needs you".
 
-From v3.0.0 the plugin does this for you, once per project, in two steps you type yourself. `/world-of-agents:setup-project` shows what it would write into the project's `.claude/settings.local.json`: Manual mode, subagent depth 2 and a safe-command list, plus a `.gitignore` line for that file. It writes nothing. `/world-of-agents:setup-project-write` then writes exactly that; typing it is your yes. Claude Code runs a fixed script from the plugin for both, and the model can't start either one. Run again, it says "Already set up". A file set up by an earlier version of the plugin is upgraded: the dry run names the version and the rules it adds and removes, and every other setting in the file stays as it is. From v3.0.1, rules you added yourself, such as the one an "Always allow" click adds, stay too: the dry run lists them, and the upgrade keeps them after the template's own. The same goes for a first setup in a project that already has such rules, as long as `permissions` holds nothing but its `allow`, `deny` and `ask` lists. If one of the template's rules is missing or changed, or the file holds anything else, nothing changes and you're told which settings differ (names only, never values). The settings apply from the next new session. With `woa` it works now. In the desktop app, check the selector in the first new session after the setup. In our tests the app used this file's Manual only in a git repository; in a folder without git it started in your own default mode instead. A mode you pick in the selector also sticks to that folder and wins over the file in later sessions. If it doesn't say Manual, pick Manual once, and the app remembers it for that folder. The pane warns when it says Auto.
+From v3.0.0 the plugin does this for you, once per project, in two steps you type yourself. `/world-of-agents:setup-project` shows what it would write into the project's `.claude/settings.local.json`: the Lead/PM as the main agent (from v3.8.0), Manual mode, subagent depth 2 and a safe-command list, plus a `.gitignore` line for that file. It writes nothing. `/world-of-agents:setup-project-write` then writes exactly that; typing it is your yes. Claude Code runs a fixed script from the plugin for both, and the model can't start either one. Run again, it says "Already set up". A file set up by an earlier version of the plugin is upgraded: the dry run names the version and what it changes, and every other setting in the file stays as it is. From v3.0.1, rules you added yourself, such as the one an "Always allow" click adds, stay too: the dry run lists them, and the upgrade keeps them after the template's own. The same goes for a first setup in a project that already has such rules, as long as `permissions` holds nothing but its `allow`, `deny` and `ask` lists. If one of the template's rules is missing or changed, or the file holds anything else, nothing changes and you're told which settings differ (names only, never values). The settings apply from the next new session. With `woa` it works now. In the desktop app, check the selector in the first new session after the setup. In our tests the app used this file's Manual only in a git repository; in a folder without git it started in your own default mode instead. A mode you pick in the selector also sticks to that folder and wins over the file in later sessions. If it doesn't say Manual, pick Manual once, and the app remembers it for that folder. The pane warns when it says Auto.
 
 **The team pane.** From v3.0.0 the plugin also draws a pane beside the conversation: the five agents with their state and task, who is waiting for your approval, a warning in the modes that don't ask before acting (Auto, Bypass permissions) or before edits (Accept edits), how full the context is and how much of your plan's limits is used, three preset prompts ("Plan the next milestone", "Run the quality check", "Review what changed") and an "Open hall" link. A preset puts its prompt in the prompt box, after anything you've already typed, and you send it with Enter: the pane never sends a prompt itself. It appears after you send the first message, because that is when the session, and with it the pane, starts. If you close the pane, `/world-of-agents:team` opens it again. Only you can run that command, and it costs no plan: the pane answers it, so it never reaches the model. From v3.0.1 it also warns "World of Agents is on for every project." when your user settings turn the plugin on, and gives the command that turns it off there: `claude plugin disable world-of-agents@world-of-agents --scope user`. Projects where you installed it with `--scope local` keep it.
 
@@ -234,7 +244,7 @@ The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, w
 - **The voice only:** press **Mute voice** in the pane. It stays muted in later sessions.
 - **The pane only:** close it. `/world-of-agents:team` opens it again.
 - **The hall:** it stops itself after 30 minutes with no agent activity and no hall page open; closing sessions doesn't stop it (from v3.7.0). A newer version of the plugin stops an older one (3.7.0 or later) before it starts its own. To stop it at once, run `Get-NetTCPConnection -LocalPort 4319 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess }` in PowerShell. A hall you started with `npm run hall` stops with Ctrl+C.
-- **The setup's settings:** disabling or removing the plugin leaves them in the project's `.claude/settings.local.json`. Delete `permissions` and `env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` there to remove them.
+- **The setup's settings:** disabling or removing the plugin leaves them in the project's `.claude/settings.local.json`. Delete `permissions`, `env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH` and `agent` there to remove them. Left there, `agent` names an agent that isn't loaded any more, and Claude Code starts the session as usual.
 - **For good:** run this in the project folder:
 
 ```bash
