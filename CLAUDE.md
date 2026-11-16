@@ -175,7 +175,10 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
                   v3.2-plan.md (v3.2.0, the token ledger; L7, the backfill, waits for Dima), v3.5-plan.md (v3.5.0, the hall and the rules),
                   v3.6-plan.md (v3.6.0, the team editor: waits for Dima's mockup), v3.7-plan.md (v3.7.0, memory with
                   approval: a design, a spike first), v3.8-plan.md (v3.8.0, template 4: the project names the Lead;
-                  the probe's results), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
+                  the probe's results), and plans only, waiting for Dima (16 Nov): v3.9-plan.md (a team per project,
+                  one skill library), v3.10-plan.md (adding skills three ways, the hall's one network call),
+                  v3.11-plan.md (the rest of the page on the Team page's tokens), v4.0-plan.md (the detailed pixel
+                  art), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag)
@@ -951,6 +954,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     planted bugs caught; a real run, $0.003, saw the Edit deny stop the Write tool). v3.8.0 is prepared, not tagged
     (plugin.json 3.8.0, docs/release-notes/v3.8.0.md, README pins on `#v3.8.0`). The desktop app couldn't be driven or
     its code unpacked (auto mode refused that), so its step is first on Dima's list in docs/release-notes/v3.8.0-check.md,
-    and a stop. Commits carry no Claude trailer (Dima, 16 Nov). Then the plans Dima asked for, not built: A and B (a team
-    per project, a skill library and three ways to add skills), C (the rest of the page on the Team page's tokens), D (the
-    detailed pixel art), each waiting for his review and, for the Team page and the art, a mockup from Claude first.
+    and a stop. Commits carry no Claude trailer (Dima, 16 Nov). Then the plans Dima asked for, not built, each waiting
+    for his review and, for the Team page, the page and the art, a mockup from Claude (design) first: v3.9-plan.md (A, a
+    team per project and one skill library; probed: a registered marketplace per project keeps `woa-team:` names, a
+    project-declared one is ignored), v3.10-plan.md (B, three ways to add a skill; probed: his Claude skills are on disk
+    in `~/.claude/skills/synced`, a 40,000-character preloaded skill loads whole at about 3.7 characters a token, and
+    the description never reaches the agent), v3.11-plan.md (C) and v4.0-plan.md (D). Stopped for Dima.
