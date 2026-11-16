@@ -1075,3 +1075,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     shapes; Paste; one check screen with the name and what it's for to edit, the facts and cost against 20,000, the amber
     boxes, the red refusals and the whole text, whose Add sends the check's id; the library's facts box gets Repository
     and ref, File and License; an answer that comes after a step was left is dropped; seventeen planted bugs, all caught).
+    v3.10.0 is prepared, not tagged (plugin.json 3.10.0, docs/release-notes/v3.10.0.md, README pins on `#v3.10.0`, and
+    in "What it never does" the hall's one network call and the Claude skills read only when asked). The self-check, 29
+    of 29 in Edge on the plugin's own bundled hall with a real GitHub skill, is docs/release-notes/v3.10.0-check.md, with
+    Dima's short list: v3.9.0's list first, then one tag or two (his call). Stopped for Dima (16 Nov).
