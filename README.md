@@ -14,6 +14,12 @@ A recorded run, played back at twice the speed:
 
 ## New in v3.10
 
+**A team per project, one skill library.** Each project now has a team of its own: its own specialists and its own
+notes. Skills live once in your library, which every project on this PC shares, and a project's skills are simply its
+specialists' skills. A new project starts with no specialists: on the Team page you add the starter team (the eight you
+know) in one click, copy another project's specialists, or add your own. A project's team lives in
+`~/.world-of-agents/projects`, never in the project's folder, so a cloned repo can't bring a team of its own.
+
 **Add skills three ways.** On the Team page's Library tab, **+ Add a skill** now offers four ways in: from your Claude
 skills (the ones in `~/.claude/skills`, yours and the built-in ones), from a GitHub link to one SKILL.md, by pasting a
 whole SKILL.md, or by writing one, as before. The first three end on one check screen: the whole text with its flags,
@@ -24,21 +30,13 @@ can be checked for an update, which shows the differences line by line before yo
 
 **Bigger skills, one cap per specialist.** A skill's text may be up to 20,000 characters (it was 8,000), and what it's
 for one line of up to 1,024. A specialist's skills may come to 40,000 characters together; its page shows what they
-cost every time it starts. The details are in the [release notes](docs/release-notes/v3.10.0.md).
+cost every time it starts.
 
-## New in v3.9
-
-**A team per project, one skill library.** Each project now has a team of its own: its own specialists and its own
-notes. Skills live once in your library, which every project on this PC shares, and a project's skills are simply its
-specialists' skills. A new project starts with no specialists: on the Team page you add the starter team (the eight you
-know) in one click, copy another project's specialists, or add your own. A project's team lives in
-`~/.world-of-agents/projects`, never in the project's folder, so a cloned repo can't bring a team of its own.
-
-**After updating**, every project you set up keeps its guild leads, but its specialists can't start until it has a team
-of its own. Type `/world-of-agents:setup-team-write` in it, or press **Give this project its own team** in the pane: it
-copies your shared team once, its notes waiting on the Notes tab for you to keep or drop one by one, and gives you three
-commands to run once in Git Bash. The shared team stays as an unused backup. The details are in the
-[release notes](docs/release-notes/v3.9.0.md).
+**After updating from v3.8**, every project you set up keeps its guild leads, but its specialists can't start until it
+has a team of its own. Type `/world-of-agents:setup-team-write` in it, or press **Give this project its own team** in
+the pane: it copies your shared team once, its notes waiting on the Notes tab for you to keep or drop one by one, and
+gives you three commands to run once in Git Bash. The shared team stays as an unused backup. The details are in the
+[release notes](docs/release-notes/v3.10.0.md).
 
 ## New in v3.8
 

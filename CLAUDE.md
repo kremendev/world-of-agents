@@ -1077,5 +1077,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     and ref, File and License; an answer that comes after a step was left is dropped; seventeen planted bugs, all caught).
     v3.10.0 is prepared, not tagged (plugin.json 3.10.0, docs/release-notes/v3.10.0.md, README pins on `#v3.10.0`, and
     in "What it never does" the hall's one network call and the Claude skills read only when asked). The self-check, 29
-    of 29 in Edge on the plugin's own bundled hall with a real GitHub skill, is docs/release-notes/v3.10.0-check.md, with
-    Dima's short list: v3.9.0's list first, then one tag or two (his call). Stopped for Dima (16 Nov).
+    of 29 in Edge on the plugin's own bundled hall with a real GitHub skill, is docs/release-notes/v3.10.0-check.md.
+    Dima's review (16 Nov, docs/v3.10-plan.md): Not labelled as its own group, yes; labels stay with the desktop app's
+    manifest (`creatorType` says who made a skill); one tag, v3.10.0, as with v3.7.0: v3.9.0 is never tagged, its notes
+    and checklist stay in docs as history, v3.10.0's notes update from v3.8.0 with the per-project move, the README has
+    one "New in v3.10", and the two checklists are merged into v3.10.0-check.md, with the move of his projects
+    (`woa-test` and `woa-v3-test`, on v3.0.1 from GitHub) after the tag. The throwaways are deleted. Stopped for Dima.
