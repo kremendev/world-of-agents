@@ -372,15 +372,20 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   agent file's model always wins. It denies `isolation` other than none or `"worktree"` (v3.1 review): `"remote"` runs
   the agent off this PC, out of reach of the hooks and the hall, and an unknown value is denied like `model`. The `.env`
   rule is best effort; don't sell it as more. Its imports are `node:fs` and `node:url` (for `runAsScript()` and, from
-  v3.3, the `lstat` of BACKLOG.md) and from v3.4 `plugin/team/team.mjs`, whose
-  `readTeam()` reads `~/.world-of-agents/team/team.json` through the strict team schema (Dima's decision): the guild
+  v3.3, the `lstat` of BACKLOG.md) and from v3.4 `plugin/team/team.mjs`. From v3.9 its `projectTeamOf()` reads the
+  team of the session's project, `~/.world-of-agents/projects/<key>/team/team.json`, through the strict schema, the
+  project being `CLAUDE_PROJECT_DIR`, the one environment variable the guard reads (a test pins that), never the hook's
+  `cwd`, which is a worktree's for an agent in one (3.9a). The shared team of v3.4 to v3.8 is never read for rows: a
+  project with no team of its own yet keeps its guild leads, and their specialist starts are denied with
+  `REASONS.noTeam`, naming `/world-of-agents:setup-team-write` and the pane's button (Dima, 16 Nov); a broken project
+  team has `REASONS.broken`; a PC with no team at all (no library, no projects, no shared team) denies every start,
+  the Lead's included, with `REASONS.team`, as before. The guild
   leads' rows come from it (each may start its guild's `woa-team:<guild>-<name>` specialists; specialists start nobody;
   from v3.6 one switched off, `on: false`, is denied with its own reason, its agent file left as it is, so the guard is
   the lock and a switch counts at once; from 3.6f a subagent may run Bash or PowerShell only when its role has a shell,
   `SHELLS` (the two devs) or an `edits-and-checks` specialist, any other subagent or unknown type denied with its own
-  reason, the main thread unchanged, since the user's own `!` commands never reach `PreToolUse`, checked on 2.1.319),
-  and with the file missing or broken every agent start is denied, the Lead's included, naming
-  `/world-of-agents:setup-team`. A shell command that names `.world-of-agents` is denied too (best effort). Edit and
+  reason, the main thread unchanged, since the user's own `!` commands never reach `PreToolUse`, checked on 2.1.319).
+  A shell command that names `.world-of-agents` is denied too (best effort). Edit and
   Write into `~/.world-of-agents` are denied for every caller, with or without the setup (v3.4 review, `inWoaFolder()`):
   by the path as written (a leading `~` is home, `.` and `..` resolved against the call's cwd, a Windows `\\?\` prefix
   dropped, case-blind on Windows) and by where it lands (the deepest existing part through `realpathSync.native`, so a
@@ -982,4 +987,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `$.session.cwd()` is the same folder). 3.9b done (team.mjs: the project key from the folder's real path, team.json
     version 3 per project with its own marketplace `woa-<key>`, the library with each skill's source, giveOwnTeam() for
     the one-time copy or an empty team, changeProject() for the starter team, a copy, the library and the shared notes'
-    review; the shared team only read; six planted bugs, all caught after two tests were sharpened).
+    review; the shared team only read; six planted bugs, all caught after two tests were sharpened). 3.9c done (the
+    guard reads the session's project team by `CLAUDE_PROJECT_DIR`, the one environment variable it reads, never the
+    hook's cwd; a project not moved yet keeps its guild leads and its specialist starts name the step; five planted bugs
+    caught, and the self-check found the Lead's start failing closed there, fixed before the commit).

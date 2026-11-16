@@ -1,6 +1,6 @@
 // Types for guard.mjs, so its tests are typechecked. The script itself stays plain JS: the plugin needs no build.
 
-import type { Team } from '../team/team.mjs';
+import type { ProjectStatus, ProjectTeam, Team } from '../team/team.mjs';
 
 export const MAY_START: {
   readonly main: readonly string[];
@@ -16,6 +16,8 @@ export const REASONS: {
   readonly isolation: string;
   readonly edit: string;
   readonly main: string;
+  readonly noTeam: string;
+  readonly broken: string;
   readonly backlog: string;
   readonly team: string;
   readonly folder: string;
@@ -27,6 +29,13 @@ export const REASONS: {
 export const EDITORS: readonly string[];
 export const SHELLS: readonly string[];
 export function denial(reason: string): string;
-export function decide(raw: string | null, team?: Team | null, home?: string): string | null;
+export const NO_TEAM_HERE: { readonly status: 'none' };
+export const BROKEN_TEAM: { readonly status: 'broken' };
+export function decide(
+  raw: string | null,
+  team?: Team | ProjectTeam | ProjectStatus | typeof NO_TEAM_HERE | typeof BROKEN_TEAM | null,
+  home?: string,
+  folder?: string,
+): string | null;
 export function inWoaFolder(filePath: string, cwd: unknown, home?: string): boolean;
 export function inAgentMemory(filePath: string, cwd: unknown): boolean;

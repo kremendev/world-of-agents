@@ -1,11 +1,14 @@
 import { execFile } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import {
+  BROKEN_TEAM,
   decide,
   denial,
+  NO_TEAM_HERE,
   EDITORS,
   ENV_FILE,
   MAY_START,
@@ -14,7 +17,7 @@ import {
   TEAM_FOLDER,
   teamRows,
 } from '../../plugin/hooks/guard.mjs';
-import { defaults, init, readTeam } from '../../plugin/team/team.mjs';
+import { changeProject, defaults, giveOwnTeam, init, readTeam } from '../../plugin/team/team.mjs';
 
 const SCRIPT = resolve(import.meta.dirname, '../../plugin/hooks/guard.mjs');
 /** The default team (v3.4): the guard reads its rows from the team table. */
@@ -515,7 +518,9 @@ function run(input: string): Promise<{ code: number | null; stdout: string; stde
   return new Promise((done) => {
     const home = mkdtempSync(join(tmpdir(), 'woa-guard-'));
     init(home);
-    const env = { ...process.env, HOME: home, USERPROFILE: home };
+    // v3.9: no project named, so the shared team only counts as being there: the Lead starts, no specialist does.
+    const env: Record<string, string | undefined> = { ...process.env, HOME: home, USERPROFILE: home };
+    delete env.CLAUDE_PROJECT_DIR;
     const child = execFile(process.execPath, [SCRIPT], { timeout: 20_000, env }, (error, stdout, stderr) => {
       rmSync(home, { recursive: true, force: true });
       done({ code: error ? (typeof error.code === 'number' ? error.code : null) : 0, stdout, stderr });
@@ -607,15 +612,19 @@ describe('never allow', () => {
     expect(code).not.toMatch(/['"`](allow|ask|defer)['"`]/);
   });
 
-  it('reads stdin and the team table through team.mjs: no network, no files of its own but an lstat, no environment', () => {
+  it("reads stdin, the project's team through team.mjs and one environment variable: no network, no files of its own but an lstat", () => {
     expect(code.match(/^\s*import\s.*$/gm)?.map((line) => line.trim())).toEqual([
       "import { lstatSync, realpathSync } from 'node:fs';",
       "import { homedir } from 'node:os';",
       "import { basename, dirname, join, resolve, sep } from 'node:path';",
       "import { fileURLToPath, pathToFileURL } from 'node:url';",
-      "import { LEADS, readTeam } from '../team/team.mjs';",
+      "import { LEADS, projectTeamOf } from '../team/team.mjs';",
     ]);
-    expect(code).not.toMatch(/\b(fetch|require|process\.env|writeFile|readFile|child_process)\b/);
+    // v3.9: the project Claude Code names, and nothing else of the environment.
+    expect([...code.matchAll(/process\.env\b(?:\.\w+)?/g)].map((m) => m[0])).toEqual([
+      'process.env.CLAUDE_PROJECT_DIR',
+    ]);
+    expect(code).not.toMatch(/\b(fetch|require|writeFile|readFile|child_process)\b/);
   });
 });
 
@@ -676,5 +685,96 @@ describe('who may run a command (3.6f)', () => {
   it('names the roles in its reason', () => {
     expect(REASONS.shell).toContain('has no shell in its role');
     expect(SHELLS).toEqual(['world-of-agents:frontend', 'world-of-agents:backend']);
+  });
+});
+
+// v3.9 (docs/v3.9-plan.md): the guard reads the team of the session's project, by CLAUDE_PROJECT_DIR. A project with no
+// team of its own yet keeps its guild leads (Dima, 16 Nov), and their specialist starts say which step gives it one.
+describe("the project's team (v3.9)", () => {
+  const start = (caller: Record<string, unknown>, subagent_type: string, cwd = '/somewhere') =>
+    JSON.stringify({
+      hook_event_name: 'PreToolUse',
+      ...caller,
+      cwd,
+      tool_name: 'Agent',
+      tool_input: { subagent_type },
+    });
+  const LEAD = { agent_type: 'world-of-agents:lead' };
+  const frontend = { agent_id: 'a1', agent_type: 'world-of-agents:frontend' };
+  const reactDev = { agent_id: 'a2', agent_type: 'woa-team:frontend-react-dev' };
+  const shellOf = (caller: Record<string, unknown>) =>
+    JSON.stringify({
+      hook_event_name: 'PreToolUse',
+      ...caller,
+      tool_name: 'Bash',
+      tool_input: { command: 'npm run check' },
+    });
+
+  it('a project with no team of its own yet: the Lead starts its guild leads, and their specialist starts name the step', () => {
+    for (const type of TEAM) expect(decide(start(LEAD, type), NO_TEAM_HERE), type).toBeNull();
+    expect(decide(start(frontend, 'woa-team:frontend-react-dev'), NO_TEAM_HERE)).toBe(denial(REASONS.noTeam));
+    expect(REASONS.noTeam).toContain('/world-of-agents:setup-team-write');
+    expect(REASONS.noTeam).toContain('Give this project its own team');
+    // Anything else keeps its own reason, and no specialist type gets a shell or an edit.
+    expect(decide(start(frontend, 'Explore'), NO_TEAM_HERE)).toBe(denial(REASONS.agent));
+    expect(decide(start(reactDev, 'woa-team:frontend-test-writer'), NO_TEAM_HERE)).toBe(
+      denial(REASONS.agent),
+    );
+    expect(decide(shellOf(reactDev), NO_TEAM_HERE)).toBe(denial(REASONS.shell));
+  });
+
+  it("a broken team file: its specialists can't start, and the reason says so", () => {
+    expect(decide(start(LEAD, 'world-of-agents:frontend'), BROKEN_TEAM)).toBeNull();
+    expect(decide(start(frontend, 'woa-team:frontend-react-dev'), BROKEN_TEAM)).toBe(denial(REASONS.broken));
+  });
+
+  describe('from a real home, by the project folder', () => {
+    const home = mkdtempSync(join(tmpdir(), 'woa-guard-home-'));
+    const folder = (name: string) => mkdtempSync(join(tmpdir(), `woa-guard-${name}-`));
+    init(home); // the shared team: the PC is set up
+    const a = folder('a');
+    const b = folder('b');
+    const c = folder('c');
+    giveOwnTeam(home, a, 'shared', 1);
+    giveOwnTeam(home, b, 'empty', 2);
+    const at = (input: string, project: string) => decide(input, undefined, home, project);
+    afterAll(() => {
+      for (const dir of [home, a, b, c]) rmSync(dir, { recursive: true, force: true });
+    });
+
+    it("each session gets its own project's rows, whatever another project has", () => {
+      expect(at(start(frontend, 'woa-team:frontend-react-dev'), a)).toBeNull();
+      // B has a team of its own, with no specialists: a start of A's specialist from B is not in B's table. That is also
+      // what a cloned repo gets that turns on another project's woa-team: its files load, the guard reads this project.
+      expect(at(start(frontend, 'woa-team:frontend-react-dev'), b)).toBe(denial(REASONS.agent));
+      expect(at(start(frontend, 'woa-team:frontend-react-dev'), c)).toBe(denial(REASONS.noTeam));
+      expect(at(shellOf(reactDev), a)).toBeNull();
+      expect(at(shellOf(reactDev), b)).toBe(denial(REASONS.shell));
+    });
+
+    it("never the hook's cwd: an agent in a worktree, or after a cd, is in the same project", () => {
+      expect(
+        at(start(frontend, 'woa-team:frontend-react-dev', join(b, '.claude', 'worktrees', 'agent-1')), a),
+      ).toBeNull();
+      expect(at(start(frontend, 'woa-team:frontend-react-dev', a), c)).toBe(denial(REASONS.noTeam));
+    });
+
+    it('a switch in one project counts at once there, and nowhere else', () => {
+      const d = folder('d');
+      const key = giveOwnTeam(home, d, 'shared', 3).project.key;
+      changeProject(home, key, { action: 'switch', id: 'frontend-react-dev', on: false }, 4);
+      expect(at(start(frontend, 'woa-team:frontend-react-dev'), d)).toBe(denial(REASONS.off));
+      expect(at(start(frontend, 'woa-team:frontend-react-dev'), a)).toBeNull();
+    });
+
+    it('the real script reads CLAUDE_PROJECT_DIR', () => {
+      const run = (project: string) =>
+        execFileSync(process.execPath, [SCRIPT], {
+          input: start(frontend, 'woa-team:frontend-react-dev'),
+          env: { ...process.env, HOME: home, USERPROFILE: home, CLAUDE_PROJECT_DIR: project },
+        }).toString();
+      expect(run(a)).toBe('');
+      expect(run(c)).toBe(denial(REASONS.noTeam));
+    });
   });
 });

@@ -8,7 +8,10 @@
 // any error it catches. hooks.json sets "onFailure": "block", so a crash, a timeout or a Node that won't start blocks the
 // call too (Claude Code 2.1.295 or later; an older one lets the call through).
 //
-// It reads stdin and the team table (~/.world-of-agents/team/team.json, through team.mjs's strict schema), and answers.
+// It reads stdin and the team table, and answers. From v3.9 the table is the team of the session's project
+// (~/.world-of-agents/projects/<key>/team/team.json, through team.mjs's strict schema), the project being the folder
+// Claude Code names in CLAUDE_PROJECT_DIR, the one environment variable it reads: never the hook's cwd, which is a
+// worktree's for an agent in one. The shared team of v3.4 to v3.8 only counts as being there, for its reasons.
 // No network, no hall, no writes. Its imports are team.mjs and Node built-ins: to tell whether it runs as a script (the
 // real path of the file Node started against its own), to look at BACKLOG.md before the Lead writes it (lstat: what
 // kind of file, how many names, never its content), and to find where an edit really lands (paths, never content).
@@ -17,7 +20,7 @@ import { lstatSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { LEADS, readTeam } from '../team/team.mjs';
+import { LEADS, projectTeamOf } from '../team/team.mjs';
 
 const MAX_STDIN = 1024 * 1024;
 const PREFIX = 'world-of-agents:';
@@ -39,7 +42,7 @@ export const MAY_START = Object.freeze({
 });
 
 /**
- * The subagents' rows (v3.4), from the team table: each guild lead may start its guild's specialists, and nobody else
+ * The subagents' rows (v3.4), from the team table (v3.9: the project's team): each guild lead may start its guild's specialists, and nobody else
  * may start anyone. A Map, so no agent type can name an inherited key.
  */
 export function teamRows(team) {
@@ -67,7 +70,11 @@ export const REASONS = Object.freeze({
   agent: 'World of Agents guard: that start is not in the team table of who may start whom.',
   env: 'World of Agents guard: this command names a .env or .envrc file, and the team never reads those.',
   input: 'World of Agents guard: this call could not be checked, so it is denied.',
-  team: 'World of Agents guard: the team table (~/.world-of-agents/team/team.json) is missing or broken, so no agent may start. Type /world-of-agents:setup-team to create it.',
+  team: 'World of Agents guard: no World of Agents team is set up on this PC, so no agent may start. Type /world-of-agents:setup-team in this project.',
+  noTeam:
+    'World of Agents guard: this project has no team of its own yet, so no specialist may start. Type /world-of-agents:setup-team-write in this project, or press Give this project its own team in the pane.',
+  broken:
+    "World of Agents guard: this project's team file (in ~/.world-of-agents/projects) is broken, so no specialist may start. Type /world-of-agents:setup-team in this project to see what it says.",
   folder:
     'World of Agents guard: this command names the World of Agents folder (~/.world-of-agents), which only Dima changes.',
   model:
@@ -98,11 +105,25 @@ export const denial = (reason) =>
 
 const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
+/** v3.9: what the guard knows of a project with no team of its own yet, and of one whose team file is broken. */
+export const NO_TEAM_HERE = Object.freeze({ status: 'none' });
+export const BROKEN_TEAM = Object.freeze({ status: 'broken' });
+
+/**
+ * The project's team as {status, team}: projectTeamOf()'s answer as it is, null as a PC with no team at all, and a team
+ * on its own (tests hand one) as the project's own.
+ */
+const hereOf = (team) => (team === null ? { status: 'unset' } : team.status ? team : { status: 'own', team });
+/** The project's specialists: none unless it has a team of its own. */
+const specialistsHere = (here) => (here.status === 'own' ? here.team.specialists : []);
+/** Is this agent type one of our guild leads? */
+const isGuildLead = (type) => Object.values(LEADS).some((lead) => type === `${PREFIX}${lead}`);
+
 /** What the caller may start: its table row, or undefined for a caller the guard doesn't know. */
-function rowOf(input, team) {
+function rowOf(input, here) {
   if (input.agent_id !== undefined) {
     const known = typeof input.agent_id === 'string' && typeof input.agent_type === 'string';
-    return known ? teamRows(team).get(input.agent_type) : undefined;
+    return known ? teamRows({ specialists: specialistsHere(here) }).get(input.agent_type) : undefined;
   }
   return input.agent_type === LEAD ? MAY_START.main : undefined;
 }
@@ -115,25 +136,31 @@ function rowOf(input, team) {
  * `isolation` (v3.1 review): no isolation or "worktree" (a git worktree on this PC) only. "remote" runs the agent off this
  * PC, out of reach of these hooks and the hall, so it is denied, and so is any value the guard doesn't know, as for model.
  */
-function checkAgent(input, team) {
+function checkAgent(input, here) {
   const call = isObject(input.tool_input) ? input.tool_input : undefined;
   if (typeof call?.subagent_type !== 'string') return denial(REASONS.input);
-  // v3.4: no team table, no start at all, the Lead's included.
-  if (team === null) return denial(REASONS.team);
+  // v3.4: no team at all on this PC, no start at all, the Lead's included.
+  if (here.status === 'unset') return denial(REASONS.team);
   // v3.8: the setup names the Lead, so a main thread that isn't it is a project not set up yet. Its own reason.
   if (input.agent_id === undefined && input.agent_type !== LEAD) return denial(REASONS.main);
   if (Object.hasOwn(call, 'model')) return denial(REASONS.model);
   if (Object.hasOwn(call, 'isolation') && call.isolation !== 'worktree') return denial(REASONS.isolation);
-  if (!rowOf(input, team)?.includes(call.subagent_type)) return denial(REASONS.agent);
-  return switchedOff(team, call.subagent_type) ? denial(REASONS.off) : null;
+  if (!rowOf(input, here)?.includes(call.subagent_type)) {
+    // v3.9: a guild lead's specialist in a project with no team of its own yet, or a broken one, says which.
+    const specialist = isGuildLead(input.agent_type) && call.subagent_type.startsWith(TEAM_PREFIX);
+    if (specialist && here.status === 'none') return denial(REASONS.noTeam);
+    if (specialist && here.status === 'broken') return denial(REASONS.broken);
+    return denial(REASONS.agent);
+  }
+  return switchedOff(here, call.subagent_type) ? denial(REASONS.off) : null;
 }
 
 /**
  * A specialist switched off on the Team page (v3.6, E10, E11): its agent file stays as it is, so the guard is the lock.
  * It reads team.json on every call, so a switch counts at once, both ways, with no reload.
  */
-const switchedOff = (team, type) =>
-  team.specialists.some((p) => `${TEAM_PREFIX}${p.id}` === type && p.on !== true);
+const switchedOff = (here, type) =>
+  specialistsHere(here).some((p) => `${TEAM_PREFIX}${p.id}` === type && p.on !== true);
 
 /** The agents whose edits the guard leaves to their own permission prompts (v3.3): the ones that write files. */
 export const EDITORS = Object.freeze([`${PREFIX}designer`, `${PREFIX}frontend`, `${PREFIX}backend`]);
@@ -173,10 +200,10 @@ function plainOrMissing(filePath) {
  * The team's specialists that edit (v3.4; by preset since v3.6): their edits go to their own permission prompts, as the
  * guild leads' do.
  */
-const teamEditors = (team) =>
-  team === null
-    ? []
-    : team.specialists.filter((p) => p.preset !== 'reads').map((p) => `${TEAM_PREFIX}${p.id}`);
+const teamEditors = (here) =>
+  specialistsHere(here)
+    .filter((p) => p.preset !== 'reads')
+    .map((p) => `${TEAM_PREFIX}${p.id}`);
 
 /** The deepest part of `path` that exists, through realpathSync.native, then the rest as written. */
 function canonical(path) {
@@ -232,7 +259,7 @@ export function inAgentMemory(filePath, cwd) {
   return parts.some((p, i) => p === '.claude' && MEMORY_FOLDERS.includes(parts[i + 1]));
 }
 
-function checkEdit(input, team, home) {
+function checkEdit(input, here, home) {
   const filePath = isObject(input.tool_input) ? input.tool_input.file_path : undefined;
   if (typeof filePath !== 'string') return denial(REASONS.input);
   if (inWoaFolder(filePath, input.cwd, home)) return denial(REASONS.woa);
@@ -240,7 +267,7 @@ function checkEdit(input, team, home) {
   if (input.agent_id !== undefined) {
     const ours =
       typeof input.agent_id === 'string' &&
-      (EDITORS.includes(input.agent_type) || teamEditors(team).includes(input.agent_type));
+      (EDITORS.includes(input.agent_type) || teamEditors(here).includes(input.agent_type));
     return ours ? null : denial(REASONS.edit);
   }
   if (input.agent_type !== LEAD) return denial(REASONS.main);
@@ -252,10 +279,10 @@ function checkEdit(input, team, home) {
 export const SHELLS = Object.freeze([`${PREFIX}frontend`, `${PREFIX}backend`]);
 
 /** The team's specialists whose preset has a shell (3.6f): Edits files and runs checks, and no other. */
-const teamShells = (team) =>
-  team === null
-    ? []
-    : team.specialists.filter((p) => p.preset === 'edits-and-checks').map((p) => `${TEAM_PREFIX}${p.id}`);
+const teamShells = (here) =>
+  specialistsHere(here)
+    .filter((p) => p.preset === 'edits-and-checks')
+    .map((p) => `${TEAM_PREFIX}${p.id}`);
 
 /**
  * Bash and PowerShell. A subagent may run a command only when its role has a shell (3.6f, Dima's review): an agent file
@@ -279,11 +306,12 @@ function checkShell(input, table) {
 
 /**
  * The answer for one hook input: a deny to print, or null for no answer. `raw` is null when stdin was too big. `team` is the
- * team table, read from ~/.world-of-agents/team/team.json when not given (null: missing or broken). `home` is the home
+ * team table: when not given, the team of the project in `folder` (Claude Code's CLAUDE_PROJECT_DIR), read through
+ * projectTeamOf(); a team, NO_TEAM_HERE, BROKEN_TEAM, or null for a PC with no team at all, in tests. `home` is the home
  * folder, for tests.
  */
-export function decide(raw, team, home = homedir()) {
-  const table = () => (team === undefined ? readTeam() : team);
+export function decide(raw, team, home = homedir(), folder = process.env.CLAUDE_PROJECT_DIR) {
+  const table = () => hereOf(team === undefined ? projectTeamOf(home, folder) : team);
   try {
     if (typeof raw !== 'string') return denial(REASONS.input);
     const input = JSON.parse(raw);
