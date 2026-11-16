@@ -1082,4 +1082,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     manifest (`creatorType` says who made a skill); one tag, v3.10.0, as with v3.7.0: v3.9.0 is never tagged, its notes
     and checklist stay in docs as history, v3.10.0's notes update from v3.8.0 with the per-project move, the README has
     one "New in v3.10", and the two checklists are merged into v3.10.0-check.md, with the move of his projects
-    (`woa-test` and `woa-v3-test`, on v3.0.1 from GitHub) after the tag. The throwaways are deleted. Stopped for Dima.
+    (`woa-test` and `woa-v3-test`, on v3.0.1 from GitHub) after the tag. The throwaways are deleted. His answers, the
+    same day: a personal skill outside `synced/` is Not labelled, always (8838fcf: only the app's manifest saying
+    `user` makes a skill Yours); and folder trust: in VS Code, Claude Code 2.1.325 asks before the first session in an
+    untrusted folder, and declining starts it with `--ignore-persisted-trust` and without the project setting source, so
+    without World of Agents (its settings hold the plugin's switch, the Lead and the denies). Started as the desktop app
+    starts it, Claude Code read the project's settings with no trust record (no-login probe); the app itself is a step on
+    his list. The README's setup has "4. Trust the project", and both parts of the list a trust step. Stopped for Dima.
