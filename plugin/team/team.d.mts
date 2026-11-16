@@ -59,7 +59,7 @@ export const MAX_CHANGES: number;
 export function slugOf(name: string, max: number): string;
 export function specialistIdOf(guild: Guild, name: string): string;
 export function skillIdOf(name: string): string;
-export const CHANGE_KINDS: readonly (ChangeEntry['what'] | NoteEntry['what'])[];
+export const CHANGE_KINDS: readonly LogEntry['what'][];
 export function readTexts(dir: string, team: Team): Record<string, string>;
 export function applyChange(
   team: Team,
@@ -67,9 +67,9 @@ export function applyChange(
   change: TeamChange,
   now: number,
 ): { team: Team; texts: Record<string, string>; entry: ChangeEntry };
-export function isChange(entry: unknown): entry is ChangeEntry | NoteEntry;
-export function readChanges(dir: string): (ChangeEntry | NoteEntry)[];
-export function logChange(dir: string, entry: ChangeEntry | NoteEntry): void;
+export function isChange(entry: unknown): entry is LogEntry;
+export function readChanges(dir: string): LogEntry[];
+export function logChange(dir: string, entry: LogEntry): void;
 
 // v3.7: the guild leads' notes.
 export type NoteAgent = 'designer' | 'frontend' | 'backend' | 'reviewer';
@@ -80,7 +80,7 @@ export type NoteChange =
   | { action: 'note-delete'; agent: NoteAgent; id: string };
 export type NoteEntry = {
   at: number;
-  what: 'note-approved' | 'note-rejected' | 'note-deleted';
+  what: 'note-approved' | 'note-rejected' | 'note-deleted' | 'note-kept' | 'note-dropped';
   agent: 'Designer' | 'Frontend dev' | 'Backend dev' | 'Reviewer';
 };
 export const NOTE_AGENTS: readonly NoteAgent[];
@@ -101,3 +101,89 @@ export function applyNoteChange(
   proposal: { agent: NoteAgent; text: string; at: number } | null,
   now: number,
 ): { notes: Notes; entry: NoteEntry };
+
+// v3.9: a team per project, one skill library for the PC.
+export type FilledEntry =
+  | { at: number; what: 'starter-added' | 'team-copied' }
+  | { at: number; what: 'team-given'; from: 'shared' | 'empty' };
+export type LogEntry = ChangeEntry | NoteEntry | FilledEntry;
+export type SourceKind = 'team' | 'starter' | 'written';
+export type LibrarySkill = Skill & { source: { kind: SourceKind }; addedAt: number };
+export type Library = { version: 1; skills: LibrarySkill[] };
+export type ProjectTeam = { version: 3; generator: number; specialists: Specialist[] };
+export type Project = { key: string; folder: string; name: string };
+export type ReviewNote = {
+  id: string;
+  agent: NoteAgent;
+  text: string;
+  proposedAt: number;
+  approvedAt: number;
+};
+export type ProjectChange =
+  | Extract<
+      TeamChange,
+      {
+        action: 'add-specialist' | 'change-specialist' | 'delete-specialist' | 'switch' | 'attach' | 'detach';
+      }
+    >
+  | Extract<TeamChange, { action: 'add-skill' | 'change-skill' | 'delete-skill' }>
+  | NoteChange
+  | { action: 'add-starter' }
+  | { action: 'copy-from'; project: string }
+  | { action: 'note-keep' | 'note-drop'; id: string };
+export type ProjectStatus = { status: 'own'; team: ProjectTeam } | { status: 'broken' | 'none' | 'unset' };
+
+export const MAX_LIBRARY: number;
+export const MAX_PROJECTS: number;
+export const SOURCES: readonly SourceKind[];
+export const PROJECT_ACTIONS: readonly ProjectChange['action'][];
+export function isProjectKey(key: unknown): boolean;
+export function woaDir(home?: string): string;
+export function libraryDir(home?: string): string;
+export function projectsDir(home?: string): string;
+export function projectDir(home: string, key: string): string;
+export function projectTeamDir(home: string, key: string): string;
+export function projectOf(folder: unknown): Project | null;
+export function readProject(home: string, key: string): (Project & { version: 1; createdAt: number }) | null;
+export function projectTeamProblem(team: unknown): string | null;
+export function emptyProjectTeam(): ProjectTeam;
+export function readProjectTeam(home: string, key: string): ProjectTeam | null;
+export function isSetUp(home?: string): boolean;
+export function projectTeamOf(home: string, folder: unknown): ProjectStatus;
+export function emptyLibrary(): Library;
+export function libraryProblem(library: unknown): string | null;
+export function readLibrary(home?: string): {
+  library: Library;
+  texts: Record<string, string>;
+  there: boolean;
+};
+export function writeLibrary(home: string, library: Library, texts: Record<string, string>): void;
+export function writeProjectTeam(
+  home: string,
+  key: string,
+  team: ProjectTeam,
+  library: Library,
+  texts: Record<string, string>,
+  notes: Notes,
+): ProjectTeam;
+export function listProjects(
+  home?: string,
+): { key: string; folder: string; name: string; createdAt: number; team: ProjectTeam | null }[];
+export function installCommands(key: string): string[];
+export function readShared(home?: string): { team: Team; texts: Record<string, string>; notes: Notes } | null;
+export function reviewProblem(review: unknown): string | null;
+export function readReview(home: string, key: string): ReviewNote[];
+export function giveOwnTeam(
+  home: string,
+  folder: string,
+  from: 'shared' | 'empty',
+  now: number,
+): { project: Project; team: ProjectTeam; review: number; libraryBuilt: boolean };
+export function changeProject(
+  home: string,
+  key: string,
+  change: ProjectChange,
+  now: number,
+  proposal?: { agent: NoteAgent; text: string; at: number } | null,
+): LogEntry;
+export function teamFilesOf(home: string, folder: unknown): 'current' | 'older' | 'none';

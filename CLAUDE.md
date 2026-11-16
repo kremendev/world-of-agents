@@ -974,4 +974,12 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `~/.claude/skills` only, labelled mine or built-in from the app's manifest; `yaml` 2.9.1 for headers (core schema,
     unique keys, alias limit, no custom tags); C with a mockup first; D is v4.0.0. Mockups come from Claude in his review
     chat: the Team page one for A and B, then C's, then D's style. Nothing of A to D is built until he sends the approved
-    mockup. Stopped for Dima: his v3.8.0 test on 68cb1d4 (docs/release-notes/v3.8.0-check.md), then the tag.
+    mockup. v3.8.0 is released (16 Nov, after Dima's test): tag `v3.8.0` on `08084f2`, main fast-forwarded to it.
+
+16. v3.9.0 and v3.10.0 (docs/v3.9-plan.md, docs/v3.10-plan.md), built to the Team page mockup Dima approved on 16 Nov
+    (he described it, since Claude Code can't open it), in order, each self-checked, then his short list. 3.9a done (the
+    probes: `CLAUDE_PROJECT_DIR` is the project folder for every caller, a worktree agent's included, and the pane's
+    `$.session.cwd()` is the same folder). 3.9b done (team.mjs: the project key from the folder's real path, team.json
+    version 3 per project with its own marketplace `woa-<key>`, the library with each skill's source, giveOwnTeam() for
+    the one-time copy or an empty team, changeProject() for the starter team, a copy, the library and the shared notes'
+    review; the shared team only read; six planted bugs, all caught after two tests were sharpened).
