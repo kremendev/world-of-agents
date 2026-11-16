@@ -238,6 +238,8 @@ The team pane (`plugin/hooks/mod/`) runs inside Claude Code and only watches. It
 
 The hook script has one debug switch. `WOA_CAPTURE=1` saves raw hook payloads, which can hold file contents and commands, to `~/.world-of-agents/capture/`. `woa` always turns it off, so normal use never saves them.
 
+**Never run a catalog installer in a project set up for World of Agents.** The claude-code-templates installer (`npx claude-code-templates …`) and others like it write agents, commands, hooks and settings into your project. Those hooks and settings can skip the permission prompts and undercut the guard, and the team can't use what they add anyway: the guard starts only the team's own agents. To give a specialist a skill, add it on the Team page instead.
+
 ## Turn it off
 
 - **In one project:** run `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder. In a project where you installed it with `--scope local`, the desktop app's switch under Customize, then Plugins, does the same: on 11 Nov 2026 (app 5.1231.2) it wrote that project's `.claude/settings.local.json` and left your user settings alone. The agents, the guard, the pane, the hall and the voice all go with it. `claude plugin enable world-of-agents@world-of-agents --scope local` turns it back on.

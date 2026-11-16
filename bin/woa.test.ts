@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -64,12 +72,22 @@ describe.skipIf(!bashWorks)('bin/woa', () => {
     const result = run(WOA, ['--version', 'two words']);
     expect(result.status).toBe(0);
     expect(result.stdout.trim().split('\n')).toEqual([
-      'depth=1',
+      'depth=2',
       'capture=unset',
       ...flags(REPO),
       'arg=--version',
       'arg=two words',
     ]);
+  });
+
+  // v3.8.0: woa had 1 from v2, which takes the Agent tool from every subagent, so no guild lead could start a specialist.
+  it("gives subagents the project setup's spawn depth, so a guild lead can start its specialists", () => {
+    const template = JSON.parse(
+      readFileSync(`${REPO}/plugin/skills/setup-project/template.json`, 'utf8'),
+    ) as { env: Record<string, string> };
+    const depth = run(WOA, ['--version']).stdout.split('\n')[0];
+    expect(depth).toBe(`depth=${template.env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH}`);
+    expect(depth).toBe('depth=2');
   });
 
   it('finds the repo from where it is, not from where you are, even with a space in the path', () => {

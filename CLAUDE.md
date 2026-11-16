@@ -307,6 +307,9 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   such a list, as its listing and spawn check compare exact names). So no agent file has one, and who may start
   whom belongs in the guard hook alone.
 - `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
+  From v3.8.0 it sets `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2`, the template's value (`woa.test.ts` holds them together):
+  it had 1 from v2, and at 1 Claude Code takes the Agent tool from every subagent (a Haiku probe, 16 Nov: an agent whose
+  only tool is Agent is refused, "would be spawned with zero tools"), so under `woa` no specialist could start.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
 - Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
   project scope to share it. Never user scope: the plugin's hooks would run in every session everywhere, each would

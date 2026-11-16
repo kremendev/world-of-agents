@@ -16,8 +16,10 @@ fi
 
 repo="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
 
-# A second lock: subagents have no Agent tool, and this stops them starting helpers anyway.
-export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=1
+# Two levels, as the project setup writes: the Lead starts a guild lead, which starts its own specialists (v3.4). With 1
+# Claude Code takes the Agent tool away from every subagent, so no specialist could start under woa (fixed in v3.8.0).
+# The guard still decides who may start whom.
+export CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH=2
 
 # Raw payloads hold file contents and commands, so normal use never saves them, even if your shell has this set.
 # To capture, use plain claude: see "Still to capture" in docs/v2-hooks.md.
