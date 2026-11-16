@@ -962,4 +962,16 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     team per project and one skill library; probed: a registered marketplace per project keeps `woa-team:` names, a
     project-declared one is ignored), v3.10-plan.md (B, three ways to add a skill; probed: his Claude skills are on disk
     in `~/.claude/skills/synced`, a 40,000-character preloaded skill loads whole at about 3.7 characters a token, and
-    the description never reaches the agent), v3.11-plan.md (C) and v4.0-plan.md (D). Stopped for Dima.
+    the description never reaches the agent), v3.11-plan.md (C) and v4.0-plan.md (D).
+    Dima's review (16 Nov): the guard's reason, yes. 3.8b done (68cb1d4): `woa` sets subagent depth 2 like the template,
+    held together by `woa.test.ts` (at 1 Claude Code takes the Agent tool from every subagent, so no specialist could start
+    under `woa`; a real run through a copy of `woa`, $0.172, saw the Frontend dev start its React dev), and the README
+    warns against catalog installers. His answers are worked into the plans: the library holds skills only, specialists
+    per project; no fallback to the shared team, a one-time copy per project on his command, specialist starts denied
+    until then with a reason naming the step, the guild leads working, the shared folder kept as an unused backup; notes
+    per project, the shared ones reviewed one by one at each copy, none from a copied team or the starter team; caps of
+    1,024, 20,000 and 40,000 characters with each specialist's total in tokens on its page; his skills from
+    `~/.claude/skills` only, labelled mine or built-in from the app's manifest; `yaml` 2.9.1 for headers (core schema,
+    unique keys, alias limit, no custom tags); C with a mockup first; D is v4.0.0. Mockups come from Claude in his review
+    chat: the Team page one for A and B, then C's, then D's style. Nothing of A to D is built until he sends the approved
+    mockup. Stopped for Dima: his v3.8.0 test on 68cb1d4 (docs/release-notes/v3.8.0-check.md), then the tag.
