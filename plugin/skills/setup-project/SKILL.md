@@ -1,6 +1,6 @@
 ---
 name: setup-project
-description: Shows what World of Agents would write into this project's .claude/settings.local.json (Manual permission mode, subagent depth 2 and a safe-command list). Writes nothing. Only the user starts it.
+description: Shows what World of Agents would write into this project's .claude/settings.local.json (the Lead/PM as the main agent, Manual permission mode, subagent depth 2 and a safe-command list). Writes nothing. Only the user starts it.
 disable-model-invocation: true
 allowed-tools: Bash(node '${CLAUDE_PLUGIN_ROOT}/skills/setup-project/setup.mjs')
 ---
@@ -16,8 +16,8 @@ Explain the output to the user in a few plain sentences, then name the next step
 
 - If it ends with "Nothing has been written.", the next step is to type `/world-of-agents:setup-project-write`, which
   writes exactly what is shown. Typing it is the yes.
-- If it says the file holds an earlier version of the template's settings, name the version and the rules the upgrade
-  adds and removes, exactly as listed, and say that every other setting stays as it is.
+- If it says the file holds an earlier version of the template's settings, name the version and the changes the
+  upgrade lists, exactly as listed, and say that every other setting stays as it is.
 - If it lists "Rules you added", say that those rules stay as they are, and name them exactly as listed.
 - If it says "Already set up", the file already holds exactly these settings. Nothing changed and nothing is needed.
 - If it says "Stopped", nothing was changed. Say why, name the settings it lists, and say that the template's keys can be

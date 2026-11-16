@@ -15,6 +15,7 @@ export const REASONS: {
   readonly model: string;
   readonly isolation: string;
   readonly edit: string;
+  readonly main: string;
   readonly backlog: string;
   readonly team: string;
   readonly folder: string;

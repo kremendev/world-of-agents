@@ -28,8 +28,9 @@ const TEAM_PREFIX = 'woa-team:';
 /**
  * Who may start whom, by exact agent type. `main` is the main thread, which must be the Lead: real hook input from the
  * Lead's Agent calls has no agent_id and agent_type "world-of-agents:lead", whether the Lead is main through --agent or
- * through the plugin's settings.json (docs/v3-spike.md). `subagents` is keyed by a subagent's own agent_type, and kept
- * apart from `main` so no agent type can ever name the main thread's row. Every caller not listed may start nobody;
+ * through settings (docs/v3-spike.md; from v3.8 the project's, written by the setup, never the plugin's). `subagents`
+ * is keyed by a subagent's own agent_type, and kept apart from `main` so no agent type can ever name the main thread's
+ * row. Every caller not listed may start nobody;
  * milestone 5 adds the guild leads. Claude Code's own agents (Explore, Plan, general-purpose, ...) are in no row, so they
  * are always denied: some run on Haiku.
  */
@@ -74,6 +75,7 @@ export const REASONS = Object.freeze({
   isolation:
     'World of Agents guard: an agent runs here or in a worktree, never remotely or in an isolation the guard does not know.',
   edit: 'World of Agents guard: the Lead/PM edits BACKLOG.md at the project root, and nothing else.',
+  main: "World of Agents guard: this session's main agent is not the Lead/PM, so it may not start agents or edit files. The project setup names the Lead as the main agent: type /world-of-agents:setup-project, then start a new session once it is written. Or turn World of Agents off for this project.",
   woa: 'World of Agents guard: that file is in the World of Agents folder (~/.world-of-agents), which only Dima changes.',
   backlog:
     'World of Agents guard: BACKLOG.md here is a link, a folder or a file with more than one name, so the Lead may not write it.',
@@ -118,6 +120,8 @@ function checkAgent(input, team) {
   if (typeof call?.subagent_type !== 'string') return denial(REASONS.input);
   // v3.4: no team table, no start at all, the Lead's included.
   if (team === null) return denial(REASONS.team);
+  // v3.8: the setup names the Lead, so a main thread that isn't it is a project not set up yet. Its own reason.
+  if (input.agent_id === undefined && input.agent_type !== LEAD) return denial(REASONS.main);
   if (Object.hasOwn(call, 'model')) return denial(REASONS.model);
   if (Object.hasOwn(call, 'isolation') && call.isolation !== 'worktree') return denial(REASONS.isolation);
   if (!rowOf(input, team)?.includes(call.subagent_type)) return denial(REASONS.agent);
@@ -239,7 +243,7 @@ function checkEdit(input, team, home) {
       (EDITORS.includes(input.agent_type) || teamEditors(team).includes(input.agent_type));
     return ours ? null : denial(REASONS.edit);
   }
-  if (input.agent_type !== LEAD) return denial(REASONS.edit);
+  if (input.agent_type !== LEAD) return denial(REASONS.main);
   if (!isBacklog(filePath, input.cwd)) return denial(REASONS.edit);
   return plainOrMissing(filePath) ? null : denial(REASONS.backlog);
 }

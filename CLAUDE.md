@@ -120,7 +120,8 @@ plugin/team/      v3.4: the team as data. team.mjs (the only writer of ~/.world-
                   specialists and 14 skills) and skills/*.md (their texts). skills/setup-team/ (team-setup.mjs) and
                   setup-team-write/: create it, never over one that is there, and from v3.6d refresh an older team's
                   generated files only (never a specialist, skill or text); tested in server/setup-team.test.ts
-plugin/           the Claude Code plugin: .claude-plugin/plugin.json, settings.json (the Lead as main agent), agents/
+plugin/           the Claude Code plugin: .claude-plugin/plugin.json (no settings.json from v3.8: the project's setup
+                  names the main agent), agents/
                   (the five agents' prompts and tools), hooks/hooks.json (an async send.mjs hook per event, and the guard),
                   hooks/send.mjs (allowlists and scrubs each payload, checks the hall with a handshake, then posts it with
                   the token), hooks/guard.mjs (the deny-only PreToolUse guard on Agent, Bash, PowerShell, Edit and Write: who may
@@ -304,8 +305,14 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
 - `bin/woa` always passes `--permission-mode default` and unsets `WOA_CAPTURE`, so normal use never saves raw payloads.
   It has no hardcoded paths. Captures use plain `claude`: see Still to capture in docs/v2-hooks.md.
 - Enable the plugin per project: local scope (`--scope local`, `.claude/settings.local.json`, which git ignores), or
-  project scope to share it. Never user scope: `plugin/settings.json` makes the Lead the main agent wherever the plugin is
-  enabled, so every session everywhere would start as the Lead and report to the hall. The desktop app's Plugins screen
+  project scope to share it. Never user scope: the plugin's hooks would run in every session everywhere, each would
+  report to the hall, and the guard would let no main thread but the Lead start an agent or edit a file. Until v3.7 the
+  plugin's own `settings.json` also made every such session the Lead; from v3.8 (template 4, Dima, 16 Nov) the project's
+  setup writes `"agent": "world-of-agents:lead"` instead, because Claude Code 2.1.325 warns that a plugin setting the
+  session's agent will stop working, and `woa` passes `--agent`. Probed on 2.1.325 with the desktop app's own setting
+  sources (docs/v3.8-plan.md): the project's `agent` makes the Lead main in a git repository and without git; with the
+  plugin switched off or uninstalled the session starts as plain Claude Code (a debug line, "agent … not found … Using
+  default behavior"); a user-scope install leaves every session plain Claude Code. The desktop app's Plugins screen
   asks for no scope and installs at user scope (twice on 11 Nov, app 5.1231), so installs go through
   `claude plugin install … --scope local`, checked with `claude plugin list`. Its switch under Customize, then Plugins,
   writes the settings file the screen's level names, the user's when it names none (app code, 5.1231.2); for a local
@@ -349,7 +356,9 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   permission prompt) and never make it async (an async hook can't block). It fails closed: an unknown caller, an agent type
   not in `MAY_START`, input it can't read, or any error is a deny, and `"onFailure": "block"` makes a crash or a timeout
   block too. The main thread's row (`main`, the Lead) and subagent rows (`subagents`, by `agent_type`) are kept apart so
-  no agent type can name the Lead's row. `MAY_START.main` must be the roster's other four (`roster.test.ts`): since 3.4f the Lead's
+  no agent type can name the Lead's row. A main thread that isn't the Lead, which from v3.8 means a project whose setup
+  isn't written yet, is denied Agent, Edit and Write with its own reason (`REASONS.main`, naming the setup; Dima's update
+  from v3.7 lands there until he runs it). `MAY_START.main` must be the roster's other four (`roster.test.ts`): since 3.4f the Lead's
   `Agent` is bare, so the guard is its only limit. The guild leads have a bare `Agent` tool (v3.4), held to their
   specialists by the guard.
   It denies any Agent call that sets `model` (v3.1, D3): the tool's `model` takes precedence over an agent file's, so the
@@ -395,7 +404,9 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   non-zero exit aborts the skill. It merges only a file holding nothing but `enabledPlugins`/`extraKnownMarketplaces`,
   and maybe a `permissions` of `allow`, `deny` and `ask` arrays alone: rules the project gathered before, kept after the
   template's like an upgrade's (v3.0.1); a rule only an earlier template had stops that, and so does any other key.
-  It manages `permissions` and its own env keys, and when they are already there it compares them itself. A rule in
+  It manages `permissions`, its own env keys and from template 4 (v3.8) `agent`, and when they are already there it
+  compares them itself; an `agent` of the user's own stops it, and a version 3 file whose `agent` is already the Lead
+  (set by hand, as Claude Code's warning suggests) still counts as version 3. A rule in
   `allow`, `deny` or `ask` is ours when any template version has it in that list; any other rule is the user's (an
   "Always allow" click adds one) and is set aside first (v3.0.1). What is left: exactly the template's says "Already
   set up", whatever else the file holds; exactly an earlier version's (`versions/N.json`, every
@@ -415,7 +426,10 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   writes a file without a prompt (checked against the engine's own decisions for 2a). It denies `git push` in both shells:
   on Windows with Git Bash a scoped Bash deny alone turns the PowerShell tool off without a warning (tools reference), and
   the scoped `PowerShell(git push *)` keeps it on. The engine confirmed `Read(.env)` also stops `Get-Content`, `gc`, `cat`
-  and `type` in PowerShell. The guard's `.env` rule matches `.envrc` too.
+  and `type` in PowerShell. The guard's `.env` rule matches `.envrc` too. From template 4 it has no `Write(...)` rule:
+  Claude Code 2.1.325 warns that file permission checks match only `Edit(path)` rules, and a real run (v3.8) saw
+  `Edit(~/.world-of-agents/**)` alone stop the Write tool there ("File is in a directory that is denied by your
+  permission settings"), with a write beside it going through.
 - The team pane (`plugin/hooks/mod/`) watches and shows; it never decides. Every hook returns exactly what `next` resolved
   to: no answer on `tool.call`, no decision on `tool.check`, no change to a spawn, a prompt or a turn. It submits no
   prompt: a preset button puts that preset's fixed text after Dima's draft with `$.prompt.fill` (`mode: 'append'`, each

@@ -50,7 +50,7 @@ const setup = (dir: string, args: string[] = [], script = SCRIPT) =>
   spawnSync(process.execPath, [script, ...args], { cwd: dir, encoding: 'utf8', timeout: 20_000 });
 
 describe('the template', () => {
-  it('is exactly the agreed settings: Manual, depth 2, two allows and eight denies', () => {
+  it('is exactly the agreed settings: Manual, depth 2, two allows, seven denies and the Lead as main agent', () => {
     expect(TEMPLATE).toEqual({
       permissions: {
         defaultMode: 'default',
@@ -61,13 +61,15 @@ describe('the template', () => {
           'Read(.envrc)',
           'Bash(git push *)',
           'PowerShell(git push *)',
-          // v3.4: the team folder (and the hall's token beside it) is Dima's alone.
+          // v3.4: the team folder (and the hall's token beside it) is Dima's alone. v3.8: no Write rule, since an
+          // Edit rule covers every tool that edits files and Claude Code 2.1.325 warns that a Write rule matches none.
           'Read(~/.world-of-agents/**)',
           'Edit(~/.world-of-agents/**)',
-          'Write(~/.world-of-agents/**)',
         ],
       },
       env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '2' },
+      // v3.8: the project names the main agent, because a plugin setting it is going away (Claude Code 2.1.325).
+      agent: 'world-of-agents:lead',
     });
   });
 
@@ -110,7 +112,12 @@ describe('the template versions', () => {
       ...names.map((name) => readFileSync(join(VERSIONS, name), 'utf8')),
       JSON.stringify(TEMPLATE),
     ].map((text) => JSON.parse(text) as Record<string, unknown>);
-    for (const version of all) expect(Object.keys(version).sort()).toEqual(['env', 'permissions']);
+    // Version 4 (v3.8) adds the main agent.
+    all.forEach((version, i) =>
+      expect(Object.keys(version).sort()).toEqual(
+        i < 3 ? ['env', 'permissions'] : ['agent', 'env', 'permissions'],
+      ),
+    );
     expect(new Set(all.map((version) => JSON.stringify(version))).size).toBe(all.length);
   });
 });
@@ -180,9 +187,9 @@ describe('setup.mjs', () => {
     expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
     // No promise the desktop app may not keep: a folder's own pick wins, and it took the file only in a git repo (11 Nov).
     expect(written.stdout).toContain(
-      'Written. Manual mode and subagent depth 2 apply from the next new session in this project. In the desktop app, ' +
-        'check the mode selector then: a mode picked for this folder wins over this file, and in our tests the app used ' +
-        'this file only in a git repository.',
+      'Written. The Lead/PM as the main agent, Manual mode and subagent depth 2 apply from the next new session in ' +
+        'this project. In the desktop app, check the mode selector then: a mode picked for this folder wins over this ' +
+        'file, and in our tests the app used this file only in a git repository.',
     );
     expect(written.stdout).not.toMatch(/start in Manual/);
   });
@@ -250,17 +257,29 @@ describe('setup.mjs', () => {
         { ...INSTALLED, ...TEMPLATE, permissions: { ...template.permissions, defaultMode: 'auto' } },
         ['permissions.defaultMode'],
       ],
-      [{ ...INSTALLED, permissions: template.permissions }, ['env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH']],
+      [
+        { ...INSTALLED, permissions: template.permissions },
+        ['env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'agent'],
+      ],
       // Our env key alone is ours too: never a merge over it.
       [
         { ...INSTALLED, env: { CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH: '3' } },
-        ['permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH'],
+        ['permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'agent'],
       ],
-      [{ ...INSTALLED, env: 'opus' }, ['env', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH']],
+      [
+        { ...INSTALLED, env: 'opus' },
+        ['env', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'agent'],
+      ],
       [
         { model: 'opus', env: { GITHUB_TOKEN: 'ghp_supersecretvalue123' } },
-        ['model', 'env.GITHUB_TOKEN', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH'],
+        ['model', 'env.GITHUB_TOKEN', 'permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'agent'],
       ],
+      // v3.8: a main agent of the user's own, alone beside an install, is never overwritten.
+      [
+        { ...INSTALLED, agent: 'opus-helper' },
+        ['permissions', 'env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH', 'agent'],
+      ],
+      [{ ...INSTALLED, ...TEMPLATE, agent: 'opus-helper' }, ['agent']],
     ];
     for (const [file, names] of cases) {
       const dir = project();
@@ -354,8 +373,15 @@ describe('setup.mjs', () => {
           ask: ['Bash(git commit *)'],
         },
         env: template.env,
+        agent: 'world-of-agents:lead',
       });
-      expect(Object.keys(after)).toEqual(['enabledPlugins', 'extraKnownMarketplaces', 'permissions', 'env']);
+      expect(Object.keys(after)).toEqual([
+        'enabledPlugins',
+        'extraKnownMarketplaces',
+        'permissions',
+        'env',
+        'agent',
+      ]);
       expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
 
       const written = read(settings(dir));
@@ -421,17 +447,17 @@ describe('setup.mjs', () => {
     /** What the 2a setup wrote next to an install: version 1, merged by that version of this script. */
     const fromV1 = JSON.stringify({ ...INSTALLED, ...V1 }, null, 2) + '\n';
 
-    it("upgrades a project set up with v3.0 to v3.4: the team folder's three denies are added, nothing else (v3.4)", () => {
+    it("upgrades a project set up with v3.0: the team folder's two denies and the Lead as main agent, nothing else", () => {
       const v2 = JSON.parse(readFileSync(join(VERSIONS, '2.json'), 'utf8')) as object;
       const dir = project();
       put(dir, JSON.stringify({ ...INSTALLED, ...v2 }, null, 2) + '\n');
       const run = setup(dir);
       expect(run.stdout).toContain(
         [
-          "The file holds version 2 of the template's settings. Writing upgrades them to version 3, the current one. The upgrade:",
+          "The file holds version 2 of the template's settings. Writing upgrades them to version 4, the current one. The upgrade:",
           '- adds the deny rule Read(~/.world-of-agents/**)',
           '- adds the deny rule Edit(~/.world-of-agents/**)',
-          '- adds the deny rule Write(~/.world-of-agents/**)',
+          '- sets agent to "world-of-agents:lead"',
         ].join('\n'),
       );
       expect(run.stdout).not.toContain('removes');
@@ -445,7 +471,7 @@ describe('setup.mjs', () => {
       const run = setup(dir);
       expect(run.status).toBe(0);
       expect(run.stdout).toContain(
-        "The file holds version 1 of the template's settings. Writing upgrades them to version 3, the current one.",
+        "The file holds version 1 of the template's settings. Writing upgrades them to version 4, the current one.",
       );
       expect(run.stdout).toContain('- adds the deny rule PowerShell(git push *)\n');
       expect(run.stdout).not.toContain('removes');
@@ -462,11 +488,17 @@ describe('setup.mjs', () => {
       put(dir, fromV1);
       const run = setup(dir, ['--write']);
       expect(run.status).toBe(0);
-      expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 3');
+      expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 4');
       expect(run.stdout).toContain('Written.');
       const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
       expect(after).toEqual({ ...INSTALLED, ...TEMPLATE });
-      expect(Object.keys(after)).toEqual(['enabledPlugins', 'extraKnownMarketplaces', 'permissions', 'env']);
+      expect(Object.keys(after)).toEqual([
+        'enabledPlugins',
+        'extraKnownMarketplaces',
+        'permissions',
+        'env',
+        'agent',
+      ]);
       expect(read(join(dir, '.gitignore'))).toBe('.claude/settings.local.json\n');
 
       const written = read(settings(dir));
@@ -499,8 +531,9 @@ describe('setup.mjs', () => {
         ...file,
         permissions: TEMPLATE.permissions,
         env: { ...file.env, ...(TEMPLATE as Template).env },
+        agent: TEMPLATE.agent,
       });
-      expect(Object.keys(after)).toEqual(Object.keys(file));
+      expect(Object.keys(after)).toEqual([...Object.keys(file), 'agent']);
       expect(Object.keys(after.env as object)).toEqual(Object.keys(file.env));
     });
 
@@ -536,11 +569,11 @@ describe('setup.mjs', () => {
         expect(run.status).toBe(0);
         expect(run.stdout).toContain(
           [
-            "The file holds version 1 of the template's settings. Writing upgrades them to version 3, the current one. The upgrade:",
+            "The file holds version 1 of the template's settings. Writing upgrades them to version 4, the current one. The upgrade:",
             '- adds the deny rule PowerShell(git push *)',
             '- adds the deny rule Read(~/.world-of-agents/**)',
             '- adds the deny rule Edit(~/.world-of-agents/**)',
-            '- adds the deny rule Write(~/.world-of-agents/**)',
+            '- sets agent to "world-of-agents:lead"',
             LISTED,
             'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN.',
           ].join('\n'),
@@ -553,7 +586,7 @@ describe('setup.mjs', () => {
         const dir = project();
         put(dir, JSON.stringify(file, null, 2));
         const run = setup(dir, ['--write']);
-        expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 3');
+        expect(run.stdout).toContain('Upgraded the settings from version 1 of the template to version 4');
         expect(run.stdout).toContain(LISTED);
         const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
         expect(after).toEqual({
@@ -565,6 +598,7 @@ describe('setup.mjs', () => {
             ask: ['Bash(git commit *)'],
           },
           env: { GITHUB_TOKEN: 'ghp_supersecretvalue123', ...template.env },
+          agent: 'world-of-agents:lead',
         });
 
         const written = read(settings(dir));
@@ -696,11 +730,12 @@ describe('setup.mjs', () => {
           'Writing upgrades them to version 2, the current one. The upgrade:',
           '- sets permissions.defaultMode to "default"',
           '- removes the allow rule Bash(npm run lint)',
-          // The old file is the template less its last deny: from v3.4 that is the team folder's Write rule.
-          '- adds the deny rule Write(~/.world-of-agents/**)',
+          // The old file is the template less its last deny: from v3.8 that is the team folder's Edit rule.
+          '- adds the deny rule Edit(~/.world-of-agents/**)',
           '- removes the ask rule Bash(rm *)',
           '- sets env.CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH to "2"',
           '- removes env.WOA_OLD',
+          '- sets agent to "world-of-agents:lead"',
           'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces, env.GITHUB_TOKEN.',
         ].join('\n'),
       );
@@ -745,6 +780,80 @@ describe('setup.mjs', () => {
         }
         expect(read(settings(dir))).toBe(text);
       }
+    });
+
+    describe('from version 3 (v3.4 to v3.7) to version 4 (v3.8)', () => {
+      const V3 = JSON.parse(readFileSync(join(VERSIONS, '3.json'), 'utf8')) as Template & {
+        permissions: { allow: string[]; deny: string[] };
+      };
+      // An "Always allow" click and a deny of the project's own, after the template's.
+      const file = {
+        ...INSTALLED,
+        ...V3,
+        permissions: {
+          ...V3.permissions,
+          allow: [...V3.permissions.allow, 'Bash(node hello.js)'],
+          deny: [...V3.permissions.deny, 'Bash(rm -rf *)'],
+        },
+      };
+      const UPGRADE = [
+        "The file holds version 3 of the template's settings. Writing upgrades them to version 4, the current one. The upgrade:",
+        '- removes the deny rule Write(~/.world-of-agents/**)',
+        '- sets agent to "world-of-agents:lead"',
+        'Rules you added stay as they are:',
+        '- allow "Bash(node hello.js)"',
+        '- deny "Bash(rm -rf *)"',
+        'Every other setting stays exactly as it is: enabledPlugins, extraKnownMarketplaces.',
+      ].join('\n');
+
+      it("drops the Write deny, names the Lead, and keeps the user's rules after the template's", () => {
+        const dir = project();
+        put(dir, JSON.stringify(file, null, 2));
+        expect(setup(dir).stdout).toContain(UPGRADE);
+        const run = setup(dir, ['--write']);
+        expect(run.stdout).toContain('Upgraded the settings from version 3 of the template to version 4');
+        expect(JSON.parse(read(settings(dir)))).toEqual({
+          ...INSTALLED,
+          permissions: {
+            ...template.permissions,
+            allow: [...template.permissions.allow, 'Bash(node hello.js)'],
+            deny: [...template.permissions.deny, 'Bash(rm -rf *)'],
+          },
+          env: template.env,
+          agent: 'world-of-agents:lead',
+        });
+        expect(setup(dir, ['--write']).stdout).toContain('Already set up, nothing changed.');
+      });
+
+      // Claude Code 2.1.325's warning asks for `agent` in your own settings, so someone may have added it already.
+      it('takes a version 3 file whose agent was set to the Lead by hand as version 3, the agent kept in its place', () => {
+        const dir = project();
+        put(dir, JSON.stringify({ agent: 'world-of-agents:lead', ...file }, null, 2));
+        expect(setup(dir).stdout).toContain(UPGRADE);
+        expect(setup(dir, ['--write']).stdout).toContain('Written.');
+        const after = JSON.parse(read(settings(dir))) as Record<string, unknown>;
+        expect(Object.keys(after)).toEqual([
+          'agent',
+          'enabledPlugins',
+          'extraKnownMarketplaces',
+          'permissions',
+          'env',
+        ]);
+        expect(after.agent).toBe('world-of-agents:lead');
+      });
+
+      it('stops on a version 3 file with an agent of its own, names it, and never shows it', () => {
+        const dir = project();
+        const text = JSON.stringify({ ...file, agent: 'opus-helper' }, null, 2);
+        put(dir, text);
+        for (const args of [[], ['--write']]) {
+          const run = setup(dir, args);
+          expect(run.stdout).toContain('Stopped: the file holds settings that differ from the template.');
+          expect(run.stdout).toContain('(missing, extra or changed): permissions.deny, agent.');
+          expect(run.stdout).not.toContain('opus');
+        }
+        expect(read(settings(dir))).toBe(text);
+      });
     });
   });
 

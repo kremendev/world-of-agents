@@ -11,9 +11,10 @@
 //
 // It writes only into a file it fully understands: none yet, or one holding nothing but what a local-scope plugin install
 // puts there (enabledPlugins, extraKnownMarketplaces), which it keeps exactly as it is, and maybe permission rule lists
-// the project gathered before (allow, deny and ask alone, nothing else under permissions). The settings it manages are
-// `permissions` and its own env keys. A rule in permissions.allow, deny or ask is ours when any template version has it
-// in that list; any other rule is one the user added (an "Always allow" click adds one), and it stays where it is. When
+// the project gathered before (allow, deny and ask alone, nothing else under permissions), and maybe an `agent` that
+// is already the template's. The settings it manages are `permissions`, its own env keys and, from version 4 (v3.8),
+// `agent`: the main agent, which the plugin itself no longer sets (Claude Code 2.1.325 warns that will stop). A rule in
+// permissions.allow, deny or ask is ours when any template version has it in that list; any other rule is one the user added (an "Always allow" click adds one), and it stays where it is. When
 // the file's managed settings, its own rules aside, are exactly those of an earlier template version (versions/), it
 // replaces them with the current template, keeps the user's rules after the template's, and leaves every other setting
 // as it is. Anything else, and it shows the template and the settings' names and stops. It never prints an existing
@@ -93,20 +94,21 @@ const pastTemplates = () =>
     .sort((a, b) => parseInt(a, 10) - parseInt(b, 10))
     .map((name) => JSON.parse(readFileSync(join(VERSIONS, name), 'utf8')));
 
-/** The settings the templates manage, shaped like a template: `permissions`, and the env keys in `ours`. */
+/** The settings the templates manage, shaped like a template: `permissions`, the env keys in `ours`, and `agent`. */
 const managed = (settings, ours) => ({
   permissions: settings.permissions,
   env: Object.fromEntries(ours.map((key) => [key, isObject(settings.env) ? settings.env[key] : undefined])),
+  agent: settings.agent,
 });
 
 /** The dotted names of the managed settings where `have` differs from `want`. */
 const managedDifferences = (want, have) =>
-  ['permissions', 'env'].flatMap((key) => differences(want[key], have[key], key));
+  ['permissions', 'env', 'agent'].flatMap((key) => differences(want[key], have[key], key));
 
 /** The names of every setting the templates don't manage: top-level keys, and other env keys as env.NAME. */
 function otherNames(settings, ours) {
   return Object.keys(settings).flatMap((key) => {
-    if (key === 'permissions') return [];
+    if (key === 'permissions' || key === 'agent') return [];
     if (key !== 'env') return [key];
     if (!isObject(settings.env)) return ['env'];
     return Object.keys(settings.env)
@@ -194,7 +196,7 @@ function upgraded(settings, template, ours, added) {
   Object.assign(env, template.env);
   const permissions = { ...template.permissions };
   for (const { list, rule } of added) permissions[list] = [...(permissions[list] ?? []), rule];
-  return { ...settings, permissions, env };
+  return { ...settings, permissions, env, agent: template.agent };
 }
 
 /** What going from one template version to another changes. Template values only, never the file's. */
@@ -219,6 +221,8 @@ function changes(from, to) {
     if (!Object.hasOwn(to.env, key)) lines.push(`removes env.${key}`);
     else if (from.env[key] !== to.env[key]) lines.push(`sets env.${key} to ${JSON.stringify(to.env[key])}`);
   }
+  if (from.agent !== to.agent)
+    lines.push(to.agent === undefined ? 'removes agent' : `sets agent to ${JSON.stringify(to.agent)}`);
   return lines.length > 0 ? lines : ['adds and removes no rule: only their order changes'];
 }
 
@@ -254,7 +258,9 @@ function plan(root) {
     // None of our settings yet: add them only to a file that holds nothing but what an install wrote, and rules the
     // project gathered before, which stay after the template's own.
     const blocking = others.filter((name) => !INSTALL_KEYS.has(name));
-    if (blocking.length > 0)
+    // A main agent of the user's own would be overwritten: it stops it like any other setting (v3.8).
+    const clash = Object.hasOwn(current, 'agent') && current.agent !== template.agent;
+    if (blocking.length > 0 || clash)
       return stop('the file holds settings that differ from the template', [
         ...blocking,
         ...managedDifferences(want, managed(current, ours)),
@@ -288,7 +294,18 @@ function plan(root) {
   const differ = managedDifferences(want, have);
   if (differ.length === 0)
     return { status: 'done', target, template, others, added, ignore: ignoreState(root) };
-  const from = past.findIndex((version) => managedDifferences(managed(version, ours), have).length === 0);
+  const isVersion = (version) => {
+    const theirs = managed(version, ours);
+    if (managedDifferences(theirs, have).length === 0) return true;
+    // An earlier version without `agent`, in a file that has the template's own already, set by hand (Claude Code
+    // 2.1.325 asks for `agent` in your own settings): still that version.
+    return (
+      theirs.agent === undefined &&
+      have.agent === template.agent &&
+      managedDifferences(theirs, { ...have, agent: undefined }).length === 0
+    );
+  };
+  const from = past.findIndex(isVersion);
   if (from === -1) return stop('the file holds settings that differ from the template', differ);
   return {
     status: 'upgrade',
@@ -390,9 +407,9 @@ function report(p, root, writing) {
   lines.push(
     '',
     writing
-      ? 'Written. Manual mode and subagent depth 2 apply from the next new session in this project. In the desktop ' +
-          'app, check the mode selector then: a mode picked for this folder wins over this file, and in our tests the ' +
-          'app used this file only in a git repository.'
+      ? 'Written. The Lead/PM as the main agent, Manual mode and subagent depth 2 apply from the next new session in ' +
+          'this project. In the desktop app, check the mode selector then: a mode picked for this folder wins over ' +
+          'this file, and in our tests the app used this file only in a git repository.'
       : 'Nothing has been written.',
   );
   return lines.join('\n');

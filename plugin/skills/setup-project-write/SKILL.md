@@ -14,10 +14,10 @@ no command, no file edit, no agent. You decide nothing either.
 
 Tell the user in a few plain sentences what happened:
 
-- If it says "Written.", the settings are in place. Manual mode applies from the next new session in this project. In
-  the desktop app, the user should check the mode selector then: a mode picked for this folder wins over the file, and
-  in our tests the app used the file only in a git repository. If it also says "Upgraded", name the rules the upgrade
-  added and removed, exactly as listed. If it lists "Rules you added", say that those stayed as they were.
+- If it says "Written.", the settings are in place. The Lead/PM as the main agent and Manual mode apply from the next
+  new session in this project. In the desktop app, the user should check the mode selector then: a mode picked for this
+  folder wins over the file, and in our tests the app used the file only in a git repository. If it also says
+  "Upgraded", name the changes it lists, exactly as listed. If it lists "Rules you added", say that those stayed as they were.
 - If it says "Already set up", the file already holds exactly these settings. Nothing changed and nothing is needed.
 - After "Written." or "Already set up", add one sentence: quality gates are a separate choice, off until the user turns
   them on, and `/world-of-agents:setup-gates` shows what they do.

@@ -26,8 +26,13 @@ describe('the repo is its own marketplace', () => {
 });
 
 describe('the plugin once installed', () => {
-  it('makes the Lead the main agent, and sets nothing else', () => {
-    expect(json('plugin/settings.json')).toEqual({ agent: `${manifest.name}:lead` });
+  // v3.8: Claude Code 2.1.325 warns that a plugin setting the session's agent will stop working. The project's setup
+  // names the Lead (template 4), and woa passes --agent.
+  it('sets no settings of its own: the main agent comes from the project setup', () => {
+    expect(existsSync(join(REPO, 'plugin/settings.json'))).toBe(false);
+    expect(json<{ agent: string }>('plugin/skills/setup-project/template.json').agent).toBe(
+      `${manifest.name}:lead`,
+    );
     expect(existsSync(join(REPO, 'plugin/agents/lead.md'))).toBe(true);
   });
 

@@ -74,11 +74,15 @@ describe('who may start whom', () => {
       for (const type of TEAM) expect(check(bySub(caller, type))).toBe(denial(REASONS.agent));
   });
 
-  it('denies a main thread that is not the Lead', () => {
+  // v3.8: the project's setup names the Lead, so a main thread that isn't it is a project not set up: its own reason.
+  it('denies a main thread that is not the Lead, and names the setup', () => {
     const main = (agent_type?: string) =>
       JSON.stringify({ tool_name: 'Agent', agent_type, tool_input: { subagent_type: TEAM[0] } });
-    expect(check(main(undefined))).toBe(denial(REASONS.agent));
-    expect(check(main('probe'))).toBe(denial(REASONS.agent));
+    expect(check(main(undefined))).toBe(denial(REASONS.main));
+    expect(check(main('probe'))).toBe(denial(REASONS.main));
+    expect(REASONS.main).toContain('/world-of-agents:setup-project');
+    // No team at all is still the first thing to fix.
+    expect(decide(main(undefined), null)).toBe(denial(REASONS.team));
   });
 
   it("never gives a subagent the main thread's row, nor trips over a name like an object key", () => {
@@ -218,8 +222,8 @@ describe('the Lead edits BACKLOG.md and nothing else (v3.3)', () => {
   it('denies an edit by anyone else: the Reviewer, an unknown agent, a main thread that is not the Lead', () => {
     expect(check(sub('world-of-agents:reviewer', at('a.ts')))).toBe(denial(REASONS.edit));
     expect(check(sub('general-purpose', at('a.ts')))).toBe(denial(REASONS.edit));
-    expect(check(lead('Edit', at('BACKLOG.md'), { agent_type: 'probe' }))).toBe(denial(REASONS.edit));
-    expect(check(lead('Edit', at('BACKLOG.md'), { agent_type: undefined }))).toBe(denial(REASONS.edit));
+    expect(check(lead('Edit', at('BACKLOG.md'), { agent_type: 'probe' }))).toBe(denial(REASONS.main));
+    expect(check(lead('Write', at('src', 'a.ts'), { agent_type: undefined }))).toBe(denial(REASONS.main));
   });
 });
 

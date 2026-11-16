@@ -9,11 +9,11 @@
       "Bash(git push *)",
       "PowerShell(git push *)",
       "Read(~/.world-of-agents/**)",
-      "Edit(~/.world-of-agents/**)",
-      "Write(~/.world-of-agents/**)"
+      "Edit(~/.world-of-agents/**)"
     ]
   },
   "env": {
     "CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH": "2"
-  }
+  },
+  "agent": "world-of-agents:lead"
 }
