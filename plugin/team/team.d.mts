@@ -138,7 +138,14 @@ export type ProjectChange =
       }
     >
   | Extract<TeamChange, { action: 'delete-skill' }>
-  | { action: 'change-skill'; id: string; name: string; description: string; text: string }
+  | {
+      action: 'change-skill';
+      id: string;
+      name: string;
+      description: string;
+      text: string;
+      source?: SkillSource;
+    }
   | { action: 'add-skill'; id: string; name: string; description: string; text: string; source?: SkillSource }
   | NoteChange
   | { action: 'add-starter' }

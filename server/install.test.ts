@@ -146,6 +146,25 @@ describe('the hall the plugin carries', () => {
     expect(bundle.match(/console\.(log|error)\(/g)).toHaveLength(2);
   });
 
+  it("reaches the network in one place: the GitHub skill's one GET (v3.10)", () => {
+    // Node's own fetch, as a value, once in the whole bundle (yaml and zod included): fetchSkill()'s default.
+    expect(bundle.match(/(?<![\w.$])fetch(?![\w$])/g)).toEqual(['fetch']);
+    expect(bundle).toMatch(/async function fetchSkill\d*\(parts, fetchImpl = fetch\)/);
+    expect(bundle).toContain('var RAW_HOST = "raw.githubusercontent.com";');
+    expect(bundle).not.toMatch(/from "node:(https|net|tls|dgram|dns)"/);
+  });
+
+  it("carries yaml's ES module build: no require shim, which throws in an ES module, and no token log (v3.10)", () => {
+    // yaml's CommonJS build require()s `process`, which esbuild's shim refuses in an ES module bundle, so the hall would
+    // throw on the first header it read; and it prints every token when LOG_TOKENS or LOG_STREAM is set.
+    expect(bundle).not.toContain('__require');
+    expect(bundle).not.toMatch(/LOG_TOKENS|LOG_STREAM/);
+    expect(bundle).toContain('// node_modules/yaml/browser/dist/');
+    expect(text('scripts/build-plugin-hall.ts')).toContain(
+      "alias: { yaml: './node_modules/yaml/browser/index.js' },",
+    );
+  });
+
   it('listens on 127.0.0.1 only', () => {
     expect(bundle).toContain('var HOST = "127.0.0.1";');
     expect(bundle).toContain('hall.server.listen(port, HOST, ');

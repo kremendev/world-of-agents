@@ -1322,7 +1322,13 @@ export function changeProject(home, key, change, now, proposal = null, teamFiles
       });
     } else {
       if (at < 0) throw new Error('no such skill');
-      library.skills[at] = { ...library.skills[at], name: change.name, description: change.description };
+      // v3.10: an update from GitHub keeps the license it found now.
+      library.skills[at] = {
+        ...library.skills[at],
+        name: change.name,
+        description: change.description,
+        ...(change.source ? { source: change.source } : {}),
+      };
     }
     texts = { ...texts, [change.id]: change.text.trim() };
     touched = [change.id];

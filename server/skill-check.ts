@@ -78,6 +78,8 @@ export function checkSkillFile(raw: string): SkillCheck {
     uniqueKeys: true,
     customTags: [],
     prettyErrors: false,
+    // Nothing on the hall's output: a warning is refused below, never printed.
+    logLevel: 'silent',
   });
   const problems = [...doc.errors, ...doc.warnings];
   if (problems.length > 0)
@@ -103,7 +105,7 @@ export function checkSkillFile(raw: string): SkillCheck {
   // A name or description that isn't text comes as nothing: the check screen asks for it, as the skill form does.
   const text = (key: string) => (typeof data[key] === 'string' ? (data[key] as string) : null);
   const license = text('license');
-  const dropped = Object.keys(data)
+  const dropped: SkillCheck['dropped'] = Object.keys(data)
     .filter((key) => !['name', 'description', 'license'].includes(key))
     .map((key) => ({ key, why: WHY[key] ?? null }));
   for (const key of ['name', 'description', 'license'])

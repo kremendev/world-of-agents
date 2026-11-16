@@ -109,6 +109,8 @@ const stamp = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER);
 const noteSchema = z.strictObject({ id: noteId, text: noteText, proposedAt: stamp, approvedAt: stamp });
 const proposalSchema = z.strictObject({ id: noteId, agent: noteAgent, text: noteText, at: stamp });
 const preloaded = z.array(skillId).max(MAX_PRELOADED);
+/** v3.10: a skill check the hall holds in memory, 12 random bytes as base64url. */
+const checkId = z.string().regex(/^[A-Za-z0-9_-]{16}$/);
 
 /**
  * One change, the body of POST /api/team: skills (v3.4c) and specialists (v3.6). A new specialist sends no id: team.mjs
@@ -118,6 +120,17 @@ export const teamChangeSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('add-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('change-skill'), ...skillFields }),
   z.strictObject({ action: z.literal('delete-skill'), id: skillId }),
+  // v3.10: a skill the hall checked (pasted, from GitHub or from Dima's Claude skills), by the id of its check: the
+  // text and the facts saved are the hall's own copy, never the page's. Its name and description as Dima left them.
+  z.strictObject({
+    action: z.literal('take-skill'),
+    check: checkId,
+    id: skillId,
+    name: line(60),
+    description: described(),
+  }),
+  // v3.10: Check for update, accepted: the library skill takes the text of the hall's new check.
+  z.strictObject({ action: z.literal('update-skill'), check: checkId, id: skillId }),
   // 3.6e: `at`, where Undo puts a skill back; without it the skill goes last.
   z.strictObject({
     action: z.literal('attach'),
@@ -265,3 +278,52 @@ export type ReviewNote = z.infer<typeof reviewSchema>;
 
 /** A hall answer that went wrong, as the page reads it: a fixed word, or nothing it knows. */
 export const teamErrorSchema = z.strictObject({ error: z.string().max(300) });
+
+/** v3.10: the most a pasted SKILL.md, header and text, may be: GitHub's answer is cut at the same 128 KiB. */
+export const MAX_PASTE = 128 * 1024;
+const skillFile = z.string().max(1024).refine(isSkillFile);
+
+/**
+ * v3.10, the body of POST /api/team/skill, which only reads: Dima's Claude skills listed, or one SKILL.md checked,
+ * pasted, from his Claude skills, from a GitHub link, or a GitHub skill in the library fetched again (Check for update).
+ */
+export const skillAskSchema = z.discriminatedUnion('ask', [
+  z.strictObject({ ask: z.literal('paste'), text: z.string().min(1).max(MAX_PASTE) }),
+  z.strictObject({ ask: z.literal('claude-list') }),
+  z.strictObject({ ask: z.literal('claude'), file: skillFile }),
+  z.strictObject({ ask: z.literal('github'), link: z.string().min(1).max(2048) }),
+  z.strictObject({ ask: z.literal('recheck'), id: skillId }),
+]);
+export type SkillAsk = z.infer<typeof skillAskSchema>;
+
+/** What the hall read in a SKILL.md (server/skill-check.ts), with where it came from, under the id its take names. */
+export const skillCheckSchema = z.strictObject({
+  id: checkId,
+  name: z.string().max(16 * 1024),
+  description: z.string().max(16 * 1024),
+  text: z.string().max(MAX_PASTE),
+  dropped: z.array(z.strictObject({ key: z.string().max(60), why: z.string().max(100).nullable() })).max(200),
+  missing: z.array(z.string().max(300)).max(12),
+  refusals: z.array(z.string().max(300)).max(10),
+  source: sourceSchema,
+});
+export type SkillCheckView = z.infer<typeof skillCheckSchema>;
+
+/** One of Dima's Claude skills, as the list shows it. */
+const claudeSkillSchema = z.strictObject({
+  file: skillFile,
+  name: z.string().max(200),
+  description: z.string().max(1024),
+  label: z.enum(CLAUDE_LABELS),
+});
+export type ClaudeSkillView = z.infer<typeof claudeSkillSchema>;
+
+/** What POST /api/team/skill answers: a check, or the list. */
+export const skillAnswerSchema = z.union([
+  z.strictObject({ check: skillCheckSchema }),
+  z.strictObject({
+    claude: z.array(claudeSkillSchema).max(200),
+    tooBig: z.number().int().min(0).max(1000),
+  }),
+]);
+export type SkillAnswer = z.infer<typeof skillAnswerSchema>;

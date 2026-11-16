@@ -11,6 +11,7 @@ import {
   emptyNotes,
   giveOwnTeam,
   installCommands,
+  isDescription,
   listProjects,
   NOTE_AGENTS,
   projectOf,
@@ -21,22 +22,32 @@ import {
   readProjectTeam,
   readReview,
   readShared,
+  type ProjectChange,
+  type SkillSource,
 } from '../plugin/team/team.mjs';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
 import { isNewer, VERSION, VERSION_SHAPE } from '../src/version';
 import {
   keyBodySchema,
   keyPostSchema,
+  skillAskSchema,
   teamChangeSchema,
+  type SkillCheckView,
   type TeamChange,
   type TeamProposal,
   type TeamView,
 } from '../src/team/schema';
+import { listClaudeSkills, readClaudeSkill } from './claude-skills';
 import { HALL_CSP } from './csp';
+import { fetchSkill, LINK_SHAPES, parseLink } from './github';
 import { hookInputSchema, type HookInput } from './hook-input';
 import { createKeys, sessionCookie } from './keys';
 import { INITIAL_MAP, mapHook, proposalIn, type MapState } from './map';
 import type { Page } from './page';
+import { checkSkillFile, type SkillCheck } from './skill-check';
+
+/** A change as the hall applies it (v3.10): team.mjs's, or the one-time gift of a project's own team. */
+type HallChange = ProjectChange | Extract<TeamChange, { action: 'give-own-team' }>;
 
 /** The hall only ever listens on this machine. */
 export const HOST = '127.0.0.1';
@@ -51,8 +62,15 @@ export const MAX_BODY = 256 * 1024;
 export const MAX_LEDGER_BODY = 4096;
 /** A one-time key or the page's handing back of one: a few dozen bytes (v3.4c), and (v3.9) the session's folder. */
 export const MAX_KEY_BODY = 4096;
-/** One change to the team: a skill's text is at most 8,000 characters, four bytes each at most in UTF-8. */
+/**
+ * One change to the team: from v3.10 a skill's text is at most 20,000 characters, never more than three bytes a UTF-16
+ * unit in UTF-8, and its description 1,024 such: under 64 KiB with the rest (a test builds the largest).
+ */
 export const MAX_TEAM_BODY = 64 * 1024;
+/** v3.10: POST /api/team/skill's body: a pasted SKILL.md of up to 128 KiB, its JSON escapes included. */
+export const MAX_SKILL_BODY = 1024 * 1024;
+/** v3.10: the skill checks the hall holds in memory for their take, the newest first gone last. */
+export const MAX_CHECKS = 10;
 /** `POST /api/stop`'s body, `{"version": "3.5.1"}`: a few dozen bytes (v3.5b). */
 export const MAX_STOP_BODY = 256;
 /** How many past events a page gets when it connects. */
@@ -135,6 +153,7 @@ export function createHall({
   now = Date.now,
   idleMs,
   onStop,
+  githubFetch,
 }: {
   token: string;
   port?: number;
@@ -155,6 +174,8 @@ export function createHall({
    * `POST /api/stop`. Without it, /api/stop refuses everyone.
    */
   onStop?: () => void;
+  /** v3.10: how the hall reaches GitHub: Node's own fetch; tests give theirs and never reach GitHub. */
+  githubFetch?: typeof fetch;
 }): Hall {
   const hosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const expected = digest(token);
@@ -166,6 +187,9 @@ export function createHall({
   let replay: OfficeEvent[] = [];
   // v3.7: the guild leads' proposed notes, in memory only (M7).
   let proposals: (TeamProposal & { project: string })[] = [];
+  // v3.10: each SKILL.md the hall read for a check screen, with where it came from, in memory only: a take names one by
+  // its id, and what is saved is this copy, never the page's. Each is its project's alone.
+  let checks: { id: string; project: string; check: SkillCheck; source: SkillSource }[] = [];
   // The ledger's latest total, in memory only: never part of the replay, and gone when the hall stops.
   let ledger: LedgerTotals | null = null;
   const ledgerFrame = (totals: LedgerTotals) => `event: ledger\ndata: ${JSON.stringify(totals)}\n\n`;
@@ -502,9 +526,116 @@ export function createHall({
     reply(res, status, body);
   }
 
+  /**
+   * v3.10: one SKILL.md read for the check screen, kept under a new id for its take, and what the page is sent: what the
+   * hall read in it, and the source the library would keep. A license that isn't one line of 200 characters at most
+   * refuses it: the library keeps a license as written, or none.
+   */
+  function held(project: string, check: SkillCheck, source: SkillSource): SkillCheckView {
+    const refusals = [...check.refusals];
+    if (check.license !== null && !isDescription(check.license, 200))
+      refusals.push('Its license field is not one line of 200 characters at most.');
+    const kept = {
+      ...source,
+      ...('license' in source ? { license: refusals.length ? null : check.license } : {}),
+    };
+    const id = randomBytes(12).toString('base64url');
+    checks = [...checks, { id, project, check: { ...check, refusals }, source: kept as SkillSource }].slice(
+      -MAX_CHECKS,
+    );
+    const { name, description, text, dropped, missing } = check;
+    return { id, name, description, text, dropped, missing, refusals, source: kept as SkillSource };
+  }
+
+  /**
+   * v3.10, POST /api/team/skill: reads only, for the "+ Add a skill" screens, with every control POST /api/team has (the
+   * page's exact Origin, the session cookie, JSON, a cap, the schema). Lists Dima's Claude skills, or reads one SKILL.md
+   * for the check screen: pasted, one of his Claude skills, or from GitHub, the hall's one network call. Writes nothing.
+   */
+  async function skillPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!fromPage(req)) return reply(res, 403);
+    const folder = keys.projectOf(req.headers.cookie);
+    if (folder === null) return reply(res, 401);
+    const project = projectOf(folder);
+    if (!project) return reply(res, 409, NOT_A_PROJECT);
+    const json = await jsonBody(req, res, MAX_SKILL_BODY);
+    if (json === undefined) return;
+    const ask = skillAskSchema.safeParse(json);
+    if (!ask.success) return reply(res, 400);
+    const a = ask.data;
+    if (a.ask === 'claude-list') {
+      const { skills, tooBig } = listClaudeSkills(teamHome);
+      return reply(res, 200, { claude: skills, tooBig });
+    }
+    if (a.ask === 'paste') {
+      const check = checkSkillFile(a.text);
+      return reply(res, 200, { check: held(project.key, check, { kind: 'pasted', license: null }) });
+    }
+    if (a.ask === 'claude') {
+      const read = readClaudeSkill(teamHome, a.file);
+      if (!read) return reply(res, 409, { error: "That file isn't one of your Claude skills any more." });
+      const source = { kind: 'claude' as const, label: read.label, file: a.file, license: null };
+      return reply(res, 200, { check: held(project.key, checkSkillFile(read.raw), source) });
+    }
+    // GitHub: a link Dima pasted, or (Check for update) the parts a library skill keeps.
+    let parts;
+    if (a.ask === 'github') {
+      parts = parseLink(a.link);
+      if (!parts)
+        return reply(res, 409, {
+          error: `That link isn't one the hall takes. It takes these three: ${LINK_SHAPES.join(' · ')}`,
+        });
+    } else {
+      let source: SkillSource | undefined;
+      try {
+        source = readLibrary(teamHome).library.skills.find((s) => s.id === a.id)?.source;
+      } catch {
+        return reply(res, 409, BROKEN);
+      }
+      if (source?.kind !== 'github')
+        return reply(res, 409, { error: 'Only a skill from GitHub can be checked for an update.' });
+      parts = { owner: source.owner, repo: source.repo, ref: source.ref, path: source.path };
+    }
+    const fetched = await fetchSkill(parts, githubFetch);
+    if (!fetched.ok) return reply(res, 409, { error: fetched.why });
+    const source = { kind: 'github' as const, ...parts, license: null };
+    reply(res, 200, { check: held(project.key, checkSkillFile(fetched.raw), source) });
+  }
+
+  /**
+   * v3.10: a take or an update names a check by its id; what the hall writes is the text it read and the source it
+   * found, never the page's. A check is used once, and only by its own project's sessions.
+   */
+  function fromCheck(change: TeamChange, key: string): HallChange | string {
+    if (change.action !== 'take-skill' && change.action !== 'update-skill') return change as HallChange;
+    const held = checks.find((c) => c.id === change.check && c.project === key);
+    if (!held) return 'That check is gone: the hall keeps the last 10, until it stops. Check it again.';
+    if (held.check.refusals.length > 0) return "That skill can't be added: see why on its check screen.";
+    if (change.action === 'take-skill') {
+      const { id, name, description } = change;
+      return { action: 'add-skill', id, name, description, text: held.check.text, source: held.source };
+    }
+    let current;
+    try {
+      current = readLibrary(teamHome).library.skills.find((s) => s.id === change.id);
+    } catch {
+      return BROKEN.error;
+    }
+    if (current?.source.kind !== 'github' || held.source.kind !== 'github')
+      return 'Only a skill from GitHub can be updated.';
+    const same = (['owner', 'repo', 'ref', 'path'] as const).every(
+      (k) => current.source[k as never] === held.source[k as never],
+    );
+    if (!same) return "That check isn't of this skill's link.";
+    const { id, name, description } = current;
+    return { action: 'change-skill', id, name, description, text: held.check.text, source: held.source };
+  }
+
   function applyToTeam(folder: string, change: TeamChange): { status: number; body: unknown } {
     const project = projectOf(folder);
     if (!project) return { status: 409, body: NOT_A_PROJECT };
+    const projectChange = fromCheck(change, project.key);
+    if (typeof projectChange === 'string') return { status: 409, body: { error: projectChange } };
     // v3.7c: approve and reject name a proposal by its id, and the text written is the hall's own copy, never the
     // page's (M8). v3.9: only a proposal from this project's own sessions.
     const proposal =
@@ -512,13 +643,16 @@ export function createHall({
         ? (proposals.find((p) => p.id === change.id && p.project === project.key) ?? null)
         : null;
     try {
-      if (change.action === 'give-own-team') giveOwnTeam(teamHome, folder, change.from, now());
-      else changeProject(teamHome, project.key, change, now(), proposal, teamFiles);
+      if (projectChange.action === 'give-own-team') giveOwnTeam(teamHome, folder, projectChange.from, now());
+      else changeProject(teamHome, project.key, projectChange, now(), proposal, teamFiles);
     } catch (error) {
       // team.mjs's own fixed words, with checked ids at most.
       return { status: 409, body: { error: (error as Error).message } };
     }
     if (proposal) proposals = proposals.filter((p) => p !== proposal);
+    // A check is used once.
+    if (change.action === 'take-skill' || change.action === 'update-skill')
+      checks = checks.filter((c) => c.id !== change.check);
     const view = teamView(folder);
     return { status: 'error' in view ? 409 : 200, body: view };
   }
@@ -566,6 +700,7 @@ export function createHall({
     if (path === '/api/key') return method === 'POST' ? keyPost(req, res) : reply(res, 405);
     if (path === '/api/stop') return method === 'POST' ? stopPost(req, res) : reply(res, 405);
     if (path === '/api/session') return method === 'POST' ? sessionPost(req, res) : reply(res, 405);
+    if (path === '/api/team/skill') return method === 'POST' ? skillPost(req, res) : reply(res, 405);
     if (path === '/api/team') {
       if (method === 'GET') return teamGet(req, res);
       return method === 'POST' ? teamPost(req, res) : reply(res, 405);

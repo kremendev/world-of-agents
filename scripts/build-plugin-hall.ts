@@ -60,6 +60,10 @@ async function buildInto(out: string): Promise<void> {
     banner: { js: BANNER },
     charset: 'ascii',
     logLevel: 'warning',
+    // v3.10: yaml's ES module build. Its CommonJS build, which `node` resolves to, require()s `process` (which an ES
+    // module bundle can't), and prints every token it reads when LOG_TOKENS or LOG_STREAM is set: third-party text on
+    // the hall's output, which prints two fixed lines only. The ES module build reads no environment.
+    alias: { yaml: './node_modules/yaml/browser/index.js' },
   });
 
   const files = listPage(page);

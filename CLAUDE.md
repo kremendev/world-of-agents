@@ -106,6 +106,9 @@ server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Or
                   long); serves only the page
                   files it is given, by exact match; the handshake answer and /api/health state the plugin version, from
                   src/version.ts, 3.2d), keys.ts (the one-time keys and sessions, digests in memory only),
+                  from v3.10 skill-check.ts (a SKILL.md from outside, read for the check screen), claude-skills.ts
+                  (Dima's Claude skills under ~/.claude/skills, labels from the app's manifest) and github.ts (the
+                  hall's one network call: one GET to raw.githubusercontent.com), behind POST /api/team/skill,
                   page.ts (PAGE_TYPES, listPage()
                   for dist/, readManifest() for the plugin's hall), serve.ts (binds 4319, writes the token, signals;
                   shutdown(): the token file first, then the port, then exit),
@@ -601,6 +604,19 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   flags links and command-like lines, and refuses what `textProblem()` refuses. Known limit, in the README: the link is
   briefly visible in the browser's command line when the desktop app opens it. Anything that can read the hall's token
   can also mint a key, the same as it could post hooks; the guard and the template keep agents away from that folder.
+- From v3.10 the team editor also reads skills from outside, with the same controls (the page's exact Origin, the session
+  cookie, JSON, a cap, `skillAskSchema`). `POST /api/team/skill` writes nothing: it lists Dima's Claude skills, or reads
+  one SKILL.md for the check screen, pasted (128 KiB at most), one of his Claude skills (`claude-skills.ts`: only files
+  named SKILL.md, at most three folders down under `~/.claude/skills`, every part lstat'ed and a link or junction left
+  out, its real path inside, 64 KiB each and 200 in all; the desktop app's manifest read for labels only), or from GitHub.
+  The hall keeps each check in memory, the newest 10, bound to its project. `take-skill` and `update-skill` in
+  `POST /api/team` name a check by its id, once; what is saved is the hall's copy and the source it found, never the
+  page's; a check with a refusal is never taken; an update needs a GitHub check of the skill's own owner, repository, ref
+  and path. GitHub is the hall's one network call: `fetchSkill()` in `github.ts`, one GET to `raw.githubusercontent.com`,
+  a constant, built from a link's parsed parts (three shapes; every part through team.mjs's segment rules), no redirect
+  followed, 10 s, the answer cut at 128 KiB as it arrives, no cookie, no token, User-Agent `World-of-Agents-hall`.
+  `skill-api.test.ts` pins that Node's `fetch` appears in `github.ts` alone and that nothing in `server/` opens a
+  connection of its own; `install.test.ts` pins one `fetch` in the bundle. The page's `connect-src 'self'` is unchanged.
 - The hall sends `Content-Security-Policy`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer` on every
   response. The Pages build (`VITE_LIVE=false`) carries the same policy as a meta tag, without `frame-ancestors`. Both
   come from `server/csp.ts`. Add only what the page really needs; never `unsafe-inline` or `unsafe-eval`. React's `style`
@@ -651,6 +667,15 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   ignore that folder, and the engine writes a `.gitignore` of `*` there (seen 8 Nov). It also writes `plugin/tsconfig.json`,
   which only extends that folder and isn't ignored: delete it, never commit it.
 - jsdom has no canvas: `src/test/setup.ts` mocks `getContext` to return null; drawing code must handle that.
+- A fake stream or server in a test is bounded: it sends a fixed amount (twice a cap at most), then closes, and waits a
+  turn between pieces. On 16 Nov `github.test.ts`'s endless stream, with the size cap planted out, held the PC's memory
+  until VS Code died, twice: a stream that answers at once is read in microtasks alone, so no timer runs, Vitest's own
+  timeout included, and `Uint8Array` pieces live outside the V8 heap, so `--max-old-space-size` doesn't stop them (both
+  checked). A failing size check says one short line, never the body.
+- Planted bugs (Dima, 16 Nov) go in a throwaway git worktree (`~/Downloads/woa-plant`, the uncommitted files copied in,
+  `node_modules` a junction), never in the working tree, so a crash leaves nothing behind there. Each run has a hard
+  timeout that ends the whole process tree (`taskkill /T /F`) and a 512 MB heap through `NODE_OPTIONS`. A run that dies,
+  times out, prints no summary, reports fewer results than it has tests, or has unhandled errors is FAILED, never caught.
 - Layout tests check that props stay in the hall, agents sit in the right room, and nothing overlaps a desk.
   Add a test when you add a layout rule.
 - `noUncheckedSideEffectImports` is on: import CSS from packages by file path
@@ -1034,4 +1059,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     core schema, unique keys, at most 5 aliases, any tag refused whole; name, description and license kept, every other
     key named and dropped, allowed-tools and hooks with what they would have done; the files its text names that don't
     come along; on the page, a skill's lines flagged "overrides your rules?" by their own rule, a note's by its own;
-    fourteen of fifteen planted bugs caught, the fifteenth a second lock no input can reach).
+    fourteen of fifteen planted bugs caught, the fifteenth a second lock no input can reach). 3.10d done (the hall's
+    side of the three ways in: `POST /api/team/skill`, which only reads, a pasted SKILL.md, Dima's Claude skills with
+    their labels, a GitHub link through the hall's one network call; each check kept in memory per project and taken once
+    by `take-skill`, which saves the hall's copy; Check for update's hall side came with it, `recheck` and `update-skill`;
+    the bundle takes yaml's ES module build; seventeen planted bugs in a throwaway worktree, fifteen caught after two tests
+    were sharpened and one bounded, two second locks no input can reach. The first try planted with `sed -i` in the working
+    tree, and the size-cap test's endless stream crashed VS Code twice: Testing notes has the rules that came of it).
