@@ -1066,3 +1066,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     the bundle takes yaml's ES module build; seventeen planted bugs in a throwaway worktree, fifteen caught after two tests
     were sharpened and one bounded, two second locks no input can reach. The first try planted with `sed -i` in the working
     tree, and the size-cap test's endless stream crashed VS Code twice: Testing notes has the rules that came of it).
+    3.10e done (Check for update on the page: a GitHub skill's link fetched again through the hall, the differences line
+    by line with the added lines' flags, a new license, the refusals, then "Take the update" by the check's id or "Keep
+    what I have"; fifteen planted bugs, all caught once one test was sharpened).

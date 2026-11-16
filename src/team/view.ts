@@ -15,6 +15,9 @@ import {
   skillIdOf,
   specialistIdOf,
   type ReviewNote,
+  type SkillAnswer,
+  type SkillAsk,
+  type SkillCheckView,
   type SkillSource,
   type TeamChange,
   type TeamNote,
@@ -34,6 +37,8 @@ export type TeamActions = {
   busy: boolean;
   send: (change: TeamChange, said: string, undo?: { change: TeamChange; said: string }) => Promise<boolean>;
   focus: (id: string) => void;
+  /** v3.10: has the hall read a skill (it writes nothing): its answer, or the words to show where it was asked. */
+  ask: (ask: SkillAsk) => Promise<{ ok: true; answer: SkillAnswer } | { ok: false; message: string }>;
 };
 
 export type Guild = (typeof GUILDS)[number];
@@ -244,6 +249,116 @@ export function skillLines(text: string): TextCheck['lines'] {
   return checkText(text).lines.map((line) =>
     OVERRIDE.some((p) => p.test(line.text)) ? { ...line, flags: [...line.flags, 'override' as const] } : line,
   );
+}
+
+/**
+ * v3.10e, Check for update: a text's lines against the new ones. `at` is the line's index in its own text: the old one for
+ * a line gone, the new one otherwise, so an added line takes its flags from the new text read whole (a code fence spans
+ * lines).
+ */
+export type DiffLine = { kind: 'same' | 'gone' | 'new'; text: string; at: number };
+/** Past this many cells (changed lines before times after) the middle shows as all gone, then all new. */
+export const MAX_DIFF_CELLS = 1_000_000;
+export function lineDiff(before: string, after: string): DiffLine[] {
+  const a = before.split(/\r?\n/);
+  const b = after.split(/\r?\n/);
+  let head = 0;
+  while (head < a.length && head < b.length && a[head] === b[head]) head++;
+  let tail = 0;
+  while (
+    tail < a.length - head &&
+    tail < b.length - head &&
+    a[a.length - 1 - tail] === b[b.length - 1 - tail]
+  )
+    tail++;
+  const out: DiffLine[] = [];
+  for (let j = 0; j < head; j++) out.push({ kind: 'same', text: b[j]!, at: j });
+  const was = a.slice(head, a.length - tail);
+  const now = b.slice(head, b.length - tail);
+  const [n, m] = [was.length, now.length];
+  if (n * m > MAX_DIFF_CELLS) {
+    was.forEach((text, i) => out.push({ kind: 'gone', text, at: head + i }));
+    now.forEach((text, j) => out.push({ kind: 'new', text, at: head + j }));
+  } else {
+    // The longest run of lines both keep, from each point to the end; then walk it, a line gone before one added.
+    const w = m + 1;
+    const keep = new Uint32Array((n + 1) * w);
+    for (let i = n - 1; i >= 0; i--)
+      for (let j = m - 1; j >= 0; j--)
+        keep[i * w + j] =
+          was[i] === now[j]
+            ? keep[(i + 1) * w + j + 1]! + 1
+            : Math.max(keep[(i + 1) * w + j]!, keep[i * w + j + 1]!);
+    let [i, j] = [0, 0];
+    while (i < n || j < m) {
+      if (i < n && j < m && was[i] === now[j]) {
+        out.push({ kind: 'same', text: now[j]!, at: head + j });
+        i++;
+        j++;
+      } else if (i < n && (j === m || keep[(i + 1) * w + j]! >= keep[i * w + j + 1]!)) {
+        out.push({ kind: 'gone', text: was[i]!, at: head + i });
+        i++;
+      } else {
+        out.push({ kind: 'new', text: now[j]!, at: head + j });
+        j++;
+      }
+    }
+  }
+  for (let j = b.length - tail; j < b.length; j++) out.push({ kind: 'same', text: b[j]!, at: j });
+  return out;
+}
+
+/** A run of unchanged lines longer than this shows its first and last CONTEXT lines, and how many are between. */
+const CONTEXT = 3;
+export type DiffRow = DiffLine | { kind: 'skip'; count: number };
+export function diffRows(lines: readonly DiffLine[]): DiffRow[] {
+  const out: DiffRow[] = [];
+  let k = 0;
+  while (k < lines.length) {
+    if (lines[k]!.kind !== 'same') {
+      out.push(lines[k]!);
+      k++;
+      continue;
+    }
+    let end = k;
+    while (end < lines.length && lines[end]!.kind === 'same') end++;
+    const run = lines.slice(k, end);
+    const keepHead = k === 0 ? 0 : CONTEXT;
+    const keepTail = end === lines.length ? 0 : CONTEXT;
+    if (run.length > keepHead + keepTail + 1) {
+      out.push(...run.slice(0, keepHead), { kind: 'skip', count: run.length - keepHead - keepTail });
+      out.push(...run.slice(run.length - keepTail));
+    } else out.push(...run);
+    k = end;
+  }
+  return out;
+}
+
+/**
+ * v3.10e: why an update can't be taken: what the hall refused in the file, what checkText() refuses in its text, and a
+ * specialist here whose skills the new text would take past 40,000 characters (the hall checks every other project).
+ */
+export function updateRefusals(view: TeamView, id: string, check: SkillCheckView): string[] {
+  const texts = { ...view.texts, [id]: check.text };
+  const over = usersOf(view, id).flatMap((p) => {
+    const chars = charsOf(p.skills, texts);
+    return chars > MAX_SPECIALIST_TEXT
+      ? [
+          `${p.name}'s skills would come to ${thousands(chars)} characters, over ${thousands(MAX_SPECIALIST_TEXT)}.`,
+        ]
+      : [];
+  });
+  return [...check.refusals, ...checkText(check.text).refusals, ...over];
+}
+
+/** "3 lines added and 1 removed", "1 line removed", or "No line changed". */
+export function diffSummary(lines: readonly DiffLine[]): string {
+  const added = lines.filter((l) => l.kind === 'new').length;
+  const gone = lines.filter((l) => l.kind === 'gone').length;
+  if (added === 0 && gone === 0) return 'No line changed';
+  if (gone === 0) return `${plural(added, 'line')} added`;
+  if (added === 0) return `${plural(gone, 'line')} removed`;
+  return `${plural(added, 'line')} added and ${gone} removed`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

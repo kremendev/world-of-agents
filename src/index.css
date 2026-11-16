@@ -1938,6 +1938,41 @@ button.tp-card:hover {
   color: var(--ui-flag);
 }
 
+/* v3.10e: Check for update, what GitHub has now against the library's text: + added, − removed, a flag over either. */
+.tp-update {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 10px;
+}
+
+.tp-diff li.new {
+  border-left-color: var(--ui-success);
+}
+
+.tp-diff li.gone {
+  border-left-color: var(--ui-danger);
+}
+
+.tp-diff li.gone code {
+  color: var(--ui-muted);
+  text-decoration: line-through;
+}
+
+.tp-diff li.new.flagged {
+  border-left-color: var(--ui-flag);
+}
+
+.tp-diff li.new .tp-num {
+  color: var(--ui-success);
+}
+
+.tp-diff li.gone .tp-num {
+  color: var(--ui-danger);
+}
+
 /* The forms: label over field, hints under it. */
 .tp-field {
   display: flex;

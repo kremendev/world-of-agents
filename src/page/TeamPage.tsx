@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { loadTeam, sendChange, type Exchange, type TeamAnswer } from '../team/api';
+import { askSkill, loadTeam, sendChange, type Exchange, type TeamAnswer } from '../team/api';
 import type { TeamChange, TeamView } from '../team/schema';
 import {
   noteItems,
@@ -117,6 +117,21 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
         writing.current = false;
         setBusy(false);
       }
+    },
+    // v3.10: a read, never a write, so no lock; a session gone signs the page out as a change would.
+    ask: async (ask) => {
+      const reply = await askSkill(ask);
+      if (reply.ok) return reply;
+      if (reply.why === 'signed-out') setSignedOut(true);
+      return {
+        ok: false,
+        message:
+          reply.why === 'refused'
+            ? reply.message
+            : reply.why === 'offline'
+              ? SESSION_LINES.offline
+              : SESSION_LINES.expired,
+      };
     },
   };
 

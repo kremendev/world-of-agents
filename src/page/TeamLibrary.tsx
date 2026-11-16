@@ -1,10 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { MAX_PRELOADED, type LibrarySkill, type TeamSpecialist, type TeamView } from '../team/schema';
+import {
+  MAX_PRELOADED,
+  type LibrarySkill,
+  type SkillCheckView,
+  type TeamSpecialist,
+  type TeamView,
+} from '../team/schema';
 import { type TextCheck } from '../team/text';
 import {
   aboutTokens,
   dayOf,
+  diffRows,
+  diffSummary,
   FLAG_LABEL,
+  lineDiff,
+  plural,
+  updateRefusals,
   flagged,
   flagSummary,
   listed,
@@ -194,6 +205,11 @@ function SkillDetails({
 }) {
   const own = useId();
   const [deleting, setDeleting] = useState(false);
+  // v3.10e: Check for update, GitHub skills only: asking, then the hall's new check, or why it couldn't.
+  const [asking, setAsking] = useState(false);
+  const [update, setUpdate] = useState<SkillCheckView | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const checkButton = `${own}-check`;
   const here = usersOf(view, s.id);
   const elsewhere = (view.usage[s.id] ?? []).filter((u) => u.project !== view.project.key);
   const without = (view.team?.specialists ?? []).filter(
@@ -213,6 +229,34 @@ function SkillDetails({
   const remove = async () => {
     if (await actions.send({ action: 'delete-skill', id: s.id }, `Deleted ${s.name} from the library.`)) {
       actions.focus(ids.main);
+    }
+  };
+  const checkForUpdate = async () => {
+    setAsking(true);
+    setFailed(null);
+    const reply = await actions.ask({ ask: 'recheck', id: s.id });
+    setAsking(false);
+    if (reply.ok && 'check' in reply.answer) {
+      setUpdate(reply.answer.check);
+      actions.focus(`${own}-update`);
+    } else {
+      setFailed(reply.ok ? "The hall's answer wasn't a check." : reply.message);
+      actions.focus(checkButton);
+    }
+  };
+  const closeUpdate = () => {
+    setUpdate(null);
+    actions.focus(checkButton);
+  };
+  const takeUpdate = async (check: SkillCheckView) => {
+    if (
+      await actions.send(
+        { action: 'update-skill', check: check.id, id: s.id },
+        `Updated ${s.name} from GitHub.`,
+      )
+    ) {
+      setUpdate(null);
+      actions.focus(ids.details);
     }
   };
 
@@ -280,7 +324,17 @@ function SkillDetails({
         <p className={flagged(lines) ? 'tp-flagline' : 'tp-muted'}>{flagSummary(lines)}</p>
       </div>
 
-      {deleting ? (
+      {update ? (
+        <UpdateCheck
+          s={s}
+          view={view}
+          check={update}
+          busy={actions.busy}
+          headingId={`${own}-update`}
+          onTake={() => void takeUpdate(update)}
+          onKeep={closeUpdate}
+        />
+      ) : deleting ? (
         <div
           className="tp-confirm"
           role="group"
@@ -313,23 +367,158 @@ function SkillDetails({
           </div>
         </div>
       ) : (
-        <div className="tp-buttons">
-          <button type="button" className="tp-button" onClick={onChange}>
-            Change
-          </button>
-          <button
-            id={deleteButton}
-            type="button"
-            className="tp-button tp-danger-outline"
-            onClick={() => {
-              setDeleting(true);
-              actions.focus(`${own}-keep`);
-            }}
-          >
-            Delete from library
-          </button>
-        </div>
+        <>
+          <div className="tp-buttons">
+            {s.source.kind === 'github' && (
+              <button
+                id={checkButton}
+                type="button"
+                className="tp-button"
+                aria-disabled={asking || undefined}
+                onClick={() => {
+                  if (!asking) void checkForUpdate();
+                }}
+              >
+                {asking ? 'Asking GitHub...' : 'Check for update'}
+              </button>
+            )}
+            <button type="button" className="tp-button" onClick={onChange}>
+              Change
+            </button>
+            <button
+              id={deleteButton}
+              type="button"
+              className="tp-button tp-danger-outline"
+              onClick={() => {
+                setDeleting(true);
+                actions.focus(`${own}-keep`);
+              }}
+            >
+              Delete from library
+            </button>
+          </div>
+          {failed !== null && (
+            <p className="tp-problem" role="alert">
+              {failed}
+            </p>
+          )}
+        </>
       )}
+    </section>
+  );
+}
+
+/**
+ * v3.10e, Check for update: what GitHub has now against what the library keeps, line by line, the added lines with their
+ * flags, a license that changed, and what refuses it; then take it or keep what is there. Nothing changes until he takes
+ * it, and what is saved is the hall's copy of what he saw.
+ */
+function UpdateCheck({
+  s,
+  view,
+  check,
+  busy,
+  headingId,
+  onTake,
+  onKeep,
+}: {
+  s: LibrarySkill;
+  view: TeamView;
+  check: SkillCheckView;
+  busy: boolean;
+  headingId: string;
+  onTake: () => void;
+  onKeep: () => void;
+}) {
+  const own = useId();
+  const before = view.texts[s.id] ?? '';
+  const lines = lineDiff(before, check.text);
+  const rows = diffRows(lines);
+  const newFlags = skillLines(check.text);
+  const added = lines.filter((l) => l.kind === 'new').map((l) => newFlags[l.at]!);
+  const licenseWas = s.source.kind === 'github' ? s.source.license : null;
+  const licenseNow = check.source.kind === 'github' ? check.source.license : null;
+  const same = check.text === before && licenseNow === licenseWas;
+  const refusals = updateRefusals(view, s.id, check);
+
+  return (
+    <section className="tp-update" aria-labelledby={headingId}>
+      <h3 id={headingId} tabIndex={-1}>
+        Update from GitHub
+      </h3>
+      {same ? (
+        <p>GitHub has the same text and license. Nothing to update.</p>
+      ) : (
+        <>
+          <p>{diffSummary(lines)}, against the text in your library.</p>
+          {licenseNow !== licenseWas && (
+            <p>
+              License: {licenseWas ?? 'none'} → {licenseNow ?? 'none'}
+            </p>
+          )}
+          <ol className="tp-lines tp-diff">
+            {rows.map((row, k) => {
+              if (row.kind === 'skip')
+                return (
+                  <li key={k} className="skip">
+                    <span className="tp-num" aria-hidden="true">
+                      ⋯
+                    </span>
+                    <span className="tp-muted">{plural(row.count, 'unchanged line')}</span>
+                  </li>
+                );
+              const flags = row.kind === 'new' ? (newFlags[row.at]?.flags ?? []) : [];
+              return (
+                <li key={k} className={`${row.kind}${flags.length > 0 ? ' flagged' : ''}`}>
+                  <span className="tp-num" aria-hidden="true">
+                    {row.kind === 'new' ? '+' : row.kind === 'gone' ? '−' : ''}
+                  </span>
+                  <code>
+                    {row.kind !== 'same' && (
+                      <span className="sr-only">{row.kind === 'new' ? 'Added: ' : 'Removed: '}</span>
+                    )}
+                    {row.text === '' ? ' ' : row.text}
+                  </code>
+                  {flags.map((flag) => (
+                    <span key={flag} className="tp-pill tp-pill-flag">
+                      {FLAG_LABEL[flag]}
+                    </span>
+                  ))}
+                </li>
+              );
+            })}
+          </ol>
+          {added.length > 0 && (
+            <p className={flagged(added) ? 'tp-flagline' : 'tp-muted'}>
+              In the added lines: {flagSummary(added)}
+            </p>
+          )}
+          <p className="tp-muted">{aboutTokens(check.text)} every time a specialist that has it starts.</p>
+          {refusals.length > 0 && (
+            <ul id={`${own}-refusals`} className="tp-refusals">
+              {refusals.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+      <div className="tp-buttons">
+        {!same && (
+          <button
+            type="button"
+            className="tp-button tp-primary"
+            disabled={busy || refusals.length > 0}
+            aria-describedby={refusals.length > 0 ? `${own}-refusals` : undefined}
+            onClick={onTake}
+          >
+            Take the update
+          </button>
+        )}
+        <button type="button" className="tp-button" onClick={onKeep}>
+          {same ? 'Done' : 'Keep what I have'}
+        </button>
+      </div>
     </section>
   );
 }
