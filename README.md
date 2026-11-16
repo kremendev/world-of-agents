@@ -12,6 +12,20 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.9
+
+**A team per project, one skill library.** Each project now has a team of its own: its own specialists and its own
+notes. Skills live once in your library, which every project on this PC shares, and a project's skills are simply its
+specialists' skills. A new project starts with no specialists: on the Team page you add the starter team (the eight you
+know) in one click, copy another project's specialists, or add your own. A project's team lives in
+`~/.world-of-agents/projects`, never in the project's folder, so a cloned repo can't bring a team of its own.
+
+**After updating**, every project you set up keeps its guild leads, but its specialists can't start until it has a team
+of its own. Type `/world-of-agents:setup-team-write` in it, or press **Give this project its own team** in the pane: it
+copies your shared team once, its notes waiting on the Notes tab for you to keep or drop one by one, and gives you three
+commands to run once in Git Bash. The shared team stays as an unused backup. The details are in the
+[release notes](docs/release-notes/v3.9.0.md).
+
 ## New in v3.8
 
 **The project names the Lead.** Claude Code 2.1.325 warns that a plugin setting a session's main agent will stop
@@ -161,13 +175,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.8.0
+/plugin marketplace add kremendev/world-of-agents#v3.9.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.8.0
+claude plugin marketplace add kremendev/world-of-agents#v3.9.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -264,8 +278,14 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
   in a browser process started for it until that closes. It works once and for one minute. Anything that can read the
   hall's token (`~/.world-of-agents/token`) can also make a key, as it could post hooks; the guard and the setup keep
   agents away from that folder.
-- **No team, no agents.** From v3.4 the guard reads who may start whom from `~/.world-of-agents/team/team.json`; with that
-  file missing or broken it lets no agent start, and says to run `/world-of-agents:setup-team`.
+- **No team, no specialists.** From v3.9 the guard reads who may start whom from the team of the session's project,
+  `~/.world-of-agents/projects/<key>/team/team.json`, the project being the folder Claude Code names for the session. A
+  project with no team of its own keeps its guild leads, and their specialist starts are denied with the step that gives
+  it one. On a PC with no World of Agents team at all, no agent starts, and the guard says to run
+  `/world-of-agents:setup-team`.
+- **One marketplace per project.** Claude Code loads a project's team as a plugin from that project's own folder
+  marketplace, so `claude plugin list` shows one `woa-<project>` per project you gave a team. Removing one is
+  `claude plugin marketplace remove woa-<project>`; its folder in `~/.world-of-agents/projects` stays until you delete it.
 - **A note is text an agent proposed.** You approve each one, and it then reaches its guild lead under a header that
   says it is context, not instructions; the guild lead's limits stay its tools and the guard. A hijacked agent can still
   propose a planted instruction, which is why the Notes tab flags wording that reads like one: keep plain facts only.
