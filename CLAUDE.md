@@ -41,6 +41,9 @@ The owner works on Windows in Git Bash. Give commands that work there.
   the nested copy from package-lock.json and node_modules, or npm keeps it and calls it "invalid".
 - eslint-plugin-react-hooks 7 (ESLint 10 needs it): eslint.config.js turns on its two classic rules only. Its presets
   add the React Compiler's rules (8 `react-hooks/refs` errors in App.tsx and ReviewBoard.tsx, 14 Nov): a choice of its own.
+- `yaml` 2.9.1, pinned exactly, is a dependency from v3.10 (it was a dev dependency from 3.6e): `server/skill-check.ts`
+  reads a SKILL.md header from outside with it (core schema, unique keys, an alias limit of 5, no tag), and the hall
+  bundles it. `plugin/team/team.mjs` never imports it.
 - Vite 7 is one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
 - npm blocks dependency install scripts. `esbuild` is approved in `package.json` `allowScripts`. If a new
   package asks, review it and approve by name; never `npm install-scripts approve --all`.
@@ -1027,3 +1030,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     source with its facts (GitHub owner, repository, ref, path and license; a Claude skill's label and file; a pasted
     one's license); the specialist's page says what its skills cost every start, with a bar that turns amber past 85%,
     and "+ Add from library" leaves out what no longer fits; eleven planted bugs caught after two tests were sharpened).
+    3.10c done (`server/skill-check.ts`: a SKILL.md from outside, its header parsed with `yaml` 2.9.1, now a dependency,
+    core schema, unique keys, at most 5 aliases, any tag refused whole; name, description and license kept, every other
+    key named and dropped, allowed-tools and hooks with what they would have done; the files its text names that don't
+    come along; on the page, a skill's lines flagged "overrides your rules?" by their own rule, a note's by its own;
+    fourteen of fifteen planted bugs caught, the fifteenth a second lock no input can reach).

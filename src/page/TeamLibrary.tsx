@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { MAX_PRELOADED, type LibrarySkill, type TeamSpecialist, type TeamView } from '../team/schema';
-import { checkText, type TextCheck } from '../team/text';
+import { type TextCheck } from '../team/text';
 import {
   aboutTokens,
   dayOf,
@@ -10,6 +10,7 @@ import {
   listed,
   skillDraftId,
   skillMatches,
+  skillLines,
   skillRefusals,
   GROUPS,
   groupOf,
@@ -151,7 +152,7 @@ export function LibraryTab({
   );
 }
 
-/** A text line by line, numbered, with checkText()'s link and command-like flags. */
+/** A text line by line, numbered, with its flags (skillLines(), noteLines()). */
 export function TextLines({ lines }: { lines: TextCheck['lines'] }) {
   return (
     <ol className="tp-lines">
@@ -199,7 +200,7 @@ function SkillDetails({
     (p) => !p.skills.includes(s.id) && p.skills.length < MAX_PRELOADED,
   );
   const text = view.texts[s.id] ?? '';
-  const { lines } = checkText(text);
+  const lines = skillLines(text);
   const question = `${own}-question`;
   const deleteButton = `${own}-delete`;
 
@@ -355,7 +356,7 @@ function SkillForm({
   const first = useRef<HTMLInputElement>(null);
   const adding = draft.mode === 'add';
   const refusals = skillRefusals(draft, view);
-  const { lines } = checkText(draft.text);
+  const lines = skillLines(draft.text);
   const id = skillDraftId(draft);
   const original = view.library.find((s) => s.id === draft.id)?.name ?? draft.name;
   const set = (more: Partial<SkillDraft>) => setDraft({ ...draft, ...more });

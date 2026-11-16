@@ -198,6 +198,7 @@ export function flagSummary(lines: TextCheck['lines']): string {
     [count('link'), () => 'with a link'],
     [count('command'), (n) => `that ${n === 1 ? 'looks' : 'look'} like a command`],
     [count('instruction'), (n) => `that ${n === 1 ? 'reads' : 'read'} like an instruction`],
+    [count('override'), () => 'that may override your rules'],
   ];
   const parts = kinds
     .filter(([n]) => n > 0)
@@ -212,6 +213,7 @@ export const FLAG_LABEL: Record<Flag, string> = {
   link: 'link',
   command: 'command-like',
   instruction: 'instruction-like',
+  override: 'overrides your rules?',
 };
 
 /**
@@ -223,6 +225,24 @@ const INSTRUCTION =
 export function noteLines(text: string): TextCheck['lines'] {
   return checkText(text).lines.map((line) =>
     INSTRUCTION.test(line.text) ? { ...line, flags: [...line.flags, 'instruction' as const] } : line,
+  );
+}
+
+/**
+ * v3.10, the approved mockup: a skill is instructions by nature, so the notes' rule would flag every line. A skill's line
+ * is flagged instead when it may override Dima's rules: ignoring or overriding rules, instructions, the guard or the
+ * prompt; acting without asking; keeping something from the user; a .env file; or sending something to an address.
+ */
+const OVERRIDE = [
+  /\b(ignore|disregard|override|bypass|forget|skip)\b.{0,40}\b(rules?|instructions?|guard|prompts?|polic(y|ies)|guidelines?|safety|restrictions?|permissions?)\b/i,
+  /\bwithout (asking|approval|permission|confirmation|confirming|prompting)\b/i,
+  /\b(don'?t|do not|never|no need to) (tell|inform|show|notify|alert|mention (it |this )?to) the user\b/i,
+  /(^|[^\w])\.env\b/i,
+  /\b(upload|send|post|forward|transmit|exfiltrate|copy)\b.{0,60}\b(to|at)\b.{0,30}(https?:\/\/|[\w.+-]+@[\w-]+\.[\w.]+|\b\d{1,3}(\.\d{1,3}){3}\b|\bwebhooks?\b|\bendpoints?\b|\bservers?\b)/i,
+];
+export function skillLines(text: string): TextCheck['lines'] {
+  return checkText(text).lines.map((line) =>
+    OVERRIDE.some((p) => p.test(line.text)) ? { ...line, flags: [...line.flags, 'override' as const] } : line,
   );
 }
 
