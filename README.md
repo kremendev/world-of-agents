@@ -12,6 +12,20 @@ A recorded run, played back at twice the speed:
 
 ![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
 
+## New in v3.10
+
+**Add skills three ways.** On the Team page's Library tab, **+ Add a skill** now offers four ways in: from your Claude
+skills (the ones in `~/.claude/skills`, yours and the built-in ones), from a GitHub link to one SKILL.md, by pasting a
+whole SKILL.md, or by writing one, as before. The first three end on one check screen: the whole text with its flags,
+what its header held that the library leaves out (`allowed-tools` and `hooks` among them, with what they would have
+done), the files it names that don't come along, its cost every time a specialist that has it starts, and any reason it
+can't be added. What is saved is exactly the text you saw, with where it came from and its license. A skill from GitHub
+can be checked for an update, which shows the differences line by line before you take them or keep what you have.
+
+**Bigger skills, one cap per specialist.** A skill's text may be up to 20,000 characters (it was 8,000), and what it's
+for one line of up to 1,024. A specialist's skills may come to 40,000 characters together; its page shows what they
+cost every time it starts. The details are in the [release notes](docs/release-notes/v3.10.0.md).
+
 ## New in v3.9
 
 **A team per project, one skill library.** Each project now has a team of its own: its own specialists and its own
@@ -175,13 +189,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.9.0
+/plugin marketplace add kremendev/world-of-agents#v3.10.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.9.0
+claude plugin marketplace add kremendev/world-of-agents#v3.10.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:
@@ -240,7 +254,9 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 - **It never approves anything.** The guard can only deny, and the pane never answers a tool call, a permission check or an agent start, so your approval prompt always decides.
 - **It never reads your `.env` files.** No part of the plugin opens one. The guard denies an agent's shell command that names a `.env` or `.envrc` file, and the setup adds denies that cover Claude Code's file tools and the file commands it recognises in shell commands, like `cat`, `head` and `tail`. They don't cover `grep -r` over a folder, or a script that opens files itself. Both are best effort (see the guard below).
 - **The page only watches.** Nothing you do in the page reaches an agent.
-- **Events stay in memory on 127.0.0.1.** The hall listens on that address only, keeps the last 500 events and forgets them when it stops. Nothing goes to any other computer.
+- **Events stay in memory on 127.0.0.1.** The hall listens on that address only, keeps the last 500 events and forgets them when it stops. Events never go to any other computer.
+- **One network call, only when you press.** Adding a skill from GitHub, or checking one for an update, is the hall's only use of the network (from v3.10): one HTTPS GET to `raw.githubusercontent.com` for that one SKILL.md, built from the parts of the link you gave, with no redirect followed, no cookie, no token and nothing of yours in it. The page and the pane never reach the internet. What comes back is shown whole before it is saved, and saved exactly as shown.
+- **It reads your Claude skills only when you ask.** "From your Claude skills" lists files named `SKILL.md` under `~/.claude/skills`, never through a link or a junction, and opens only the one you pick. Other files there are never opened. The desktop app's skill list is read for one thing: whether a skill is yours or built-in.
 
 The hook script sends the hall a short list of fields: event name, ids, agent type, tool name, task titles, the start of your prompt (120 characters) and the agents' last messages (up to 20,000 characters each). Those messages are the agents' own words, so they can quote code or a command an agent wrote. It never sends a tool's input or result, file contents or transcripts. It replaces your home folder and anything shaped like a key before sending. It drops any reply, so the hall can't steer Claude Code.
 
@@ -311,6 +327,7 @@ claude plugin uninstall world-of-agents@world-of-agents --scope local
 - **Apostrophes in the plugin's path.** The setup skills put the plugin's path in single quotes. One apostrophe in it makes them fail safely, as above. Two balance the quotes again, so the shell reads the text between them unquoted: it splits the path there, and a `$(...)` in that text would run. Only the names of your own folders reach that path, never a project's or the conversation's, so keep apostrophes out of the folders above the plugin, your user folder included.
 - **Where an organization manages Claude Code.** If its managed settings turn on `allowManagedHooksOnly`, a plugin you install yourself loads no hooks. The agents and the Lead still load, but with no guard, no team pane and no reports to the hall, so nothing denies what the guard would. Claude Code's own mods API reference (2.1.318) says so; it hasn't been tested. The validators of 2.1.299 to 2.1.301 also warned that the pane's `classic.*` hooks don't run where an organization manages Claude Code, which would leave the pane without its approval list, the approval voice and the mode warning. Later validators no longer print that warning.
 - **The voice is Windows only.** Elsewhere the pane stays quiet.
+- **A skill comes alone.** Only its SKILL.md comes into the library: scripts, references and other files never do, and the check screen names the ones its text mentions. A GitHub branch whose name holds a slash can't be told from the folder, so link that skill by its commit instead.
 - **Tested on Windows only.** `woa` may work on macOS and Linux, but nobody has tried it.
 
 Work on a git branch, and commit before a run. Review the diff before you commit what the agents wrote.
