@@ -18,7 +18,11 @@ const here = import.meta.dirname;
 
 try {
   const files = readManifest(JSON.parse(readFileSync(join(here, 'manifest.json'), 'utf8')));
-  await serve({ dir: join(here, 'page'), files }, { idleMs: HALL_IDLE_MS });
+  // v3.9: the starter team's files are in the plugin's team folder, beside this one.
+  await serve(
+    { dir: join(here, 'page'), files },
+    { idleMs: HALL_IDLE_MS, teamFiles: join(here, '..', 'team') },
+  );
   console.log(`Forge Hall: http://127.0.0.1:${PORT}`);
 } catch (error) {
   const code = (error as NodeJS.ErrnoException).code;

@@ -131,6 +131,7 @@ export function createHall({
   page,
   version = VERSION,
   teamHome = homedir(),
+  teamFiles,
   now = Date.now,
   idleMs,
   onStop,
@@ -141,6 +142,11 @@ export function createHall({
   version?: string;
   /** The home folder whose ~/.world-of-agents/team the team editor reads and writes (v3.4c); tests give a temp one. */
   teamHome?: string;
+  /**
+   * v3.9: the plugin's team folder, for the starter team. The plugin's hall is one bundled file, so it says where the
+   * folder is; without it, team.mjs's own folder, which is right when the hall runs from the source.
+   */
+  teamFiles?: string;
   now?: () => number;
   /** v3.5b: stop after this long with no hook event and no page connected; none never stops on its own. */
   idleMs?: number;
@@ -435,7 +441,7 @@ export function createHall({
       } catch {
         // A shared team that can't be read whole can't be copied: the page offers an empty team only.
       }
-      const starter = defaults().team;
+      const starter = defaults(teamFiles).team;
       return {
         project: { key: project.key, name: project.name, folder: project.folder },
         team,
@@ -507,7 +513,7 @@ export function createHall({
         : null;
     try {
       if (change.action === 'give-own-team') giveOwnTeam(teamHome, folder, change.from, now());
-      else changeProject(teamHome, project.key, change, now(), proposal);
+      else changeProject(teamHome, project.key, change, now(), proposal, teamFiles);
     } catch (error) {
       // team.mjs's own fixed words, with checked ids at most.
       return { status: 409, body: { error: (error as Error).message } };

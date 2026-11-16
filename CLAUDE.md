@@ -540,6 +540,9 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   any type its extension isn't served as, so a changed manifest stops the hall from starting. It prints at most two fixed
   lines, never hook or agent text, and keeps every v2 control. Two builds in a row are byte-identical (checked for 2c),
   and `npm run check:hall` must pass before any release (`npm run release:check`). The build forces `VITE_LIVE=true`.
+  It is one bundle, so `import.meta.dirname` in any module it holds is `plugin/hall`: from 3.9f its start names the
+  plugin team folder beside it (`teamFiles`, `plugin-hall.ts`), where the starter team is (`defaults()`); tests of the
+  source alone missed that, so `install.test.ts` pins it in the bundle.
 - The voice runs exactly this, never with `Bypass` (security tools flag it):
   `powershell.exe -NoProfile -NonInteractive -ExecutionPolicy RemoteSigned -File <plugin>/voice/speak.ps1`. The text
   goes only to stdin (`input`), cleaned by `plain()` (control and bidi characters out) and capped at 200 code points,
@@ -1008,3 +1011,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     stop's project key so a proposal shows and is approved only in its own project, the pane's "no team of its own"
     line and button, the Team page to the mockup: project chip, banner, empty panel, starter team, copy, Library tab,
     shared notes to review; eight planted bugs caught, and the pane's every-project line, wrong since v3.8, fixed).
+    v3.9.0 is prepared, not tagged (plugin.json 3.9.0, docs/release-notes/v3.9.0.md, README pins on `#v3.9.0`). 3.9f done
+    (the self-check, docs/v3.9-plan.md: the setup skills, the three commands, twenty marketplaces, two real runs, $0.24,
+    and the Team page in Edge on the plugin's own hall; it found that hall answering 409 for every project, because the
+    bundled `defaults()` looked for the starter team in `plugin/hall`; fixed with `teamFiles`, two planted bugs caught).
+    Its checklist is docs/release-notes/v3.9.0-check.md, with Dima's short list.

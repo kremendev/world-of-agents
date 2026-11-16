@@ -32,11 +32,11 @@ export async function shutdown({
  */
 export async function serve(
   page: Page,
-  { idleMs }: { idleMs?: number } = {},
+  { idleMs, teamFiles }: { idleMs?: number; teamFiles?: string } = {},
 ): Promise<{ address: AddressInfo; tokenFile: string }> {
   const token = newToken();
   let leave = () => {};
-  const hall = createHall({ token, page, idleMs, onStop: () => leave() });
+  const hall = createHall({ token, page, idleMs, teamFiles, onStop: () => leave() });
   const address = await listen(hall);
   // Written only once the port is ours, so a second hall that can't start never replaces the running one's token.
   const tokenFile = writeToken(token);

@@ -115,6 +115,15 @@ describe('the hall the plugin carries', () => {
   const HALL = join(REPO, 'plugin/hall');
   const bundle = text('plugin/hall/server.mjs');
 
+  // v3.9's self-check: bundled, team.mjs's own folder is plugin/hall, where the starter team's files aren't. The hall's
+  // start says where the plugin's team folder is, and the bundle carries that.
+  it("tells the hall where the plugin's team folder is, beside its own", () => {
+    expect(text('server/plugin-hall.ts')).toContain("teamFiles: join(here, '..', 'team')");
+    // The bundler may rename join (join5): the call, whatever its name.
+    expect(bundle).toMatch(new RegExp('teamFiles: join[0-9]*[(]here, "[.][.]", "team"[)]'));
+    expect(existsSync(join(REPO, 'plugin/team/defaults.json'))).toBe(true);
+  });
+
   it('is one file that imports only Node built-ins, so it runs with no npm install', () => {
     const imports = [...bundle.matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
     expect(imports.length).toBeGreaterThan(0);

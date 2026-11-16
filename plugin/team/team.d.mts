@@ -31,7 +31,7 @@ export function buildAgent(specialist: Specialist): string;
 export function buildSkill(skill: Skill, text: string): string;
 export function teamDir(home?: string): string;
 export function writeTeam(dir: string, team: Team, texts: Record<string, string>): Team;
-export function defaults(): { team: Team; texts: Record<string, string> };
+export function defaults(dir?: string): { team: Team; texts: Record<string, string> };
 export function init(home?: string): 'created' | 'exists';
 export function readTeam(home?: string): Team | null;
 
@@ -185,6 +185,7 @@ export function changeProject(
   change: ProjectChange,
   now: number,
   proposal?: { agent: NoteAgent; text: string; at: number } | null,
+  teamFiles?: string,
 ): LogEntry;
 export function teamFilesOf(home: string, folder: unknown): 'current' | 'older' | 'none';
 export function projectInput(raw: unknown): string | null;

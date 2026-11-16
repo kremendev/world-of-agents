@@ -108,8 +108,9 @@ describe('POST /api/stop (v3.5b)', () => {
 
   it("is the plugin's hall that stops itself when idle; npm run hall stops with Ctrl+C", () => {
     const code = (name: string) => readFileSync(join(import.meta.dirname, name), 'utf8');
-    expect(code('plugin-hall.ts')).toContain(
-      "await serve({ dir: join(here, 'page'), files }, { idleMs: HALL_IDLE_MS });",
+    // v3.9: it also says where the plugin's team folder is (install.test.ts pins that).
+    expect(code('plugin-hall.ts').replace(/\s+/g, ' ')).toContain(
+      "await serve( { dir: join(here, 'page'), files }, { idleMs: HALL_IDLE_MS, teamFiles: join(here, '..', 'team') }, );",
     );
     expect(code('main.ts')).not.toContain('idleMs');
     expect(HALL_IDLE_MS).toBe(30 * MIN);

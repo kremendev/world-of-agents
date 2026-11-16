@@ -6688,8 +6688,8 @@ function logChange(dir, entry) {
   writeFileSync(inside(dir, "changes.json"), `${JSON.stringify(log, null, 2)}
 `);
 }
-function defaults() {
-  const here2 = import.meta.dirname;
+function defaults(dir = import.meta.dirname) {
+  const here2 = dir;
   const { version: version3, specialists: specialists2, skills } = JSON.parse(readFileSync(join(here2, "defaults.json"), "utf8"));
   const team = { version: version3, generator: GENERATOR, specialists: specialists2, skills };
   const texts = Object.fromEntries(
@@ -7107,7 +7107,7 @@ var SPECIALIST_ACTIONS = [
   "attach",
   "detach"
 ];
-function changeProject(home, key, change, now, proposal = null) {
+function changeProject(home, key, change, now, proposal = null, teamFiles = import.meta.dirname) {
   const team = readProjectTeam(home, key);
   if (!team) throw new Error("this project has no team of its own");
   const dir = projectTeamDir(home, key);
@@ -7125,7 +7125,7 @@ function changeProject(home, key, change, now, proposal = null) {
     entry = specialistChange(specialists2, inLibrary, change);
   } else if (change.action === "add-starter") {
     if (specialists2.length > 0) throw new Error("the starter team goes into a team with no specialists");
-    const starter = defaults();
+    const starter = defaults(teamFiles);
     library = structuredClone(library);
     texts = { ...texts };
     for (const s of starter.team.skills) {
@@ -8025,6 +8025,7 @@ function createHall({
   page,
   version: version3 = VERSION,
   teamHome = homedir2(),
+  teamFiles,
   now = Date.now,
   idleMs,
   onStop
@@ -8242,7 +8243,7 @@ data: ${startId}
         }
       } catch {
       }
-      const starter = defaults().team;
+      const starter = defaults(teamFiles).team;
       return {
         project: { key: project.key, name: project.name, folder: project.folder },
         team,
@@ -8296,7 +8297,7 @@ data: ${startId}
     const proposal = change.action === "note-approve" || change.action === "note-reject" ? proposals.find((p) => p.id === change.id && p.project === project.key) ?? null : null;
     try {
       if (change.action === "give-own-team") giveOwnTeam(teamHome, folder, change.from, now());
-      else changeProject(teamHome, project.key, change, now(), proposal);
+      else changeProject(teamHome, project.key, change, now(), proposal, teamFiles);
     } catch (error2) {
       return { status: 409, body: { error: error2.message } };
     }
@@ -8436,11 +8437,11 @@ async function shutdown({
     exit();
   }
 }
-async function serve(page, { idleMs } = {}) {
+async function serve(page, { idleMs, teamFiles } = {}) {
   const token = newToken();
   let leave = () => {
   };
-  const hall = createHall({ token, page, idleMs, onStop: () => leave() });
+  const hall = createHall({ token, page, idleMs, teamFiles, onStop: () => leave() });
   const address = await listen(hall);
   const tokenFile = writeToken(token);
   leave = () => void shutdown({ tokenFile, close: hall.close, exit: () => process.exit(0) });
@@ -8457,7 +8458,10 @@ async function serve(page, { idleMs } = {}) {
 var here = import.meta.dirname;
 try {
   const files = readManifest(JSON.parse(readFileSync2(join5(here, "manifest.json"), "utf8")));
-  await serve({ dir: join5(here, "page"), files }, { idleMs: HALL_IDLE_MS });
+  await serve(
+    { dir: join5(here, "page"), files },
+    { idleMs: HALL_IDLE_MS, teamFiles: join5(here, "..", "team") }
+  );
   console.log(`Forge Hall: http://127.0.0.1:${PORT}`);
 } catch (error2) {
   const code = error2.code;

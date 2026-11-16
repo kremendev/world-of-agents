@@ -1,7 +1,16 @@
 // The team editor's API (v3.4c, T8; per project from v3.9): the one-time key from hall-key.mjs with its session's
 // folder, the page's exchange of it for a session cookie bound to that project, and the project's team, its notes and the
 // library read and changed through that session. Temp folders stand in for the home folder and two projects.
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { request, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -641,5 +650,37 @@ describe('a proposal belongs to its project (v3.9)', () => {
     expect(fromA.status).toBe(200);
     const notes = (JSON.parse(fromA.body) as { notes: { frontend: { text: string }[] } }).notes.frontend;
     expect(notes.map((n) => n.text)).toEqual(['Forms live in src/forms, one file each.']);
+  });
+});
+
+// v3.9's self-check: the plugin's hall is one bundled file in plugin/hall, so team.mjs's own folder is the hall's there,
+// and the starter team's files weren't found. The hall now uses the team folder it is given, for the view and the change.
+describe('the starter team comes from the team folder the hall is given (v3.9)', () => {
+  it('shows and adds the starter team of that folder, and no other', async () => {
+    const files = mkdtempSync(join(tmpdir(), 'woa-team-files-'));
+    cpSync(join(import.meta.dirname, '..', 'plugin', 'team'), files, { recursive: true });
+    const marked = JSON.parse(readFileSync(join(files, 'defaults.json'), 'utf8')) as {
+      specialists: { name: string }[];
+    };
+    marked.specialists[0]!.name = 'Marked designer';
+    writeFileSync(join(files, 'defaults.json'), JSON.stringify(marked));
+    const other = createHall({ token: TOKEN, teamHome: home, teamFiles: files, now: () => clock });
+    const otherPort = (await listen(other, 0)).port;
+    const was = port;
+    port = otherPort;
+    try {
+      const cookie = await session(0, b);
+      const view = (await call('GET', '/api/team', { Cookie: cookie })).body;
+      expect(
+        (JSON.parse(view) as { starter: { specialists: { name: string }[] } }).starter.specialists[0]!.name,
+      ).toBe('Marked designer');
+      expect((await teamPost(cookie, { action: 'give-own-team', from: 'empty' })).status).toBe(200);
+      expect((await teamPost(cookie, { action: 'add-starter' })).status).toBe(200);
+      expect(readProjectTeam(home, projectOf(b)!.key)!.specialists[0]!.name).toBe('Marked designer');
+    } finally {
+      port = was;
+      await other.close();
+      rmSync(files, { recursive: true, force: true });
+    }
   });
 });

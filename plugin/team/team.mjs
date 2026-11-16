@@ -580,9 +580,13 @@ export function logChange(dir, entry) {
   writeFileSync(inside(dir, 'changes.json'), `${JSON.stringify(log, null, 2)}\n`);
 }
 
-/** The defaults this plugin ships: the brief's 8 specialists and their skills, with the texts beside them. */
-export function defaults() {
-  const here = import.meta.dirname;
+/**
+ * The defaults this plugin ships: the brief's 8 specialists and their skills, with the texts beside them. `dir` is the
+ * plugin's team folder: this module's own, except in the plugin's hall, one bundled file in plugin/hall, which must say
+ * where it is (v3.9: the self-check found the built hall failing there).
+ */
+export function defaults(dir = import.meta.dirname) {
+  const here = dir;
   const { version, specialists, skills } = JSON.parse(readFileSync(join(here, 'defaults.json'), 'utf8'));
   const team = { version, generator: GENERATOR, specialists, skills };
   const texts = Object.fromEntries(
@@ -1178,9 +1182,10 @@ const SPECIALIST_ACTIONS = [
  * One change to a project's team, its notes or the library, written whole (v3.9): read, applied, checked, written, and
  * logged in the project's changes.json. A library change reaches every project that uses the skill: a changed text is
  * written again there, a deleted skill leaves their specialists. `proposal` is the hall's own copy of the proposal a
- * note-approve or note-reject names. Returns the log entry. Throws, with team.mjs's own words, when it can't be done.
+ * note-approve or note-reject names; `teamFiles` the plugin's team folder, for the starter team (see defaults()). Returns
+ * the log entry. Throws, with team.mjs's own words, when it can't be done.
  */
-export function changeProject(home, key, change, now, proposal = null) {
+export function changeProject(home, key, change, now, proposal = null, teamFiles = import.meta.dirname) {
   const team = readProjectTeam(home, key);
   if (!team) throw new Error('this project has no team of its own');
   const dir = projectTeamDir(home, key);
@@ -1198,7 +1203,7 @@ export function changeProject(home, key, change, now, proposal = null) {
     entry = specialistChange(specialists, inLibrary, change);
   } else if (change.action === 'add-starter') {
     if (specialists.length > 0) throw new Error('the starter team goes into a team with no specialists');
-    const starter = defaults();
+    const starter = defaults(teamFiles);
     library = structuredClone(library);
     texts = { ...texts };
     for (const s of starter.team.skills) {
