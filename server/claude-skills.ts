@@ -3,7 +3,8 @@
 // his press: only files named SKILL.md, at most three folders down, every part of the path lstat'ed and left out if it
 // is a link or a junction, its real path inside the folder, at most 64 KiB each and 200 in all. That folder can hold
 // secrets in other files; nothing but a SKILL.md is ever opened. Each one's label (his own, or Anthropic's) comes from
-// the desktop app's skill manifest, read for that alone, under the same home folder: never an environment variable.
+// the desktop app's skill manifest alone, read for that alone, under the same home folder: never an environment
+// variable. A skill the manifest doesn't name, a personal one outside synced/ included, is unlabelled.
 import { lstatSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { isDescription, type ClaudeLabel } from '../plugin/team/team.mjs';
@@ -114,10 +115,14 @@ function labelsOf(home: string, org: string, account: string): Map<string, Claud
   return labels;
 }
 
-/** A file's label: a personal skill is his own; a synced one is what the app's manifest says, or unlabelled. */
+/**
+ * A file's label: what the app's manifest says of a synced skill, or unlabelled. Only `creatorType: "user"` makes a skill
+ * his (Dima, 16 Nov): a personal skill outside synced/ is unlabelled, always, because its folder says where it sits,
+ * not who wrote it, and a catalog installer writes there too.
+ */
 function labelOf(file: string, home: string, cache: Map<string, Map<string, ClaudeLabel>>): ClaudeLabel {
   const parts = file.split('/');
-  if (parts[0] !== 'synced') return 'mine';
+  if (parts[0] !== 'synced') return 'unlabelled';
   const account = ACCOUNT.exec(parts[1] ?? '');
   if (!account || parts.length !== 4) return 'unlabelled';
   const key = parts[1]!;

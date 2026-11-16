@@ -274,14 +274,19 @@ describe("Dima's Claude skills", () => {
     }
   }
 
-  it('lists only SKILL.md files, at most three folders down, never through a link, labelled from the manifest', async () => {
+  it('lists only SKILL.md files, at most three folders down, never through a link, labelled from the manifest alone', async () => {
     claudeSkills();
     const cookie = await session();
     const r = await ask(cookie, { ask: 'claude-list' });
     expect(r.status).toBe(200);
     expect(r.body).toEqual({
       claude: [
-        { file: 'my-skill/SKILL.md', name: 'my-skill', description: 'My own way of working', label: 'mine' },
+        {
+          file: 'my-skill/SKILL.md',
+          name: 'my-skill',
+          description: 'My own way of working',
+          label: 'unlabelled',
+        },
         {
           file: `${SYNCED}/animate/SKILL.md`,
           name: 'animate',
@@ -295,13 +300,41 @@ describe("Dima's Claude skills", () => {
     expect(JSON.stringify(r.body)).not.toMatch(/PLANTED|leak|deep|alias/);
   });
 
-  it('without the manifest, a synced skill is unlabelled; a personal one is still his', async () => {
+  it('without the manifest, every skill is unlabelled', async () => {
     claudeSkills({ manifest: false });
     const cookie = await session();
     const labels = ((await ask(cookie, { ask: 'claude-list' })).body['claude'] as { label: string }[]).map(
       (s) => s.label,
     );
-    expect(labels).toEqual(['mine', 'unlabelled', 'unlabelled']);
+    expect(labels).toEqual(['unlabelled', 'unlabelled', 'unlabelled']);
+  });
+
+  it('a personal skill is never his by its folder or its name: only the manifest\'s "user" makes it so (Dima, 16 Nov)', async () => {
+    claudeSkills();
+    // A personal folder named as the manifest names one of his synced skills: a catalog installer could write it.
+    mkdirSync(join(home, '.claude', 'skills', 'animate'));
+    writeFileSync(
+      join(home, '.claude', 'skills', 'animate', 'SKILL.md'),
+      skill('animate', 'Written by an installer'),
+    );
+    const cookie = await session();
+    const list = (await ask(cookie, { ask: 'claude-list' })).body['claude'] as {
+      file: string;
+      label: string;
+    }[];
+    expect(list.map((s) => [s.file, s.label])).toEqual([
+      ['animate/SKILL.md', 'unlabelled'],
+      ['my-skill/SKILL.md', 'unlabelled'],
+      [`${SYNCED}/animate/SKILL.md`, 'mine'],
+      [`${SYNCED}/pdf/SKILL.md`, 'built-in'],
+    ]);
+    const check = checkOf(await ask(cookie, { ask: 'claude', file: 'animate/SKILL.md' }));
+    expect(check.source).toEqual({
+      kind: 'claude',
+      label: 'unlabelled',
+      file: 'animate/SKILL.md',
+      license: null,
+    });
   });
 
   it('reads one for the check screen, and its take keeps its label and its file', async () => {

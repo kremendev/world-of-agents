@@ -190,8 +190,9 @@ export const checkCost = (text: string) =>
 
 /**
  * v3.10f: Dima's Claude skills as the list shows them, the approved mockup's two groups, his and the built-in ones, and a
- * third only when the app's list couldn't label some: an unlabelled one may be Anthropic's, so it is never called his.
- * Each row says whether the library has that file already.
+ * third only when the app's list doesn't label some: an unlabelled one may be Anthropic's or an installer's, so it is
+ * never called his (a personal skill outside synced/ is always unlabelled, Dima, 16 Nov). Each row says whether the
+ * library has that file already.
  */
 export const CLAUDE_GROUPS = [
   { label: 'mine', title: 'Yours', note: null },
@@ -203,7 +204,7 @@ export const CLAUDE_GROUPS = [
   {
     label: 'unlabelled',
     title: 'Not labelled',
-    note: "The desktop app's list of skills couldn't be read, so these may be yours or built-in.",
+    note: "The desktop app's list doesn't say who made these: they may be yours, built-in, or put there by an installer.",
   },
 ] as const;
 export function claudeGroups(list: readonly ClaudeSkillView[], library: readonly LibrarySkill[]) {

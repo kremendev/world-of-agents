@@ -14082,7 +14082,7 @@ function labelsOf(home, org, account) {
 }
 function labelOf(file, home, cache) {
   const parts = file.split("/");
-  if (parts[0] !== "synced") return "mine";
+  if (parts[0] !== "synced") return "unlabelled";
   const account = ACCOUNT.exec(parts[1] ?? "");
   if (!account || parts.length !== 4) return "unlabelled";
   const key = parts[1];
