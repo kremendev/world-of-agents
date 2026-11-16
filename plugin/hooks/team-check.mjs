@@ -1,25 +1,37 @@
-// World of Agents team check (v3.6d, docs/v3.6-plan.md, E6 and E9). The team pane runs it as
-// `node <plugin>/hooks/team-check.mjs` in the plugin's folder, no arguments, at session start, to learn whether the
-// team's generated files (its agent and skill files) come from an older plugin than this one.
+// World of Agents team check (v3.6d, docs/v3.6-plan.md, E6 and E9; per project from v3.9). The team pane runs it as
+// `node <plugin>/hooks/team-check.mjs` in the plugin's folder at session start, with {"project": "<the session's
+// folder>"} on stdin, to learn whether that project has a team of its own and whether its generated files (its agent and
+// skill files) come from an older plugin than this one.
 //
-// It answers by exit code only and prints nothing: 0 when the team's generator is this plugin's or newer, 6 when it is
-// older (a version 1 team, from v3.4 or v3.5, counts as older), 4 when there is no team or it is broken. It reads
-// ~/.world-of-agents/team/team.json through team.mjs's readTeam(), and nothing else; it writes nothing and uses no network.
+// It answers by exit code only and prints nothing: 0 when the project's team is this plugin's generator or newer, 6 when
+// it is older, 4 when the project has no team of its own (or its file is broken, or the input isn't a project). It reads
+// that project's team.json through team.mjs and nothing else; it writes nothing and uses no network.
 
 import { realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { GENERATOR, readTeam } from '../team/team.mjs';
+import { projectInput, teamFilesOf } from '../team/team.mjs';
 
 export const CURRENT = 0;
 export const NO_TEAM = 4;
 export const OLDER = 6;
+const MAX_STDIN = 4096;
 
-/** The exit code for the team in `home`. */
-export function status(home = homedir()) {
-  const team = readTeam(home);
-  if (team === null) return NO_TEAM;
-  return team.generator >= GENERATOR ? CURRENT : OLDER;
+/** The exit code for the project in `folder`, with the teams in `home`. */
+export function status(home, folder) {
+  const files = folder === null ? 'none' : teamFilesOf(home, folder);
+  return files === 'none' ? NO_TEAM : files === 'older' ? OLDER : CURRENT;
+}
+
+async function readStdin() {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of process.stdin) {
+    size += chunk.length;
+    if (size > MAX_STDIN) return null;
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
 }
 
 /**
@@ -39,5 +51,12 @@ function runAsScript() {
 
 // Run only as a script, so tests can import its functions.
 if (runAsScript()) {
-  process.exitCode = status();
+  readStdin().then(
+    (raw) => {
+      process.exitCode = status(homedir(), projectInput(raw));
+    },
+    () => {
+      process.exitCode = NO_TEAM;
+    },
+  );
 }

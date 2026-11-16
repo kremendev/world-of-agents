@@ -1,115 +1,169 @@
-// World of Agents team setup (v3.4, docs/v3.4-plan.md). Claude Code runs it, never the model:
-//   node team-setup.mjs           shows what it would create, writes nothing   (/world-of-agents:setup-team)
-//   node team-setup.mjs --write   creates ~/.world-of-agents/team, or refreshes its generated files (v3.6d)
-//                                 (/world-of-agents:setup-team-write)
+// World of Agents team setup (v3.4, docs/v3.4-plan.md; per project from v3.9, docs/v3.9-plan.md). Claude Code runs it,
+// never the model, in the session's folder, the project's:
+//   node team-setup.mjs           shows what it would do for this project, writes nothing   (/world-of-agents:setup-team)
+//   node team-setup.mjs --write   does it                                                  (/world-of-agents:setup-team-write)
 //
-// It creates the team from the plugin's defaults only when there is none, never over one; on a team from an older
-// generator it rewrites only the generated files, never a specialist, skill or text (v3.6d). It prints no file's text.
-// It exits 0 whenever it printed a result: a non-zero exit aborts the skill.
+// A project with no team of its own gets one, once (Dima, 16 Nov): a copy of the shared team of v3.4 to v3.8 when there
+// is one, its notes waiting on the Team page to keep or drop one by one, or else an empty team; the library is built from
+// the shared team's skills the first time. The shared team itself is only read, and stays as an unused backup. A project
+// whose team's generated files come from an older plugin gets only those rewritten (v3.6d), never a specialist, a skill
+// or a note. It prints no skill's text or note, and exits 0 whenever it printed a result: a non-zero exit aborts the skill.
 
 import { existsSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import {
-  defaults,
   GENERATOR,
   GUILDS,
-  init,
+  giveOwnTeam,
+  installCommands,
+  libraryDir,
+  NOTE_AGENTS,
+  projectOf,
+  projectTeamDir,
+  readLibrary,
   readNotes,
-  readTeam,
-  readTexts,
-  teamDir,
-  writeNotesSkills,
-  writeTeam,
+  readProjectTeam,
+  readShared,
+  writeProjectTeam,
 } from '../../team/team.mjs';
 
 const GUILD = { design: 'Design', frontend: 'Frontend', backend: 'Backend', review: 'Review' };
-export const INSTALL = [
-  'To use it in a project, in Git Bash, once on this PC:',
-  '  claude plugin marketplace add ~/.world-of-agents',
-  'then in each project folder:',
-  '  claude plugin install woa-team@woa-local --scope local',
-  'and /reload-plugins in a session that is already open.',
-];
 
-/** The team, one line per specialist, by guild. */
+/** A team's specialists, one line each, by guild. */
 const listed = (team) =>
   GUILDS.flatMap((guild) =>
     team.specialists.filter((p) => p.guild === guild).map((p) => `  ${p.name} (${GUILD[guild]}): ${p.role}`),
   );
 
-/** What to print for `home`, creating the team when `writing` and there is none. */
-export function report(home, writing) {
-  const there = existsSync(join(teamDir(home), 'team.json'));
-  if (there) {
-    const team = readTeam(home);
-    if (!team) {
-      return [
-        "Stopped: ~/.world-of-agents/team/team.json is there but isn't a team the plugin can read, so the guard lets no",
-        'agent start. Nothing changed. Move that folder aside and run this again to create a fresh one.',
-      ];
-    }
-    const size = `${team.specialists.length} specialists and ${team.skills.length} skills`;
-    // v3.6d (E6): a team whose generated files are older than this plugin's generator is refreshed on --write, and only
-    // those files: team.json keeps every specialist, skill and assignment, and each skill keeps its text.
-    if (team.generator >= GENERATOR) {
-      return [`The team is already there: ${size}. Nothing changed.`, ...listed(team), '', ...INSTALL];
-    }
-    if (!writing) {
-      return [
-        `The team is there: ${size}, its specialist files from an older plugin.`,
-        ...listed(team),
-        '',
-        'To refresh them, type /world-of-agents:setup-team-write. It rewrites only the files the plugin makes from the',
-        'team: never a specialist, a skill or a text of yours. Nothing has been written yet.',
-      ];
-    }
-    const dir = teamDir(home);
-    let texts;
-    try {
-      texts = readTexts(dir, team);
-    } catch {
-      return [
-        'Stopped: a skill file in ~/.world-of-agents/team was changed by hand, so a refresh would lose that text.',
-        'Nothing changed.',
-      ];
-    }
-    // v3.7: the guild leads' notes skills are generated too, from notes.json.
-    let notes;
-    try {
-      notes = readNotes(dir);
-    } catch {
-      return [
-        "Stopped: ~/.world-of-agents/team/notes.json isn't as World of Agents wrote it, so a refresh would lose notes.",
-        'Nothing changed.',
-      ];
-    }
-    writeTeam(dir, team, texts);
-    writeNotesSkills(dir, notes, team);
+const count = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+/** What Dima runs once, so Claude Code loads the project's own team. */
+const install = (key) => [
+  "Once, in Git Bash in this project's folder, so Claude Code loads its team:",
+  ...installCommands(key).map((command) => `  ${command}`),
+  "(Skip the uninstall line if it says woa-team isn't installed here.)",
+  'Then /reload-plugins in a session that is already open.',
+];
+
+/** What to print for the project in `folder`, with the teams in `home`; when `writing`, it does what it says. */
+export function report(home, writing, folder, now = Date.now()) {
+  const project = projectOf(folder);
+  if (!project) return ["Stopped: this folder can't be read as a project. Nothing changed."];
+  return existsSync(join(projectTeamDir(home, project.key), 'team.json'))
+    ? own(home, writing, project)
+    : given(home, writing, folder, project, now);
+}
+
+/** A project with a team of its own: nothing to do, or (v3.6d) its generated files refreshed. */
+function own(home, writing, project) {
+  const team = readProjectTeam(home, project.key);
+  if (!team) {
     return [
-      `Refreshed the team's files for this plugin: ${size}, each as it was.`,
-      ...listed(team),
-      '',
-      'Type /reload-plugins in a session that is already open, so it reads the new files.',
+      "Stopped: this project's team.json in ~/.world-of-agents/projects is there but isn't a team the plugin can read,",
+      "so its specialists can't start. Nothing changed.",
     ];
   }
-  const { team } = defaults();
+  const size = count(team.specialists.length, 'specialist');
+  if (team.generator >= GENERATOR) {
+    return [
+      `This project has its own team: ${size}. Nothing changed.`,
+      ...listed(team),
+      '',
+      ...install(project.key),
+    ];
+  }
   if (!writing) {
     return [
-      `It would create ~/.world-of-agents/team with ${team.specialists.length} specialists and ${team.skills.length} skills:`,
+      `This project has its own team: ${size}, its files from an older plugin.`,
       ...listed(team),
       '',
-      'Until the team exists, the guard lets no agent start. Nothing has been written.',
-      'To create it, type /world-of-agents:setup-team-write.',
+      'To refresh them, type /world-of-agents:setup-team-write. It rewrites only the files the plugin makes from the',
+      'team: never a specialist, a skill or a note of yours. Nothing has been written yet.',
     ];
   }
-  init(home);
+  let read;
+  try {
+    read = readLibrary(home);
+  } catch {
+    return [
+      'Stopped: a file in ~/.world-of-agents/library was changed by hand, so a refresh could lose a skill.',
+      'Nothing changed.',
+    ];
+  }
+  let notes;
+  try {
+    notes = readNotes(projectTeamDir(home, project.key));
+  } catch {
+    return [
+      "Stopped: this project's notes.json isn't as World of Agents wrote it, so a refresh would lose notes.",
+      'Nothing changed.',
+    ];
+  }
+  writeProjectTeam(home, project.key, team, read.library, read.texts, notes);
   return [
-    `Created ~/.world-of-agents/team: ${team.specialists.length} specialists and ${team.skills.length} skills.`,
+    `Refreshed this project's team files for this plugin: ${size}, each as it was.`,
     ...listed(team),
     '',
-    ...INSTALL,
+    'Type /reload-plugins in a session that is already open, so it reads the new files.',
+  ];
+}
+
+/** A project with no team of its own yet: the one-time copy of the shared team, or an empty team. */
+function given(home, writing, folder, project, now) {
+  let shared;
+  try {
+    shared = readShared(home);
+  } catch {
+    return [
+      "Stopped: the shared team in ~/.world-of-agents/team is there but can't be read whole (a file changed by hand?),",
+      'so nothing was copied. Nothing changed.',
+    ];
+  }
+  const notes = shared ? NOTE_AGENTS.reduce((n, agent) => n + shared.notes.notes[agent].length, 0) : 0;
+  const buildsLibrary = shared !== null && !existsSync(join(libraryDir(home), 'library.json'));
+  const library = buildsLibrary
+    ? [
+        `Your skill library is built from the shared team's ${count(shared.team.skills.length, 'skill')}, once.`,
+      ]
+    : [];
+  if (!writing) {
+    return [
+      "This project has no team of its own yet, so its specialists can't start. Its guild leads still work.",
+      '',
+      ...(shared
+        ? [
+            `Writing gives it a copy of your shared team: ${count(shared.team.specialists.length, 'specialist')}, each switched on or off as it is.`,
+            ...listed(shared.team),
+            ...(notes > 0
+              ? [
+                  `Its ${count(notes, 'note')} wait on the Team page's Notes tab, to keep or drop one by one; none is copied as it is.`,
+                ]
+              : []),
+            'The shared team stays in ~/.world-of-agents/team as an unused backup.',
+          ]
+        : [
+            'Writing gives it an empty team. On the Team page you add specialists, or the starter team in one click.',
+          ]),
+      ...library,
+      '',
+      'Nothing has been written. To do it, type /world-of-agents:setup-team-write.',
+      ...(shared ? ['For an empty team instead, press Give this project its own team in the pane.'] : []),
+    ];
+  }
+  giveOwnTeam(home, folder, shared ? 'shared' : 'empty', now);
+  return [
+    shared
+      ? 'Gave this project its own team: a copy of your shared team.'
+      : 'Gave this project its own team: an empty one.',
+    ...(shared ? listed(shared.team) : []),
+    ...(notes > 0
+      ? [`Its ${count(notes, 'note')} wait on the Team page's Notes tab, to keep or drop one by one.`]
+      : []),
+    ...library,
+    '',
+    ...install(project.key),
   ];
 }
 
@@ -136,7 +190,7 @@ if (runAsScript()) {
     process.exit(1);
   }
   try {
-    console.log(report(homedir(), args[0] === '--write').join('\n'));
+    console.log(report(homedir(), args[0] === '--write', process.cwd()).join('\n'));
   } catch {
     console.log('Stopped: the team folder could not be written. Nothing more changed.');
   }

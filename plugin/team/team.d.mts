@@ -187,3 +187,4 @@ export function changeProject(
   proposal?: { agent: NoteAgent; text: string; at: number } | null,
 ): LogEntry;
 export function teamFilesOf(home: string, folder: unknown): 'current' | 'older' | 'none';
+export function projectInput(raw: unknown): string | null;

@@ -10,7 +10,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { keyOf, postKey } from '../../plugin/hooks/hall-key.mjs';
 import { handshakeAnswer } from '../../plugin/hooks/send.mjs';
 import { printed, SHOWN } from '../../plugin/hooks/team-log.mjs';
-import { init, teamDir } from '../../plugin/team/team.mjs';
+import { giveOwnTeam, init, projectOf, projectTeamDir } from '../../plugin/team/team.mjs';
 
 const TOKEN = randomBytes(32).toString('base64url');
 const KEY = randomBytes(32).toString('base64url');
@@ -92,20 +92,28 @@ describe('hall-key.mjs', () => {
   });
 });
 
-describe('team-log.mjs', () => {
-  const folder = () => {
-    const home = mkdtempSync(join(tmpdir(), 'woa-team-log-'));
-    temps.push(home);
-    init(home);
-    return teamDir(home);
-  };
+/** v3.9: a project with a team of its own; `dir` is its team folder, where its log is. */
+function project() {
+  const home = mkdtempSync(join(tmpdir(), 'woa-team-log-'));
+  const folder = mkdtempSync(join(tmpdir(), 'woa-team-log-proj-'));
+  temps.push(home, folder);
+  init(home);
+  giveOwnTeam(home, folder, 'empty', 1);
+  return { home, folder, dir: projectTeamDir(home, projectOf(folder)!.key) };
+}
 
-  it('prints {"changes": []} when nothing changed yet', () => {
-    expect(printed(folder())).toBe('{"changes":[]}');
+describe('team-log.mjs', () => {
+  it("prints the project's own log, and no changes for a project with no team of its own or no project", () => {
+    const { home, folder } = project();
+    expect(printed(home, folder)).toBe('{"changes":[{"at":1,"what":"team-given","from":"empty"}]}');
+    const other = mkdtempSync(join(tmpdir(), 'woa-team-log-other-'));
+    temps.push(other);
+    expect(printed(home, other)).toBe('{"changes":[]}');
+    expect(printed(home, null)).toBe('{"changes":[]}');
   });
 
   it(`prints only entries that are exactly entries, the newest ${SHOWN}`, () => {
-    const dir = folder();
+    const { home, folder, dir } = project();
     const good = Array.from({ length: SHOWN + 3 }, (_, i) => ({
       at: i + 1,
       what: 'skill-added',
@@ -118,14 +126,14 @@ describe('team-log.mjs', () => {
       'text',
     ];
     writeFileSync(join(dir, 'changes.json'), JSON.stringify([...good, ...bad]));
-    const out = JSON.parse(printed(dir)) as { changes: { skill: string }[] };
+    const out = JSON.parse(printed(home, folder)) as { changes: { skill: string }[] };
     expect(out.changes).toHaveLength(SHOWN);
     expect(out.changes.at(-1)).toEqual(good.at(-1));
-    expect(printed(dir)).not.toMatch(/PLANTED|evil|run-started/);
+    expect(printed(home, folder)).not.toMatch(/PLANTED|evil|run-started/);
   });
 
   it("prints a specialist's change with its guild (v3.6), and drops one with anything else", () => {
-    const dir = folder();
+    const { home, folder, dir } = project();
     const good = { at: 5, what: 'specialist-off', specialist: 'React dev', guild: 'Frontend' };
     const bad = [
       { ...good, note: 'sk-ant-PLANTED' },
@@ -133,28 +141,25 @@ describe('team-log.mjs', () => {
       { ...good, specialist: 'see https://evil.example' },
     ];
     writeFileSync(join(dir, 'changes.json'), JSON.stringify([good, ...bad]));
-    expect(JSON.parse(printed(dir))).toEqual({ changes: [good] });
+    expect(JSON.parse(printed(home, folder))).toEqual({ changes: [good] });
   });
 
   it('prints nothing of a broken log', () => {
-    const dir = folder();
+    const { home, folder, dir } = project();
     writeFileSync(join(dir, 'changes.json'), '{"not": "a list"}');
-    expect(printed(dir)).toBe('{"changes":[]}');
+    expect(printed(home, folder)).toBe('{"changes":[]}');
   });
 });
 
 describe('team-log.mjs and the notes (v3.7c)', () => {
   it("prints a note's change by its guild lead's name, and drops one that carries anything else", () => {
-    const home = mkdtempSync(join(tmpdir(), 'woa-team-log-notes-'));
-    temps.push(home);
-    init(home);
-    const dir = teamDir(home);
+    const { home, folder, dir } = project();
     const good = { at: 5, what: 'note-approved', agent: 'Frontend dev' };
     const bad = [
       { ...good, text: 'Forms live in src/forms.' },
       { ...good, agent: 'Lead/PM' },
     ];
     writeFileSync(join(dir, 'changes.json'), JSON.stringify([good, ...bad]));
-    expect(JSON.parse(printed(dir))).toEqual({ changes: [good] });
+    expect(JSON.parse(printed(home, folder))).toEqual({ changes: [good] });
   });
 });

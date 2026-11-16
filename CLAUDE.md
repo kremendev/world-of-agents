@@ -990,4 +990,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     review; the shared team only read; six planted bugs, all caught after two tests were sharpened). 3.9c done (the
     guard reads the session's project team by `CLAUDE_PROJECT_DIR`, the one environment variable it reads, never the
     hook's cwd; a project not moved yet keeps its guild leads and its specialist starts name the step; five planted bugs
-    caught, and the self-check found the Lead's start failing closed there, fixed before the commit).
+    caught, and the self-check found the Lead's start failing closed there, fixed before the commit). 3.9d done (the
+    setup per project: /world-of-agents:setup-team-write gives the project in its folder its own team once, a copy of
+    the shared team with its notes for review or an empty one, refreshes an older project team's files only, and prints
+    the three commands Dima runs once; team-check.mjs and team-log.mjs take {"project"} on stdin; five planted bugs).

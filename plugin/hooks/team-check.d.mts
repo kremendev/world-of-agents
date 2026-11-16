@@ -3,4 +3,4 @@
 export const CURRENT: number;
 export const NO_TEAM: number;
 export const OLDER: number;
-export function status(home?: string): number;
+export function status(home: string, folder: string | null): number;

@@ -1326,3 +1326,22 @@ export function teamFilesOf(home, folder) {
   if (!team) return 'none';
   return team.generator >= GENERATOR ? 'current' : 'older';
 }
+
+/**
+ * The project folder in `raw` when it is exactly {"project": "<an absolute path of at most 1024 characters, no control
+ * character>"}: what the team pane sends its scripts on stdin (v3.9), from $.session.cwd(). Null otherwise.
+ */
+export function projectInput(raw) {
+  if (typeof raw !== 'string' || raw.length > 4096) return null;
+  let v;
+  try {
+    v = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (!isObject(v) || Object.keys(v).join() !== 'project') return null;
+  const folder = v.project;
+  const ok =
+    typeof folder === 'string' && folder.length <= 1024 && isAbsolute(folder) && !/\p{Cc}/u.test(folder);
+  return ok ? folder : null;
+}

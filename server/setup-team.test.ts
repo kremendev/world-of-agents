@@ -1,22 +1,27 @@
-import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, sep } from 'node:path';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { report, INSTALL } from '../plugin/skills/setup-team/team-setup.mjs';
+import { report } from '../plugin/skills/setup-team/team-setup.mjs';
 import {
-  applyChange,
-  applyNoteChange,
   buildAgent,
-  buildNotesSkill,
-  emptyNotes,
+  changeProject,
   defaults,
+  emptyNotes,
   GENERATOR,
+  giveOwnTeam,
   init,
-  readTeam,
-  readTexts,
+  installCommands,
+  libraryDir,
+  projectOf,
+  projectsDir,
+  projectTeamDir,
+  projectTeamOf,
+  readNotes,
+  readProjectTeam,
+  readReview,
   teamDir,
   writeNotes,
-  writeTeam,
 } from '../plugin/team/team.mjs';
 
 const PLUGIN = join(import.meta.dirname, '../plugin');
@@ -76,235 +81,144 @@ describe("every description in the plugin's frontmatter is one plain YAML value"
   });
 });
 
-describe('team-setup.mjs', () => {
-  const { team, texts } = defaults();
+/** A home with the shared team of v3.4 to v3.8 and two of its notes, as Dima's PC has it before v3.9. */
+function sharedHome() {
+  const h = home();
+  init(h);
+  const notes = emptyNotes();
+  notes.notes.frontend.push({
+    id: 'AAAAAAAAAAAAAAAA',
+    text: 'The counter lives in src/counter.js.',
+    proposedAt: 1,
+    approvedAt: 2,
+  });
+  notes.notes.reviewer.push({
+    id: 'BBBBBBBBBBBBBBBB',
+    text: 'Reviews go in docs/reviews.',
+    proposedAt: 3,
+    approvedAt: 4,
+  });
+  writeNotes(teamDir(h), notes, defaults().team);
+  return h;
+}
+const SKILLS_COUNT = defaults().team.skills.length;
+const keyOf = (folder: string) => projectOf(folder)!.key;
+const commands = (key: string) =>
+  installCommands(key)
+    .map((command) => `  ${command}`)
+    .join('\n');
 
-  it('shows what it would create, says no agent starts until then, and writes nothing', () => {
-    const h = home();
-    const lines = report(h, false);
-    expect(lines[0]).toBe(
-      `It would create ~/.world-of-agents/team with 8 specialists and ${team.skills.length} skills:`,
+describe('team-setup.mjs (v3.9: a team per project)', () => {
+  it('a project with no team of its own: the dry run describes the copy of the shared team, and writes nothing', () => {
+    const h = sharedHome();
+    const out = report(h, false, home()).join('\n');
+    expect(out).toContain(
+      "This project has no team of its own yet, so its specialists can't start. Its guild leads still work.",
     );
-    expect(lines).toContain(
-      '  Security warden (Review): Reads changes for security issues and reports them, changing nothing',
+    expect(out).toContain(
+      'Writing gives it a copy of your shared team: 8 specialists, each switched on or off as it is.',
     );
-    expect(lines).toContain(
-      'Until the team exists, the guard lets no agent start. Nothing has been written.',
+    expect(out).toContain(
+      "Its 2 notes wait on the Team page's Notes tab, to keep or drop one by one; none is copied as it is.",
     );
-    expect(readdirSync(h)).toEqual([]);
+    expect(out).toContain('The shared team stays in ~/.world-of-agents/team as an unused backup.');
+    expect(out).toContain(`Your skill library is built from the shared team's ${SKILLS_COUNT} skills, once.`);
+    expect(out).toContain('Nothing has been written. To do it, type /world-of-agents:setup-team-write.');
+    expect(out).toContain('For an empty team instead, press Give this project its own team in the pane.');
+    expect(existsSync(projectsDir(h))).toBe(false);
+    expect(existsSync(libraryDir(h))).toBe(false);
   });
 
-  it('creates it on --write, says how to install it, and the next run changes nothing', () => {
-    const h = home();
-    const created = report(h, true);
-    expect(created[0]).toMatch(/^Created ~\/\.world-of-agents\/team: 8 specialists/);
-    expect(created.slice(-INSTALL.length)).toEqual(INSTALL);
-    const before = readFileSync(join(teamDir(h), 'team.json'), 'utf8');
-    expect(report(h, true)[0]).toMatch(/^The team is already there: 8 specialists/);
-    expect(readFileSync(join(teamDir(h), 'team.json'), 'utf8')).toBe(before);
-  });
-
-  it('stops at a team.json it cannot read, and changes nothing', () => {
-    const h = home();
-    report(h, true);
-    writeFileSync(join(teamDir(h), 'team.json'), '{broken');
-    expect(report(h, true)[0]).toMatch(/^Stopped: /);
-    expect(readFileSync(join(teamDir(h), 'team.json'), 'utf8')).toBe('{broken');
-  });
-
-  it("never prints a skill's text", () => {
-    const h = home();
-    const printed = [...report(h, false), ...report(h, true), ...report(h, false)].join('\n');
-    for (const text of Object.values(texts)) expect(printed).not.toContain(text.split('\n')[0]!.slice(2, 40));
-  });
-});
-
-describe('team-setup.mjs refreshes an older team (v3.6d)', () => {
-  /** Every file under the team folder, by its path, with its text. */
-  const files = (h: string) => {
-    const out = new Map<string, string>();
-    const walk = (dir: string) => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const path = join(dir, entry.name);
-        if (entry.isDirectory()) walk(path);
-        else
-          out.set(
-            path
-              .slice(teamDir(h).length + 1)
-              .split(sep)
-              .join('/'),
-            readFileSync(path, 'utf8'),
-          );
-      }
-    };
-    walk(teamDir(h));
-    return out;
-  };
-
-  /** A team of Dima's own: every field planted, then its generated files made stale and its generator older. */
-  function planted() {
-    const h = home();
-    init(h);
-    const dir = teamDir(h);
-    let { team, texts } = { team: readTeam(h)!, texts: readTexts(dir, readTeam(h)!) };
-    const at = 1;
-    for (const change of [
-      {
-        action: 'add-skill',
-        id: 'release-notes',
-        name: 'Release notes',
-        description: 'How to write one',
-        text: 'Mine.\nAll of it.',
-      },
-      {
-        action: 'add-specialist',
-        name: 'Form builder',
-        guild: 'frontend',
-        role: 'Builds forms',
-        preset: 'edits',
-        skills: ['release-notes'],
-      },
-      { action: 'switch', id: 'design-motion-designer', on: false },
-      { action: 'detach', specialist: 'review-security-warden', skill: 'owasp-checks' },
-      {
-        action: 'change-skill',
-        id: 'accessibility',
-        name: 'Accessibility',
-        description: 'Mine too',
-        text: 'My own words.',
-      },
-    ] as const) {
-      ({ team, texts } = applyChange(team, texts, change as never, at));
+  it('--write gives it the copy and its notes for review, prints the three commands, and the next run changes nothing', () => {
+    const h = sharedHome();
+    const folder = home();
+    const out = report(h, true, folder).join('\n');
+    expect(out).toContain('Gave this project its own team: a copy of your shared team.');
+    expect(out).toContain(commands(keyOf(folder)));
+    expect(out).toContain("(Skip the uninstall line if it says woa-team isn't installed here.)");
+    const status = projectTeamOf(h, folder);
+    expect(status.status === 'own' && status.team.specialists.length).toBe(8);
+    expect(readReview(h, keyOf(folder))).toHaveLength(2);
+    for (const writing of [false, true]) {
+      const again = report(h, writing, folder).join('\n');
+      expect(again).toContain('This project has its own team: 8 specialists. Nothing changed.');
+      expect(again).toContain(commands(keyOf(folder)));
     }
-    writeTeam(dir, team, texts);
-    writeFileSync(join(dir, 'changes.json'), '[]\n');
-    writeFileSync(
-      join(dir, 'agents', 'frontend-react-dev.md'),
-      '---\nname: frontend-react-dev\n---\n\nAn old prompt.\n',
-    );
-    writeFileSync(
-      join(dir, 'team.json'),
-      JSON.stringify({ ...JSON.parse(readFileSync(join(dir, 'team.json'), 'utf8')), generator: 0 }),
-    );
-    return h;
-  }
-
-  it('the dry run says so and writes nothing', () => {
-    const h = planted();
-    const before = files(h);
-    const lines = report(h, false);
-    expect(lines[0]).toBe(
-      'The team is there: 9 specialists and 15 skills, its specialist files from an older plugin.',
-    );
-    expect(lines.join('\n')).toContain('type /world-of-agents:setup-team-write');
-    expect(files(h)).toEqual(before);
   });
 
-  it('--write rewrites only the generated files: every specialist, skill, switch, assignment and text as it was', () => {
-    const h = planted();
-    const before = readTeam(h)!;
-    const textsBefore = readTexts(teamDir(h), before);
-    const filesBefore = files(h);
-    const lines = report(h, true);
-    expect(lines[0]).toBe(
-      "Refreshed the team's files for this plugin: 9 specialists and 15 skills, each as it was.",
-    );
-    expect(lines.at(-1)).toContain('/reload-plugins');
-    const after = readTeam(h)!;
-    expect(after).toEqual({ ...before, generator: GENERATOR });
-    expect(readTexts(teamDir(h), after)).toEqual(textsBefore);
-    for (const p of after.specialists)
-      expect(readFileSync(join(teamDir(h), 'agents', `${p.id}.md`), 'utf8'), p.id).toBe(buildAgent(p));
-    const filesAfter = files(h);
-    const touched = [...filesAfter.keys()].filter((f) => filesAfter.get(f) !== filesBefore.get(f)).sort();
-    expect(touched).toEqual(['agents/frontend-react-dev.md', 'team.json']);
-    // Once fresh, a second --write changes nothing.
-    expect(report(h, true)[0]).toMatch(/^The team is already there: /);
-    expect(files(h)).toEqual(filesAfter);
-  });
-
-  it('upgrades a version 1 team as v3.4 and v3.5 wrote it, every tool kept', () => {
+  it('on a PC with no shared team: an empty team, and no library to build', () => {
     const h = home();
-    init(h);
-    const dir = teamDir(h);
-    const v1 = {
-      version: 1,
-      specialists: defaults().team.specialists.map(({ id, name, role, guild, preset, skills }) => ({
-        id,
-        name,
-        role,
-        guild,
-        kind: preset === 'reads' ? 'reads' : 'edits',
-        skills,
-      })),
-      skills: defaults().team.skills,
-    };
-    writeFileSync(join(dir, 'team.json'), JSON.stringify(v1));
-    expect(report(h, true)[0]).toMatch(/^Refreshed the team's files/);
-    expect(JSON.parse(readFileSync(join(dir, 'team.json'), 'utf8'))).toEqual(defaults().team);
+    const folder = home();
+    const dry = report(h, false, folder).join('\n');
+    expect(dry).toContain(
+      'Writing gives it an empty team. On the Team page you add specialists, or the starter team in one click.',
+    );
+    expect(dry).not.toContain('library');
+    expect(dry).not.toContain('For an empty team instead');
+    expect(report(h, true, folder).join('\n')).toContain('Gave this project its own team: an empty one.');
+    expect(readProjectTeam(h, keyOf(folder))?.specialists).toEqual([]);
   });
 
-  it('stops at a skill file changed by hand, and changes nothing', () => {
-    const h = planted();
-    writeFileSync(
-      join(teamDir(h), 'skills', 'release-notes', 'SKILL.md'),
-      '---\nname: release-notes\nhooks: x\n---\n\nx\n',
+  it("refreshes an older project team's generated files only: every specialist, skill and note as it was", () => {
+    const h = sharedHome();
+    const folder = home();
+    const key = giveOwnTeam(h, folder, 'shared', 1).project.key;
+    changeProject(h, key, { action: 'note-keep', id: 'AAAAAAAAAAAAAAAA' }, 2);
+    const dir = projectTeamDir(h, key);
+    const before = readProjectTeam(h, key)!;
+    writeFileSync(join(dir, 'team.json'), JSON.stringify({ ...before, generator: GENERATOR - 1 }));
+    writeFileSync(join(dir, 'agents', 'frontend-react-dev.md'), 'an older file');
+    const dry = report(h, false, folder).join('\n');
+    expect(dry).toContain('This project has its own team: 8 specialists, its files from an older plugin.');
+    expect(dry).toContain('Nothing has been written yet.');
+    expect(readFileSync(join(dir, 'agents', 'frontend-react-dev.md'), 'utf8')).toBe('an older file');
+    expect(report(h, true, folder).join('\n')).toContain(
+      "Refreshed this project's team files for this plugin: 8 specialists, each as it was.",
     );
-    const before = files(h);
-    expect(report(h, true)).toEqual([
-      'Stopped: a skill file in ~/.world-of-agents/team was changed by hand, so a refresh would lose that text.',
-      'Nothing changed.',
+    expect(readProjectTeam(h, key)).toEqual(before);
+    const react = before.specialists.find((p) => p.id === 'frontend-react-dev')!;
+    expect(readFileSync(join(dir, 'agents', 'frontend-react-dev.md'), 'utf8')).toBe(buildAgent(react));
+    expect(readNotes(dir).notes.frontend.map((n) => n.text)).toEqual([
+      'The counter lives in src/counter.js.',
     ]);
-    expect(files(h)).toEqual(before);
+    expect(existsSync(join(dir, 'skills', 'notes-frontend', 'SKILL.md'))).toBe(true);
   });
 
-  it('leaves a team from a newer plugin alone', () => {
-    const h = home();
-    init(h);
-    const file = join(teamDir(h), 'team.json');
-    writeFileSync(
-      file,
-      JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), generator: GENERATOR + 1 }),
+  it("stops, changing nothing, at a broken team, a broken notes.json, or a shared team that can't be read whole", () => {
+    const broken = sharedHome();
+    const folder = home();
+    const key = giveOwnTeam(broken, folder, 'empty', 1).project.key;
+    writeFileSync(join(projectTeamDir(broken, key), 'team.json'), '{"version":3}');
+    expect(report(broken, true, folder).join('\n')).toContain("Stopped: this project's team.json");
+
+    const notes = sharedHome();
+    const other = home();
+    const otherKey = giveOwnTeam(notes, other, 'empty', 1).project.key;
+    const file = join(projectTeamDir(notes, otherKey), 'team.json');
+    writeFileSync(file, JSON.stringify({ ...JSON.parse(readFileSync(file, 'utf8')), generator: 0 }));
+    writeFileSync(join(projectTeamDir(notes, otherKey), 'notes.json'), '{"version":9}');
+    expect(report(notes, true, other).join('\n')).toContain("Stopped: this project's notes.json");
+
+    const hand = sharedHome();
+    writeFileSync(join(teamDir(hand), 'skills', 'accessibility', 'SKILL.md'), 'changed by hand');
+    expect(report(hand, true, home()).join('\n')).toContain(
+      "Stopped: the shared team in ~/.world-of-agents/team is there but can't be read whole",
     );
-    const before = files(h);
-    expect(report(h, true)[0]).toMatch(/^The team is already there: .*Nothing changed\.$/);
-    expect(files(h)).toEqual(before);
-  });
-});
-
-describe('the refresh and the notes (v3.7c)', () => {
-  it("rewrites a guild lead's notes skill from notes.json, and leaves notes.json as it was", () => {
-    const h = home();
-    init(h);
-    const dir = teamDir(h);
-    const notes = applyNoteChange(
-      emptyNotes(),
-      { action: 'note-approve', id: 'p'.repeat(16) },
-      { agent: 'backend', text: 'Migrations live in db/migrations.', at: 1 },
-      2,
-    ).notes;
-    writeNotes(dir, notes, readTeam(h)!);
-    const json = readFileSync(join(dir, 'notes.json'), 'utf8');
-    writeFileSync(join(dir, 'skills', 'notes-backend', 'SKILL.md'), 'stale\n');
-    writeFileSync(join(dir, 'team.json'), JSON.stringify({ ...readTeam(h)!, generator: 0 }));
-    expect(report(h, true)[0]).toMatch(/^Refreshed the team's files/);
-    expect(readFileSync(join(dir, 'skills', 'notes-backend', 'SKILL.md'), 'utf8')).toBe(
-      buildNotesSkill('backend', notes.notes.backend),
-    );
-    expect(readFileSync(join(dir, 'notes.json'), 'utf8')).toBe(json);
+    expect(existsSync(projectsDir(hand))).toBe(false);
   });
 
-  it('stops at a broken notes.json, and changes nothing', () => {
-    const h = home();
-    init(h);
-    const dir = teamDir(h);
-    writeFileSync(join(dir, 'notes.json'), '{"version": 1, "notes": {}}');
-    writeFileSync(join(dir, 'team.json'), JSON.stringify({ ...readTeam(h)!, generator: 0 }));
-    const before = readFileSync(join(dir, 'team.json'), 'utf8');
-    expect(report(h, true)).toEqual([
-      "Stopped: ~/.world-of-agents/team/notes.json isn't as World of Agents wrote it, so a refresh would lose notes.",
-      'Nothing changed.',
+  it("never prints a skill's text or a note", () => {
+    const h = sharedHome();
+    for (const writing of [false, true]) {
+      const out = report(h, writing, home()).join('\n');
+      expect(out).not.toContain(defaults().texts['accessibility']!.trim().slice(0, 40));
+      expect(out).not.toContain('src/counter.js');
+    }
+  });
+
+  it('stops for a folder it cannot read as a project', () => {
+    expect(report(home(), true, join(home(), 'missing'))).toEqual([
+      "Stopped: this folder can't be read as a project. Nothing changed.",
     ]);
-    expect(readFileSync(join(dir, 'team.json'), 'utf8')).toBe(before);
   });
 });

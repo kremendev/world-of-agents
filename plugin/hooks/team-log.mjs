@@ -1,20 +1,38 @@
-// World of Agents team log (v3.4c, docs/v3.4-plan.md). The team pane runs it as `node <plugin>/hooks/team-log.mjs` in the
-// plugin's folder, no arguments, at session start, after the Lead's turns and for a while after "Open Team page", to show
-// every change the hall's page made to the team: the time, what changed, and names only.
+// World of Agents team log (v3.4c, docs/v3.4-plan.md; per project from v3.9). The team pane runs it as
+// `node <plugin>/hooks/team-log.mjs` in the plugin's folder, with {"project": "<the session's folder>"} on stdin, at
+// session start, after the Lead's turns and for a while after "Open Team page", to show every change the hall's page
+// made to that project's team and to the library from it: the time, what changed, and names only.
 //
-// It reads ~/.world-of-agents/team/changes.json through team.mjs (only entries that are exactly entries) and prints one
-// line, {"changes": [...]}, the newest 20, oldest first; the pane checks it again and drops anything else. It reads no
-// other file, writes nothing, and uses no network. Node built-ins and team.mjs only.
+// It reads that project's changes.json through team.mjs (only entries that are exactly entries) and prints one line,
+// {"changes": [...]}, the newest 20, oldest first: none for a project with no team of its own. The pane checks it again
+// and drops anything else. It reads no other file, writes nothing, and uses no network. Node built-ins and team.mjs only.
 
 import { realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { readChanges, teamDir } from '../team/team.mjs';
+import { projectInput, projectOf, projectTeamDir, readChanges } from '../team/team.mjs';
 
 /** The most the pane is sent. */
 export const SHOWN = 20;
+const MAX_STDIN = 4096;
 
-/** What it prints, from the team folder `dir`. */
-export const printed = (dir) => JSON.stringify({ changes: readChanges(dir).slice(-SHOWN) });
+/** What it prints for the project in `folder`, with the teams in `home`. */
+export function printed(home, folder) {
+  const project = folder === null ? null : projectOf(folder);
+  const changes = project ? readChanges(projectTeamDir(home, project.key)).slice(-SHOWN) : [];
+  return JSON.stringify({ changes });
+}
+
+async function readStdin() {
+  const chunks = [];
+  let size = 0;
+  for await (const chunk of process.stdin) {
+    size += chunk.length;
+    if (size > MAX_STDIN) return null;
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
 
 /**
  * True only when Node was started on this very file: the real path of process.argv[1] is this module's own. A name check
@@ -33,5 +51,8 @@ function runAsScript() {
 
 // Run only as a script, so tests can import its functions.
 if (runAsScript()) {
-  process.stdout.write(`${printed(teamDir())}\n`);
+  readStdin().then(
+    (raw) => process.stdout.write(`${printed(homedir(), projectInput(raw))}\n`),
+    () => process.stdout.write(`${JSON.stringify({ changes: [] })}\n`),
+  );
 }
