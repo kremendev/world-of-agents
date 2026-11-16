@@ -6,20 +6,27 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import * as z from 'zod';
 import {
-  applyChange,
-  applyNoteChange,
-  logChange,
+  changeProject,
+  defaults,
+  emptyNotes,
+  giveOwnTeam,
+  installCommands,
+  listProjects,
+  NOTE_AGENTS,
+  projectOf,
+  projectTeamDir,
+  readLibrary,
   readNotes,
-  readTeam,
-  readTexts,
-  teamDir,
-  writeNotes,
-  writeTeam,
+  readProject,
+  readProjectTeam,
+  readReview,
+  readShared,
 } from '../plugin/team/team.mjs';
 import { ledgerSchema, type LedgerTotals, type OfficeEvent } from '../src/events/schema';
 import { isNewer, VERSION, VERSION_SHAPE } from '../src/version';
 import {
   keyBodySchema,
+  keyPostSchema,
   teamChangeSchema,
   type TeamChange,
   type TeamProposal,
@@ -42,8 +49,8 @@ export const PORT = 4319;
 export const MAX_BODY = 256 * 1024;
 /** The ledger's total is a few hundred bytes (v3.2). */
 export const MAX_LEDGER_BODY = 4096;
-/** A one-time key or the page's handing back of one: a few dozen bytes (v3.4c). */
-export const MAX_KEY_BODY = 256;
+/** A one-time key or the page's handing back of one: a few dozen bytes (v3.4c), and (v3.9) the session's folder. */
+export const MAX_KEY_BODY = 4096;
 /** One change to the team: a skill's text is at most 8,000 characters, four bytes each at most in UTF-8. */
 export const MAX_TEAM_BODY = 64 * 1024;
 /** `POST /api/stop`'s body, `{"version": "3.5.1"}`: a few dozen bytes (v3.5b). */
@@ -152,7 +159,7 @@ export function createHall({
   let map = INITIAL_MAP;
   let replay: OfficeEvent[] = [];
   // v3.7: the guild leads' proposed notes, in memory only (M7).
-  let proposals: TeamProposal[] = [];
+  let proposals: (TeamProposal & { project: string })[] = [];
   // The ledger's latest total, in memory only: never part of the replay, and gone when the hall stops.
   let ledger: LedgerTotals | null = null;
   const ledgerFrame = (totals: LedgerTotals) => `event: ledger\ndata: ${JSON.stringify(totals)}\n\n`;
@@ -256,7 +263,9 @@ export function createHall({
    */
   function propose(input: HookInput, at: number): void {
     const note = proposalIn(input);
-    if (!note || proposals.some((p) => p.agent === note.agent && p.text === note.text)) return;
+    if (!note) return;
+    if (proposals.some((p) => p.project === note.project && p.agent === note.agent && p.text === note.text))
+      return;
     const id = randomBytes(12).toString('base64url');
     proposals = [...proposals, { id, ...note, at }].slice(-MAX_PROPOSALS);
   }
@@ -366,16 +375,16 @@ export function createHall({
 
   /**
    * hall-key.mjs, when Dima presses "Open Team page" in the pane (v3.4c, T8): a one-time key the mod made, with the token,
-   * like a hook. Never from a page.
+   * like a hook. Never from a page. v3.9: with the folder of the pane's session, which its session cookie is bound to.
    */
   async function keyPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (req.headers.origin !== undefined) return reply(res, 403);
     if (!authorized(req.headers.authorization)) return reply(res, 401);
     const json = await jsonBody(req, res, MAX_KEY_BODY);
     if (json === undefined) return;
-    const body = keyBodySchema.safeParse(json);
+    const body = keyPostSchema.safeParse(json);
     if (!body.success) return reply(res, 400);
-    keys.add(body.data.key);
+    keys.add(body.data.key, body.data.project);
     reply(res, 204);
   }
 
@@ -393,90 +402,119 @@ export function createHall({
   }
 
   /**
-   * The team, its skills' texts, (v3.7) the guild leads' notes, and the proposals waiting in memory, as team.mjs reads
-   * them; null when there is no team or a file isn't as it wrote it.
+   * The project's team as the page sees it (v3.9), as team.mjs reads it: the project, its team (null until it has one of
+   * its own), the library with each skill's text and the projects that use it, the project's notes, the shared notes it
+   * reviews, its own proposals, the other projects, the shared team's size, the starter team and the commands to run
+   * once. An error, in team.mjs's or the hall's fixed words, when the folder isn't a project or a file is broken.
    */
-  function teamView(): TeamView | null {
-    const team = readTeam(teamHome);
-    if (team === null) return null;
+  function teamView(folder: string): TeamView | { error: string } {
+    const project = projectOf(folder);
+    if (!project) return NOT_A_PROJECT;
     try {
-      const dir = teamDir(teamHome);
-      return { team, texts: readTexts(dir, team), notes: readNotes(dir).notes, proposals: [...proposals] };
+      const own = readProject(teamHome, project.key) !== null;
+      const team = own ? readProjectTeam(teamHome, project.key) : null;
+      if (own && team === null) return BROKEN;
+      const { library, texts } = readLibrary(teamHome);
+      const projects = listProjects(teamHome);
+      const usage: TeamView['usage'] = {};
+      for (const skill of library.skills) {
+        usage[skill.id] = projects.flatMap((p) => {
+          const having = (p.team?.specialists ?? []).filter((s) => s.skills.includes(skill.id));
+          return having.length > 0
+            ? [{ project: p.key, name: p.name, specialists: having.map((s) => s.name) }]
+            : [];
+        });
+      }
+      let shared: TeamView['shared'] = null;
+      try {
+        const old = readShared(teamHome);
+        if (old) {
+          const notes = NOTE_AGENTS.reduce((n, agent) => n + old.notes.notes[agent].length, 0);
+          shared = { specialists: old.team.specialists.length, notes };
+        }
+      } catch {
+        // A shared team that can't be read whole can't be copied: the page offers an empty team only.
+      }
+      const starter = defaults().team;
+      return {
+        project: { key: project.key, name: project.name, folder: project.folder },
+        team,
+        shared,
+        library: library.skills,
+        texts,
+        usage,
+        notes: (own ? readNotes(projectTeamDir(teamHome, project.key)) : emptyNotes()).notes,
+        proposals: proposals
+          .filter((p) => p.project === project.key)
+          .map(({ id, agent, text, at }) => ({ id, agent, text, at })),
+        review: own ? readReview(teamHome, project.key) : [],
+        others: projects
+          .filter((p) => p.key !== project.key && p.team !== null)
+          .map((p) => ({ key: p.key, name: p.name, folder: p.folder, specialists: p.team!.specialists })),
+        starter: {
+          specialists: starter.specialists,
+          skills: starter.skills.map(({ id, name, description }) => ({ id, name, description })),
+        },
+        install: installCommands(project.key),
+      };
     } catch {
-      return null;
+      return BROKEN;
     }
   }
 
-  const NO_TEAM = {
-    error: 'The team is missing or broken. Type /world-of-agents:setup-team in Claude Code.',
+  const NOT_A_PROJECT = {
+    error: "This session's folder can't be read as a project. Open the Team page again from the pane.",
+  };
+  const BROKEN = {
+    error:
+      "A team file in ~/.world-of-agents isn't as World of Agents wrote it. Type /world-of-agents:setup-team in Claude Code.",
   };
 
   function teamGet(req: IncomingMessage, res: ServerResponse): void {
-    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
-    const view = teamView();
-    reply(res, view === null ? 409 : 200, view ?? NO_TEAM);
+    const folder = keys.projectOf(req.headers.cookie);
+    if (folder === null) return reply(res, 401);
+    const view = teamView(folder);
+    reply(res, 'error' in view ? 409 : 200, view);
   }
 
   /**
-   * One change to the team's skills, from the page with a live session (v3.4c): every control above, the schema, then
-   * team.mjs, which checks the result again and writes only inside the team folder. It starts nothing and runs nothing.
+   * One change to the project's team, its notes or the library, from the page with a live session (v3.4c; per project
+   * from v3.9): every control above, the schema, then team.mjs, which checks the result again and writes only inside
+   * ~/.world-of-agents. The project is the session's, never one the page names. It starts nothing and runs nothing.
    */
   async function teamPost(req: IncomingMessage, res: ServerResponse): Promise<void> {
     if (!fromPage(req)) return reply(res, 403);
-    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
+    const folder = keys.projectOf(req.headers.cookie);
+    if (folder === null) return reply(res, 401);
     const json = await jsonBody(req, res, MAX_TEAM_BODY);
     if (json === undefined) return;
     const change = teamChangeSchema.safeParse(json);
     if (!change.success) return reply(res, 400);
-    const done = writing.then(() => applyToTeam(change.data));
+    const done = writing.then(() => applyToTeam(folder, change.data));
     writing = done.catch(() => {});
     const { status, body } = await done;
     reply(res, status, body);
   }
 
-  function applyToTeam(change: TeamChange): { status: number; body: unknown } {
-    const view = teamView();
-    if (view === null) return { status: 409, body: NO_TEAM };
-    if (
-      change.action === 'note-approve' ||
-      change.action === 'note-reject' ||
-      change.action === 'note-delete'
-    )
-      return applyToNotes(change, view);
-    let next: ReturnType<typeof applyChange>;
+  function applyToTeam(folder: string, change: TeamChange): { status: number; body: unknown } {
+    const project = projectOf(folder);
+    if (!project) return { status: 409, body: NOT_A_PROJECT };
+    // v3.7c: approve and reject name a proposal by its id, and the text written is the hall's own copy, never the
+    // page's (M8). v3.9: only a proposal from this project's own sessions.
+    const proposal =
+      change.action === 'note-approve' || change.action === 'note-reject'
+        ? (proposals.find((p) => p.id === change.id && p.project === project.key) ?? null)
+        : null;
     try {
-      next = applyChange(view.team, view.texts, change, now());
+      if (change.action === 'give-own-team') giveOwnTeam(teamHome, folder, change.from, now());
+      else changeProject(teamHome, project.key, change, now(), proposal);
     } catch (error) {
       // team.mjs's own fixed words, with checked ids at most.
       return { status: 409, body: { error: (error as Error).message } };
     }
-    const dir = teamDir(teamHome);
-    const team = writeTeam(dir, next.team, next.texts);
-    logChange(dir, next.entry);
-    return { status: 200, body: { ...view, team, texts: next.texts } };
-  }
-
-  /**
-   * A note's change (v3.7c): approve and reject name a proposal by its id, and the text written is the hall's own copy,
-   * never the page's (M8); delete names a kept note. team.mjs checks it again and writes notes.json and the notes skills.
-   */
-  function applyToNotes(
-    change: Extract<TeamChange, { action: 'note-approve' | 'note-reject' | 'note-delete' }>,
-    view: TeamView,
-  ): { status: number; body: unknown } {
-    const dir = teamDir(teamHome);
-    const proposal =
-      change.action === 'note-delete' ? null : (proposals.find((p) => p.id === change.id) ?? null);
-    let next: ReturnType<typeof applyNoteChange>;
-    try {
-      next = applyNoteChange(readNotes(dir), change, proposal, now());
-      if (change.action !== 'note-reject') writeNotes(dir, next.notes, view.team);
-    } catch (error) {
-      return { status: 409, body: { error: (error as Error).message } };
-    }
-    logChange(dir, next.entry);
     if (proposal) proposals = proposals.filter((p) => p !== proposal);
-    return { status: 200, body: { ...view, notes: next.notes.notes, proposals: [...proposals] } };
+    const view = teamView(folder);
+    return { status: 'error' in view ? 409 : 200, body: view };
   }
 
   function events(req: IncomingMessage, res: ServerResponse): void {

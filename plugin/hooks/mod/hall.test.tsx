@@ -63,6 +63,7 @@ function engine(
   const clock = mock.clock(on);
   mock.store(on);
   on('session.start', (_, e) => ({ cwd: e.cwd }));
+  on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
   on('ui.open', () => ({ value: { isPlaced: true } }));
   on('agent.list', () => ({ value: [] }));
   on('turn.start', (_, e) => ({ turnId: e.turnId }));
@@ -134,21 +135,26 @@ const rootOf = (runs: Run[]) => runs[0]?.init?.cwd ?? '';
 // v3.6d (E6, E9): the pane says when the team's generated files come from an older plugin, from an exit code alone.
 describe("the team's generated files", () => {
   const OLDER =
-    "Your team's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+    "This project's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+  // v3.9: 4 is a project with no team of its own yet, and the Team section's button offers to give it one.
+  const NONE =
+    "This project has no team of its own yet, so its specialists can't start. Its guild leads still work.";
   for (const [code, shown] of [
-    [6, true],
-    [0, false],
-    [4, false],
-    [1, false],
-    ['cannot run', false],
+    [6, OLDER],
+    [4, NONE],
+    [0, null],
+    [1, null],
+    ['cannot run', null],
   ] as const) {
-    test(`team-check.mjs answering ${code}: ${shown ? 'the line' : 'no line'}`, async ($, on) => {
+    test(`team-check.mjs answering ${code}: ${shown ? 'its line' : 'no line'}`, async ($, on) => {
       const world = engine(on, { checks: [OURS], teamCheck: code });
       await $.session.start(SESSION);
       await world.clock.settle();
       for (const surface of SURFACES) {
         const pane = await mount($, surface);
-        expect((await pane.texts()).includes(OLDER)).toBe(shown);
+        const texts = await pane.texts();
+        expect(texts.includes(OLDER)).toBe(shown === OLDER);
+        expect(texts.includes(NONE)).toBe(shown === NONE);
         await pane.ui.unmount();
       }
     });
@@ -181,15 +187,22 @@ describe('the hall', () => {
       // The handshake, not the script's word, says the port holds our hall.
       { argv: ['node', `${root}/hooks/hall-check.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
       // v3.4c: the team's change log, read as the hall becomes ours (3.2d: also when this session started it).
-      { argv: ['node', `${root}/hooks/team-log.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
+      {
+        argv: ['node', `${root}/hooks/team-log.mjs`],
+        init: { cwd: root, stdin: JSON.stringify({ project: 'C:/Users/dima/project' }), timeoutMs: 10_000 },
+      },
     ]);
-    // Nothing spawned, no input, no environment, no shell: fixed commands in the plugin's folder, and nothing else.
+    // Nothing spawned, no environment, no shell: fixed commands in the plugin's folder, and nothing else. The one input
+    // (v3.9) is the session's folder, from the engine, for the two team scripts.
     expect(world.spawns).toEqual([]);
     // v3.3: one status check for quality gates, a fixed command answered by its exit code.
     expect(world.statuses).toEqual([
       { argv: ['node', `${root}/hooks/gate.mjs`, '--status'], init: { cwd: root, timeoutMs: 10_000 } },
       // v3.6d: one more, whether the team's generated files are this plugin's.
-      { argv: ['node', `${root}/hooks/team-check.mjs`], init: { cwd: root, timeoutMs: 10_000 } },
+      {
+        argv: ['node', `${root}/hooks/team-check.mjs`],
+        init: { cwd: root, stdin: JSON.stringify({ project: 'C:/Users/dima/project' }), timeoutMs: 10_000 },
+      },
     ]);
 
     for (const surface of SURFACES) {

@@ -28,6 +28,7 @@ const PANE = {
 function engine(on: On) {
   const clock = mock.clock(on);
   on('session.start', (_, e) => ({ cwd: e.cwd }));
+  on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
   on('ui.open', () => ({ value: { isPlaced: true } }));
   on('agent.list', () => ({
     value: [
@@ -412,6 +413,7 @@ describe("Dima's prompts", () => {
     const written: string[] = [];
     const clock = mock.clock(on);
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({
       value: [
@@ -725,6 +727,7 @@ describe("the ledger's total to the hall (v3.2)", () => {
     const store = new Map<string, unknown>([['ledger', KEPT]]);
     const left = [...checks];
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({ value: [] }));
     on('session.id', () => ({ value: SESSION_ID }));
@@ -848,6 +851,7 @@ describe('Recount (v3.2c, L7; per session since 3.2d)', () => {
     const runs: { argv: readonly string[]; cwd?: string; stdin?: string }[] = [];
     const store = new Map<string, unknown>(more.store ?? [['ledger', KEPT]]);
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({ value: [] }));
     on('session.id', () => ({ value: SESSION_ID }));
@@ -1066,6 +1070,7 @@ describe('quality gates in the pane (v3.3)', () => {
   function withGates(on: On, status: number) {
     const clock = mock.clock(on);
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({ value: [] }));
     on('store.get', () => ({ value: undefined }));
@@ -1182,6 +1187,7 @@ describe("the team's specialists in the pane (v3.4)", () => {
     const clock = mock.clock(on);
     let status: 'running' | 'completed' = 'running';
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({
       value: [
@@ -1215,6 +1221,7 @@ describe('the team editor (v3.4c, T8)', () => {
     const runs: { argv: readonly string[]; cwd?: string; stdin?: string }[] = [];
     const written: string[] = [];
     on('session.start', (_, e) => ({ cwd: e.cwd }));
+    on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
     on('ui.open', () => ({ value: { isPlaced: true } }));
     on('agent.list', () => ({ value: [] }));
     on('state.set', async (_, e, next) => {
@@ -1277,6 +1284,8 @@ describe('the team editor (v3.4c, T8)', () => {
     expect(root).not.toBe('/project');
     const { key } = JSON.parse(run!.stdin!) as { key: string };
     expect(key).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    // v3.9: the session's folder goes with it, from the engine, so the hall opens this project's team.
+    expect(run!.stdin).toBe(JSON.stringify({ key, project: 'C:/Users/dima/project' }));
     expect(await links(ui)).toEqual(['http://localhost:4319', `http://localhost:4319/#k=${key}`]);
     expect(await ui.find({ type: 'Button', key: 'open-team-page' })).toBeUndefined();
     // The key went to hall-key.mjs's stdin and into the link, and nowhere else: no state, no store, no argument.

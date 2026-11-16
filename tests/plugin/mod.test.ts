@@ -101,9 +101,13 @@ describe('the processes the mod starts', () => {
     expect(using(/\bstdin\s*:/)).toEqual(['hall.ts']);
     expect(code('hall.ts').match(/[^\n]*\bstdin\s*:[^\n]*/g)).toEqual([
       '      stdin: JSON.stringify(totals),',
-      // v3.4c: the team editor's one-time key, on stdin only (T8): never an argument or the environment.
-      '      stdin: JSON.stringify({ key }),',
+      // v3.4c: the team editor's one-time key, on stdin only (T8): never an argument or the environment. v3.9: with
+      // the session's folder from the engine, as the two team scripts get it, so each answers for this project.
+      '      stdin: await projectStdin($),',
+      '      stdin: JSON.stringify({ key, project: await $.session.cwd() }),',
+      '      stdin: await projectStdin($),',
     ]);
+    expect(code('hall.ts')).toContain('return JSON.stringify({ project: await $.session.cwd() });');
     expect(using(/\benv\s*:/)).toEqual([]);
   });
 

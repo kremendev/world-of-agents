@@ -1709,6 +1709,143 @@ button.tp-card:hover {
   grid-template-columns: repeat(auto-fit, minmax(12.5rem, 1fr));
 }
 
+.tp-cards-2 {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+}
+
+/* v3.9: the project this Team page is for, in a chip beside "Team": its name and folder, always visible. */
+.tp-project {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  max-width: 34rem;
+  margin: 0;
+  padding: 3px 12px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.tp-project-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tp-project-folder {
+  overflow: hidden;
+  color: var(--ui-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* v3.9: a project with no team of its own yet, in amber, in place of the list. */
+.tp-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid var(--ui-flag);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-flag-bg);
+}
+
+.tp-banner h2 {
+  color: var(--ui-flag);
+}
+
+/* v3.9: a team with no specialists yet, and its three ways to fill it. */
+.tp-empty-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px;
+  border: 1px dashed var(--ui-line-strong);
+  border-radius: var(--ui-radius-panel);
+}
+
+.tp-big-buttons {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 12px;
+}
+
+.tp-big-button {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: var(--ui-radius-panel);
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tp-big-button:hover:not(:disabled) {
+  border-color: var(--ui-accent);
+}
+
+.tp-big-button:disabled,
+.tp-row:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* What the starter team or a copy brings: specialists by guild, each with its preset and skills. */
+.tp-bringing {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 8px 0 12px;
+}
+
+.tp-bring {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 6px 0;
+}
+
+.tp-bring .tp-row-sub {
+  flex-basis: 100%;
+}
+
+/* The commands Dima runs once, after a project gets its own team. */
+.tp-install {
+  margin-bottom: 16px;
+  padding: 14px 18px;
+  border: 1px solid var(--ui-accent);
+  border-radius: var(--ui-radius-panel);
+}
+
+.tp-commands {
+  margin: 8px 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: var(--ui-radius);
+  background: var(--ui-bg);
+  font-family: var(--ui-mono);
+  font-size: 0.8125rem;
+}
+
+/* A library skill's "Give it to: + <specialist>", and a skill's cost on its card. */
+.tp-give {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.tp-card-cost {
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
+
 /* Model, Started by, Its id. */
 .tp-facts {
   display: flex;

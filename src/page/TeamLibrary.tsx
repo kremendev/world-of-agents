@@ -1,26 +1,38 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { TeamSkill, TeamView } from '../team/schema';
+import {
+  MAX_PRELOADED,
+  SOURCES,
+  type LibrarySkill,
+  type TeamSpecialist,
+  type TeamView,
+} from '../team/schema';
 import { checkText, type TextCheck } from '../team/text';
 import {
+  aboutTokens,
+  dayOf,
   FLAG_LABEL,
   flagged,
   flagSummary,
+  listed,
   skillDraftId,
   skillMatches,
   skillRefusals,
+  SOURCE_FROM,
+  SOURCE_GROUP,
+  usedLine,
   usersOf,
+  whoLoses,
   type SkillDraft,
   type TeamActions,
 } from '../team/view';
 
 type Ids = { details: string; main: string; base: string };
 
-/** "A", "A and B", "A, B and C". */
-const listed = (names: string[]) =>
-  names.length < 2 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
-
-/** The Skills tab (v3.6): the list with who uses each, one skill's whole text, or the form. */
-export function SkillsTab({
+/**
+ * The Library tab (v3.9, the approved mockup of 16 Nov): every skill on this PC, grouped by where it came from, each
+ * saying how many projects use it; one skill's facts, who has it here and elsewhere, its whole text, or the form.
+ */
+export function LibraryTab({
   view,
   query,
   selected,
@@ -41,7 +53,7 @@ export function SkillsTab({
   ids: Ids;
   onOpenSpecialist: (id: string) => void;
 }) {
-  const shown = view.team.skills.filter((s) => skillMatches(s, query));
+  const shown = view.library.filter((s) => skillMatches(s, query));
   const current = shown.find((s) => s.id === selected) ?? shown[0] ?? null;
 
   const save = async (d: SkillDraft) => {
@@ -53,7 +65,8 @@ export function SkillsTab({
       description: d.description,
       text: d.text,
     };
-    if (await actions.send(change, `${d.mode === 'add' ? 'Added' : 'Saved'} skill ${d.name}.`)) {
+    const said = d.mode === 'add' ? `Added ${d.name} to the library.` : `Saved skill ${d.name}.`;
+    if (await actions.send(change, said)) {
       setDraft(null);
       onSelect(id);
       actions.focus(ids.details);
@@ -62,33 +75,45 @@ export function SkillsTab({
 
   return (
     <div className="tp-split-view">
-      <nav className="tp-list" aria-label="Skills">
+      <nav className="tp-list" aria-label="Library">
         {shown.length === 0 && (
-          <p className="tp-empty">{query.trim() ? 'Nothing matches' : 'No skills yet.'}</p>
+          <p className="tp-empty">{query.trim() ? 'Nothing matches' : 'The library is empty.'}</p>
         )}
-        <ul>
-          {shown.map((s) => {
-            const used = usersOf(view, s.id).length;
-            return (
-              <li key={s.id}>
-                <button
-                  type="button"
-                  className="tp-row"
-                  aria-current={!draft && current?.id === s.id ? 'true' : undefined}
-                  onClick={() => onSelect(s.id)}
-                >
-                  <span className="tp-row-main">
-                    <span className="tp-row-name">{s.name}</span>
-                    <span className="tp-row-sub">{s.description}</span>
-                  </span>
-                  <span className={used > 0 ? 'tp-used' : 'tp-used none'}>
-                    {used > 0 ? `Used by ${used}` : 'Unused'}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        {SOURCES.map((source) => {
+          const members = shown.filter((s) => s.source.kind === source);
+          if (members.length === 0) return null;
+          const head = `${ids.base}-source-${source}`;
+          return (
+            <section key={source} className="tp-group" aria-labelledby={head}>
+              <h2 id={head} className="tp-group-head">
+                <span>{SOURCE_GROUP[source]}</span>
+              </h2>
+              <ul>
+                {members.map((s) => {
+                  const projects = view.usage[s.id]?.length ?? 0;
+                  return (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        className="tp-row"
+                        aria-current={!draft && current?.id === s.id ? 'true' : undefined}
+                        onClick={() => onSelect(s.id)}
+                      >
+                        <span className="tp-row-main">
+                          <span className="tp-row-name">{s.name}</span>
+                          <span className="tp-row-sub">{s.description}</span>
+                        </span>
+                        <span className={projects > 0 ? 'tp-used' : 'tp-used none'}>
+                          {usedLine(projects)}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          );
+        })}
       </nav>
       <div className="tp-detail-pane">
         {draft ? (
@@ -152,7 +177,10 @@ export function TextLines({ lines }: { lines: TextCheck['lines'] }) {
   );
 }
 
-/** One skill: what it's for, who uses it, its whole text, Change and Delete. */
+/**
+ * One library skill: what it's for, its facts (where it came from, when, what it costs), who has it in this project and
+ * who could get it, the other projects that use it, its whole text, Change and Delete from library.
+ */
 function SkillDetails({
   s,
   view,
@@ -161,7 +189,7 @@ function SkillDetails({
   onOpenSpecialist,
   onChange,
 }: {
-  s: TeamSkill;
+  s: LibrarySkill;
   view: TeamView;
   actions: TeamActions;
   ids: Ids;
@@ -170,17 +198,24 @@ function SkillDetails({
 }) {
   const own = useId();
   const [deleting, setDeleting] = useState(false);
-  const users = usersOf(view, s.id);
-  const { lines } = checkText(view.texts[s.id] ?? '');
+  const here = usersOf(view, s.id);
+  const elsewhere = (view.usage[s.id] ?? []).filter((u) => u.project !== view.project.key);
+  const without = (view.team?.specialists ?? []).filter(
+    (p) => !p.skills.includes(s.id) && p.skills.length < MAX_PRELOADED,
+  );
+  const text = view.texts[s.id] ?? '';
+  const { lines } = checkText(text);
   const question = `${own}-question`;
   const deleteButton = `${own}-delete`;
-  const loses =
-    users.length === 0
-      ? 'No specialist has it.'
-      : `${listed(users.map((p) => p.name))} ${users.length === 1 ? 'loses' : 'lose'} it.`;
 
+  const give = async (p: TeamSpecialist) => {
+    if (
+      await actions.send({ action: 'attach', specialist: p.id, skill: s.id }, `Gave ${s.name} to ${p.name}.`)
+    )
+      actions.focus(ids.details);
+  };
   const remove = async () => {
-    if (await actions.send({ action: 'delete-skill', id: s.id }, `Deleted skill ${s.name}.`)) {
+    if (await actions.send({ action: 'delete-skill', id: s.id }, `Deleted ${s.name} from the library.`)) {
       actions.focus(ids.main);
     }
   };
@@ -194,11 +229,26 @@ function SkillDetails({
         <p className="tp-sub">{s.description}</p>
       </div>
 
+      <dl className="tp-facts">
+        <div>
+          <dt>From</dt>
+          <dd>{SOURCE_FROM[s.source.kind]}</dd>
+        </div>
+        <div>
+          <dt>Added</dt>
+          <dd>{dayOf(s.addedAt)}</dd>
+        </div>
+        <div>
+          <dt>Cost</dt>
+          <dd>{aboutTokens(text)} every time a specialist that has it starts</dd>
+        </div>
+      </dl>
+
       <div className="tp-section">
         <h3>Used by</h3>
-        {users.length > 0 ? (
+        {here.length > 0 ? (
           <ul className="tp-chips">
-            {users.map((p) => (
+            {here.map((p) => (
               <li key={p.id}>
                 <button type="button" className="tp-chip-link" onClick={() => onOpenSpecialist(p.id)}>
                   {p.name}
@@ -207,7 +257,24 @@ function SkillDetails({
             ))}
           </ul>
         ) : (
-          <p className="tp-muted">No specialist has it.</p>
+          <p className="tp-muted">No specialist in this project has it.</p>
+        )}
+        {without.length > 0 && (
+          <div className="tp-give">
+            <span className="tp-muted">Give it to:</span>
+            <ul className="tp-chips">
+              {without.map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="tp-chip-add" onClick={() => void give(p)}>
+                    {`+ ${p.name}`}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {elsewhere.length > 0 && (
+          <p className="tp-muted">Also used in {listed(elsewhere.map((u) => u.name))}.</p>
         )}
       </div>
 
@@ -230,7 +297,7 @@ function SkillDetails({
           }}
         >
           <p id={question}>
-            Delete {s.name}? {loses}
+            Delete {s.name} from the library? {whoLoses(view, s.id)}
           </p>
           <div className="tp-buttons">
             <button type="button" className="tp-button tp-danger" onClick={() => void remove()}>
@@ -263,7 +330,7 @@ function SkillDetails({
               actions.focus(`${own}-keep`);
             }}
           >
-            Delete
+            Delete from library
           </button>
         </div>
       )}
@@ -271,7 +338,7 @@ function SkillDetails({
   );
 }
 
-/** Add or change a skill: name, what it's for, the text, and a live preview with its flags beside it (v3.4c's rules). */
+/** Write a new skill, or change one: name, what it's for, the text, and a live preview with its flags beside it. */
 function SkillForm({
   draft,
   setDraft,
@@ -295,7 +362,7 @@ function SkillForm({
   const refusals = skillRefusals(draft, view);
   const { lines } = checkText(draft.text);
   const id = skillDraftId(draft);
-  const original = view.team.skills.find((s) => s.id === draft.id)?.name ?? draft.name;
+  const original = view.library.find((s) => s.id === draft.id)?.name ?? draft.name;
   const set = (more: Partial<SkillDraft>) => setDraft({ ...draft, ...more });
 
   useEffect(() => first.current?.focus(), []);
@@ -310,7 +377,7 @@ function SkillForm({
       }}
     >
       <h2 id={headingId} tabIndex={-1}>
-        {adding ? 'New skill' : `Change ${original}`}
+        {adding ? 'Write a new skill' : `Change ${original}`}
       </h2>
       <div className="tp-field">
         <label htmlFor={`${own}-name`}>Name</label>
@@ -354,6 +421,7 @@ function SkillForm({
           <h3 id={`${own}-preview`}>Preview, as a specialist reads it</h3>
           <TextLines lines={lines} />
           <p className={flagged(lines) ? 'tp-flagline' : 'tp-muted'}>{flagSummary(lines)}</p>
+          <p className="tp-muted">{aboutTokens(draft.text)} every time a specialist that has it starts.</p>
         </section>
       </div>
       {refusals.length > 0 && (
@@ -370,7 +438,7 @@ function SkillForm({
           disabled={busy || refusals.length > 0}
           aria-describedby={refusals.length > 0 ? `${own}-refusals` : undefined}
         >
-          {adding ? 'Add skill' : 'Save'}
+          {adding ? 'Add to library' : 'Save'}
         </button>
         <button type="button" className="tp-button" onClick={onCancel}>
           Cancel

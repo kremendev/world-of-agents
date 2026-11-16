@@ -1,6 +1,8 @@
 // Types for send.mjs, so its tests are typechecked. The script itself stays plain JS: the plugin needs no build.
 
 export type Forwarded = {
+  /** v3.9: a stop's project, by key. */
+  project?: string;
   hook_event_name?: string;
   session_id?: string;
   agent_id?: string;
@@ -26,7 +28,7 @@ export const GATED: ReadonlySet<string>;
 export function gated(payload: Record<string, unknown>, env: Record<string, string | undefined>): boolean;
 export function homePattern(home: string): RegExp;
 export function text(v: unknown, max: number, home?: string): string | undefined;
-export function allowlist(p: Record<string, unknown>, home?: string): Forwarded;
+export function allowlist(p: Record<string, unknown>, home?: string, project?: string): Forwarded;
 export function handshakeAnswer(token: string, nonce: string): string;
 export function readToken(): string | null;
 export function askHall(

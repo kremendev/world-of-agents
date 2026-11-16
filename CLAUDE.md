@@ -88,7 +88,9 @@ src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team v
                   team.mjs's, link and command-like flags), view.ts (v3.6: the Team page's words, search and form
                   refusals, tested in step with the schema and team.mjs). The Team page (v3.6, its own view: App hides
                   the hall view and keeps it mounted, so its connection carries on) is src/page/TeamPage.tsx (top bar,
-                  search, tabs, status line with Undo), TeamSpecialists.tsx and TeamSkills.tsx
+                  search, tabs, status line with Undo), TeamSpecialists.tsx and TeamLibrary.tsx (v3.9: the Skills tab became the
+                  Library; the project chip, the banner of a project with no team of its own, the empty panel, the
+                  starter team and the copy, the old shared notes to review)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id
@@ -493,10 +495,13 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   `node <plugin>/hooks/ledger-post.mjs`, whose `stdin` is the ledger's totals (numbers the mod built from the engine's
   counts, never text), run whenever the hall becomes `running` (3.2d: a hall the mod started itself answered after session
   start's push, and showed no total until the Lead's next answer) and after each of the Lead's turns while it is, and from
-  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, on the press of "Open Team page") and
-  `node <plugin>/hooks/team-log.mjs` (no input; whenever the hall becomes `running`, after the Lead's turns while it is, and every
-  20 s for ten minutes after a key), and from v3.6d `node <plugin>/hooks/team-check.mjs` (no input, at session start, its
-  exit code only: the pane says "Your team's specialist files are from an older plugin." on 6). A
+  v3.2c `node <plugin>/hooks/ledger-past.mjs`, with nothing on stdin since 3.2d, run only on Dima's press, and from v3.4c `node <plugin>/hooks/hall-key.mjs` (stdin `{"key"}`, from v3.9 `{"key", "project"}`, on the press of "Open Team page") and
+  `node <plugin>/hooks/team-log.mjs` (no input until v3.9, then `{"project"}`; whenever the hall becomes `running`, after the Lead's turns while it is, and every
+  20 s for ten minutes after a key), and from v3.6d `node <plugin>/hooks/team-check.mjs` (no input until v3.9, then `{"project"}`, at
+  session start, its exit code only: the pane says "This project's specialist files are from an older plugin." on 6, and
+  from v3.9 "This project has no team of its own yet…" on 4, its Team button then "Give this project its own team"). v3.9:
+  the project is `$.session.cwd()`, the session's folder from the engine (3.9a: the same as `CLAUDE_PROJECT_DIR`, which the
+  mod's processes don't get), the one new call on `$` (`mod-surface.json`). A
   `node.exe` planted in a project is never run: `$.process.run` refuses a command found only in the working folder
   ("unsafe location (current directory)"), and the hook runner looks on PATH only, with Node installed or not (both
   checked on 2.1.318, 8 Nov, with a copy of hostname.exe as the planted file). The plugin's folder as cwd is a second
@@ -570,7 +575,12 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   same name, so nothing loads twice (tested for milestone 0, with hooks counted and a real hall). Don't add a warning.
 - `version` in `plugin.json` pins installs: people on GitHub get a new copy only when that string changes. Change it with
   every release. A marketplace added from a local folder loads `plugin/` in place, so it ignores the version.
-- The team editor (v3.4c, T8, Dima's decision) is the one way the hall's page writes anything: skills (add, change,
+- The team editor (v3.4c, T8, Dima's decision) is the one way the hall's page writes anything. From v3.9 a key comes with
+  the folder of the pane's session, and its session cookie stays bound to that project (`keys.ts` `projectOf()`): the page
+  reads and changes that project's team, its notes and the PC's library, and nothing it sends can name another project
+  (`copy-from` only reads one). A stop carries its project's key (`send.mjs`, `CLAUDE_PROJECT_DIR`, the folder name and a
+  hash, never the path), so a proposed note shows only on its own project's page and only that session may approve it.
+  What it writes: skills (add, change,
   delete, give, take; at most 5 per specialist) and from v3.6 specialists (add, change, delete, switch: `team.mjs` makes a
   new one's id from its guild and name, which never change after; role, preset and skills change; at most 5 a guild; no
   shell in the Design guild). A write needs the session cookie, which only
@@ -994,3 +1004,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     setup per project: /world-of-agents:setup-team-write gives the project in its folder its own team once, a copy of
     the shared team with its notes for review or an empty one, refreshes an older project team's files only, and prints
     the three commands Dima runs once; team-check.mjs and team-log.mjs take {"project"} on stdin; five planted bugs).
+    3.9e done (the hall, the mod and the Team page per project: the key and the session bound to the pane's project, a
+    stop's project key so a proposal shows and is approved only in its own project, the pane's "no team of its own"
+    line and button, the Team page to the mockup: project chip, banner, empty panel, starter team, copy, Library tab,
+    shared notes to review; eight planted bugs caught, and the pane's every-project line, wrong since v3.8, fixed).

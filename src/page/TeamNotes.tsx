@@ -10,7 +10,7 @@ import {
   type NoteItem,
   type TeamActions,
 } from '../team/view';
-import { TextLines } from './TeamSkills';
+import { TextLines } from './TeamLibrary';
 
 type Ids = { details: string; main: string; base: string };
 
@@ -18,7 +18,8 @@ const textOf = (item: NoteItem) => (item.kind === 'waiting' ? item.proposal.text
 
 /**
  * The Notes tab (v3.7d, Dima's approved mockup, pages 1 and 6): what the guild leads proposed, waiting for Dima, and
- * what he kept. The page sends only ids: the text written is the hall's own copy.
+ * what he kept. The page sends only ids: the text written is the hall's own copy. Per project from v3.9, and first the
+ * old shared notes the project's copy brought along, each kept or dropped here, never copied as they were.
  */
 export function NotesTab({
   view,
@@ -35,8 +36,8 @@ export function NotesTab({
   actions: TeamActions;
   ids: Ids;
 }) {
-  const { waiting, kept } = noteItems(view, query);
-  const all = [...waiting, ...kept];
+  const { review, waiting, kept } = noteItems(view, query);
+  const all = [...review, ...waiting, ...kept];
   const current = all.find((item) => item.key === selected) ?? all[0] ?? null;
 
   const row = (item: NoteItem) => (
@@ -57,15 +58,15 @@ export function NotesTab({
       </button>
     </li>
   );
-  const group = (title: string, items: NoteItem[]) => {
+  const group = (kind: NoteItem['kind'], title: string, items: NoteItem[]) => {
     // An id with no spaces: aria-labelledby reads spaces as a list of ids.
-    const head = `${ids.base}-notes-${title === 'Kept' ? 'kept' : 'waiting'}`;
+    const head = `${ids.base}-notes-${kind}`;
     return (
       items.length > 0 && (
         <section className="tp-group" aria-labelledby={head}>
           <h2 id={head} className="tp-group-head">
             <span>
-              {title} · {items.length}
+              {title} · {kind === 'review' ? `${items.length} to review` : items.length}
             </span>
           </h2>
           <ul>{items.map(row)}</ul>
@@ -81,8 +82,9 @@ export function NotesTab({
           Agents can&apos;t keep notes on their own. They propose one here, and only what you approve is kept.
         </p>
         {all.length === 0 && <p className="tp-empty">{query.trim() ? 'Nothing matches' : 'No notes yet.'}</p>}
-        {group('Waiting for you', waiting)}
-        {group('Kept', kept)}
+        {group('review', 'From your old shared notes', review)}
+        {group('waiting', 'Waiting for you', waiting)}
+        {group('kept', 'Kept', kept)}
       </nav>
       <div className="tp-detail-pane">
         {current && (
@@ -136,17 +138,51 @@ function NoteDetails({
     <section className="tp-details" aria-labelledby={ids.details}>
       <div>
         <h2 id={ids.details} tabIndex={-1}>
-          {item.kind === 'waiting' ? `The ${name} wants to remember` : `The ${name}'s note`}
+          {item.kind === 'waiting'
+            ? `The ${name} wants to remember`
+            : item.kind === 'review'
+              ? `The ${name}'s note, from your old shared team`
+              : `The ${name}'s note`}
         </h2>
         <p className="tp-sub">
           {item.kind === 'waiting'
             ? `Proposed ${whenSaid(item.proposal.at, now)}`
-            : `Approved ${whenSaid(item.note.approvedAt, now)}`}
+            : `Approved ${whenSaid(item.note.approvedAt, now)}${item.kind === 'review' ? ' in the shared team' : ''}`}
         </p>
       </div>
       <TextLines lines={lines} />
       <p className={flagged(lines) ? 'tp-flagline' : 'tp-muted'}>{flagSummary(lines)}</p>
-      {item.kind === 'waiting' ? (
+      {item.kind === 'review' ? (
+        <>
+          <p className="tp-muted">
+            Your old shared team kept this for every project. Keep it if it is true for this one; dropped ones
+            stay only in the backup.
+          </p>
+          <div className="tp-buttons">
+            <button
+              type="button"
+              className="tp-button tp-approve"
+              onClick={() =>
+                void act(
+                  { action: 'note-keep', id: item.note.id },
+                  `Kept the ${name}'s note for this project.`,
+                )
+              }
+            >
+              Keep for this project
+            </button>
+            <button
+              type="button"
+              className="tp-button"
+              onClick={() =>
+                void act({ action: 'note-drop', id: item.note.id }, `Dropped the ${name}'s note here.`)
+              }
+            >
+              Drop here
+            </button>
+          </div>
+        </>
+      ) : item.kind === 'waiting' ? (
         <>
           <p className="tp-muted">
             Nothing is written until you approve. If you approve, the {name} reads this at the start of its

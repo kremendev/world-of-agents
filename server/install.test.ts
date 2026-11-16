@@ -93,7 +93,9 @@ describe('the plugin once installed', () => {
       (m) => m[1],
     );
     expect(imports.length).toBeGreaterThan(0);
-    for (const name of imports) expect(name).toMatch(/^node:/);
+    // v3.9: Node built-ins, and the team module for a stop's project key.
+    for (const name of imports)
+      expect(name?.startsWith('node:') || name === '../team/team.mjs', name).toBe(true);
     // The guard imports Node built-ins (its own real path, BACKLOG.md's lstat, where an edit lands) and the team module.
     const guard = [...text('plugin/hooks/guard.mjs').matchAll(/^\s*import\s.*from '([^']+)';$/gm)].map(
       (m) => m[1],

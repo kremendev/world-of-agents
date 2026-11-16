@@ -14,6 +14,9 @@ import { giveOwnTeam, init, projectOf, projectTeamDir } from '../../plugin/team/
 
 const TOKEN = randomBytes(32).toString('base64url');
 const KEY = randomBytes(32).toString('base64url');
+/** v3.9: the session's folder goes with the key: an absolute path. */
+const PROJECT = tmpdir();
+const GIVEN = { key: KEY, project: PROJECT };
 
 const servers: Server[] = [];
 const temps: string[] = [];
@@ -53,16 +56,20 @@ async function program(token: string, status = 204) {
 }
 
 describe('hall-key.mjs', () => {
-  it('takes exactly {"key": <43 base64url characters>} on stdin', () => {
-    expect(keyOf(JSON.stringify({ key: KEY }))).toBe(KEY);
+  it('takes exactly {"key": <43 base64url characters>, "project": <an absolute folder>} on stdin', () => {
+    expect(keyOf(JSON.stringify(GIVEN))).toEqual(GIVEN);
     for (const raw of [
       '',
       KEY,
-      JSON.stringify({ key: KEY, more: 1 }),
-      JSON.stringify({ key: 'short' }),
-      JSON.stringify({ key: `${KEY}=` }),
+      JSON.stringify({ key: KEY }),
+      JSON.stringify({ ...GIVEN, more: 1 }),
+      JSON.stringify({ key: 'short', project: PROJECT }),
+      JSON.stringify({ key: `${KEY}=`, project: PROJECT }),
+      JSON.stringify({ key: KEY, project: 'relative/folder' }),
+      JSON.stringify({ key: KEY, project: 42 }),
+      JSON.stringify({ key: KEY, project: `${PROJECT}${String.fromCharCode(10)}x` }),
       JSON.stringify([KEY]),
-      `${JSON.stringify({ key: KEY })}${' '.repeat(300)}`,
+      `${JSON.stringify(GIVEN)}${' '.repeat(5000)}`,
     ]) {
       expect(keyOf(raw), raw.slice(0, 30)).toBeNull();
     }
@@ -70,25 +77,25 @@ describe('hall-key.mjs', () => {
 
   it('posts the key only after the hall proved it holds the token, with the token, in the body', async () => {
     const { hall, seen } = await program(TOKEN);
-    expect(await postKey(KEY, TOKEN, { hall })).toBe(true);
+    expect(await postKey(GIVEN, TOKEN, { hall })).toBe(true);
     expect(seen.map((s) => s.path)).toEqual(['/api/handshake', '/api/key']);
     const post = seen[1]!;
     expect(post.headers.authorization).toBe(`Bearer ${TOKEN}`);
-    expect(JSON.parse(post.body)).toEqual({ key: KEY });
+    expect(JSON.parse(post.body)).toEqual(GIVEN);
     // The key never went to the handshake.
     expect(seen[0]!.body).not.toContain(KEY);
   });
 
   it("sends a program that doesn't know the token the nonce and nothing else", async () => {
     const { hall, seen } = await program(randomBytes(32).toString('base64url'));
-    expect(await postKey(KEY, TOKEN, { hall })).toBe(false);
+    expect(await postKey(GIVEN, TOKEN, { hall })).toBe(false);
     expect(seen.map((s) => s.path)).toEqual(['/api/handshake']);
     expect(seen.flatMap((s) => [s.body, JSON.stringify(s.headers)]).join(' ')).not.toContain(KEY);
   });
 
   it('says no when the hall refuses the key', async () => {
     const { hall } = await program(TOKEN, 400);
-    expect(await postKey(KEY, TOKEN, { hall })).toBe(false);
+    expect(await postKey(GIVEN, TOKEN, { hall })).toBe(false);
   });
 });
 

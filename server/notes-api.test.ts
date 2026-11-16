@@ -5,7 +5,7 @@ import { request, type IncomingHttpHeaders } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { init, teamDir } from '../plugin/team/team.mjs';
+import { emptyNotes, giveOwnTeam, init, projectTeamDir, readNotes } from '../plugin/team/team.mjs';
 import { createHall, listen, MAX_PROPOSALS, type Hall } from './hall';
 import { newToken } from './token';
 
@@ -15,20 +15,25 @@ const TOKEN = newToken();
 const KEY = `${'n'.repeat(42)}A`;
 
 let home: string;
+/** v3.9: the project the session is bound to, with its own (empty) team; notes are per project. */
+let project: string;
+let key: string;
 let hall: Hall;
 let port: number;
 let clock: number;
 
 beforeEach(async () => {
   home = mkdtempSync(join(tmpdir(), 'woa-notes-api-'));
+  project = mkdtempSync(join(tmpdir(), 'woa-notes-api-project-'));
   init(home);
+  key = giveOwnTeam(home, project, 'empty', 1).project.key;
   clock = Date.UTC(2026, 10, 15, 21, 52);
   hall = createHall({ token: TOKEN, teamHome: home, now: () => clock });
   port = (await listen(hall, 0)).port;
 });
 afterEach(async () => {
   await hall.close();
-  rmSync(home, { recursive: true, force: true, maxRetries: 5 });
+  for (const dir of [home, project]) rmSync(dir, { recursive: true, force: true, maxRetries: 5 });
 });
 
 type Reply = { status: number; headers: IncomingHttpHeaders; body: string };
@@ -59,7 +64,12 @@ function call(
 }
 const json = { 'Content-Type': 'application/json' };
 async function session(): Promise<string> {
-  await call('POST', '/api/key', { ...json, Authorization: `Bearer ${TOKEN}` }, JSON.stringify({ key: KEY }));
+  await call(
+    'POST',
+    '/api/key',
+    { ...json, Authorization: `Bearer ${TOKEN}` },
+    JSON.stringify({ key: KEY, project }),
+  );
   const res = await call('POST', '/api/session', { ...json, Origin: ORIGIN }, JSON.stringify({ key: KEY }));
   return String(res.headers['set-cookie']?.[0]).split(';')[0]!;
 }
@@ -71,6 +81,7 @@ const stop = (agent: string, note: string, more: Record<string, unknown> = {}) =
     session_id: 's1',
     agent_type: `world-of-agents:${agent}`,
     agent_id: `id-${agent}`,
+    project: key,
     last_assistant_message: `Done.\nProposed note: ${note}`,
     ...more,
   });
@@ -82,7 +93,9 @@ const view = async (cookie: string) =>
   JSON.parse((await call('GET', '/api/team', { Cookie: cookie })).body) as View;
 const change = (cookie: string, body: unknown) =>
   call('POST', '/api/team', { ...json, Origin: ORIGIN, Cookie: cookie }, JSON.stringify(body));
-const changes = () => JSON.parse(readFileSync(join(teamDir(home), 'changes.json'), 'utf8')) as unknown[];
+const dir = () => projectTeamDir(home, key);
+/** The project's log, after the one line that gave it its team. */
+const changes = () => (JSON.parse(readFileSync(join(dir(), 'changes.json'), 'utf8')) as unknown[]).slice(1);
 
 describe('notes through the hall (v3.7c)', () => {
   it("holds a guild lead's proposal in memory, and shows it to the page with a session only", async () => {
@@ -97,7 +110,7 @@ describe('notes through the hall (v3.7c)', () => {
         at: expect.any(Number),
       },
     ]);
-    expect(existsSync(join(teamDir(home), 'notes.json'))).toBe(false);
+    expect(readNotes(dir())).toEqual(emptyNotes());
   });
 
   it('takes none from the Lead, a specialist, a stop the gate sent back, or the same note twice', async () => {
@@ -142,7 +155,7 @@ describe('notes through the hall (v3.7c)', () => {
     const after = JSON.parse(res.body) as View;
     expect(after.proposals).toEqual([]);
     expect(after.notes.frontend!.map((n) => n.text)).toEqual(['Forms live in src/forms.']);
-    const skill = readFileSync(join(teamDir(home), 'skills', 'notes-frontend', 'SKILL.md'), 'utf8');
+    const skill = readFileSync(join(dir(), 'skills', 'notes-frontend', 'SKILL.md'), 'utf8');
     expect(skill).toContain('- Forms live in src/forms.');
     expect(changes()).toEqual([{ at: clock, what: 'note-approved', agent: 'Frontend dev' }]);
     // Approved once: the id is gone.
@@ -155,14 +168,14 @@ describe('notes through the hall (v3.7c)', () => {
     const cookie = await session();
     const [first, second] = (await view(cookie)).proposals;
     expect((await change(cookie, { action: 'note-reject', id: first!.id })).status).toBe(200);
-    expect(existsSync(join(teamDir(home), 'notes.json'))).toBe(false);
+    expect(readNotes(dir())).toEqual(emptyNotes());
     await change(cookie, { action: 'note-approve', id: second!.id });
     const kept = (await view(cookie)).notes.reviewer![0]!;
     expect((await change(cookie, { action: 'note-delete', agent: 'reviewer', id: kept.id })).status).toBe(
       200,
     );
     expect((await view(cookie)).notes.reviewer).toEqual([]);
-    expect(existsSync(join(teamDir(home), 'skills', 'notes-reviewer'))).toBe(false);
+    expect(existsSync(join(dir(), 'skills', 'notes-reviewer'))).toBe(false);
     expect(changes().map((c) => (c as { what: string }).what)).toEqual([
       'note-rejected',
       'note-approved',

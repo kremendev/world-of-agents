@@ -12,7 +12,7 @@ import { readFileSync as readFileSync2 } from "node:fs";
 import { join as join5 } from "node:path";
 
 // server/hall.ts
-import { createHash as createHash2, createHmac, randomBytes as randomBytes3, timingSafeEqual } from "node:crypto";
+import { createHash as createHash3, createHmac, randomBytes as randomBytes3, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { createServer } from "node:http";
 import { homedir as homedir2 } from "node:os";
@@ -6324,10 +6324,19 @@ function superRefine(fn, params) {
 }
 
 // plugin/team/team.mjs
-import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { createHash, randomBytes } from "node:crypto";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync
+} from "node:fs";
 import { homedir } from "node:os";
-import { join, resolve, sep } from "node:path";
+import { basename, isAbsolute, join, resolve, sep } from "node:path";
 var GUILDS = Object.freeze(["design", "frontend", "backend", "review"]);
 var LEADS = Object.freeze({
   design: "designer",
@@ -6367,9 +6376,12 @@ function problem(team) {
     if (!line(s.name, 60) || !line(s.description, 200)) return `skill ${s.id}`;
     skills.add(s.id);
   }
-  if (!Array.isArray(team.specialists) || team.specialists.length > MAX_SPECIALISTS) return "specialists";
+  return specialistsProblem(team.specialists, skills);
+}
+function specialistsProblem(specialists2, skills) {
+  if (!Array.isArray(specialists2) || specialists2.length > MAX_SPECIALISTS) return "specialists";
   const ids = /* @__PURE__ */ new Set();
-  for (const p of team.specialists) {
+  for (const p of specialists2) {
     if (!isObject2(p) || !keysAre(p, SPECIALIST_KEYS)) return "a specialist";
     if (typeof p.id !== "string" || p.id.length > 48 || !SPECIALIST_ID.test(p.id) || ids.has(p.id))
       return "a specialist id";
@@ -6379,12 +6391,13 @@ function problem(team) {
     if (typeof p.on !== "boolean") return `specialist ${p.id}'s switch`;
     if (!line(p.name, 40) || !line(p.role, 200)) return `specialist ${p.id}`;
     if (!Array.isArray(p.skills) || p.skills.length > MAX_PRELOADED) return `specialist ${p.id}'s skills`;
-    if (new Set(p.skills).size !== p.skills.length || !p.skills.every((s) => skills.has(s)))
+    const known = (s) => skills === null ? typeof s === "string" && s.length <= 48 && SKILL_ID.test(s) : skills.has(s);
+    if (new Set(p.skills).size !== p.skills.length || !p.skills.every(known))
       return `specialist ${p.id}'s skills`;
     ids.add(p.id);
   }
   for (const guild of GUILDS) {
-    if (team.specialists.filter((p) => p.guild === guild).length > MAX_PER_GUILD) return `the ${guild} guild`;
+    if (specialists2.filter((p) => p.guild === guild).length > MAX_PER_GUILD) return `the ${guild} guild`;
   }
   return null;
 }
@@ -6392,7 +6405,7 @@ function upgrade(team) {
   if (!isObject2(team) || !Array.isArray(team.specialists)) return team;
   const v1 = team.version === 1 && keysAre(team, ["version", "specialists", "skills"]);
   if (!v1 && team.version !== 2) return team;
-  const specialists = team.specialists.map((p) => {
+  const specialists2 = team.specialists.map((p) => {
     if (!isObject2(p)) return p;
     const next = { ...p };
     if (v1) {
@@ -6403,14 +6416,8 @@ function upgrade(team) {
     if (!Object.hasOwn(next, "on")) next.on = true;
     return next;
   });
-  return v1 ? { version: 2, generator: 0, specialists, skills: team.skills } : { ...team, specialists };
+  return v1 ? { version: 2, generator: 0, specialists: specialists2, skills: team.skills } : { ...team, specialists: specialists2 };
 }
-var canonical = (team) => ({
-  version: 2,
-  generator: GENERATOR,
-  specialists: team.specialists.map((p) => Object.fromEntries(SPECIALIST_KEYS.map((k) => [k, p[k]]))),
-  skills: team.skills.map((s) => ({ id: s.id, name: s.name, description: s.description }))
-});
 function textProblem(text) {
   if (typeof text !== "string" || text.trim() === "") return "empty";
   if (text.length > MAX_TEXT) return "too long";
@@ -6496,11 +6503,8 @@ function inside(dir, ...parts) {
   if (!path.startsWith(resolve(dir) + sep)) throw new Error("a path outside the team folder");
   return path;
 }
-function writeTeam(dir, checked, texts) {
-  const why = problem(checked);
-  if (why) throw new Error(`not a team: ${why}`);
-  const team = canonical(checked);
-  for (const s of team.skills) {
+function writeFiles(dir, specialists2, skills, texts) {
+  for (const s of skills) {
     const textWhy = textProblem(texts[s.id]);
     if (textWhy) throw new Error(`skill ${s.id}: ${textWhy}`);
   }
@@ -6512,23 +6516,20 @@ function writeTeam(dir, checked, texts) {
     `${JSON.stringify({ name: "woa-team", version: "1.0.0", description: "The World of Agents team: specialists and skills, as Dima keeps them." }, null, 2)}
 `
   );
-  for (const p of team.specialists) writeFileSync(inside(dir, "agents", `${p.id}.md`), buildAgent(p));
-  for (const s of team.skills) {
+  for (const p of specialists2) writeFileSync(inside(dir, "agents", `${p.id}.md`), buildAgent(p));
+  for (const s of skills) {
     mkdirSync(inside(dir, "skills", s.id), { recursive: true });
     writeFileSync(inside(dir, "skills", s.id, "SKILL.md"), buildSkill(s, texts[s.id]));
   }
-  const agents = new Set(team.specialists.map((p) => `${p.id}.md`));
+  const agents = new Set(specialists2.map((p) => `${p.id}.md`));
   for (const name of readdirSync(inside(dir, "agents"))) {
     if (name.endsWith(".md") && !agents.has(name)) rmSync(inside(dir, "agents", name));
   }
-  const skills = new Set(team.skills.map((s) => s.id));
+  const kept = new Set(skills.map((s) => s.id));
   for (const name of readdirSync(inside(dir, "skills"))) {
-    if (SKILL_ID.test(name) && !skills.has(name) && !NOTE_SKILL_IDS.includes(name))
+    if (SKILL_ID.test(name) && !kept.has(name) && !NOTE_SKILL_IDS.includes(name))
       rmSync(inside(dir, "skills", name), { recursive: true });
   }
-  writeFileSync(inside(dir, "team.json"), `${JSON.stringify(team, null, 2)}
-`);
-  return team;
 }
 function readTexts(dir, team) {
   const texts = {};
@@ -6566,36 +6567,10 @@ var GUILD_NAMES = Object.freeze({
   review: "Review"
 });
 var NO_SHELL = "the Design guild runs no commands: pick Reads only or Edits files";
-function applyChange(team, texts, change, now) {
-  const next = structuredClone(team);
-  const nextTexts = { ...texts };
-  const skill = (id2) => next.skills.find((s) => s.id === id2);
-  const specialist = (id2) => next.specialists.find((p) => p.id === id2);
+function specialistChange(specialists2, skill, change) {
+  const specialist = (id2) => specialists2.find((p) => p.id === id2);
   let entry;
-  if (change.action === "add-skill" || change.action === "change-skill") {
-    const textWhy = textProblem(change.text);
-    if (textWhy) throw new Error(`the text: ${textWhy}`);
-    const fields = { id: change.id, name: change.name, description: change.description };
-    if (change.action === "add-skill") {
-      if (skill(change.id)) throw new Error("a skill with that id is there already");
-      if (NOTE_SKILL_IDS.includes(change.id)) throw new Error("that id is kept for the guild leads' notes");
-      if (next.skills.length >= MAX_SKILLS) throw new Error(`the team has ${MAX_SKILLS} skills already`);
-      next.skills.push(fields);
-    } else {
-      const at = next.skills.findIndex((s) => s.id === change.id);
-      if (at < 0) throw new Error("no such skill");
-      next.skills[at] = fields;
-    }
-    nextTexts[change.id] = change.text.trim();
-    entry = { what: change.action === "add-skill" ? "skill-added" : "skill-changed", skill: change.name };
-  } else if (change.action === "delete-skill") {
-    const gone = skill(change.id);
-    if (!gone) throw new Error("no such skill");
-    next.skills = next.skills.filter((s) => s.id !== change.id);
-    for (const p of next.specialists) p.skills = p.skills.filter((id2) => id2 !== change.id);
-    delete nextTexts[change.id];
-    entry = { what: "skill-deleted", skill: gone.name };
-  } else if (change.action === "attach" || change.action === "detach") {
+  if (change.action === "attach" || change.action === "detach") {
     const p = specialist(change.specialist);
     const s = skill(change.skill);
     if (!p || !s) throw new Error("no such specialist or skill");
@@ -6619,10 +6594,10 @@ function applyChange(team, texts, change, now) {
     const id2 = specialistIdOf(change.guild, change.name);
     if (id2 === "") throw new Error("the name needs a letter from a to z or a digit, for its id");
     if (specialist(id2)) throw new Error("a specialist with that id is there already");
-    if (next.specialists.filter((p) => p.guild === change.guild).length >= MAX_PER_GUILD)
+    if (specialists2.filter((p) => p.guild === change.guild).length >= MAX_PER_GUILD)
       throw new Error(`a guild has at most ${MAX_PER_GUILD} specialists`);
     if (change.guild === "design" && change.preset === "edits-and-checks") throw new Error(NO_SHELL);
-    next.specialists.push({
+    specialists2.push({
       id: id2,
       name: change.name,
       role: change.role,
@@ -6643,7 +6618,7 @@ function applyChange(team, texts, change, now) {
   } else if (change.action === "delete-specialist") {
     const gone = specialist(change.id);
     if (!gone) throw new Error("no such specialist");
-    next.specialists = next.specialists.filter((p) => p.id !== change.id);
+    specialists2.splice(specialists2.indexOf(gone), 1);
     entry = { what: "specialist-deleted", specialist: gone.name, guild: GUILD_NAMES[gone.guild] };
   } else if (change.action === "switch") {
     const p = specialist(change.id);
@@ -6658,9 +6633,7 @@ function applyChange(team, texts, change, now) {
   } else {
     throw new Error("an unknown change");
   }
-  const why = problem(next);
-  if (why) throw new Error(`not a team: ${why}`);
-  return { team: next, texts: nextTexts, entry: { at: now, ...entry } };
+  return entry;
 }
 var MAX_CHANGES = 50;
 var CHANGE_KINDS = Object.freeze([
@@ -6676,13 +6649,23 @@ var CHANGE_KINDS = Object.freeze([
   "specialist-off",
   "note-approved",
   "note-rejected",
-  "note-deleted"
+  "note-deleted",
+  // v3.9: a project given its own team, filled from the starter team or another project, its shared notes reviewed.
+  "team-given",
+  "starter-added",
+  "team-copied",
+  "note-kept",
+  "note-dropped"
 ]);
 var SKILL_KINDS = ["skill-added", "skill-changed", "skill-deleted"];
 var PAIRED_KINDS = ["skill-attached", "skill-detached"];
-var NOTE_KINDS = ["note-approved", "note-rejected", "note-deleted"];
+var NOTE_KINDS = ["note-approved", "note-rejected", "note-deleted", "note-kept", "note-dropped"];
+var FILLED_KINDS = ["starter-added", "team-copied"];
 function isChange(entry) {
   if (!isObject2(entry) || !Number.isSafeInteger(entry.at) || entry.at <= 0) return false;
+  if (FILLED_KINDS.includes(entry.what)) return keysAre(entry, ["at", "what"]);
+  if (entry.what === "team-given")
+    return keysAre(entry, ["at", "what", "from"]) && (entry.from === "shared" || entry.from === "empty");
   if (NOTE_KINDS.includes(entry.what))
     return keysAre(entry, ["at", "what", "agent"]) && Object.values(NOTE_AGENT_NAMES).includes(entry.agent);
   if (SKILL_KINDS.includes(entry.what))
@@ -6704,6 +6687,15 @@ function logChange(dir, entry) {
   const log = [...readChanges(dir), entry].slice(-MAX_CHANGES);
   writeFileSync(inside(dir, "changes.json"), `${JSON.stringify(log, null, 2)}
 `);
+}
+function defaults() {
+  const here2 = import.meta.dirname;
+  const { version: version3, specialists: specialists2, skills } = JSON.parse(readFileSync(join(here2, "defaults.json"), "utf8"));
+  const team = { version: version3, generator: GENERATOR, specialists: specialists2, skills };
+  const texts = Object.fromEntries(
+    team.skills.map((s) => [s.id, readFileSync(join(here2, "skills", `${s.id}.md`), "utf8")])
+  );
+  return { team, texts };
 }
 function readTeam(home = homedir()) {
   try {
@@ -6778,11 +6770,6 @@ function buildNotesSkill(agent, list) {
     ""
   ].join("\n");
 }
-function writeNotes(dir, notes, team) {
-  writeNotesSkills(dir, notes, team);
-  writeFileSync(inside(dir, "notes.json"), `${JSON.stringify(notes, null, 2)}
-`);
-}
 function writeNotesSkills(dir, notes, team) {
   const why = notesProblem(notes);
   if (why) throw new Error(`not notes: ${why}`);
@@ -6831,6 +6818,431 @@ function applyNoteChange(notes, change, proposal, now) {
   }
   throw new Error("an unknown change");
 }
+var MAX_LIBRARY = 200;
+var MAX_PROJECTS = 100;
+var PROJECT_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{10}$/;
+var isProjectKey = (key) => typeof key === "string" && key.length <= 40 && PROJECT_KEY.test(key);
+var woaDir = (home = homedir()) => join(home, ".world-of-agents");
+var libraryDir = (home = homedir()) => join(woaDir(home), "library");
+var projectsDir = (home = homedir()) => join(woaDir(home), "projects");
+function projectDir(home, key) {
+  if (!isProjectKey(key)) throw new Error("not a project key");
+  return join(projectsDir(home), key);
+}
+var projectTeamDir = (home, key) => join(projectDir(home, key), "team");
+function projectOf(folder) {
+  if (typeof folder !== "string" || folder === "" || folder.length > 1024 || !isAbsolute(folder)) return null;
+  let real;
+  try {
+    real = realpathSync.native(folder);
+    if (!statSync(real).isDirectory()) return null;
+  } catch {
+    return null;
+  }
+  const hash = createHash("sha256").update(real).digest("hex").slice(0, 10);
+  const name = basename(real) || real;
+  return { key: `${slugOf(name, 24) || "project"}-${hash}`, folder: real, name };
+}
+var PROJECT_FILE_KEYS = ["version", "key", "folder", "name", "createdAt"];
+function readProject(home, key) {
+  try {
+    const p = JSON.parse(readFileSync(join(projectDir(home, key), "project.json"), "utf8"));
+    const ok = isObject2(p) && keysAre(p, PROJECT_FILE_KEYS) && p.version === 1 && p.key === key && typeof p.folder === "string" && p.folder.length >= 1 && p.folder.length <= 1024 && typeof p.name === "string" && p.name.length >= 1 && p.name.length <= 255 && Number.isSafeInteger(p.createdAt) && p.createdAt > 0;
+    return ok ? p : null;
+  } catch {
+    return null;
+  }
+}
+function projectTeamProblem(team) {
+  if (!isObject2(team) || !keysAre(team, ["version", "generator", "specialists"])) return "not a team";
+  if (team.version !== 3) return "an unknown version";
+  if (!Number.isSafeInteger(team.generator) || team.generator < 0) return "the generator";
+  return specialistsProblem(team.specialists, null);
+}
+var emptyProjectTeam = () => ({ version: 3, generator: GENERATOR, specialists: [] });
+function readProjectTeam(home, key) {
+  try {
+    const team = JSON.parse(readFileSync(join(projectTeamDir(home, key), "team.json"), "utf8"));
+    return projectTeamProblem(team) === null ? team : null;
+  } catch {
+    return null;
+  }
+}
+var SOURCES = Object.freeze(["team", "starter", "written"]);
+var LIBRARY_SKILL_KEYS = ["id", "name", "description", "source", "addedAt"];
+var sourceOk = (source) => isObject2(source) && keysAre(source, ["kind"]) && SOURCES.includes(source.kind);
+var emptyLibrary = () => ({ version: 1, skills: [] });
+function libraryProblem(library) {
+  if (!isObject2(library) || !keysAre(library, ["version", "skills"]) || library.version !== 1)
+    return "not a library";
+  if (!Array.isArray(library.skills) || library.skills.length > MAX_LIBRARY) return "skills";
+  const ids = /* @__PURE__ */ new Set();
+  for (const s of library.skills) {
+    if (!isObject2(s) || !keysAre(s, LIBRARY_SKILL_KEYS)) return "a skill";
+    if (typeof s.id !== "string" || s.id.length > 48 || !SKILL_ID.test(s.id) || ids.has(s.id))
+      return "a skill id";
+    if (NOTE_SKILL_IDS.includes(s.id)) return "a skill id";
+    if (!line(s.name, 60) || !line(s.description, 200)) return `skill ${s.id}`;
+    if (!sourceOk(s.source)) return `skill ${s.id}'s source`;
+    if (!Number.isSafeInteger(s.addedAt) || s.addedAt <= 0) return `skill ${s.id}'s date`;
+    ids.add(s.id);
+  }
+  return null;
+}
+function readLibrary(home = homedir()) {
+  const dir = libraryDir(home);
+  if (!existsSync(join(dir, "library.json"))) return { library: emptyLibrary(), texts: {}, there: false };
+  const library = JSON.parse(readFileSync(join(dir, "library.json"), "utf8"));
+  const why = libraryProblem(library);
+  if (why) throw new Error(`library.json: ${why}`);
+  const texts = {};
+  for (const s of library.skills) {
+    const text = readFileSync(inside(dir, "skills", `${s.id}.md`), "utf8");
+    if (textProblem(text)) throw new Error(`skill ${s.id}: not as World of Agents wrote it`);
+    texts[s.id] = text;
+  }
+  return { library, texts, there: true };
+}
+function writeLibrary(home, library, texts) {
+  const why = libraryProblem(library);
+  if (why) throw new Error(`not a library: ${why}`);
+  for (const s of library.skills) {
+    const textWhy = textProblem(texts[s.id]);
+    if (textWhy) throw new Error(`skill ${s.id}: ${textWhy}`);
+  }
+  const dir = libraryDir(home);
+  mkdirSync(inside(dir, "skills"), { recursive: true });
+  for (const s of library.skills) writeFileSync(inside(dir, "skills", `${s.id}.md`), texts[s.id]);
+  const kept = new Set(library.skills.map((s) => `${s.id}.md`));
+  for (const name of readdirSync(inside(dir, "skills"))) {
+    if (name.endsWith(".md") && !kept.has(name)) rmSync(inside(dir, "skills", name));
+  }
+  writeFileSync(inside(dir, "library.json"), `${JSON.stringify(library, null, 2)}
+`);
+}
+function writeProjectTeam(home, key, checked, library, texts, notes) {
+  const why = projectTeamProblem(checked);
+  if (why) throw new Error(`not a team: ${why}`);
+  const notesWhy = notesProblem(notes);
+  if (notesWhy) throw new Error(`not notes: ${notesWhy}`);
+  const known = new Map(library.skills.map((s) => [s.id, s]));
+  const used = [...new Set(checked.specialists.flatMap((p) => p.skills))];
+  const missing = used.find((id2) => !known.has(id2));
+  if (missing !== void 0) throw new Error(`skill ${missing} is not in the library`);
+  const skills = used.map((id2) => {
+    const s = known.get(id2);
+    return { id: id2, name: s.name, description: s.description };
+  });
+  const team = {
+    version: 3,
+    generator: GENERATOR,
+    specialists: checked.specialists.map((p) => Object.fromEntries(SPECIALIST_KEYS.map((k) => [k, p[k]])))
+  };
+  const dir = projectTeamDir(home, key);
+  writeFiles(dir, team.specialists, skills, texts);
+  writeNotesSkills(dir, notes, { skills });
+  writeFileSync(inside(dir, "team.json"), `${JSON.stringify(team, null, 2)}
+`);
+  return team;
+}
+function listProjects(home = homedir()) {
+  let names;
+  try {
+    names = readdirSync(projectsDir(home));
+  } catch {
+    return [];
+  }
+  return names.filter(isProjectKey).map((key) => ({ key, project: readProject(home, key) })).filter(({ project }) => project !== null).map(({ key, project }) => ({
+    key,
+    folder: project.folder,
+    name: project.name,
+    createdAt: project.createdAt,
+    team: readProjectTeam(home, key)
+  })).sort((a, b) => a.createdAt - b.createdAt);
+}
+var installCommands = (key) => [
+  `claude plugin marketplace add ~/.world-of-agents/projects/${key}`,
+  "claude plugin uninstall woa-team@woa-local --scope local",
+  `claude plugin install woa-team@woa-${key} --scope local`
+];
+function readShared(home = homedir()) {
+  if (!existsSync(join(teamDir(home), "team.json"))) return null;
+  const team = readTeam(home);
+  if (!team) throw new Error("the shared team is there but isn't a team");
+  const dir = teamDir(home);
+  return { team, texts: readTexts(dir, team), notes: readNotes(dir) };
+}
+var fromShared = (s, now) => ({
+  id: s.id,
+  name: s.name,
+  description: s.description,
+  source: { kind: "team" },
+  addedAt: now
+});
+var REVIEW_KEYS = ["id", "agent", "text", "proposedAt", "approvedAt"];
+function reviewProblem(review) {
+  if (!isObject2(review) || !keysAre(review, ["version", "notes"]) || review.version !== 1)
+    return "not a review";
+  if (!Array.isArray(review.notes) || review.notes.length > MAX_NOTES * NOTE_AGENTS.length) return "notes";
+  const ids = /* @__PURE__ */ new Set();
+  for (const n of review.notes) {
+    if (!isObject2(n) || !keysAre(n, REVIEW_KEYS) || !NOTE_AGENTS.includes(n.agent)) return "a note";
+    if (typeof n.id !== "string" || !NOTE_ID.test(n.id) || ids.has(n.id) || noteProblem(n.text))
+      return "a note";
+    for (const t of [n.proposedAt, n.approvedAt]) {
+      if (!Number.isSafeInteger(t) || t <= 0) return "a note";
+    }
+    ids.add(n.id);
+  }
+  return null;
+}
+function readReview(home, key) {
+  const file = join(projectDir(home, key), "review.json");
+  if (!existsSync(file)) return [];
+  const review = JSON.parse(readFileSync(file, "utf8"));
+  const why = reviewProblem(review);
+  if (why) throw new Error(`review.json: ${why}`);
+  return review.notes;
+}
+function writeReview(home, key, notes) {
+  const review = { version: 1, notes };
+  const why = reviewProblem(review);
+  if (why) throw new Error(`not a review: ${why}`);
+  writeFileSync(inside(projectDir(home, key), "review.json"), `${JSON.stringify(review, null, 2)}
+`);
+}
+function giveOwnTeam(home, folder, from, now) {
+  if (from !== "shared" && from !== "empty") throw new Error("an unknown choice");
+  const project = projectOf(folder);
+  if (!project) throw new Error("that isn't a project folder");
+  if (existsSync(join(projectDir(home, project.key), "project.json")))
+    throw new Error("this project has its own team already");
+  if (listProjects(home).length >= MAX_PROJECTS) throw new Error(`a PC has at most ${MAX_PROJECTS} projects`);
+  const read = readLibrary(home);
+  const shared = from === "shared" || !read.there ? readShared(home) : null;
+  if (from === "shared" && shared === null) throw new Error("there is no shared team to copy");
+  const library = structuredClone(read.library);
+  const texts = { ...read.texts };
+  const build = !read.there && shared !== null;
+  if (build) {
+    for (const s of shared.team.skills) {
+      library.skills.push(fromShared(s, now));
+      texts[s.id] = shared.texts[s.id];
+    }
+  }
+  const team = emptyProjectTeam();
+  let review = [];
+  if (from === "shared") {
+    team.specialists = structuredClone(shared.team.specialists);
+    for (const s of shared.team.skills) {
+      if (library.skills.some((k) => k.id === s.id)) continue;
+      if (!team.specialists.some((p) => p.skills.includes(s.id))) continue;
+      library.skills.push(fromShared(s, now));
+      texts[s.id] = shared.texts[s.id];
+    }
+    review = NOTE_AGENTS.flatMap(
+      (agent) => shared.notes.notes[agent].map((n) => ({
+        id: n.id,
+        agent,
+        text: n.text,
+        proposedAt: n.proposedAt,
+        approvedAt: n.approvedAt
+      }))
+    );
+  }
+  const libraryChanged = library.skills.length !== read.library.skills.length;
+  for (const why of [
+    libraryProblem(library),
+    projectTeamProblem(team),
+    reviewProblem({ version: 1, notes: review })
+  ]) {
+    if (why) throw new Error(`can't give this project its team: ${why}`);
+  }
+  if (libraryChanged) writeLibrary(home, library, texts);
+  const dir = projectDir(home, project.key);
+  mkdirSync(inside(dir, ".claude-plugin"), { recursive: true });
+  writeFileSync(
+    inside(dir, ".claude-plugin", "marketplace.json"),
+    `${JSON.stringify({ name: `woa-${project.key}`, owner: { name: "World of Agents" }, plugins: [{ name: "woa-team", source: "./team", description: "One project's World of Agents team, as Dima keeps it." }] }, null, 2)}
+`
+  );
+  writeProjectTeam(home, project.key, team, library, texts, emptyNotes());
+  writeFileSync(
+    inside(projectTeamDir(home, project.key), "notes.json"),
+    `${JSON.stringify(emptyNotes(), null, 2)}
+`
+  );
+  if (review.length > 0) writeReview(home, project.key, review);
+  writeFileSync(
+    inside(dir, "project.json"),
+    `${JSON.stringify({ version: 1, key: project.key, folder: project.folder, name: project.name, createdAt: now }, null, 2)}
+`
+  );
+  logChange(projectTeamDir(home, project.key), { at: now, what: "team-given", from });
+  return { project, team, review: review.length, libraryBuilt: build };
+}
+var PROJECT_ACTIONS = Object.freeze([
+  "add-specialist",
+  "change-specialist",
+  "delete-specialist",
+  "switch",
+  "attach",
+  "detach",
+  "add-starter",
+  "copy-from",
+  "add-skill",
+  "change-skill",
+  "delete-skill",
+  "note-approve",
+  "note-reject",
+  "note-delete",
+  "note-keep",
+  "note-drop"
+]);
+var SPECIALIST_ACTIONS = [
+  "add-specialist",
+  "change-specialist",
+  "delete-specialist",
+  "switch",
+  "attach",
+  "detach"
+];
+function changeProject(home, key, change, now, proposal = null) {
+  const team = readProjectTeam(home, key);
+  if (!team) throw new Error("this project has no team of its own");
+  const dir = projectTeamDir(home, key);
+  const read = readLibrary(home);
+  let library = read.library;
+  let texts = read.texts;
+  let specialists2 = structuredClone(team.specialists);
+  let notes = readNotes(dir);
+  let review = null;
+  let touched = null;
+  let entry;
+  const inLibrary = (id2) => library.skills.find((s) => s.id === id2);
+  if (SPECIALIST_ACTIONS.includes(change.action)) {
+    if ((change.skills ?? []).some((id2) => !inLibrary(id2))) throw new Error("no such skill");
+    entry = specialistChange(specialists2, inLibrary, change);
+  } else if (change.action === "add-starter") {
+    if (specialists2.length > 0) throw new Error("the starter team goes into a team with no specialists");
+    const starter = defaults();
+    library = structuredClone(library);
+    texts = { ...texts };
+    for (const s of starter.team.skills) {
+      if (inLibrary(s.id)) continue;
+      if (library.skills.length >= MAX_LIBRARY)
+        throw new Error(`the library has ${MAX_LIBRARY} skills already`);
+      library.skills.push({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        source: { kind: "starter" },
+        addedAt: now
+      });
+      texts[s.id] = starter.texts[s.id].trim();
+    }
+    specialists2 = structuredClone(starter.team.specialists);
+    touched = [];
+    entry = { what: "starter-added" };
+  } else if (change.action === "copy-from") {
+    if (specialists2.length > 0) throw new Error("a copy goes into a team with no specialists");
+    const other = isProjectKey(change.project) && change.project !== key ? readProjectTeam(home, change.project) : null;
+    if (!other || other.specialists.length === 0) throw new Error("that project has no specialists to copy");
+    specialists2 = structuredClone(other.specialists);
+    entry = { what: "team-copied" };
+  } else if (change.action === "add-skill" || change.action === "change-skill") {
+    const textWhy = textProblem(change.text);
+    if (textWhy) throw new Error(`the text: ${textWhy}`);
+    library = structuredClone(library);
+    const at = library.skills.findIndex((s) => s.id === change.id);
+    if (change.action === "add-skill") {
+      if (at >= 0) throw new Error("a skill with that id is in the library already");
+      if (NOTE_SKILL_IDS.includes(change.id)) throw new Error("that id is kept for the guild leads' notes");
+      if (library.skills.length >= MAX_LIBRARY)
+        throw new Error(`the library has ${MAX_LIBRARY} skills already`);
+      library.skills.push({
+        id: change.id,
+        name: change.name,
+        description: change.description,
+        source: { kind: "written" },
+        addedAt: now
+      });
+    } else {
+      if (at < 0) throw new Error("no such skill");
+      library.skills[at] = { ...library.skills[at], name: change.name, description: change.description };
+    }
+    texts = { ...texts, [change.id]: change.text.trim() };
+    touched = [change.id];
+    entry = { what: change.action === "add-skill" ? "skill-added" : "skill-changed", skill: change.name };
+  } else if (change.action === "delete-skill") {
+    const gone = inLibrary(change.id);
+    if (!gone) throw new Error("no such skill");
+    library = { ...library, skills: library.skills.filter((s) => s.id !== change.id) };
+    texts = Object.fromEntries(Object.entries(texts).filter(([id2]) => id2 !== change.id));
+    for (const p of specialists2) p.skills = p.skills.filter((id2) => id2 !== change.id);
+    touched = [change.id];
+    entry = { what: "skill-deleted", skill: gone.name };
+  } else if (["note-approve", "note-reject", "note-delete"].includes(change.action)) {
+    const done = applyNoteChange(notes, change, proposal, now);
+    notes = done.notes;
+    entry = { what: done.entry.what, agent: done.entry.agent };
+  } else if (change.action === "note-keep" || change.action === "note-drop") {
+    const waiting = readReview(home, key);
+    const note = waiting.find((n) => n.id === change.id);
+    if (!note) throw new Error("no such note");
+    review = waiting.filter((n) => n !== note);
+    if (change.action === "note-keep") {
+      notes = structuredClone(notes);
+      const list = notes.notes[note.agent];
+      if (list.length >= MAX_NOTES)
+        throw new Error(
+          `the ${NOTE_AGENT_NAMES[note.agent]} has ${MAX_NOTES} notes already: remove one first`
+        );
+      if (list.some((n) => n.id === note.id)) throw new Error("that note is kept already");
+      list.push({ id: note.id, text: note.text, proposedAt: note.proposedAt, approvedAt: note.approvedAt });
+    }
+    entry = {
+      what: change.action === "note-keep" ? "note-kept" : "note-dropped",
+      agent: NOTE_AGENT_NAMES[note.agent]
+    };
+  } else {
+    throw new Error("an unknown change");
+  }
+  const next = { ...team, specialists: specialists2 };
+  const why = projectTeamProblem(next);
+  if (why) throw new Error(`not a team: ${why}`);
+  if (touched !== null) writeLibrary(home, library, texts);
+  writeProjectTeam(home, key, next, library, texts, notes);
+  writeFileSync(inside(dir, "notes.json"), `${JSON.stringify(notes, null, 2)}
+`);
+  if (review !== null) writeReview(home, key, review);
+  for (const other of touched?.length ? listProjects(home) : []) {
+    if (other.key === key || other.team === null) continue;
+    if (!other.team.specialists.some((p) => p.skills.some((id2) => touched.includes(id2)))) continue;
+    const otherTeam = {
+      ...other.team,
+      specialists: other.team.specialists.map((p) => ({
+        ...p,
+        skills: p.skills.filter((id2) => inLibraryAfter(library, id2))
+      }))
+    };
+    try {
+      writeProjectTeam(
+        home,
+        other.key,
+        otherTeam,
+        library,
+        texts,
+        readNotes(projectTeamDir(home, other.key))
+      );
+    } catch {
+    }
+  }
+  const logged = { at: now, ...entry };
+  logChange(dir, logged);
+  return logged;
+}
+var inLibraryAfter = (library, id2) => library.skills.some((s) => s.id === id2);
 
 // src/events/schema.ts
 config({ jitless: true });
@@ -7001,9 +7413,14 @@ var MAX_PRELOADED2 = 5;
 var GUILDS2 = ["design", "frontend", "backend", "review"];
 var PRESETS2 = ["reads", "edits", "edits-and-checks"];
 var MAX_PER_GUILD2 = 5;
+var PROJECT_KEY2 = /^[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{10}$/;
+var SOURCES2 = ["team", "starter", "written"];
+var MAX_LIBRARY2 = 200;
 var line2 = (max) => string2().min(1).max(max).regex(LINE2).refine((s) => s.trim() === s);
 var skillId = string2().max(48).regex(SKILL_ID2);
 var specialistId = string2().max(48).regex(SPECIALIST_ID2);
+var projectKey = string2().max(40).regex(PROJECT_KEY2);
+var shown = (max) => string2().min(1).max(max);
 var skillFields = {
   id: skillId,
   name: line2(60),
@@ -7011,6 +7428,7 @@ var skillFields = {
   text: string2().min(1).max(MAX_TEXT2)
 };
 var keyBodySchema = strictObject({ key: string2().regex(KEY) });
+var keyPostSchema = strictObject({ key: string2().regex(KEY), project: shown(1024) });
 var preset = _enum(PRESETS2);
 var noteId = string2().regex(/^[A-Za-z0-9_-]{16}$/);
 var noteAgent = _enum(NOTE_AGENTS2);
@@ -7051,7 +7469,13 @@ var teamChangeSchema = discriminatedUnion("action", [
   // v3.7: a proposal's id only; the text the hall writes is its own copy (M8).
   strictObject({ action: literal("note-approve"), id: noteId }),
   strictObject({ action: literal("note-reject"), id: noteId }),
-  strictObject({ action: literal("note-delete"), agent: noteAgent, id: noteId })
+  strictObject({ action: literal("note-delete"), agent: noteAgent, id: noteId }),
+  // v3.9: the project given its own team once, an empty one filled, and a shared note kept or dropped here.
+  strictObject({ action: literal("give-own-team"), from: _enum(["shared", "empty"]) }),
+  strictObject({ action: literal("add-starter") }),
+  strictObject({ action: literal("copy-from"), project: projectKey }),
+  strictObject({ action: literal("note-keep"), id: noteId }),
+  strictObject({ action: literal("note-drop"), id: noteId })
 ]);
 var specialistSchema = strictObject({
   id: specialistId,
@@ -7063,14 +7487,38 @@ var specialistSchema = strictObject({
   skills: array(skillId).max(MAX_PRELOADED2)
 });
 var skillSchema = strictObject({ id: skillId, name: line2(60), description: line2(200) });
+var specialists = array(specialistSchema).max(GUILDS2.length * MAX_PER_GUILD2);
+var librarySkillSchema = strictObject({
+  id: skillId,
+  name: line2(60),
+  description: line2(200),
+  source: strictObject({ kind: _enum(SOURCES2) }),
+  addedAt: stamp
+});
+var usageSchema = strictObject({
+  project: projectKey,
+  name: shown(255),
+  specialists: array(line2(40)).max(20)
+});
+var otherSchema = strictObject({ key: projectKey, name: shown(255), folder: shown(1024), specialists });
+var reviewSchema = strictObject({
+  id: noteId,
+  agent: noteAgent,
+  text: noteText,
+  proposedAt: stamp,
+  approvedAt: stamp
+});
 var teamViewSchema = strictObject({
+  project: strictObject({ key: projectKey, name: shown(255), folder: shown(1024) }),
   team: strictObject({
-    version: literal(2),
+    version: literal(3),
     generator: number2().int().min(0).max(Number.MAX_SAFE_INTEGER),
-    specialists: array(specialistSchema).max(GUILDS2.length * MAX_PER_GUILD2),
-    skills: array(skillSchema).max(64)
-  }),
+    specialists
+  }).nullable(),
+  shared: strictObject({ specialists: number2().int().min(0).max(20), notes: number2().int().min(0).max(80) }).nullable(),
+  library: array(librarySkillSchema).max(MAX_LIBRARY2),
   texts: record(skillId, string2().max(MAX_TEXT2)),
+  usage: record(skillId, array(usageSchema).max(100)),
   // v3.7: the guild leads' approved notes, and the proposals the hall holds in memory.
   notes: strictObject({
     designer: array(noteSchema).max(20),
@@ -7078,7 +7526,11 @@ var teamViewSchema = strictObject({
     backend: array(noteSchema).max(20),
     reviewer: array(noteSchema).max(20)
   }),
-  proposals: array(proposalSchema).max(20)
+  proposals: array(proposalSchema).max(20),
+  review: array(reviewSchema).max(80),
+  others: array(otherSchema).max(100),
+  starter: strictObject({ specialists, skills: array(skillSchema).max(64) }),
+  install: array(string2().max(200)).max(5)
 });
 var teamErrorSchema = strictObject({ error: string2().max(300) });
 
@@ -7125,26 +7577,28 @@ var hookInputSchema = object({
       agent_type: id.optional()
     })
   ).max(20).optional(),
+  /** v3.9: a stop's project, by key (team.mjs's projectOf()): where a note it proposes belongs. */
+  project: string2().max(40).regex(PROJECT_KEY2).optional(),
   /** v3.3: the quality gate's verdict on a SubagentStop that gate.mjs forwards; send.mjs never sends it. */
   gate: _enum(["retry", "passed", "failed"]).optional()
 });
 
 // server/keys.ts
-import { createHash, randomBytes as randomBytes2 } from "node:crypto";
+import { createHash as createHash2, randomBytes as randomBytes2 } from "node:crypto";
 var KEY_LIFE_MS = 6e4;
 var MAX_KEYS = 10;
 var MAX_SESSIONS = 5;
 var COOKIE = "woa_team";
 var SESSION = new RegExp(`(?:^|;\\s*)${COOKIE}=([A-Za-z0-9_-]{43})(?:;|$)`);
-var digest = (text) => createHash("sha256").update(text).digest("base64url");
+var digest = (text) => createHash2("sha256").update(text).digest("base64url");
 function createKeys(now = Date.now) {
   const keys = /* @__PURE__ */ new Map();
   const sessions = [];
   return {
-    /** A key the mod made, from hall-key.mjs. */
-    add(key) {
+    /** A key the mod made, from hall-key.mjs, with the folder of its session's project. */
+    add(key, project) {
       keys.delete(digest(key));
-      keys.set(digest(key), { at: now(), used: false });
+      keys.set(digest(key), { at: now(), used: false, project });
       while (keys.size > MAX_KEYS) keys.delete(keys.keys().next().value);
     },
     /** The page's key, once: a new session, or why not. A key never seen counts as expired (the hall may have restarted). */
@@ -7155,14 +7609,15 @@ function createKeys(now = Date.now) {
       kept.used = true;
       if (now() - kept.at > KEY_LIFE_MS) return { ok: false, why: "expired" };
       const session = randomBytes2(32).toString("base64url");
-      sessions.push(digest(session));
+      sessions.push({ digest: digest(session), project: kept.project });
       while (sessions.length > MAX_SESSIONS) sessions.shift();
       return { ok: true, session };
     },
-    /** Does the request's Cookie header hold a live session? */
-    allowed(cookie) {
+    /** The project folder of the request's live session, from its Cookie header; null when it holds none. */
+    projectOf(cookie) {
       const session = SESSION.exec(cookie ?? "")?.[1];
-      return session !== void 0 && sessions.includes(digest(session));
+      if (session === void 0) return null;
+      return sessions.find((s) => s.digest === digest(session))?.project ?? null;
     }
   };
 }
@@ -7204,10 +7659,10 @@ function specialistHook(state, input, who, at) {
   if (seen?.stopped) return nothing(state);
   const stopping = input.hook_event_name === "SubagentStop";
   if (seen && !stopping) return nothing(state);
-  const specialists = { ...state.specialists, [id2]: { ...who, stopped: stopping } };
-  if (!seen && stopping) return { state: { ...state, specialists }, events: [] };
+  const specialists2 = { ...state.specialists, [id2]: { ...who, stopped: stopping } };
+  if (!seen && stopping) return { state: { ...state, specialists: specialists2 }, events: [] };
   return {
-    state: { ...state, specialists },
+    state: { ...state, specialists: specialists2 },
     events: [{ type: "specialist", lead: who.lead, name: who.name, working: !stopping, at }]
   };
 }
@@ -7293,7 +7748,7 @@ var taskEvent2 = (card, status, at) => ({
   at
 });
 var running = (state, agent) => Object.entries(state.runs).filter(([, run]) => run.agent === agent && !run.stopped);
-function shown(state, id2, at) {
+function shown2(state, id2, at) {
   const run = state.runs[id2];
   const copies = running(state, run.agent).length;
   return {
@@ -7339,7 +7794,7 @@ function handOut(state, input, at) {
   const linked = link(withCard, taskId2, started);
   return {
     state: linked,
-    events: [taskEvent2(card, "in-progress", at), shown(linked, started, at), ...thinking.events]
+    events: [taskEvent2(card, "in-progress", at), shown2(linked, started, at), ...thinking.events]
   };
 }
 function linkRun(state, id2, agent) {
@@ -7351,14 +7806,14 @@ function linkRun(state, id2, agent) {
 function startRun(state, id2, agent, at) {
   const linked = linkRun(state, id2, agent);
   const card = linked.card && !linked.card.done ? [taskEvent2(linked.card, "in-progress", at)] : [];
-  return { state: linked.state, events: [...card, shown(linked.state, id2, at)] };
+  return { state: linked.state, events: [...card, shown2(linked.state, id2, at)] };
 }
 function act(state, id2, agent, activity, at) {
   if (state.runs[id2]?.stopped) return nothing(state);
   const started = state.runs[id2] ? nothing(state) : startRun(state, id2, agent, at);
   const run = { ...started.state.runs[id2], state: activity };
   const next = { ...started.state, runs: { ...started.state.runs, [id2]: run } };
-  return { state: next, events: [...started.events, shown(next, id2, at)] };
+  return { state: next, events: [...started.events, shown2(next, id2, at)] };
 }
 function toolUsed(state, id2, agent, tool, at) {
   const activity = !tool ? null : READING.has(tool) ? "reading" : WRITING.has(tool) ? "writing" : null;
@@ -7421,15 +7876,16 @@ function stopRun(state, id2, agent, text, at) {
   }
   const other = running(next, agent).at(-1);
   events.push(
-    other ? shown(next, other[0], at) : { type: "state", agent, state: "done", ...run.taskId ? { taskId: run.taskId } : {}, at }
+    other ? shown2(next, other[0], at) : { type: "state", agent, state: "done", ...run.taskId ? { taskId: run.taskId } : {}, at }
   );
   return { state: next, events };
 }
 function proposalIn(input) {
   if (input.hook_event_name !== "SubagentStop" || input.gate === "retry" || !input.agent_id) return null;
+  if (!input.project) return null;
   const agent = NOTE_AGENTS2.find((a) => input.agent_type === `world-of-agents:${a}`);
   const text = agent ? proposalOf(input.last_assistant_message) : null;
-  return agent && text !== null ? { agent, text } : null;
+  return agent && text !== null ? { agent, text, project: input.project } : null;
 }
 function withNote(input, step, at) {
   const note = proposalIn(input);
@@ -7482,7 +7938,7 @@ function agentReturned(state, input, at) {
   const agentId2 = input.tool_response?.agentId;
   const linked = agentId2 ? link(state, taskId2, agentId2) : state;
   const run = agentId2 ? linked.runs[agentId2] : void 0;
-  const started = agentId2 && run && !run.stopped && !card.done && card.agentId !== agentId2 ? [taskEvent2(card, "in-progress", at), shown(linked, agentId2, at)] : [];
+  const started = agentId2 && run && !run.stopped && !card.done && card.agentId !== agentId2 ? [taskEvent2(card, "in-progress", at), shown2(linked, agentId2, at)] : [];
   const owner = run ?? Object.values(linked.runs).find((r) => r.taskId === taskId2);
   const failed2 = owner?.stopped === true && owner.state === "error";
   const ended = input.tool_response?.status === "completed" && !failed2 ? finish(linked, taskId2, at) : nothing(linked);
@@ -7522,7 +7978,7 @@ var HOST = "127.0.0.1";
 var PORT = 4319;
 var MAX_BODY = 256 * 1024;
 var MAX_LEDGER_BODY = 4096;
-var MAX_KEY_BODY = 256;
+var MAX_KEY_BODY = 4096;
 var MAX_TEAM_BODY = 64 * 1024;
 var MAX_STOP_BODY = 256;
 var REPLAY = 500;
@@ -7538,7 +7994,7 @@ var BASE_HEADERS = {
   "Referrer-Policy": "no-referrer",
   "Content-Security-Policy": HALL_CSP
 };
-var digest2 = (text) => createHash2("sha256").update(text).digest();
+var digest2 = (text) => createHash3("sha256").update(text).digest();
 var frame = (event) => `data: ${JSON.stringify(event)}
 
 `;
@@ -7657,7 +8113,9 @@ data: ${startId}
   }
   function propose(input, at) {
     const note = proposalIn(input);
-    if (!note || proposals.some((p) => p.agent === note.agent && p.text === note.text)) return;
+    if (!note) return;
+    if (proposals.some((p) => p.project === note.project && p.agent === note.agent && p.text === note.text))
+      return;
     const id2 = randomBytes3(12).toString("base64url");
     proposals = [...proposals, { id: id2, ...note, at }].slice(-MAX_PROPOSALS);
   }
@@ -7743,9 +8201,9 @@ data: ${startId}
     if (!authorized(req.headers.authorization)) return reply(res, 401);
     const json = await jsonBody(req, res, MAX_KEY_BODY);
     if (json === void 0) return;
-    const body = keyBodySchema.safeParse(json);
+    const body = keyPostSchema.safeParse(json);
     if (!body.success) return reply(res, 400);
-    keys.add(body.data.key);
+    keys.add(body.data.key, body.data.project);
     reply(res, 204);
   }
   async function sessionPost(req, res) {
@@ -7759,66 +8217,92 @@ data: ${startId}
     res.writeHead(204, { ...BASE_HEADERS, "Set-Cookie": sessionCookie(exchanged.session) });
     res.end();
   }
-  function teamView() {
-    const team = readTeam(teamHome);
-    if (team === null) return null;
+  function teamView(folder) {
+    const project = projectOf(folder);
+    if (!project) return NOT_A_PROJECT;
     try {
-      const dir = teamDir(teamHome);
-      return { team, texts: readTexts(dir, team), notes: readNotes(dir).notes, proposals: [...proposals] };
+      const own2 = readProject(teamHome, project.key) !== null;
+      const team = own2 ? readProjectTeam(teamHome, project.key) : null;
+      if (own2 && team === null) return BROKEN;
+      const { library, texts } = readLibrary(teamHome);
+      const projects = listProjects(teamHome);
+      const usage = {};
+      for (const skill of library.skills) {
+        usage[skill.id] = projects.flatMap((p) => {
+          const having = (p.team?.specialists ?? []).filter((s) => s.skills.includes(skill.id));
+          return having.length > 0 ? [{ project: p.key, name: p.name, specialists: having.map((s) => s.name) }] : [];
+        });
+      }
+      let shared = null;
+      try {
+        const old = readShared(teamHome);
+        if (old) {
+          const notes = NOTE_AGENTS.reduce((n, agent) => n + old.notes.notes[agent].length, 0);
+          shared = { specialists: old.team.specialists.length, notes };
+        }
+      } catch {
+      }
+      const starter = defaults().team;
+      return {
+        project: { key: project.key, name: project.name, folder: project.folder },
+        team,
+        shared,
+        library: library.skills,
+        texts,
+        usage,
+        notes: (own2 ? readNotes(projectTeamDir(teamHome, project.key)) : emptyNotes()).notes,
+        proposals: proposals.filter((p) => p.project === project.key).map(({ id: id2, agent, text, at }) => ({ id: id2, agent, text, at })),
+        review: own2 ? readReview(teamHome, project.key) : [],
+        others: projects.filter((p) => p.key !== project.key && p.team !== null).map((p) => ({ key: p.key, name: p.name, folder: p.folder, specialists: p.team.specialists })),
+        starter: {
+          specialists: starter.specialists,
+          skills: starter.skills.map(({ id: id2, name, description }) => ({ id: id2, name, description }))
+        },
+        install: installCommands(project.key)
+      };
     } catch {
-      return null;
+      return BROKEN;
     }
   }
-  const NO_TEAM = {
-    error: "The team is missing or broken. Type /world-of-agents:setup-team in Claude Code."
+  const NOT_A_PROJECT = {
+    error: "This session's folder can't be read as a project. Open the Team page again from the pane."
+  };
+  const BROKEN = {
+    error: "A team file in ~/.world-of-agents isn't as World of Agents wrote it. Type /world-of-agents:setup-team in Claude Code."
   };
   function teamGet(req, res) {
-    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
-    const view = teamView();
-    reply(res, view === null ? 409 : 200, view ?? NO_TEAM);
+    const folder = keys.projectOf(req.headers.cookie);
+    if (folder === null) return reply(res, 401);
+    const view = teamView(folder);
+    reply(res, "error" in view ? 409 : 200, view);
   }
   async function teamPost(req, res) {
     if (!fromPage(req)) return reply(res, 403);
-    if (!keys.allowed(req.headers.cookie)) return reply(res, 401);
+    const folder = keys.projectOf(req.headers.cookie);
+    if (folder === null) return reply(res, 401);
     const json = await jsonBody(req, res, MAX_TEAM_BODY);
     if (json === void 0) return;
     const change = teamChangeSchema.safeParse(json);
     if (!change.success) return reply(res, 400);
-    const done = writing.then(() => applyToTeam(change.data));
+    const done = writing.then(() => applyToTeam(folder, change.data));
     writing = done.catch(() => {
     });
     const { status, body } = await done;
     reply(res, status, body);
   }
-  function applyToTeam(change) {
-    const view = teamView();
-    if (view === null) return { status: 409, body: NO_TEAM };
-    if (change.action === "note-approve" || change.action === "note-reject" || change.action === "note-delete")
-      return applyToNotes(change, view);
-    let next;
+  function applyToTeam(folder, change) {
+    const project = projectOf(folder);
+    if (!project) return { status: 409, body: NOT_A_PROJECT };
+    const proposal = change.action === "note-approve" || change.action === "note-reject" ? proposals.find((p) => p.id === change.id && p.project === project.key) ?? null : null;
     try {
-      next = applyChange(view.team, view.texts, change, now());
+      if (change.action === "give-own-team") giveOwnTeam(teamHome, folder, change.from, now());
+      else changeProject(teamHome, project.key, change, now(), proposal);
     } catch (error2) {
       return { status: 409, body: { error: error2.message } };
     }
-    const dir = teamDir(teamHome);
-    const team = writeTeam(dir, next.team, next.texts);
-    logChange(dir, next.entry);
-    return { status: 200, body: { ...view, team, texts: next.texts } };
-  }
-  function applyToNotes(change, view) {
-    const dir = teamDir(teamHome);
-    const proposal = change.action === "note-delete" ? null : proposals.find((p) => p.id === change.id) ?? null;
-    let next;
-    try {
-      next = applyNoteChange(readNotes(dir), change, proposal, now());
-      if (change.action !== "note-reject") writeNotes(dir, next.notes, view.team);
-    } catch (error2) {
-      return { status: 409, body: { error: error2.message } };
-    }
-    logChange(dir, next.entry);
     if (proposal) proposals = proposals.filter((p) => p !== proposal);
-    return { status: 200, body: { ...view, notes: next.notes.notes, proposals: [...proposals] } };
+    const view = teamView(folder);
+    return { status: "error" in view ? 409 : 200, body: view };
   }
   function events(req, res) {
     res.writeHead(200, { ...BASE_HEADERS, "Content-Type": "text/event-stream; charset=utf-8" });

@@ -37,6 +37,7 @@ const run = (id: string, agent: string, status: AgentInfo['status'], description
 function engine(on: On, agents: AgentInfo[]) {
   const clock = mock.clock(on);
   on('session.start', (_, e) => ({ cwd: e.cwd }));
+  on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
   on('ui.open', () => ({ value: { isPlaced: true } }));
   on('agent.list', () => ({ value: agents }));
   on('classic.PermissionRequest', () => ({}));

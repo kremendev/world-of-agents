@@ -440,11 +440,13 @@ function stopRun(state: MapState, id: string, agent: AgentId, text: string | und
  * `SubagentStop` of one of the four guild leads, by the agent type Claude Code set, and never one the quality gate sent
  * back to work: never the Lead, a specialist, a frame or a text that only claims to be one. The hall keeps the text.
  */
-export function proposalIn(input: HookInput): { agent: NoteAgent; text: string } | null {
+export function proposalIn(input: HookInput): { agent: NoteAgent; text: string; project: string } | null {
   if (input.hook_event_name !== 'SubagentStop' || input.gate === 'retry' || !input.agent_id) return null;
+  // v3.9: a note belongs to its project, so a stop that names none proposes nothing.
+  if (!input.project) return null;
   const agent = NOTE_AGENTS.find((a) => input.agent_type === `world-of-agents:${a}`);
   const text = agent ? proposalOf(input.last_assistant_message) : null;
-  return agent && text !== null ? { agent, text } : null;
+  return agent && text !== null ? { agent, text, project: input.project } : null;
 }
 
 /** A stop's step, and after it the feed's "proposed a note" row when its report proposed one. */

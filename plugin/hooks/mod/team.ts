@@ -30,10 +30,16 @@ export const editorLink = (hall: string, key: string) => `${hall}/#k=${key}`;
 const NAME = /^[\p{L}\p{N} .,()'&/-]+$/u;
 const name = (v: unknown, max: number): v is string =>
   typeof v === 'string' && v.length >= 1 && v.length <= max && NAME.test(v) && v.trim() === v;
-type SkillChange = Exclude<PaneChange, { guild: string } | { agent: string }>;
+type SkillChange = Extract<PaneChange, { skill: string }>;
 type NoteChange = Extract<PaneChange, { agent: string }>;
-/** v3.7: a guild lead's note approved, rejected or deleted, named by its guild lead only. */
-const NOTE_KINDS: readonly NoteChange['what'][] = ['note-approved', 'note-rejected', 'note-deleted'];
+/** v3.7: a guild lead's note approved, rejected or deleted, named by its guild lead only; v3.9: a shared one kept or dropped. */
+const NOTE_KINDS: readonly NoteChange['what'][] = [
+  'note-approved',
+  'note-rejected',
+  'note-deleted',
+  'note-kept',
+  'note-dropped',
+];
 const NOTE_AGENTS: readonly NoteChange['agent'][] = ['Designer', 'Frontend dev', 'Backend dev', 'Reviewer'];
 const SINGLE: readonly SkillChange['what'][] = ['skill-added', 'skill-changed', 'skill-deleted'];
 const PAIRED: readonly SkillChange['what'][] = ['skill-attached', 'skill-detached'];
@@ -67,6 +73,13 @@ function changeOf(v: unknown): PaneChange | null {
   }
   if (oneOf(NOTE_KINDS, e.what) && keysAre(e, 'agent,at,what') && oneOf(NOTE_AGENTS, e.agent)) {
     return { at: e.at, what: e.what, agent: e.agent };
+  }
+  // v3.9: the project's team given or filled, naming nothing.
+  if (e.what === 'team-given' && keysAre(e, 'at,from,what') && (e.from === 'shared' || e.from === 'empty')) {
+    return { at: e.at, what: e.what, from: e.from };
+  }
+  if ((e.what === 'starter-added' || e.what === 'team-copied') && keysAre(e, 'at,what')) {
+    return { at: e.at, what: e.what };
   }
   if (!name(e.skill, 60)) return null;
   if (oneOf(SINGLE, e.what) && keysAre(e, 'at,skill,what')) {
@@ -132,5 +145,15 @@ export function changeLine(c: PaneChange): string {
       return `${at} Note rejected for the ${c.agent}`;
     case 'note-deleted':
       return `${at} Note deleted for the ${c.agent}`;
+    case 'note-kept':
+      return `${at} Shared note kept for the ${c.agent}`;
+    case 'note-dropped':
+      return `${at} Shared note dropped for the ${c.agent}`;
+    case 'team-given':
+      return `${at} This project got its own team: ${c.from === 'shared' ? 'a copy of the shared team' : 'an empty one'}`;
+    case 'starter-added':
+      return `${at} Starter team added`;
+    case 'team-copied':
+      return `${at} Specialists copied from another project`;
   }
 }

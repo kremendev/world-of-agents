@@ -23,6 +23,7 @@
       "$.process.run",
       "$.process.spawn",
       "$.prompt.fill",
+      "$.session.cwd",
       "$.session.id",
       "$.settings.read",
       "$.state.get",

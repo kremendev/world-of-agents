@@ -14,10 +14,17 @@ import {
   type SpecialistDraft,
 } from './view';
 
+/** v3.9: the page's view of a project whose team and library are the defaults'. */
 const view = (): TeamView => {
   const { team, texts } = defaults();
-  return { team, texts } as TeamView;
+  return {
+    team: { version: 3, generator: team.generator, specialists: team.specialists },
+    library: team.skills.map((s) => ({ ...s, source: { kind: 'team' as const }, addedAt: 1 })),
+    texts,
+  } as unknown as TeamView;
 };
+/** The same team as team.mjs's applyChange() takes it. */
+const hallTeam = () => defaults().team;
 
 describe('flagSummary', () => {
   it.each([
@@ -79,7 +86,7 @@ describe('the refusals agree with the hall', () => {
     };
     if (!teamChangeSchema.safeParse(change).success) return false;
     try {
-      applyChange(view().team as never, view().texts, change as never, 1);
+      applyChange(hallTeam() as never, view().texts, change as never, 1);
       return true;
     } catch {
       return false;
@@ -121,7 +128,7 @@ describe('the refusals agree with the hall', () => {
       };
       if (!teamChangeSchema.safeParse(change).success) return false;
       try {
-        applyChange(view().team as never, view().texts, change as never, 1);
+        applyChange(hallTeam() as never, view().texts, change as never, 1);
         return true;
       } catch {
         return false;

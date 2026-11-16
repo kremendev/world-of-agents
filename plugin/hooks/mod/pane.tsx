@@ -81,8 +81,9 @@ export const NODE_FIX =
  * ("installed in local scope, not user"), and disable works either way. Checked with the CLI in a temp config, 11 Nov.
  */
 export const EVERY_PROJECT = 'World of Agents is on for every project.';
+// v3.9: since v3.8 a user-scope install no longer makes every session the Lead; its hooks still run everywhere.
 const EVERY_PROJECT_WHY =
-  'Every session in every project starts as the Lead/PM. To turn that off, run in a terminal:';
+  'Its hooks run in every session of every project, where the guard lets only the Lead/PM edit files or start agents. To turn that off, run in a terminal:';
 const EVERY_PROJECT_THEN = 'Projects where you installed it with --scope local keep it.';
 
 const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
@@ -91,7 +92,10 @@ const LIVE = new Set(['pending', 'running', 'waiting', 'idle']);
 const NOTHING_ASKS = 'Nothing asks you before acting.';
 /** v3.6d: the team's generated files come from an older plugin; the setup's write refreshes only them. */
 const TEAM_OLDER =
-  "Your team's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+  "This project's specialist files are from an older plugin. Type /world-of-agents:setup-team-write to refresh them.";
+/** v3.9: a project with no team of its own yet (Dima, 16 Nov): its guild leads work, its specialists can't start. */
+export const TEAM_NONE =
+  "This project has no team of its own yet, so its specialists can't start. Its guild leads still work.";
 
 /** v3.3: quality gates, and the modes where they run with nothing else asking first. */
 const GATES_ON = 'Quality gates: on.';
@@ -188,6 +192,7 @@ export function drawPane(
         </Text>
       )}
       {v.teamFiles === 'older' && <Text color="warning">{TEAM_OLDER}</Text>}
+      {v.teamFiles === 'none' && <Text color="warning">{TEAM_NONE}</Text>}
       {v.gates === 'on' && v.mode !== null && GATE_MODES.has(v.mode) && (
         <Text color="warning" bold>
           {GATES_WARNING}
@@ -298,7 +303,11 @@ export function drawPane(
             </Box>
           ) : (
             <Box flexDirection="row">
-              <Button key="open-team-page" label="Open Team page" onPress={onOpenTeam} />
+              <Button
+                key="open-team-page"
+                label={v.teamFiles === 'none' ? 'Give this project its own team' : 'Open Team page'}
+                onPress={onOpenTeam}
+              />
             </Box>
           )}
           {v.editor === 'failed' && <Text color="warning">{EDITOR_FAILED}</Text>}

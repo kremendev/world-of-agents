@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { GUILDS, MAX_PRELOADED, PRESETS, type TeamSpecialist, type TeamView } from '../team/schema';
 import {
+  aboutTokens,
   draftId,
   GUILD_NAME,
   LEAD_NAME,
@@ -8,6 +9,7 @@ import {
   PRESET_SENTENCE,
   PRESET_SHORT,
   presetAllowed,
+  plural,
   rowLine,
   specialistMatches,
   specialistRefusals,
@@ -39,6 +41,7 @@ export function SpecialistsTab({
   actions,
   ids,
   onOpenSkill,
+  onGiven,
 }: {
   view: TeamView;
   query: string;
@@ -49,8 +52,36 @@ export function SpecialistsTab({
   actions: TeamActions;
   ids: Ids;
   onOpenSkill: (id: string) => void;
+  onGiven: () => void;
 }) {
-  const shown = view.team.specialists.filter((p) => specialistMatches(p, view.team.skills, query));
+  const [filling, setFilling] = useState<'starter' | 'copy' | null>(null);
+  // v3.9: a project from before v3.9, or a new one, gets a team of its own first.
+  if (view.team === null) return <OwnTeamBanner view={view} actions={actions} ids={ids} onGiven={onGiven} />;
+  const team = view.team;
+  if (team.specialists.length === 0 && !draft) {
+    if (filling === 'starter')
+      return <StarterView view={view} actions={actions} ids={ids} onDone={() => setFilling(null)} />;
+    if (filling === 'copy')
+      return <CopyView view={view} actions={actions} ids={ids} onDone={() => setFilling(null)} />;
+    return (
+      <NoSpecialists
+        view={view}
+        ids={ids}
+        onStarter={() => {
+          setFilling('starter');
+          actions.focus(ids.details);
+        }}
+        onCopy={() => {
+          setFilling('copy');
+          actions.focus(ids.details);
+        }}
+        onAdd={() =>
+          setDraft({ mode: 'add', id: '', name: '', guild: null, role: '', preset: 'reads', skills: [] })
+        }
+      />
+    );
+  }
+  const shown = team.specialists.filter((p) => specialistMatches(p, view.library, query));
   const current = shown.find((p) => p.id === selected) ?? shown[0] ?? null;
 
   const save = async (d: SpecialistDraft) => {
@@ -184,8 +215,8 @@ function SpecialistDetails({
   const question = `${own}-question`;
   const deleteButton = `${own}-delete`;
   const lead = LEAD_NAME[p.guild];
-  const nameOf = (id: string) => view.team.skills.find((s) => s.id === id)?.name ?? id;
-  const free = view.team.skills.filter((s) => !p.skills.includes(s.id));
+  const nameOf = (id: string) => view.library.find((s) => s.id === id)?.name ?? id;
+  const free = view.library.filter((s) => !p.skills.includes(s.id));
   const full = p.skills.length >= MAX_PRELOADED;
 
   const give = async (skill: string) => {
@@ -289,7 +320,7 @@ function SpecialistDetails({
                   if (!picking) actions.focus(`${own}-pick-0`);
                 }}
               >
-                + Add skill
+                + Add from library
               </button>
             </li>
           )}
@@ -308,7 +339,7 @@ function SpecialistDetails({
           >
             <div className="tp-picker-head">
               <p id={pickHead}>
-                Give {p.name} a skill. It has {p.skills.length} of {MAX_PRELOADED}.
+                Give {p.name} a skill from the library. It has {p.skills.length} of {MAX_PRELOADED}.
               </p>
               <button
                 type="button"
@@ -332,6 +363,7 @@ function SpecialistDetails({
                   >
                     <span className="tp-card-title">{s.name}</span>
                     <span className="tp-card-text">{s.description}</span>
+                    <span className="tp-card-cost">{aboutTokens(view.texts[s.id] ?? '')}</span>
                   </button>
                 </li>
               ))}
@@ -370,8 +402,8 @@ function SpecialistDetails({
           }}
         >
           <p id={question}>
-            Delete {p.name}? The {lead} can&apos;t start it any more. Its skills stay in the team. To stop it
-            for now and keep it, switch it off instead.
+            Delete {p.name}? The {lead} can&apos;t start it any more. Its skills stay in the library. To stop
+            it for now and keep it, switch it off instead.
           </p>
           <div className="tp-buttons">
             <button type="button" className="tp-button tp-danger" onClick={() => void remove()}>
@@ -542,7 +574,7 @@ function SpecialistForm({
           </span>
         </legend>
         <div className="tp-cards tp-cards-3">
-          {view.team.skills.map((s) => {
+          {view.library.map((s) => {
             const on = draft.skills.includes(s.id);
             return (
               <label key={s.id} className="tp-card tp-choice">
@@ -589,5 +621,299 @@ function SpecialistForm({
         </button>
       </div>
     </form>
+  );
+}
+
+/**
+ * v3.9: a project with no team of its own yet (Dima, 16 Nov): an amber banner in place of the list. Its specialists can't
+ * start until it has one; its guild leads still work; the old shared team stays as an unused backup. Two choices, once.
+ */
+function OwnTeamBanner({
+  view,
+  actions,
+  ids,
+  onGiven,
+}: {
+  view: TeamView;
+  actions: TeamActions;
+  ids: Ids;
+  onGiven: () => void;
+}) {
+  const own = useId();
+  const [from, setFrom] = useState<'shared' | 'empty'>(view.shared ? 'shared' : 'empty');
+  const give = async () => {
+    const said =
+      from === 'shared'
+        ? 'This project has its own team: a copy of your shared team.'
+        : 'This project has its own team: an empty one.';
+    if (await actions.send({ action: 'give-own-team', from }, said)) {
+      onGiven();
+      actions.focus(ids.details);
+    }
+  };
+  return (
+    <section className="tp-banner" aria-labelledby={ids.details}>
+      <h2 id={ids.details} tabIndex={-1}>
+        This project has no team of its own yet
+      </h2>
+      <p>
+        Its specialists can&apos;t start until it has one. Its guild leads still work, and the old shared team
+        stays as an unused backup.
+      </p>
+      <fieldset className="tp-field">
+        <legend>Give it</legend>
+        <div className="tp-cards tp-cards-2">
+          {view.shared && (
+            <label className="tp-card tp-choice">
+              <input
+                type="radio"
+                name={`${own}-from`}
+                checked={from === 'shared'}
+                onChange={() => setFrom('shared')}
+              />
+              <span>
+                <span className="tp-card-title">A copy of your shared team</span>
+                <span className="tp-card-text">
+                  {plural(view.shared.specialists, 'specialist')}, each switched on or off as it is.
+                  {view.shared.notes > 0 &&
+                    ` Its ${plural(view.shared.notes, 'note')} ${view.shared.notes === 1 ? 'comes' : 'come'} along for review: you keep or drop each one.`}
+                </span>
+              </span>
+            </label>
+          )}
+          <label className="tp-card tp-choice">
+            <input
+              type="radio"
+              name={`${own}-from`}
+              checked={from === 'empty'}
+              onChange={() => setFrom('empty')}
+            />
+            <span>
+              <span className="tp-card-title">An empty team</span>
+              <span className="tp-card-text">
+                Add the specialists it needs, or the starter team in one click.
+              </span>
+            </span>
+          </label>
+        </div>
+      </fieldset>
+      <div className="tp-buttons">
+        <button
+          type="button"
+          className="tp-button tp-primary"
+          disabled={actions.busy}
+          onClick={() => void give()}
+        >
+          Give this project its own team
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** v3.9: a team of its own with no specialists yet: three ways to fill it. */
+function NoSpecialists({
+  view,
+  ids,
+  onStarter,
+  onCopy,
+  onAdd,
+}: {
+  view: TeamView;
+  ids: Ids;
+  onStarter: () => void;
+  onCopy: () => void;
+  onAdd: () => void;
+}) {
+  const copyable = view.others.some((o) => o.specialists.length > 0);
+  return (
+    <section className="tp-empty-panel" aria-labelledby={ids.details}>
+      <h2 id={ids.details} tabIndex={-1}>
+        No specialists yet
+      </h2>
+      <p className="tp-muted">Give this project the specialists it needs.</p>
+      <div className="tp-big-buttons">
+        <button type="button" className="tp-big-button" onClick={onStarter}>
+          <span className="tp-card-title">Add the starter team</span>
+          <span className="tp-card-text">
+            {plural(view.starter.specialists.length, 'specialist')}, in every guild
+          </span>
+        </button>
+        <button type="button" className="tp-big-button" disabled={!copyable} onClick={onCopy}>
+          <span className="tp-card-title">Copy from another project</span>
+          <span className="tp-card-text">
+            {copyable ? 'Its specialists, as they are' : 'No other project has specialists yet'}
+          </span>
+        </button>
+        <button type="button" className="tp-big-button" onClick={onAdd}>
+          <span className="tp-card-title">+ Add specialist</span>
+          <span className="tp-card-text">One of your own</span>
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Specialists by guild, each with what it may do and its skills: what the starter team or a copy brings. */
+function Bringing({
+  specialists,
+  skillName,
+}: {
+  specialists: TeamSpecialist[];
+  skillName: (id: string) => string;
+}) {
+  return (
+    <div className="tp-bringing">
+      {GUILDS.map((guild) => {
+        const members = specialists.filter((p) => p.guild === guild);
+        if (members.length === 0) return null;
+        return (
+          <section key={guild} className="tp-group">
+            <h3 className="tp-group-head">
+              <span>{GUILD_NAME[guild]} guild</span>
+              <span className="tp-group-lead">led by {LEAD_NAME[guild]}</span>
+            </h3>
+            <ul>
+              {members.map((p) => (
+                <li key={p.id} className="tp-bring">
+                  <span className="tp-row-name">{p.name}</span>{' '}
+                  <PresetPill preset={p.preset} label={PRESET_SHORT[p.preset]} />
+                  {!p.on && <span className="tp-pill tp-pill-off">comes along switched off</span>}
+                  <span className="tp-row-sub">
+                    {p.skills.length === 0 ? 'No skills' : p.skills.map(skillName).join(', ')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/** v3.9: the starter team, all 8 shown by guild before they are added. */
+function StarterView({
+  view,
+  actions,
+  ids,
+  onDone,
+}: {
+  view: TeamView;
+  actions: TeamActions;
+  ids: Ids;
+  onDone: () => void;
+}) {
+  const { specialists, skills } = view.starter;
+  const name = (id: string) => skills.find((s) => s.id === id)?.name ?? id;
+  const add = async () => {
+    const said = `Added the starter team: ${plural(specialists.length, 'specialist')}.`;
+    if (await actions.send({ action: 'add-starter' }, said)) {
+      onDone();
+      actions.focus(ids.details);
+    }
+  };
+  return (
+    <section className="tp-details" aria-labelledby={ids.details}>
+      <h2 id={ids.details} tabIndex={-1}>
+        The starter team
+      </h2>
+      <p className="tp-muted">
+        Their skills join your library, unless it has them already: then they get yours.
+      </p>
+      <Bringing specialists={specialists} skillName={name} />
+      <div className="tp-buttons">
+        <button
+          type="button"
+          className="tp-button tp-primary"
+          disabled={actions.busy}
+          onClick={() => void add()}
+        >
+          {`Add these ${specialists.length} specialists`}
+        </button>
+        <button type="button" className="tp-button" onClick={onDone}>
+          Cancel
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** v3.9: copy another project's specialists: its projects on the left, what comes along on the right. */
+function CopyView({
+  view,
+  actions,
+  ids,
+  onDone,
+}: {
+  view: TeamView;
+  actions: TeamActions;
+  ids: Ids;
+  onDone: () => void;
+}) {
+  const [picked, setPicked] = useState<string | null>(
+    view.others.find((o) => o.specialists.length > 0)?.key ?? null,
+  );
+  const from = view.others.find((o) => o.key === picked) ?? null;
+  const name = (id: string) => view.library.find((s) => s.id === id)?.name ?? id;
+  const count = plural(from?.specialists.length ?? 0, 'specialist');
+  const copy = async () => {
+    if (!from) return;
+    if (
+      await actions.send({ action: 'copy-from', project: from.key }, `Copied ${count} from ${from.name}.`)
+    ) {
+      onDone();
+      actions.focus(ids.details);
+    }
+  };
+  return (
+    <section className="tp-details" aria-labelledby={ids.details}>
+      <h2 id={ids.details} tabIndex={-1}>
+        Copy from another project
+      </h2>
+      <div className="tp-split-view">
+        <nav className="tp-list" aria-label="Projects">
+          <ul>
+            {view.others.map((o) => (
+              <li key={o.key}>
+                <button
+                  type="button"
+                  className="tp-row"
+                  aria-current={picked === o.key ? 'true' : undefined}
+                  disabled={o.specialists.length === 0}
+                  onClick={() => setPicked(o.key)}
+                >
+                  <span className="tp-row-main">
+                    <span className="tp-row-name">{o.name}</span>
+                    <span className="tp-row-sub">{o.folder}</span>
+                  </span>
+                  <span className="tp-used">{plural(o.specialists.length, 'specialist')}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="tp-detail-pane">
+          {from && <Bringing specialists={from.specialists} skillName={name} />}
+          <p className="tp-muted">
+            A copy, not a link. Notes aren&apos;t copied, and skills aren&apos;t copied either, because both
+            projects use the same library.
+          </p>
+          <div className="tp-buttons">
+            <button
+              type="button"
+              className="tp-button tp-primary"
+              disabled={actions.busy || !from}
+              onClick={() => void copy()}
+            >
+              {`Copy ${count}`}
+            </button>
+            <button type="button" className="tp-button" onClick={onDone}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

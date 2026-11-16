@@ -1,4 +1,5 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { allowlist, MAX_REPORT, text } from '../../plugin/hooks/send.mjs';
@@ -400,5 +401,26 @@ describe('a stop the quality gate covers (v3.3)', () => {
     const skip = main.indexOf('if (gated(payload, process.env)) return;');
     expect(skip).toBeGreaterThan(0);
     expect(skip).toBeLessThan(main.indexOf('deliver('));
+  });
+});
+
+// v3.9: a stop names its project by key, so a note a guild lead proposes can be kept in that project's notes.
+describe("a stop's project (v3.9)", () => {
+  it('only on a stop, as the key: the folder name and a hash, never the path', () => {
+    const folder = mkdtempSync(join(tmpdir(), 'woa-send-project-'));
+    try {
+      const stop = allowlist({ hook_event_name: 'SubagentStop', agent_id: 'a1' }, HOME, folder);
+      expect(stop.project).toMatch(/^woa-send-project-[a-z0-9]+-[0-9a-f]{10}$/);
+      expect(JSON.stringify(stop)).not.toContain(folder.slice(3));
+      for (const event of ['SessionStart', 'PreToolUse', 'Stop', 'UserPromptSubmit'])
+        expect(allowlist({ hook_event_name: event }, HOME, folder).project, event).toBeUndefined();
+      // No project, or not a folder: nothing.
+      expect(allowlist({ hook_event_name: 'SubagentStop' }, HOME, undefined).project).toBeUndefined();
+      expect(
+        allowlist({ hook_event_name: 'SubagentStop' }, HOME, join(folder, 'missing')).project,
+      ).toBeUndefined();
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 });

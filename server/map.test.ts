@@ -1681,17 +1681,23 @@ describe('proposed notes (v3.7)', () => {
   const REPORT =
     'Built the form.\nFiles: src/form.tsx\n\nProposed note: Forms live in src/forms, one file each.';
   const notes = (events: readonly OfficeEvent[]) => events.filter((e) => e.type === 'note');
+  /** v3.9: the stop's project, by key, as send.mjs adds it. */
+  const PROJECT = 'app-0123456789';
 
   it.each(['designer', 'frontend', 'backend', 'reviewer'])(
     "the %s's own stop: a note event after its report",
     (agent) => {
-      const stop = bySub('SubagentStop', agent, 'a1', { last_assistant_message: REPORT });
+      const stop = bySub('SubagentStop', agent, 'a1', { last_assistant_message: REPORT, project: PROJECT });
       const { events } = play([start, bySub('SubagentStart', agent, 'a1'), stop]);
       expect(notes(events)).toEqual([{ type: 'note', agent, at: 2 }]);
       expect(events.findIndex((e) => e.type === 'note')).toBeGreaterThan(
         events.findIndex((e) => e.type === 'message'),
       );
-      expect(proposalIn(stop)).toEqual({ agent, text: 'Forms live in src/forms, one file each.' });
+      expect(proposalIn(stop)).toEqual({
+        agent,
+        text: 'Forms live in src/forms, one file each.',
+        project: PROJECT,
+      });
       for (const e of events) expect(parseEvent(e).ok, e.type).toBe(true);
     },
   );
@@ -1700,8 +1706,13 @@ describe('proposed notes (v3.7)', () => {
     const failed = bySub('SubagentStop', 'frontend', 'a1', {
       last_assistant_message: REPORT,
       gate: 'failed',
+      project: PROJECT,
     });
-    const retry = bySub('SubagentStop', 'frontend', 'a1', { last_assistant_message: REPORT, gate: 'retry' });
+    const retry = bySub('SubagentStop', 'frontend', 'a1', {
+      last_assistant_message: REPORT,
+      gate: 'retry',
+      project: PROJECT,
+    });
     expect(notes(play([start, failed]).events)).toHaveLength(1);
     expect(notes(play([start, retry]).events)).toEqual([]);
     expect(proposalIn(retry)).toBeNull();
@@ -1734,6 +1745,8 @@ describe('proposed notes (v3.7)', () => {
         agent_type: 'woa-team:design-frontend',
       },
       byLead('UserPromptSubmit', { prompt: REPORT }),
+      // v3.9: a guild lead's own stop that names no project: a note belongs to one.
+      bySub('SubagentStop', 'frontend', 'a6', { last_assistant_message: REPORT }),
     ];
     for (const input of inputs) expect(proposalIn(input), JSON.stringify(input).slice(0, 80)).toBeNull();
     expect(notes(play([start, ...inputs]).events)).toEqual([]);

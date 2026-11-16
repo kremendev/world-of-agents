@@ -1,4 +1,5 @@
 import * as z from 'zod';
+import { PROJECT_KEY } from '../src/team/schema';
 
 /**
  * What plugin/hooks/send.mjs forwards, with the same caps (docs/v2-hooks.md has the real payloads).
@@ -43,6 +44,8 @@ export const hookInputSchema = z.object({
     )
     .max(20)
     .optional(),
+  /** v3.9: a stop's project, by key (team.mjs's projectOf()): where a note it proposes belongs. */
+  project: z.string().max(40).regex(PROJECT_KEY).optional(),
   /** v3.3: the quality gate's verdict on a SubagentStop that gate.mjs forwards; send.mjs never sends it. */
   gate: z.enum(['retry', 'passed', 'failed']).optional(),
 });

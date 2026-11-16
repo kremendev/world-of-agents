@@ -61,6 +61,7 @@ function engine(
     return { value: undefined };
   });
   on('session.start', (_, e) => ({ cwd: e.cwd }));
+  on('session.cwd', () => ({ value: 'C:/Users/dima/project' }));
   on('ui.open', () => ({ value: { isPlaced: true } }));
   on('agent.list', () => ({ value: agents }));
   on('turn.start', (_, e) => ({ turnId: e.turnId }));

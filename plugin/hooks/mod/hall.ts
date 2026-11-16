@@ -149,6 +149,7 @@ export async function teamFiles($: EngineInterface): Promise<'unknown' | 'curren
   try {
     const { exitCode } = await $.process.run(teamCheckCommand($.plugin.root), {
       cwd: $.plugin.root,
+      stdin: await projectStdin($),
       timeoutMs: TIMEOUT_MS,
     });
     return exitCode === 0 ? 'current' : exitCode === 6 ? 'older' : exitCode === 4 ? 'none' : 'unknown';
@@ -163,9 +164,10 @@ export async function teamFiles($: EngineInterface): Promise<'unknown' | 'curren
  */
 export async function sendKey($: EngineInterface, key: string): Promise<boolean> {
   try {
+    // v3.9: the session's folder goes with the key, so the hall opens this project's team and no other.
     const run = await $.process.run(keyCommand($.plugin.root), {
       cwd: $.plugin.root,
-      stdin: JSON.stringify({ key }),
+      stdin: JSON.stringify({ key, project: await $.session.cwd() }),
       timeoutMs: TIMEOUT_MS,
     });
     return run.exitCode === 0;
@@ -174,10 +176,22 @@ export async function sendKey($: EngineInterface, key: string): Promise<boolean>
   }
 }
 
+/**
+ * v3.9: the session's folder, as team-check.mjs and team-log.mjs take it on stdin. From the engine ($.session.cwd()),
+ * never from an agent, a file or the page; the scripts don't get CLAUDE_PROJECT_DIR (3.9a).
+ */
+async function projectStdin($: EngineInterface): Promise<string> {
+  return JSON.stringify({ project: await $.session.cwd() });
+}
+
 /** The team's newest changes (v3.4c), when team-log.mjs printed exactly a change log; else null, and nothing is kept. */
 export async function teamChanges($: EngineInterface): Promise<PaneChange[] | null> {
   try {
-    const run = await $.process.run(logCommand($.plugin.root), { cwd: $.plugin.root, timeoutMs: TIMEOUT_MS });
+    const run = await $.process.run(logCommand($.plugin.root), {
+      cwd: $.plugin.root,
+      stdin: await projectStdin($),
+      timeoutMs: TIMEOUT_MS,
+    });
     if (run.exitCode !== 0 || run.isStdoutTruncated) return null;
     return changesOf(run.stdout);
   } catch {

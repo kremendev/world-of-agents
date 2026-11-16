@@ -10,7 +10,7 @@ import {
   type TeamActions,
 } from '../team/view';
 import { NotesTab } from './TeamNotes';
-import { SkillsTab } from './TeamSkills';
+import { LibraryTab } from './TeamLibrary';
 import { SpecialistsTab } from './TeamSpecialists';
 
 /** Where the page stands with the hall (v3.4c): no key in its address, a key being exchanged, or what the hall said. */
@@ -23,14 +23,15 @@ export const SESSION_LINES = {
   offline: "The hall didn't answer. Open the hall again from the pane.",
 } as const;
 
+/** v3.9, the approved mockup of 16 Nov: specialists per project, skills in the library every project shares. */
 export const INTRO =
-  'Specialists are helpers a guild lead can call. Skills are short guides a specialist reads before it starts. Changes apply to new runs.';
+  'Specialists belong to this project. Skills live in your library, which every project on this PC shares. Changes apply to new runs.';
 
-type Tab = 'specialists' | 'skills' | 'notes';
-/** Each tab, and its main button on the right; the Notes tab (v3.7d) has none. */
+type Tab = 'specialists' | 'library' | 'notes';
+/** Each tab, and its main button on the right; the Notes tab (v3.7d) has none. v3.9: "Skills" is the Library. */
 const TABS: { id: Tab; label: string; action: string | null }[] = [
   { id: 'specialists', label: 'Specialists', action: 'Add specialist' },
-  { id: 'skills', label: 'Skills', action: 'New skill' },
+  { id: 'library', label: 'Library', action: 'Add a skill' },
   { id: 'notes', label: 'Notes', action: null },
 ];
 type Status = { text: string; undo?: { change: TeamChange; said: string } };
@@ -57,6 +58,8 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
   // An element to focus once the render that shows it is done; `n` makes asking twice for one id count.
   const [focusAsk, setFocusAsk] = useState<{ id: string; n: number } | null>(null);
+  // v3.9: once the project has its own team, the commands Dima runs once so Claude Code loads it.
+  const [installing, setInstalling] = useState(false);
   const writing = useRef(false);
 
   useEffect(() => heading.current?.focus(), []);
@@ -120,7 +123,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   const openSkill = (id: string) => {
     setSkillDraft(null);
     setSkill(id);
-    setTab('skills');
+    setTab('library');
     actions.focus(ids.details);
   };
   const openSpecialist = (id: string) => {
@@ -166,12 +169,12 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
 
   const counts: Record<Tab, number> = view
     ? {
-        specialists: view.team.specialists.filter((p) => specialistMatches(p, view.team.skills, query))
+        specialists: (view.team?.specialists ?? []).filter((p) => specialistMatches(p, view.library, query))
           .length,
-        skills: view.team.skills.filter((s) => skillMatches(s, query)).length,
-        notes: ((n) => n.waiting.length + n.kept.length)(noteItems(view, query)),
+        library: view.library.filter((s) => skillMatches(s, query)).length,
+        notes: ((n) => n.review.length + n.waiting.length + n.kept.length)(noteItems(view, query)),
       }
-    : { specialists: 0, skills: 0, notes: 0 };
+    : { specialists: 0, library: 0, notes: 0 };
 
   const startAdding = () => {
     if (tab === 'specialists') {
@@ -190,7 +193,8 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   };
 
   const ready = locked === null && view !== null;
-  const action = TABS.find((t) => t.id === tab)!.action;
+  // No specialist can be added before the project has a team of its own.
+  const action = tab === 'specialists' && view?.team === null ? null : TABS.find((t) => t.id === tab)!.action;
 
   return (
     <div className="team-page">
@@ -201,6 +205,12 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
         <p className="tp-crumb">
           <strong>World of Agents</strong> <span>/ Team</span>
         </p>
+        {view && (
+          <p className="tp-project" title={view.project.folder}>
+            <span className="tp-project-name">{view.project.name}</span>
+            <span className="tp-project-folder">{view.project.folder}</span>
+          </p>
+        )}
         {ready && (
           <div className="tp-search" role="search">
             <svg className="tp-search-icon" viewBox="0 0 16 16" aria-hidden="true">
@@ -251,6 +261,20 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
           <p className="tp-problem" role="alert">
             {problem}
           </p>
+        )}
+
+        {ready && installing && (
+          <section className="tp-install" aria-labelledby={`${base}-install`}>
+            <h2 id={`${base}-install`}>One more step, once</h2>
+            <p>
+              In Git Bash, in this project&apos;s folder, run these, then /reload-plugins in a session that is
+              already open. Skip the uninstall line if it says woa-team isn&apos;t installed here.
+            </p>
+            <pre className="tp-commands">{view.install.join('\n')}</pre>
+            <button type="button" className="tp-link" onClick={() => setInstalling(false)}>
+              Done
+            </button>
+          </section>
         )}
 
         {ready && (
@@ -309,6 +333,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
                   actions={actions}
                   ids={{ details: ids.details, main: ids.main, base }}
                   onOpenSkill={openSkill}
+                  onGiven={() => setInstalling(true)}
                 />
               ) : tab === 'notes' ? (
                 <NotesTab
@@ -320,7 +345,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
                   ids={{ details: ids.details, main: ids.main, base }}
                 />
               ) : (
-                <SkillsTab
+                <LibraryTab
                   view={view}
                   query={query}
                   selected={skill}

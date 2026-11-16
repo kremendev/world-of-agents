@@ -1133,6 +1133,10 @@ export function giveOwnTeam(home, folder, from, now) {
     `${JSON.stringify({ name: `woa-${project.key}`, owner: { name: 'World of Agents' }, plugins: [{ name: 'woa-team', source: './team', description: "One project's World of Agents team, as Dima keeps it." }] }, null, 2)}\n`,
   );
   writeProjectTeam(home, project.key, team, library, texts, emptyNotes());
+  writeFileSync(
+    inside(projectTeamDir(home, project.key), 'notes.json'),
+    `${JSON.stringify(emptyNotes(), null, 2)}\n`,
+  );
   if (review.length > 0) writeReview(home, project.key, review);
   writeFileSync(
     inside(dir, 'project.json'),

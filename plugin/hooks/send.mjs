@@ -17,6 +17,7 @@ import { mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { projectOf } from '../team/team.mjs';
 
 const HALL = 'http://127.0.0.1:4319';
 const TIMEOUT_MS = 800;
@@ -113,9 +114,10 @@ function agentMessage(prompt) {
 /**
  * The fields the hall needs, and nothing else: never a tool's input or result, file contents, paths or transcripts.
  * The free text is your prompt's start and the agents' own words, and an agent's last message can quote code or a
- * command it wrote.
+ * command it wrote. v3.9: a stop names its project by key, the folder's name and a hash of its path (never the path),
+ * so a note a guild lead proposes can be kept in that project's notes. `project` is Claude Code's CLAUDE_PROJECT_DIR.
  */
-export function allowlist(p, home = homedir()) {
+export function allowlist(p, home = homedir(), project = process.env.CLAUDE_PROJECT_DIR) {
   const who = {
     hook_event_name: str(p.hook_event_name, 40),
     session_id: str(p.session_id, 100),
@@ -157,6 +159,7 @@ export function allowlist(p, home = homedir()) {
       agent_type: str(obj(t).agent_type, 100),
     }));
   }
+  if (p.hook_event_name === 'SubagentStop') out.project = projectOf(project)?.key;
   return withoutUndefined(out);
 }
 

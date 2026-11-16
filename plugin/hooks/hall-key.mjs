@@ -1,6 +1,6 @@
 // World of Agents hall key (v3.4c, docs/v3.4-plan.md, T8). The team pane runs it when Dima presses "Open Team page", as
-// `node <plugin>/hooks/hall-key.mjs` in the plugin's folder, with {"key": "<43 base64url characters>"} on stdin: a random
-// one-time key the mod made. It hands the key to the hall the way send.mjs posts a hook: only after the hall proves it
+// `node <plugin>/hooks/hall-key.mjs` in the plugin's folder, with {"key": "<43 base64url characters>", "project": "<the
+// session's folder>"} on stdin: a random one-time key the mod made, and (v3.9) the project whose team it opens. It hands the key to the hall the way send.mjs posts a hook: only after the hall proves it
 // holds the token, with the token, no redirect, the reply thrown away. The key never goes on a command line or in an
 // environment variable. The hall then takes it once, within 60 seconds, from the page the pane's link opens.
 //
@@ -8,14 +8,18 @@
 
 import { realpathSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { projectInput } from '../team/team.mjs';
 import { hallKnowsToken, readToken } from './send.mjs';
 
 const HALL = 'http://127.0.0.1:4319';
 const TIMEOUT_MS = 2000;
-const MAX_STDIN = 256;
+const MAX_STDIN = 4096;
 const KEY = /^[A-Za-z0-9_-]{43}$/;
 
-/** The key in `raw` when it is exactly {"key": "<43 base64url characters>"}, else null. */
+/**
+ * {key, project} when `raw` is exactly {"key": "<43 base64url characters>", "project": "<an absolute folder>"}, else null.
+ * The project is checked as team.mjs's projectInput() checks it; the hall reads it as a project again.
+ */
 export function keyOf(raw) {
   if (typeof raw !== 'string' || raw.length > MAX_STDIN) return null;
   let v;
@@ -24,19 +28,22 @@ export function keyOf(raw) {
   } catch {
     return null;
   }
-  if (v === null || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).join() !== 'key') return null;
-  return typeof v.key === 'string' && KEY.test(v.key) ? v.key : null;
+  if (v === null || typeof v !== 'object' || Array.isArray(v) || Object.keys(v).join() !== 'key,project')
+    return null;
+  if (typeof v.key !== 'string' || !KEY.test(v.key)) return null;
+  const project = projectInput(JSON.stringify({ project: v.project }));
+  return project === null ? null : { key: v.key, project };
 }
 
-/** Hands the key to the hall once it has proved itself, and says whether the hall took it. Never throws. */
-export async function postKey(key, token, { hall = HALL, timeoutMs = TIMEOUT_MS } = {}) {
+/** Hands the key and its project to the hall once it has proved itself, and says whether the hall took it. Never throws. */
+export async function postKey({ key, project }, token, { hall = HALL, timeoutMs = TIMEOUT_MS } = {}) {
   const signal = AbortSignal.timeout(timeoutMs);
   try {
     if (!(await hallKnowsToken(hall, token, signal))) return false;
     const res = await fetch(`${hall}/api/key`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ key }),
+      body: JSON.stringify({ key, project }),
       redirect: 'error',
       signal,
     });
@@ -59,11 +66,11 @@ async function readStdin() {
 }
 
 async function main() {
-  const key = keyOf(await readStdin());
-  if (!key) return false;
+  const given = keyOf(await readStdin());
+  if (!given) return false;
   const token = readToken();
   if (!token) return false;
-  return postKey(key, token);
+  return postKey(given, token);
 }
 
 /**

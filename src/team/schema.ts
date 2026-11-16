@@ -18,6 +18,10 @@ export const GUILDS = ['design', 'frontend', 'backend', 'review'] as const;
 /** What a specialist may do (v3.6, E7). The third is not for the Design guild. */
 export const PRESETS = ['reads', 'edits', 'edits-and-checks'] as const;
 export const MAX_PER_GUILD = 5;
+/** v3.9: a project's key (team.mjs's projectOf()), where a library skill came from, and the library's size. */
+export const PROJECT_KEY = /^[a-z0-9]+(?:-[a-z0-9]+)*-[0-9a-f]{10}$/;
+export const SOURCES = ['team', 'starter', 'written'] as const;
+export const MAX_LIBRARY = 200;
 
 const line = (max: number) =>
   z
@@ -28,6 +32,9 @@ const line = (max: number) =>
     .refine((s) => s.trim() === s);
 const skillId = z.string().max(48).regex(SKILL_ID);
 const specialistId = z.string().max(48).regex(SPECIALIST_ID);
+const projectKey = z.string().max(40).regex(PROJECT_KEY);
+/** A folder's name or path: only ever shown as text. */
+const shown = (max: number) => z.string().min(1).max(max);
 const skillFields = {
   id: skillId,
   name: line(60),
@@ -35,8 +42,10 @@ const skillFields = {
   text: z.string().min(1).max(MAX_TEXT),
 };
 
-/** {"key": "..."}: the body of POST /api/key (from hall-key.mjs) and POST /api/session (from the page). */
+/** {"key": "..."}: the body of POST /api/session, from the page. */
 export const keyBodySchema = z.strictObject({ key: z.string().regex(KEY) });
+/** v3.9: {"key", "project"}, the body of POST /api/key from hall-key.mjs: the key and its session's folder. */
+export const keyPostSchema = z.strictObject({ key: z.string().regex(KEY), project: shown(1024) });
 
 const preset = z.enum(PRESETS);
 /** v3.7: a note's or a proposal's id, 12 random bytes as base64url, and its guild lead. */
@@ -94,6 +103,12 @@ export const teamChangeSchema = z.discriminatedUnion('action', [
   z.strictObject({ action: z.literal('note-approve'), id: noteId }),
   z.strictObject({ action: z.literal('note-reject'), id: noteId }),
   z.strictObject({ action: z.literal('note-delete'), agent: noteAgent, id: noteId }),
+  // v3.9: the project given its own team once, an empty one filled, and a shared note kept or dropped here.
+  z.strictObject({ action: z.literal('give-own-team'), from: z.enum(['shared', 'empty']) }),
+  z.strictObject({ action: z.literal('add-starter') }),
+  z.strictObject({ action: z.literal('copy-from'), project: projectKey }),
+  z.strictObject({ action: z.literal('note-keep'), id: noteId }),
+  z.strictObject({ action: z.literal('note-drop'), id: noteId }),
 ]);
 export type TeamChange = z.infer<typeof teamChangeSchema>;
 
@@ -129,15 +144,53 @@ const specialistSchema = z.strictObject({
 });
 const skillSchema = z.strictObject({ id: skillId, name: line(60), description: line(200) });
 
-/** The team as GET and POST /api/team answer: the team and each skill's text. */
+const specialists = z.array(specialistSchema).max(GUILDS.length * MAX_PER_GUILD);
+/** v3.9: a library skill, with where it came from and when. */
+const librarySkillSchema = z.strictObject({
+  id: skillId,
+  name: line(60),
+  description: line(200),
+  source: z.strictObject({ kind: z.enum(SOURCES) }),
+  addedAt: stamp,
+});
+/** A project that uses a skill: its key, its folder's name, and which of its specialists have it. */
+const usageSchema = z.strictObject({
+  project: projectKey,
+  name: shown(255),
+  specialists: z.array(line(40)).max(20),
+});
+/** Another project on this PC, for "Copy from another project". */
+const otherSchema = z.strictObject({ key: projectKey, name: shown(255), folder: shown(1024), specialists });
+/** A note of the old shared team, waiting for review in this project. */
+const reviewSchema = z.strictObject({
+  id: noteId,
+  agent: noteAgent,
+  text: noteText,
+  proposedAt: stamp,
+  approvedAt: stamp,
+});
+
+/**
+ * The project's team as GET and POST /api/team answer (v3.9): the project, its team (null until it has one of its own),
+ * the library with each skill's text and the projects that use it, its notes and the shared notes waiting for review,
+ * the proposals from its sessions, the other projects (for a copy), the shared team's size (for the one-time copy), the
+ * starter team, and the commands Dima runs once.
+ */
 export const teamViewSchema = z.strictObject({
-  team: z.strictObject({
-    version: z.literal(2),
-    generator: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
-    specialists: z.array(specialistSchema).max(GUILDS.length * MAX_PER_GUILD),
-    skills: z.array(skillSchema).max(64),
-  }),
+  project: z.strictObject({ key: projectKey, name: shown(255), folder: shown(1024) }),
+  team: z
+    .strictObject({
+      version: z.literal(3),
+      generator: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
+      specialists,
+    })
+    .nullable(),
+  shared: z
+    .strictObject({ specialists: z.number().int().min(0).max(20), notes: z.number().int().min(0).max(80) })
+    .nullable(),
+  library: z.array(librarySkillSchema).max(MAX_LIBRARY),
   texts: z.record(skillId, z.string().max(MAX_TEXT)),
+  usage: z.record(skillId, z.array(usageSchema).max(100)),
   // v3.7: the guild leads' approved notes, and the proposals the hall holds in memory.
   notes: z.strictObject({
     designer: z.array(noteSchema).max(20),
@@ -146,12 +199,20 @@ export const teamViewSchema = z.strictObject({
     reviewer: z.array(noteSchema).max(20),
   }),
   proposals: z.array(proposalSchema).max(20),
+  review: z.array(reviewSchema).max(80),
+  others: z.array(otherSchema).max(100),
+  starter: z.strictObject({ specialists, skills: z.array(skillSchema).max(64) }),
+  install: z.array(z.string().max(200)).max(5),
 });
 export type TeamView = z.infer<typeof teamViewSchema>;
 export type TeamNote = z.infer<typeof noteSchema>;
 export type TeamProposal = z.infer<typeof proposalSchema>;
 export type TeamSpecialist = z.infer<typeof specialistSchema>;
 export type TeamSkill = z.infer<typeof skillSchema>;
+export type LibrarySkill = z.infer<typeof librarySkillSchema>;
+export type SkillUsage = z.infer<typeof usageSchema>;
+export type OtherProject = z.infer<typeof otherSchema>;
+export type ReviewNote = z.infer<typeof reviewSchema>;
 
 /** A hall answer that went wrong, as the page reads it: a fixed word, or nothing it knows. */
 export const teamErrorSchema = z.strictObject({ error: z.string().max(300) });

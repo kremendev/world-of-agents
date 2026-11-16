@@ -77,10 +77,13 @@ export type PaneChange =
     }
   | {
       at: number;
-      /** v3.7: a guild lead's note, named by its guild lead only, never its text. */
-      what: 'note-approved' | 'note-rejected' | 'note-deleted';
+      /** v3.7: a guild lead's note, named by its guild lead only, never its text. v3.9: a shared note kept or dropped. */
+      what: 'note-approved' | 'note-rejected' | 'note-deleted' | 'note-kept' | 'note-dropped';
       agent: 'Designer' | 'Frontend dev' | 'Backend dev' | 'Reviewer';
-    };
+    }
+  /** v3.9: the project given its own team, or an empty team filled from the starter team or another project. */
+  | { at: number; what: 'team-given'; from: 'shared' | 'empty' }
+  | { at: number; what: 'starter-added' | 'team-copied' };
 
 /**
  * The team editor's link (v3.4c): none, a key on its way to the hall, a link open for a minute, or the hall didn't take
