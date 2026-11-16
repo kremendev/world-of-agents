@@ -11,9 +11,12 @@ import {
   MAX_SPECIALIST_TEXT,
   MAX_PER_GUILD,
   MAX_PRELOADED,
+  MAX_TEXT,
   PRESETS,
   skillIdOf,
   specialistIdOf,
+  type ClaudeSkillView,
+  type LibrarySkill,
   type ReviewNote,
   type SkillAnswer,
   type SkillAsk,
@@ -158,6 +161,68 @@ export function sourceFrom(source: SkillSource): string {
           : 'Your Claude skills (no label in the app)';
   }
 }
+
+/**
+ * v3.10f, the approved mockup's facts box: what a source says beyond where it came from, in its order (Repository and
+ * ref, File, License). A skill from the team, the starter team or written here has none.
+ */
+export function sourceFacts(source: SkillSource): { label: string; value: string }[] {
+  const license = { label: 'License', value: 'license' in source ? (source.license ?? 'None given') : '' };
+  switch (source.kind) {
+    case 'github':
+      return [
+        { label: 'Repository and ref', value: `${source.owner}/${source.repo} @ ${source.ref}` },
+        { label: 'File', value: source.path },
+        license,
+      ];
+    case 'claude':
+      return [{ label: 'File', value: `~/.claude/skills/${source.file}` }, license];
+    case 'pasted':
+      return [license];
+    default:
+      return [];
+  }
+}
+
+/** v3.10f: the check screen's cost, "about 2,300 tokens every time a specialist that has it starts · 8,512 of 20,000 characters". */
+export const checkCost = (text: string) =>
+  `${aboutTokens(text)} every time a specialist that has it starts · ${thousands(text.length)} of ${thousands(MAX_TEXT)} characters`;
+
+/**
+ * v3.10f: Dima's Claude skills as the list shows them, the approved mockup's two groups, his and the built-in ones, and a
+ * third only when the app's list couldn't label some: an unlabelled one may be Anthropic's, so it is never called his.
+ * Each row says whether the library has that file already.
+ */
+export const CLAUDE_GROUPS = [
+  { label: 'mine', title: 'Yours', note: null },
+  {
+    label: 'built-in',
+    title: 'Built-in',
+    note: "They keep Anthropic's license: read it before you copy one. Most need their scripts, which don't come along.",
+  },
+  {
+    label: 'unlabelled',
+    title: 'Not labelled',
+    note: "The desktop app's list of skills couldn't be read, so these may be yours or built-in.",
+  },
+] as const;
+export function claudeGroups(list: readonly ClaudeSkillView[], library: readonly LibrarySkill[]) {
+  const have = new Set(library.flatMap((s) => (s.source.kind === 'claude' ? [s.source.file] : [])));
+  return CLAUDE_GROUPS.map((g) => ({
+    ...g,
+    rows: list.filter((s) => s.label === g.label).map((s) => ({ ...s, inLibrary: have.has(s.file) })),
+  })).filter((g) => g.rows.length > 0);
+}
+
+/** v3.10f: the GitHub link shapes the hall takes, shown under the link box (server/github.ts's; a test holds them in step). */
+export const LINK_SHAPES = [
+  'https://github.com/<owner>/<repo>/blob/<ref>/<folder>/SKILL.md',
+  'https://github.com/<owner>/<repo>/tree/<ref>/<folder>',
+  'https://raw.githubusercontent.com/<owner>/<repo>/<ref>/<folder>/SKILL.md',
+];
+
+/** "allowed-tools: would have let tools run without asking", or the key alone: a field left out of a header. */
+export const droppedLine = (d: SkillCheckView['dropped'][number]) => (d.why ? `${d.key}: ${d.why}` : d.key);
 
 /** "Used in 2 projects", or "Not used yet". */
 export const usedLine = (projects: number) =>
@@ -458,6 +523,15 @@ export function skillRefusals(d: SkillDraft, view: TeamView): string[] {
   else if (!isDescription(d.description)) out.push(DESCRIPTION_RULE);
   return [...out, ...checkText(d.text).refusals];
 }
+
+/**
+ * v3.10f: why a checked skill can't go into the library yet: what the hall refused in the file, then the skill form's
+ * rules for the name and what it's for as Dima left them, and for its text. The hall and team.mjs check it all again.
+ */
+export const takeRefusals = (check: SkillCheckView, name: string, description: string, view: TeamView) => [
+  ...check.refusals,
+  ...skillRefusals({ mode: 'add', id: '', name, description, text: check.text }, view),
+];
 
 /** Each guild lead by its role's name, as the hall says it. */
 export const NOTE_NAME: Record<NoteAgent, string> = {

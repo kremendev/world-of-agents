@@ -1754,6 +1754,42 @@ button.tp-card:hover {
   color: var(--ui-flag);
 }
 
+/* v3.10f, the check screen: what its header held that the library leaves out, and the files it names, in amber. */
+.tp-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--ui-flag);
+  border-radius: 10px;
+  background: var(--ui-flag-bg);
+}
+
+.tp-warn h3 {
+  color: var(--ui-flag);
+}
+
+.tp-warn ul {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* A Claude skill's file under ~/.claude/skills, and the link shapes the hall takes. */
+.tp-file,
+.tp-shapes code {
+  font-family: var(--ui-mono);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+
+.tp-shapes {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+}
+
 /* v3.9: a team with no specialists yet, and its three ways to fill it. */
 .tp-empty-panel {
   display: flex;

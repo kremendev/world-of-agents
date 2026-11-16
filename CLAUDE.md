@@ -93,7 +93,8 @@ src/team/         v3.4c, the team editor: schema.ts (Zod: the change, the team v
                   the hall view and keeps it mounted, so its connection carries on) is src/page/TeamPage.tsx (top bar,
                   search, tabs, status line with Undo), TeamSpecialists.tsx and TeamLibrary.tsx (v3.9: the Skills tab became the
                   Library; the project chip, the banner of a project with no team of its own, the empty panel, the
-                  starter team and the copy, the old shared notes to review)
+                  starter team and the copy, the old shared notes to review), TeamAddSkill.tsx (v3.10f: "+ Add a skill",
+                  its four ways in and the one check screen) and TextLines.tsx (a text line by line with its flags)
 server/           the v2 hall server, run with tsx: hall.ts (node:http: Host, Origin and token checks, POST
                   /api/handshake, POST /api/hook, POST /api/ledger (v3.2: the token ledger's total from ledger-post.mjs, kept in memory only and sent as a
                   named `ledger` SSE event after each replay, never in it), SSE /api/events with a 500-event replay ended by its start id
@@ -1068,4 +1069,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     tree, and the size-cap test's endless stream crashed VS Code twice: Testing notes has the rules that came of it).
     3.10e done (Check for update on the page: a GitHub skill's link fetched again through the hall, the differences line
     by line with the added lines' flags, a new license, the refusals, then "Take the update" by the check's id or "Keep
-    what I have"; fifteen planted bugs, all caught once one test was sharpened).
+    what I have"; fifteen planted bugs, all caught once one test was sharpened). 3.10f's page done ("+ Add a skill" as
+    the approved mockup shows it: four ways in, your Claude skills in Yours and Built-in, and a third group, Not labelled,
+    only when the app's list couldn't label some, since an unlabelled one may be Anthropic's; From GitHub with the three
+    shapes; Paste; one check screen with the name and what it's for to edit, the facts and cost against 20,000, the amber
+    boxes, the red refusals and the whole text, whose Add sends the check's id; the library's facts box gets Repository
+    and ref, File and License; an answer that comes after a step was left is dropped; seventeen planted bugs, all caught).

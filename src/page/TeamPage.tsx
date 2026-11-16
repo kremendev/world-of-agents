@@ -56,6 +56,8 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
   const [note, setNote] = useState<string | null>(null);
   const [specialistDraft, setSpecialistDraft] = useState<SpecialistDraft | null>(null);
   const [skillDraft, setSkillDraft] = useState<SkillDraft | null>(null);
+  // v3.10f: "+ Add a skill" opens its four ways in, in the details pane.
+  const [skillAdding, setSkillAdding] = useState(false);
   // An element to focus once the render that shows it is done; `n` makes asking twice for one id count.
   const [focusAsk, setFocusAsk] = useState<{ id: string; n: number } | null>(null);
   // v3.9: once the project has its own team, the commands Dima runs once so Claude Code loads it.
@@ -137,6 +139,7 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
 
   const openSkill = (id: string) => {
     setSkillDraft(null);
+    setSkillAdding(false);
     setSkill(id);
     setTab('library');
     actions.focus(ids.details);
@@ -203,7 +206,9 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
         skills: [],
       });
     } else {
-      setSkillDraft({ mode: 'add', id: '', name: '', description: '', text: '' });
+      setSkillDraft(null);
+      setSkillAdding(true);
+      actions.focus(ids.details);
     }
   };
 
@@ -366,10 +371,13 @@ export function TeamPage({ session, onBack }: { session: TeamSession; onBack: ()
                   selected={skill}
                   onSelect={(id) => {
                     setSkillDraft(null);
+                    setSkillAdding(false);
                     setSkill(id);
                   }}
                   draft={skillDraft}
                   setDraft={setSkillDraft}
+                  adding={skillAdding}
+                  setAdding={setSkillAdding}
                   actions={actions}
                   ids={{ details: ids.details, main: ids.main, base }}
                   onOpenSpecialist={openSpecialist}

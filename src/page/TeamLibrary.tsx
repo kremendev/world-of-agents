@@ -6,7 +6,8 @@ import {
   type TeamSpecialist,
   type TeamView,
 } from '../team/schema';
-import { type TextCheck } from '../team/text';
+import { AddSkill } from './TeamAddSkill';
+import { TextLines } from './TextLines';
 import {
   aboutTokens,
   dayOf,
@@ -25,6 +26,7 @@ import {
   skillRefusals,
   GROUPS,
   groupOf,
+  sourceFacts,
   sourceFrom,
   usedLine,
   usersOf,
@@ -37,7 +39,8 @@ type Ids = { details: string; main: string; base: string };
 
 /**
  * The Library tab (v3.9, the approved mockup of 16 Nov): every skill on this PC, grouped by where it came from, each
- * saying how many projects use it; one skill's facts, who has it here and elsewhere, its whole text, or the form.
+ * saying how many projects use it; one skill's facts, who has it here and elsewhere, its whole text, or the form; from
+ * v3.10f "+ Add a skill" and its four ways in.
  */
 export function LibraryTab({
   view,
@@ -46,6 +49,8 @@ export function LibraryTab({
   onSelect,
   draft,
   setDraft,
+  adding,
+  setAdding,
   actions,
   ids,
   onOpenSpecialist,
@@ -56,6 +61,8 @@ export function LibraryTab({
   onSelect: (id: string) => void;
   draft: SkillDraft | null;
   setDraft: (draft: SkillDraft | null) => void;
+  adding: boolean;
+  setAdding: (adding: boolean) => void;
   actions: TeamActions;
   ids: Ids;
   onOpenSpecialist: (id: string) => void;
@@ -103,7 +110,7 @@ export function LibraryTab({
                       <button
                         type="button"
                         className="tp-row"
-                        aria-current={!draft && current?.id === s.id ? 'true' : undefined}
+                        aria-current={!draft && !adding && current?.id === s.id ? 'true' : undefined}
                         onClick={() => onSelect(s.id)}
                       >
                         <span className="tp-row-main">
@@ -137,6 +144,25 @@ export function LibraryTab({
               actions.focus(current ? ids.details : ids.main);
             }}
           />
+        ) : adding ? (
+          <AddSkill
+            view={view}
+            actions={actions}
+            headingId={ids.details}
+            onWrite={() => {
+              setAdding(false);
+              setDraft({ mode: 'add', id: '', name: '', description: '', text: '' });
+            }}
+            onAdded={(id) => {
+              setAdding(false);
+              onSelect(id);
+              actions.focus(ids.details);
+            }}
+            onCancel={() => {
+              setAdding(false);
+              actions.focus(current ? ids.details : ids.main);
+            }}
+          />
         ) : (
           current && (
             <SkillDetails
@@ -160,27 +186,6 @@ export function LibraryTab({
         )}
       </div>
     </div>
-  );
-}
-
-/** A text line by line, numbered, with its flags (skillLines(), noteLines()). */
-export function TextLines({ lines }: { lines: TextCheck['lines'] }) {
-  return (
-    <ol className="tp-lines">
-      {lines.map((line, i) => (
-        <li key={i} className={line.flags.length > 0 ? 'flagged' : undefined}>
-          <span className="tp-num" aria-hidden="true">
-            {i + 1}
-          </span>
-          <code>{line.text === '' ? ' ' : line.text}</code>
-          {line.flags.map((flag) => (
-            <span key={flag} className="tp-pill tp-pill-flag">
-              {FLAG_LABEL[flag]}
-            </span>
-          ))}
-        </li>
-      ))}
-    </ol>
   );
 }
 
@@ -274,6 +279,12 @@ function SkillDetails({
           <dt>From</dt>
           <dd>{sourceFrom(s.source)}</dd>
         </div>
+        {sourceFacts(s.source).map((f) => (
+          <div key={f.label}>
+            <dt>{f.label}</dt>
+            <dd>{f.value}</dd>
+          </div>
+        ))}
         <div>
           <dt>Added</dt>
           <dd>{dayOf(s.addedAt)}</dd>

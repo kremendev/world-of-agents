@@ -550,6 +550,7 @@ describe('the Team page: the library', () => {
     await open();
     await skillsTab();
     await click(screen.getByRole('button', { name: '+ Add a skill' }));
+    await click(screen.getByRole('button', { name: /^Write a new one/ }));
     type('Name', 'Release notes');
     expect(screen.getByText('Its id will be woa-team:release-notes')).toBeInTheDocument();
     type("What it's for", 'How to write a release note');

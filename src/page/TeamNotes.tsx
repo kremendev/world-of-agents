@@ -10,7 +10,7 @@ import {
   type NoteItem,
   type TeamActions,
 } from '../team/view';
-import { TextLines } from './TeamLibrary';
+import { TextLines } from './TextLines';
 
 type Ids = { details: string; main: string; base: string };
 
