@@ -54,6 +54,9 @@ To publish, the page goes up with `models/chars/*` as `chars/*` and `models/keep
 
 ## Models and fallbacks
 
+The models in `models/` are Dima's, all rights reserved, and not under the repository's MIT licence
+(`models/LICENSE.md`). Only the code is MIT.
+
 Every model is optional. `KIT_FILES` in m1-kit.js lists the Blender files; all start loading at once, and each one
 that arrives within 20 s replaces its hand-built part (the castle needs walls, towers and gate together). A file that
 fails or is late leaves that part hand-built. The characters load on their own; a model that fails leaves the
