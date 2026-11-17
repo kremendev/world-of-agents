@@ -339,7 +339,11 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   applies both (v3 spike), the mode only until one is picked for that folder in the app: from then on new sessions start
   in the folder's last pick, over the file (its log says `source=folder_pick`; seen 8 Nov). So far it took the file's
   mode only in a git repository; a folder without git got the user settings' mode (11 Nov; the brief has what that
-  proves and what it doesn't). Until the milestone 2 setup skill writes that file, only `woa` forces Manual and
+  proves and what it doesn't). On 17 Nov (v3.10.0, git repositories) sessions right after the setup still got the user
+  settings' mode (`source=settings_default_mode`): the app reads the project's settings when it checks the folder
+  (`checkTrust`, `sources=0` before the setup, `sources=1` after), and only sessions after a new check took the file's
+  (`repo_settings_default_mode`); so the 11 Nov no-git result may be that too, untested. Until the milestone 2 setup
+  skill writes that file, only `woa` forces Manual and
   `CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH`.
 - From v3.3 `gate.mjs` answers too, and only at `SubagentStop`: a block (the dev goes back to fix a failing
   `npm run check`) or nothing. It runs only where the project's settings set `env.WOA_QUALITY_GATE` to "1" (written by
@@ -1090,13 +1094,18 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     without World of Agents (its settings hold the plugin's switch, the Lead and the denies). Started as the desktop app
     starts it, Claude Code read the project's settings with no trust record (no-login probe); the app itself is a step on
     his list. The README's setup has "4. Trust the project", and both parts of the list a trust step. v3.10.0 is
-    released (17 Nov, after Dima's list, part 1 on a323dea after `npm run dev:refresh`): tag `v3.10.0` on `a323dea`,
+    released (17 Nov, on Dima's report that his list passed): tag `v3.10.0` on `a323dea`,
     main fast-forwarded to it, the GitHub release from docs/release-notes/v3.10.0.md. `release:check` passed split in
     two: in a throwaway worktree its `check:hall` failed only on the bundle's path comments, which named the modules
     through the `node_modules` junction (every changed line a comment), so `check:hall` ran in the repo, whose code is
     a323dea's, and `check` in the worktree; under the PowerShell tool `bash` isn't on PATH, so woa.test.ts
-    and setup-skill's bash tests skip, and they ran again with Git Bash first on PATH. Still to come: what step 3 showed
-    (the desktop app's side of folder trust), for the README, and part 2, the move of `woa-test` and `woa-v3-test`.
+    and setup-skill's bash tests skip, and they ran again with Git Bash first on PATH. The traces read after the tag
+    showed that list ran v3.7.0: `npm run dev:refresh` hadn't run (the dev install still 3.7.0, 15 Nov), `woa-m2-test`
+    kept template 3 and the shared team, and no project had a team of its own; check the traces before a tag next
+    time. v3.10.0's own desktop test then ran on the GitHub install (17 Nov): step 3 in `woa-trust-check2` (the app
+    asked for trust on opening the folder, yes recorded the trust Claude Code reads, the session after the setup was
+    the Lead with the pane, but in Auto from the user settings, now in the README's trust step), and part 2 in
+    `woa-test` and `woa-v3-test` (template 4, each its own team enabled). Still to come: a specialist start in each.
 
 18. v4.0.0 changes direction (Dima, 16 Nov): the Forge Keep in 3D. three.js, pinned and bundled; an anime style with
     cel shading, ink outlines and chibi proportions; nine areas joined by paths; states mapped to places; idle life
