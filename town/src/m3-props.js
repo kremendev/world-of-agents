@@ -255,20 +255,27 @@ function desk(kind) {
   for (const sd of [-1, 1]) cornerIron(g, sd * 0.85, 0.79, 0.42, sd, 1);
   const out = { g, kb: null, screen: null, light: null };
   if (kind === 'screen') {
-    out.kb = at(mesh(new THREE.BoxGeometry(0.6, 0.05, 0.22), M.iron), -0.1, 0.82, -0.08);
+    // the keyboard at the front edge, where a seated agent's hands are: an iron board with rows of red-glowing keys
+    // (its height is in userData.y0: the Frontend dev's shakes when the keys are smashed)
+    out.kb = at(new THREE.Group(), -0.12, 0.805, -0.25);
+    out.kb.userData.y0 = 0.805;
+    out.kb.add(mesh(new THREE.BoxGeometry(0.62, 0.035, 0.2), M.iron));
+    for (const [z, w] of [[-0.06, 0.54], [0, 0.56], [0.06, 0.5]]) out.kb.add(at(mesh(new THREE.BoxGeometry(w, 0.012, 0.04), glow('#ff5a3a', 0.55), false), 0, 0.022, z));
     g.add(out.kb);
+    // the screen at the back, facing the seat, on a short stand that stands on the desk
     const frame = new THREE.Group();
     frame.add(mesh(new THREE.BoxGeometry(1.04, 0.7, 0.05), M.woodD));
     const sm = new THREE.MeshBasicMaterial({ map: TEX.code, transparent: true, opacity: 0.4, toneMapped: false });
     out.screen = rot(at(new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.58), sm), 0, 0, -0.03), 0, PI, 0);
     frame.add(out.screen);
     frame.add(at(new THREE.Mesh(new THREE.PlaneGeometry(0.92, 0.58), sm), 0, 0, 0.03));
-    frame.add(at(mesh(new THREE.BoxGeometry(0.08, 0.36, 0.08), M.woodD), 0, -0.5, 0));
+    frame.add(at(mesh(new THREE.BoxGeometry(0.08, 0.13, 0.08), M.woodD), 0, -0.41, 0));
+    frame.add(at(mesh(new THREE.BoxGeometry(0.34, 0.02, 0.2), M.woodD), 0, -0.455, 0));
     frame.add(at(skull(0.09), 0.46, 0.4, 0));
-    frame.position.set(-0.15, 1.33, -0.1);
+    frame.position.set(-0.12, 1.25, 0.17);
     g.add(frame);
     out.light = new THREE.PointLight('#7fe8ff', 0, 3.2, 2);
-    out.light.position.set(-0.15, 1.3, -0.6);
+    out.light.position.set(-0.12, 1.25, -0.35);
     g.add(out.light);
     g.add(at(mug(), 0.6, 0.79, 0.15));
   } else if (kind === 'paper') {

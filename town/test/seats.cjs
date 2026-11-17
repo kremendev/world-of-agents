@@ -50,8 +50,10 @@ const T = process.env.THREE_DIR || path.join(__dirname, '..', '.three160');
         const y = (name) => m.getObjectByName(name).getWorldPosition(new THREE.Vector3()).y - r.y;
         const hp = m.getObjectByName('mixamorigHips').getWorldPosition(new THREE.Vector3());
         // the seat: the highest surface under the hips at seat height (tables stand higher, the floor lower)
-        const hits = new THREE.Raycaster(new THREE.Vector3(hp.x, r.y + 1.2, hp.z), new THREE.Vector3(0, -1, 0), 0, 1.3).intersectObjects(scene.children, true)
-          .filter((h) => !agentOf(h.object) && shown(h.object) && h.object.isMesh && !h.object.material.transparent && h.point.y - r.y > 0.25 && h.point.y - r.y < 0.66);
+        // as the page does: five rays close around the hips (a bench's slats have a gap in the middle), the highest counts
+        const hits = [[0, 0], [0.05, 0], [-0.05, 0], [0, 0.05], [0, -0.05]].flatMap(([dx, dz]) => new THREE.Raycaster(new THREE.Vector3(hp.x + dx, r.y + 1.2, hp.z + dz), new THREE.Vector3(0, -1, 0), 0, 1.3).intersectObjects(scene.children, true)
+          .filter((h) => !agentOf(h.object) && shown(h.object) && h.object.isMesh && !h.object.material.transparent && h.point.y - r.y > 0.25 && h.point.y - r.y < 0.66).slice(0, 1))
+          .sort((a, b) => b.point.y - a.point.y);
         const acts = M.acts, top = Object.entries(acts).sort((x, z) => z[1].getEffectiveWeight() - x[1].getEffectiveWeight())[0];
         out.push({ spot, id, H, pose: window.WOA.data.SPOTS[spot].pose, clip: top[0], w: top[1].getEffectiveWeight(),
           seat: hits.length ? hits[0].point.y - r.y : null, hips: hp.y - r.y,

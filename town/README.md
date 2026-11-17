@@ -100,10 +100,10 @@ Made in Tripo Studio: an anime concept image, image to 3D, the Mixamo rig, the p
 play_mobile_game, exported as GLB with the skeleton, animations in place. Then `tools/slim_chars.py`,
 `tools/to_gltf_json.py` and `tools/pack_gltf.py`. In town, desk work plays play_mobile_game (a seated clip with the
 hands forward), chairs play sit, and the rest idle until there are more clips. Each model is sized to its hand-built
-figure's height. The seated clips were made for a taller chair than the town's, so a seated model is placed with its
-hips on the seat (5.5% of its height above it, where a hip joint sits) and each leg bent by two-bone IK until its ankle
-stands at the height it has on the ground; a leg too short for that hangs. With reduced motion, clips switch at once
-(the mixer's time stands still, so a crossfade would never end).
+figure's height. The seated clips were made for a taller chair than the town's, and sit forward of it, so a seated
+model is placed with its hips on the seat, over its middle (5.5% of its height above it, where a hip joint sits), and
+each leg is bent by two-bone IK until its ankle stands at the height it has on the ground; a leg too short for that
+hangs. With reduced motion, clips switch at once (the mixer's time stands still, so a crossfade would never end).
 
 Each file keeps Tripo's AIGC label in `asset.extras` (the slim pass leaves it), so a model can be traced back:
 

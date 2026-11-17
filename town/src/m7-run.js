@@ -620,8 +620,8 @@ function tick() {
     const fe = WOA.agents.frontend;
     const smashing = fe.state === 'work' && fe.arrived && !fe.needs;
     const k = Math.abs(Math.sin(t * 5.2 + actors.frontend.phase));
-    sparks.forEach((sp, i) => { const hit = smashing && k < 0.25; sp.material.opacity = hit ? 1 - k * 4 : 0; sp.position.set(-0.55 + i * 0.3, 0.98 + (i % 2) * 0.12 + (hit ? (0.25 - k) * 0.8 : 0), (i % 2) * 0.1 - 0.05); sp.material.rotation = t * 3 + i; });
-    deskF.kb.position.y = 0.82 + (smashing && k < 0.2 ? 0.03 : 0);
+    sparks.forEach((sp, i) => { const hit = smashing && k < 0.25; sp.material.opacity = hit ? 1 - k * 4 : 0; sp.position.set(-0.4 + i * 0.19, 0.95 + (i % 2) * 0.12 + (hit ? (0.25 - k) * 0.8 : 0), (i % 2) * 0.08 - 0.29); sp.material.rotation = t * 3 + i; });
+    deskF.kb.position.y = deskF.kb.userData.y0 + (smashing && k < 0.2 ? 0.03 : 0);
     const ep = embers.geometry.attributes.position, eh = embers.userData.h, es = embers.userData.seed;
     for (let i = 0; i < ep.count; i++) {
       const sd = es[i];

@@ -160,15 +160,23 @@ function driveModel(c, mode, dt, spotId) {
     const hp = M.hips.getWorldPosition(_ikH);
     top = seatTop(spotId + '|' + c.root.userData.agentId, hp.x, hp.z, ground);
   }
-  let y = M.baseY;
+  let y = M.baseY, x = 0, z = 0;
   if (top !== null) {
     // the hips on the seat: move the model by what the clip's hips miss by
     y = M.obj.position.y + (ground + top + SEAT_CLEAR * c.H) - _ikH.y;
+    // and over its middle (the spot): the seated clips sit 10 to 23 cm forward of their seat, which put chests into desks
+    const ry = c.root.rotation.y, cs = Math.cos(ry), sn = Math.sin(ry);
+    const wx = c.root.position.x - _ikH.x, wz = c.root.position.z - _ikH.z;
+    x = M.obj.position.x + wx * cs - wz * sn;
+    z = M.obj.position.z + wx * sn + wz * cs;
   } else if (seated && M.seat[want] !== undefined) {
     // no seat found: the old rule, the hips at the hand-built rig's seat height, sinking the feet 0.22 m at most
     y = M.baseY + Math.max(-0.22, Math.min(0, c.seatY - M.baseY - M.seat[want]));
   }
-  M.obj.position.y += (y - M.obj.position.y) * (REDUCE ? 1 : Math.min(1, dt * 8));
+  const ease = REDUCE ? 1 : Math.min(1, dt * 8);
+  M.obj.position.x += (x - M.obj.position.x) * ease;
+  M.obj.position.y += (y - M.obj.position.y) * ease;
+  M.obj.position.z += (z - M.obj.position.z) * ease;
   M.ikW = top === null ? 0 : Math.min(1, (M.ikW || 0) + (REDUCE ? 1 : dt / 0.3));
   if (top !== null) {
     M.obj.updateWorldMatrix(true, true);   // from the root down: an agent just moved has a stale root matrix
