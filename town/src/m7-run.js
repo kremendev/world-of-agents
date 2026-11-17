@@ -597,7 +597,7 @@ function tick() {
     const mode = walking ? (WOA.paused ? 'idle' : 'walk') : st.needs ? 'needs' : SPOTS[st.spot].pose;
     pose(c, mode, t * (walking ? 1.25 : 1), a.phase);
     blinker(c, t);
-    if (c.model) driveModel(c, mode, dt);
+    if (c.model) driveModel(c, mode, dt, walking ? null : st.spot);
   }
   // the furnace burns as hard as the team works
   const heat = 0.25 + working * 0.35;

@@ -23,7 +23,7 @@ const T = process.env.THREE_DIR || path.join(__dirname, '..', '.three160');
   await p.addStyleTag({ content: '#hud, .hud, aside, header, .rail, .panel, .timeline, #labels { display: none !important }' }).catch(() => {});
   const t0 = Date.now();
   for (const v of views) {
-    await p.evaluate((v) => { const d = window.__dbg; d.camera.position.set(...v.p); d.controls.target.set(...v.t); d.controls.update(); if (v.fov) { d.camera.fov = v.fov; d.camera.updateProjectionMatrix(); } }, v);
+    await p.evaluate((v) => { const d = window.__dbg; d.free = !!v.free; d.camera.position.set(...v.p); d.controls.target.set(...v.t); d.controls.update(); if (v.fov) { d.camera.fov = v.fov; d.camera.updateProjectionMatrix(); } }, v);
     await p.waitForTimeout(v.wait || 2500);
     await p.screenshot({ path: path.join(out, v.name + '.png'), timeout: 240000 }); console.log('shot', v.name, Date.now() - t0);
   }
