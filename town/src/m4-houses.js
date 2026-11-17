@@ -99,6 +99,45 @@ function buildWall(sf, L, top, door, corners, windows, o = {}) {
   boxes(sf, M.timber, tl); boxes(up, M.timber, tu);
   boxes(sf, M.pane, pl, false); boxes(up, M.pane, pu, false);
   boxes(sf, M.red, sl); boxes(up, M.red, su);
+  separateCut(sf, cutY);
+}
+// Opened, a house shows its walls' cut tops from above, and where two materials' boxes end at the cut (the stone band
+// and the timber sill, say) their tops share one plane and fight for the same pixels: they flicker. So each material's
+// cut top, after the darkest, is lowered a little more than the last; the parts above the cut are left alone.
+const _cutV = new THREE.Vector3(), _cutM = new THREE.Matrix4(), _cutB = new THREE.Matrix4(), _cutI = new THREE.Matrix4();
+function separateCut(sf, cutY) {
+  const up = sf.userData.up, byMat = new Map();
+  sf.traverse((o) => {
+    if (!o.isMesh || Array.isArray(o.material)) return;
+    for (let q = o; q && q !== sf; q = q.parent) if (q === up) return;
+    if (!byMat.has(o.material)) byMat.set(o.material, []);
+    byMat.get(o.material).push(o);
+  });
+  const lum = (m) => (m.color ? m.color.r * 0.3 + m.color.g * 0.59 + m.color.b * 0.11 : 0) + (m.map ? 0.5 : 0);
+  const mats = [...byMat.keys()].sort((a, b) => lum(a) - lum(b));
+  sf.updateWorldMatrix(true, true);
+  _cutI.copy(sf.matrixWorld).invert();
+  const done = new Set();
+  mats.forEach((m, i) => {
+    if (!i) return;
+    for (const o of byMat.get(m)) {
+      if (done.has(o.geometry)) continue;
+      done.add(o.geometry);
+      _cutM.multiplyMatrices(_cutI, o.matrixWorld);
+      _cutB.copy(_cutM).invert();
+      const pos = o.geometry.attributes.position;
+      let moved = false;
+      for (let k = 0; k < pos.count; k++) {
+        _cutV.fromBufferAttribute(pos, k).applyMatrix4(_cutM);
+        if (Math.abs(_cutV.y - cutY) > 0.002) continue;
+        _cutV.y -= 0.003 * i;
+        _cutV.applyMatrix4(_cutB);
+        pos.setXYZ(k, _cutV.x, _cutV.y, _cutV.z);
+        moved = true;
+      }
+      if (moved) { pos.needsUpdate = true; o.geometry.computeBoundingBox(); o.geometry.computeBoundingSphere(); }
+    }
+  });
 }
 function buildRoof(H, top, o) {
   const r = H.r, a = o.pitch || 0.6, over = 0.6;
@@ -197,6 +236,7 @@ function kitWall(H, sf, lo, hi, door, o = {}) {
   sf.userData.cutY = cutY;
   kitPut(H, lo, sf);
   kitPut(H, hi, up);
+  separateCut(sf, cutY);
   if (door) for (const sd of [-1, 1]) up.add(at(torch(), door.x + sd * (door.w / 2 + 0.55), FLOOR_H + 1.7 - cutY, T / 2 + 0.08));
 }
 function kitRoof(H, top, o, node) {
