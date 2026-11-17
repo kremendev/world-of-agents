@@ -14,6 +14,8 @@ export default defineConfig([
     'tools/claude-code-types',
     'plugin/.claude-plugin/types',
     'plugin/hall',
+    // the 3D town (Forge Keep): plain JS fragments that town/src/build.py joins into one module, checked by town/test/check.sh
+    'town',
   ]),
   {
     files: ['**/*.{ts,tsx}'],

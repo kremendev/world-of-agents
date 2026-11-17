@@ -284,6 +284,16 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   Reviewer at Frontend desk → Reviewer at Backend desk → verdict in the library → report sent, everyone rests.
 - **Furnace** glows brighter the more agents are working. Candles and fires flicker.
 
+## Forge Keep, the 3D town (`town/`)
+
+A side project beside the app, not part of it: the five agents in a 3D anime castle town (three.js r160), playing the
+demo run, published as a Claude artifact. `town/README.md` has the build, the checks, the Blender jobs and the
+character pipeline. Nothing in `src/`, `server/` or `plugin/` imports it, and `npm run check` doesn't cover it
+(ESLint and Prettier ignore the folder): its own check is `town/test/check.sh`. It lives on the branch `forge-keep`
+until Dima decides where it goes; no tag for it. The same style rules hold (original fantasy, the cast's names never
+change). The Blender runner on Dima's PC runs any `.py` in `Documents\WoA-models\jobs` while its window is open: close
+it when a batch is done.
+
 ## Security rules: non-negotiable
 
 - Agent output is untrusted text. Render it as React text. ESLint blocks `dangerouslySetInnerHTML`. Its only

@@ -29,3 +29,11 @@ plugin/tsconfig.json
 Thumbs.db
 *.suo
 *.sw?
+
+# The 3D town (Forge Keep): build output, the stand-in three.js the page walks generate, the render test's copies
+town/dist
+town/src/module.mjs
+town/test/mock/*.js
+town/test/mock/names.txt
+town/.serve
+town/.three160

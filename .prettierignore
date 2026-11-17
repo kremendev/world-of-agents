@@ -5,3 +5,5 @@ package-lock.json
 tools/claude-code-types
 plugin/.claude-plugin/types
 plugin/hall
+# the 3D town (Forge Keep) keeps its own style: its sources are assembled into one page by town/src/build.py
+town
