@@ -359,6 +359,6 @@ To work on the page, run `npm run dev` (http://localhost:5173). Run `npm run che
 
 ## Credits and license
 
-All art is original, drawn for this project. The only third-party asset is the [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans) font (SIL Open Font License 1.1), installed from npm, so the page makes no requests to Google Fonts.
+All art is original, drawn for this project. The only third-party assets are two fonts, both under the SIL Open Font License 1.1 and self-hosted, installed from npm, so the page makes no requests to Google Fonts: [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans), and from v3.6 [Inter](https://fontsource.org/fonts/inter) on the Team page.
 
 MIT. See [LICENSE](LICENSE).
