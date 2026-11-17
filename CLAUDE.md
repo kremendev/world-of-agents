@@ -1151,4 +1151,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `model/gltf-binary`; tools/models with the runner's allowlist (tested with Blender's Python and a stand-in bpy,
     a planted job refused, and the check planted out let it run); tests/models.test.ts; docs/ASSETS.md's list; the
     README's credits; eleven planted bugs in a throwaway worktree, all caught. The notice beside the plugin's copy
-    comes with the step that bundles the models.
+    comes with the step that bundles the models. Step 2 is done: src/world/map.ts, the town's world.js in strict
+    TypeScript, identical in every room, spot, road line, graph node and all 420 routes (both run and compared), with
+    map.test.ts; six planted bugs caught, once a test was sharpened (a terrace is reached from outside its house).
