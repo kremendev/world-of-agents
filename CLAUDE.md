@@ -190,7 +190,8 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
                   v4.0-plan.md (the Forge Keep in 3D: waits for Dima's review), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
                   screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
-                  GitHub release's text, written before the tag)
+                  GitHub release's text, written before the tag), ASSETS.md (v4's models: Dima's, all rights reserved,
+                  not under the MIT licence, which covers the code only; never relicense them)
 ```
 
 ## How the hall is drawn
@@ -1096,5 +1097,13 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     pixel redraw is dropped, and v3.11.0 (C) folds into the HUD part, 4d; its plan stays as history. docs/v4.0-plan.md
     is a plan only (parts 4a to 4f, with Dima's decisions, Claude's proposals and the questions marked apart). It waits
     for his review, and nothing of it is built before he approves. His question on where project specialists appear
-    comes before 4b, as do Claude's on the 3 s desk hold and the places that depend on the task. Who makes the models
-    is a question before 4e. Packed GLB images need `blob:`, which the CSP doesn't allow, so models carry none.
+    comes before 4b, as do Claude's on the 3 s desk hold and the places that depend on the task. Packed GLB images need
+    `blob:`, which the CSP doesn't allow, so models carry none. Dima's notes of 17 Nov: the Forge Keep already exists as
+    a prototype on the branch `forge-keep` (`town/`, three r160, Tripo characters, Blender scenery); 4a and 4b port its
+    layout, assets and logic into `src/world`, never grey boxes and never a merge of `town/`, and its models come into
+    main once. The plan has what Claude checked there (b11020a) and the conflicts as questions: chibi against the Tripo
+    cast, the 10 MB budget against 15.7 MB as GLB, idle spots in work places, and four clips. Tripo's terms are
+    answered (Dima, 17 Nov): the models are his, the characters made on a paid plan, all rights reserved and outside
+    the MIT licence (docs/ASSETS.md, in the words of `town/models/LICENSE.md` at 89ae8b1); the README's licence section
+    says it once models land, with use, not access, and the build writes the notice beside the plugin's copy. The clips
+    are Tripo's presets and the concept images our own.
