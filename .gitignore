@@ -37,3 +37,4 @@ town/test/mock/*.js
 town/test/mock/names.txt
 town/.serve
 town/.three160
+town/**/__pycache__

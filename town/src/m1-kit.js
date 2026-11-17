@@ -483,10 +483,47 @@ function glbFromEmbedded(gl) {
   dv.setUint32(20 + jl, bl, true); dv.setUint32(24 + jl, 0x004e4942, true); u8.set(bytes, 28 + jl);
   return out;
 }
+// The files are packed (town/tools/pack_gltf.py): integer positions, normals, texture coordinates and weights, and
+// no normals where they were flat. The page merges and bakes plain Float32 geometry, so each model is unpacked once,
+// here: every attribute back to Float32 (skin indices stay), a node's dequantization (extras.woa_q = [x, y, z, step])
+// moved out of its transform into its geometry, and flat normals computed again. Unpacked files pass through unchanged.
+const _dq = new THREE.Matrix4(), _dqInv = new THREE.Matrix4();
+function plainModel(g) {
+  const done = new Set();
+  g.scene.traverse((o) => {
+    const q = o.userData.woa_q;
+    if (q) {
+      _dq.makeScale(q[3], q[3], q[3]).setPosition(q[0], q[1], q[2]);
+      o.matrix.compose(o.position, o.quaternion, o.scale).multiply(_dqInv.copy(_dq).invert());
+      o.matrix.decompose(o.position, o.quaternion, o.scale);
+    }
+    if (!o.isMesh || done.has(o.geometry)) return;
+    const geo = o.geometry;
+    done.add(geo);
+    for (const [k, a] of Object.entries(geo.attributes)) {
+      if (k === 'skinIndex' || (a.array instanceof Float32Array && !a.isInterleavedBufferAttribute)) continue;
+      const n = a.itemSize, out = new Float32Array(a.count * n);
+      for (let i = 0; i < a.count; i++) {
+        out[i * n] = a.getX(i);
+        if (n > 1) out[i * n + 1] = a.getY(i);
+        if (n > 2) out[i * n + 2] = a.getZ(i);
+        if (n > 3) out[i * n + 3] = a.getW(i);
+      }
+      geo.setAttribute(k, new THREE.BufferAttribute(out, n));
+    }
+    const dq = q || (o.parent && o.parent.userData.woa_q);   // a mesh of several materials is a group of meshes
+    if (dq) geo.applyMatrix4(_dq.makeScale(dq[3], dq[3], dq[3]).setPosition(dq[0], dq[1], dq[2]));
+    if (!geo.attributes.normal) geo.computeVertexNormals();
+    geo.computeBoundingBox();
+    geo.computeBoundingSphere();
+  });
+  return g;
+}
 function loadGltfJson(url, path) {
   return fetch(url)
     .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status + ' for ' + url); return r.json(); })
-    .then((gl) => new Promise((res, rej) => gltfLoader.parse(glbFromEmbedded(gl), path, res, rej)));
+    .then((gl) => new Promise((res, rej) => gltfLoader.parse(glbFromEmbedded(gl), path, res, rej)))
+    .then(plainModel);
 }
 // Blender materials become the town's own: parts that glow in Blender (windows, fire, crystals) take its glow,
 // at a strength scaled from Blender's; everything else its toon shading in the same colour, so they batch with the rest.

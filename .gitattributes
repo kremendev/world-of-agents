@@ -13,3 +13,6 @@ tools/claude-code-types/index.d.ts linguist-generated=true -diff
 
 # Windows batch files: cmd.exe misreads some LF-only scripts (labels and blocks near a 512-byte boundary).
 *.bat text eol=crlf
+
+# The town's models: packed glTF, one line of base64 each (town/tools/pack_gltf.py), too long to read in a diff.
+town/models/** linguist-generated=true -diff

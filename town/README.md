@@ -20,9 +20,11 @@ town/src/        the page: base.html (the HUD, the run), world.js (the map: room
                  m6b-glb.js    the Tripo characters: loading, sizing, clips per pose
                  m7-run.js     agents in the world, the bake, camera, picking, labels, the loop
 town/blender/    Blender jobs (see below) and woa_kit.py, the shared helpers
-town/tools/      slim_chars.py (a Tripo export for the web), to_gltf_json.py (.glb to the .gltf.json the page loads)
-town/test/       check.sh (build + both page walks), serve.sh and shot.cjs (real renders), mock/ (the walks)
-town/models/     chars/ (the five characters) and keep/ (the Blender models), as the page loads them
+town/tools/      slim_chars.py (a Tripo export for the web), to_gltf_json.py (.glb to the .gltf.json the page loads),
+                 pack_gltf.py (that .gltf.json about half as big, still plain glTF)
+town/test/       check.sh (build + both page walks), serve.sh and shot.cjs (real renders), compare.cjs (packed against
+                 unpacked models, vertex by vertex), mock/ (the walks)
+town/models/     chars/ (the five characters) and keep/ (the Blender models), packed, as the page loads them
 ```
 
 ## Build and check
@@ -38,6 +40,10 @@ For pictures: `town/test/serve.sh` (a test copy with a camera hook, never publis
 `THREE_DIR=<three.js checkout at tag r160> node town/test/shot.cjs http://127.0.0.1:8765/index.html views.json out/`
 with views as `[{ "name": "garden", "p": [x, y, z], "t": [x, y, z] }]`. Software WebGL takes about a minute a shot.
 
+After packing models again: `THREE_DIR=<r160 checkout> node town/test/compare.cjs <unpacked dir> town/models` loads
+each unpacked and packed file with real three.js and the page's own unpacking, and fails a file whose vertices, normals,
+triangles or posed skins moved past the limits (2 mm, 1 degree, 3 mm).
+
 To publish, the page goes up with `models/chars/*` as `chars/*` and `models/keep/*` as `keep/*` beside it.
 
 ## Models and fallbacks
@@ -46,6 +52,14 @@ Every model is optional. `KIT_FILES` in m1-kit.js lists the Blender files; all s
 that arrives within 20 s replaces its hand-built part (the castle needs walls, towers and gate together). A file that
 fails or is late leaves that part hand-built. The characters load on their own; a model that fails leaves the
 hand-built figure. Artifacts serve JSON and JPEG but not .glb, hence `.gltf.json` (see tools/to_gltf_json.py).
+
+The files are packed by `tools/pack_gltf.py` (39 MB of models became 19.5 MB): 16-bit positions with the
+dequantization in the node's transform (KHR_mesh_quantization), no normals where the page can compute them flat
+within 0.5 degree, 8- and 16-bit normals, texture coordinates and skin weights, animation keys that interpolation
+reproduces dropped, and tracks that only hold the rest pose left out. It is plain glTF, so three.js reads it with no
+decoder and no WebAssembly. `plainModel()` in m1-kit.js unpacks each model once as it loads (Float32 attributes, the
+dequantization moved back into the geometry, flat normals computed), so everything after it sees what it always saw.
+A host that gzips JSON sends about 10 MB of it; whether the artifact host does is not checked.
 
 Lights and flames stay hand-built everywhere (torches, braziers, the furnace mouth, lamps): they animate, and the
 furnace burns hotter the more agents work.
@@ -56,6 +70,7 @@ They run on Dima's PC through a headless runner, so the PC stays free: `woa_watc
 `blender -b --python woa_watch.py`, which runs every `.py` dropped into `Documents\WoA-models\jobs` in a clean scene,
 moves it to `jobs\done` and logs to `jobs\status.txt`. **It runs any .py in that folder while it is open: close its
 window when done** (or create `jobs\STOP`). Jobs exec `woa_kit.py` from `Documents\WoA-models`, write models to `WoA-models\keep` and previews to `WoA-models\renders`.
+Each `.glb` then goes through `tools/to_gltf_json.py` and `tools/pack_gltf.py` into `models/keep`.
 
 | Job | Makes |
 | --- | --- |
@@ -74,9 +89,10 @@ upper walls 0.9 m above their base, by the same rule as the hand-built walls (an
 ## The characters
 
 Made in Tripo Studio: an anime concept image, image to 3D, the Mixamo rig, the presets walk, idle, sit and
-play_mobile_game, exported as GLB with the skeleton, animations in place. Then `tools/slim_chars.py` and
-`tools/to_gltf_json.py`. In town, desk work plays play_mobile_game (a seated clip with the hands forward), chairs play
-sit, and the rest idle until there are more clips. Each model is sized to its hand-built figure's height.
+play_mobile_game, exported as GLB with the skeleton, animations in place. Then `tools/slim_chars.py`,
+`tools/to_gltf_json.py` and `tools/pack_gltf.py`. In town, desk work plays play_mobile_game (a seated clip with the
+hands forward), chairs play sit, and the rest idle until there are more clips. Each model is sized to its hand-built
+figure's height.
 
 Each file keeps Tripo's AIGC label in `asset.extras` (the slim pass leaves it), so a model can be traced back:
 
