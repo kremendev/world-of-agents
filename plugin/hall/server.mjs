@@ -15172,7 +15172,9 @@ var PAGE_TYPES = {
   ".woff": "font/woff",
   ".svg": "image/svg+xml",
   ".png": "image/png",
-  ".ico": "image/x-icon"
+  ".ico": "image/x-icon",
+  // v4.0.0: the Forge Keep's models, our own files only (docs/ASSETS.md), never one an event names.
+  ".glb": "model/gltf-binary"
 };
 var FILE_PATH = /^(?:\/[A-Za-z0-9_-][A-Za-z0-9._-]*)+$/;
 var typeOf = (path) => PAGE_TYPES[extname(path).toLowerCase()];

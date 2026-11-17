@@ -6,6 +6,9 @@
 *.gif binary
 *.woff2 binary
 *.woff binary
+# The Forge Keep's models and their textures (v4.0.0, docs/ASSETS.md): never a line-ending conversion.
+*.glb binary
+*.jpg binary
 
 # The engine's mods API types, written by `npm run types:update`: generated, and too long to read in a diff.
 tools/claude-code-types/index.d.ts linguist-generated=true -diff

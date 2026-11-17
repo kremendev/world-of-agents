@@ -37,13 +37,21 @@ The owner works on Windows in Git Bash. Give commands that work there.
 - TypeScript 6.0.3, typescript-eslint 8.72.2 and ESLint 10.15.0 (with `@eslint/js` 10.0.1), pinned exactly (v3.5a).
   Not TypeScript 7: typescript-eslint 8 accepts only below 6.1. Upgrade them together.
 - `overrides` in package.json gives typescript-estree `minimatch` 11.0.8 (GHSA-g3hv-75wg-m249, fixed in 11.0.1) until a
-  stable typescript-eslint asks for `^11.0.1`; then drop it. `npm audit` is clean. After changing an override, remove
+  stable typescript-eslint asks for `^11.0.1`; then drop it. `npm audit` was clean until 17 Nov, when GHSA-fc5q-39xc-vjpf
+  (picomatch up to 4.0.7, the newest, ReDoS, no patched version) came to cover the copy vite, tinyglobby and
+  typescript-eslint use: build and lint tools matching our own patterns, never in the bundle. `npm audit fix --force`
+  would put vite back to 6.2.7, so it waits for a patched picomatch. After changing an override, remove
   the nested copy from package-lock.json and node_modules, or npm keeps it and calls it "invalid".
 - eslint-plugin-react-hooks 7 (ESLint 10 needs it): eslint.config.js turns on its two classic rules only. Its presets
   add the React Compiler's rules (8 `react-hooks/refs` errors in App.tsx and ReviewBoard.tsx, 14 Nov): a choice of its own.
 - `yaml` 2.9.1, pinned exactly, is a dependency from v3.10 (it was a dev dependency from 3.6e): `server/skill-check.ts`
   reads a SKILL.md header from outside with it (core schema, unique keys, an alias limit of 5, no tag), and the hall
   bundles it. `plugin/team/team.mjs` never imports it.
+- `three` 0.187.0 and `@types/three` 0.187.0, pinned exactly (v4.0.0, 4a; Dima chose the newest, proven by a
+  real-render comparison against the town's r160). three has no dependencies and no install script. `@types/three`
+  brings six packages for its types alone (fflate, @types/webxr, meshoptimizer, @types/stats.js, @tweenjs/tween.js,
+  @dimforge/rapier3d-compat), none with an install script; nothing imports them, and meshoptimizer and rapier3d are
+  WebAssembly, which the page's policy refuses. Upgrade three and its types together, as a task of its own.
 - Vite 7 is one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
 - npm blocks dependency install scripts. `esbuild` is approved in `package.json` `allowScripts`. If a new
   package asks, review it and approve by name; never `npm install-scripts approve --all`.
@@ -162,7 +170,16 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json (no setting
                   setup-gates-write/ and setup-gates-off/ (v3.3: the quality gates switch, env WOA_QUALITY_GATE; tested in
                   server/setup-gates.test.ts).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
+src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from `town/` on `forge-keep`. models/: the
+                  keep's GLB files (4a), Dima's, all rights reserved (docs/ASSETS.md)
+tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
+                  only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
+                  Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
+                  buffer in its binary chunk, an image a file beside it); README.md has the pipeline
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
+                  models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
+                  buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
+                  its texture) and listed in docs/ASSETS.md with its author, a Tripo character with its ProduceID.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
                   tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, guard-woa-folder: no edit
                   into ~/.world-of-agents, guard-backlog and its mock
@@ -1127,4 +1144,11 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     answered (Dima, 17 Nov): the models are his, the characters made on a paid plan, all rights reserved and outside
     the MIT licence (docs/ASSETS.md, in the words of `town/models/LICENSE.md` at 89ae8b1); the README's licence section
     says it once models land, with use, not access, and the build writes the notice beside the plugin's copy. The clips
-    are Tripo's presets and the concept images our own.
+    are Tripo's presets and the concept images our own. Dima approved the plan (17 Nov) and 4a started, in five
+    steps: the foundation, the map in `src/world/`, the scene, the camera and the React side, the checks. Step 1 is
+    done: three 0.187.0 pinned; the 17 keep models as GLB in src/world/models (7.04 MB, every buffer view byte for
+    byte as on forge-keep and the same geometry through three 0.187's GLTFLoader); `.glb` served as
+    `model/gltf-binary`; tools/models with the runner's allowlist (tested with Blender's Python and a stand-in bpy,
+    a planted job refused, and the check planted out let it run); tests/models.test.ts; docs/ASSETS.md's list; the
+    README's credits; eleven planted bugs in a throwaway worktree, all caught. The notice beside the plugin's copy
+    comes with the step that bundles the models.

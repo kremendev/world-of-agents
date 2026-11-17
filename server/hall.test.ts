@@ -20,6 +20,8 @@ const TOKEN = newToken();
 
 let root: string;
 let dist: string;
+/** A model's first bytes: binary, with a NUL and bytes over 0x7f, so a text read would change them. */
+const GLB = Buffer.from([0x67, 0x6c, 0x54, 0x46, 0x02, 0x00, 0x00, 0x00, 0xff, 0xfe, 0x80, 0x00]);
 /** dist/ as npm run hall serves it: every page file in it. */
 const distPage = (): Page => ({ dir: dist, files: new Map(Object.entries(listPage(dist))) });
 let hall: Hall;
@@ -32,6 +34,7 @@ beforeAll(() => {
   mkdirSync(join(dist, 'assets'), { recursive: true });
   writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Forge Hall</title>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'export {};');
+  writeFileSync(join(dist, 'assets', 'keep.glb'), GLB);
   writeFileSync(join(dist, 'notes.txt'), 'not part of the page');
   writeFileSync(join(dist, 'favicon.svg'), readFileSync(join(import.meta.dirname, '../public/favicon.svg')));
   writeFileSync(join(root, 'secret.js'), 'outside dist');
@@ -44,7 +47,7 @@ beforeEach(async () => {
 });
 afterEach(() => hall.close());
 
-type Reply = { status: number; headers: IncomingHttpHeaders; body: string };
+type Reply = { status: number; headers: IncomingHttpHeaders; body: string; bytes: Buffer };
 type Call = {
   method?: string;
   path: string;
@@ -73,6 +76,7 @@ function call({ method = 'GET', path, headers = {}, body, host = HALL_HOST }: Ca
             status: res.statusCode ?? 0,
             headers: res.headers,
             body: Buffer.concat(chunks).toString('utf8'),
+            bytes: Buffer.concat(chunks),
           }),
         );
       },
@@ -613,6 +617,12 @@ describe('the built page', () => {
     expect([head.status, head.body]).toEqual([200, '']);
   });
 
+  it('serves a model as model/gltf-binary, byte for byte', async () => {
+    const model = await call({ path: '/assets/keep.glb' });
+    expect([model.status, model.headers['content-type']]).toEqual([200, 'model/gltf-binary']);
+    expect(model.bytes.equals(GLB)).toBe(true);
+  });
+
   it.each([
     '/../secret.js',
     '/%2e%2e/secret.js',
@@ -629,6 +639,7 @@ describe('the built page', () => {
   it('lists only page files, by URL path, and a missing folder is an empty page', () => {
     expect(listPage(dist)).toEqual({
       '/assets/app.js': 'text/javascript; charset=utf-8',
+      '/assets/keep.glb': 'model/gltf-binary',
       '/favicon.svg': 'image/svg+xml',
       '/index.html': 'text/html; charset=utf-8',
     });
@@ -708,6 +719,7 @@ describe("the plugin's page: only the files its manifest names", () => {
     ['no leading slash', 'assets/app.js', 'text/javascript; charset=utf-8'],
     ['a kind the page is not made of', '/notes.txt', 'text/plain'],
     ['a type its extension is not served as', '/app.js', 'text/html; charset=utf-8'],
+    ['a model under another type', '/assets/keep.glb', 'application/octet-stream'],
   ])('refuses a manifest that names %s', (_, path, type) => {
     expect(() => readManifest({ files: { [path]: type } })).toThrow();
   });

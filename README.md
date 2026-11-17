@@ -361,6 +361,8 @@ To work on the page, run `npm run dev` (http://localhost:5173). Run `npm run che
 
 ## Credits and license
 
-All art is original, drawn for this project. The only third-party assets are two fonts, both under the SIL Open Font License 1.1 and self-hosted, installed from npm, so the page makes no requests to Google Fonts: [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans), and from v3.6 [Inter](https://fontsource.org/fonts/inter) on the Team page.
+All art is original, made for this project. The only third-party assets are two fonts, both under the SIL Open Font License 1.1 and self-hosted, installed from npm, so the page makes no requests to Google Fonts: [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans), and from v3.6 [Inter](https://fontsource.org/fonts/inter) on the Team page.
 
-MIT. See [LICENSE](LICENSE).
+The 3D models (`src/world/models/`, from v4.0.0) are Dmitriy Kremen's, all rights reserved: they are **not** under the MIT licence, which covers the code only. [docs/ASSETS.md](docs/ASSETS.md) lists them and says what that means. All rights reserved governs use, not access: GitHub's terms let anyone view and fork a public repository on GitHub, and the hosted demo hands the files to every visitor's browser.
+
+The code is MIT. See [LICENSE](LICENSE).
