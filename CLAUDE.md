@@ -1089,7 +1089,14 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     untrusted folder, and declining starts it with `--ignore-persisted-trust` and without the project setting source, so
     without World of Agents (its settings hold the plugin's switch, the Lead and the denies). Started as the desktop app
     starts it, Claude Code read the project's settings with no trust record (no-login probe); the app itself is a step on
-    his list. The README's setup has "4. Trust the project", and both parts of the list a trust step. Stopped for Dima.
+    his list. The README's setup has "4. Trust the project", and both parts of the list a trust step. v3.10.0 is
+    released (17 Nov, after Dima's list, part 1 on a323dea after `npm run dev:refresh`): tag `v3.10.0` on `a323dea`,
+    main fast-forwarded to it, the GitHub release from docs/release-notes/v3.10.0.md. `release:check` passed split in
+    two: in a throwaway worktree its `check:hall` failed only on the bundle's path comments, which named the modules
+    through the `node_modules` junction (every changed line a comment), so `check:hall` ran in the repo, whose code is
+    a323dea's, and `check` in the worktree; under the PowerShell tool `bash` isn't on PATH, so woa.test.ts
+    and setup-skill's bash tests skip, and they ran again with Git Bash first on PATH. Still to come: what step 3 showed
+    (the desktop app's side of folder trust), for the README, and part 2, the move of `woa-test` and `woa-v3-test`.
 
 18. v4.0.0 changes direction (Dima, 16 Nov): the Forge Keep in 3D. three.js, pinned and bundled; an anime style with
     cel shading, ink outlines and chibi proportions; nine areas joined by paths; states mapped to places; idle life
@@ -1101,8 +1108,13 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `blob:`, which the CSP doesn't allow, so models carry none. Dima's notes of 17 Nov: the Forge Keep already exists as
     a prototype on the branch `forge-keep` (`town/`, three r160, Tripo characters, Blender scenery); 4a and 4b port its
     layout, assets and logic into `src/world`, never grey boxes and never a merge of `town/`, and its models come into
-    main once. The plan has what Claude checked there (b11020a) and the conflicts as questions: chibi against the Tripo
-    cast, the 10 MB budget against 15.7 MB as GLB, idle spots in work places, and four clips. Tripo's terms are
+    main once. The plan has what Claude checked there (b11020a), and Dima's answers the same day, all Decided: under
+    16 MB of files and 9 MB compressed, a character under 2 MB with its texture; three's newest release, proven by a
+    real-render comparison against r160; the 2D hall frozen as the fallback; no chibi, the Tripo cast as made; idle
+    never in a work place, the Forge counted as one (agents still walk through it); the desk hold seated with the
+    screen dark at once; the Reviewer at the dev's desk, a Lead reading a dev's task in the Workshop, a waiting Lead in
+    the War room; specialists A for 4b, B later; a raised-hand clip made in Tripo for all five before 4c. Open: the
+    HUD mockup and the label font (before 4d). Tripo's terms are
     answered (Dima, 17 Nov): the models are his, the characters made on a paid plan, all rights reserved and outside
     the MIT licence (docs/ASSETS.md, in the words of `town/models/LICENSE.md` at 89ae8b1); the README's licence section
     says it once models land, with use, not access, and the build writes the notice beside the plugin's copy. The clips
