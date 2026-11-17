@@ -159,7 +159,9 @@ const POND = { x: -30, z: -20, r: 2.6, mouthA: 0 };
 const waterTex = TEX.ripple;
 waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
 const WATER_DEEP = new THREE.Color('#1f5f8c'), WATER_SHALLOW = new THREE.Color('#6fb6d2'), WATER_BANK = new THREE.Color('#a6d8e6');
-const waterMat = (lift) => new THREE.MeshBasicMaterial({ map: waterTex, vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 - lift, polygonOffsetUnits: -4 - lift * 4 });
+// water takes no light, so it carries the evening itself: a dusky tint over its colours (the falls' too)
+const WATER_DUSK = '#bdb3c4';
+const waterMat = (lift) => new THREE.MeshBasicMaterial({ map: waterTex, color: WATER_DUSK, vertexColors: true, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 - lift, polygonOffsetUnits: -4 - lift * 4 });
 const _wc = new THREE.Color();
 function waterColour(x, z, edge) {
   const d = Math.hypot(x - POND.x, z - POND.z);
@@ -323,7 +325,7 @@ const mists = [];
   const L = WW.brookLine;
   const [ex, ez] = L[L.length - 1], [px, pz] = L[L.length - 3];
   const fl = Math.hypot(ex - px, ez - pz), fx = (ex - px) / fl, fz = (ez - pz) / fl;
-  const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 40), new THREE.MeshBasicMaterial({ map: fallTex, color: '#e6f4fa', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+  const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 40), new THREE.MeshBasicMaterial({ map: fallTex, color: '#acb5c8', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
   fall.position.set(ex + fx * 0.9, -20 + 0.05, ez + fz * 0.9);
   fall.rotation.y = Math.atan2(fx, fz);
   scene.add(fall);

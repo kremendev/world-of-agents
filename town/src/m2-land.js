@@ -1,10 +1,11 @@
 
-/* ================================================================ sky, light: late afternoon, a low gold sun and cool blue shade */
-// The sky is a dome that paints its own gradient: deep blue overhead, pale near the horizon, warm where the sun is.
-const SUN_DIR = new THREE.Vector3(-62, 44, 70).normalize();
+/* ================================================================ sky, light: early evening, a low orange sun and dusky shade,
+   dim enough that the castle's own lights (torches, braziers, windows, the furnace) carry it */
+// The sky is a dome that paints its own gradient: deep blue overhead, warm near the horizon, orange where the sun is.
+const SUN_DIR = new THREE.Vector3(-62, 27, 70).normalize();
 const skyDome = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
   side: THREE.BackSide, depthWrite: false, fog: false,
-  uniforms: { zen: { value: new THREE.Color('#3d5c9c') }, mid: { value: new THREE.Color('#8fb0da') }, hor: { value: new THREE.Color('#f6d2ae') }, low: { value: new THREE.Color('#e7b896') }, sunCol: { value: new THREE.Color('#ffd49a') }, sunDir: { value: SUN_DIR } },
+  uniforms: { zen: { value: new THREE.Color('#2b3b78') }, mid: { value: new THREE.Color('#7f8fc4') }, hor: { value: new THREE.Color('#f2aa7c') }, low: { value: new THREE.Color('#c98a72') }, sunCol: { value: new THREE.Color('#ffa864') }, sunDir: { value: SUN_DIR } },
   vertexShader: 'varying vec3 vDir; void main() { vDir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
   fragmentShader: `uniform vec3 zen, mid, hor, low, sunCol, sunDir; varying vec3 vDir;
     void main() {
@@ -18,9 +19,9 @@ const skyDome = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.
 skyDome.renderOrder = -100;
 skyDome.frustumCulled = false;
 scene.add(skyDome);
-scene.fog = new THREE.Fog('#e9c9ab', 230, 640);
-scene.add(new THREE.HemisphereLight('#bccdf0', '#6b4c3c', 1.55));
-const sun = new THREE.DirectionalLight('#ffd09a', 3.1);
+scene.fog = new THREE.Fog('#d6a487', 230, 640);
+scene.add(new THREE.HemisphereLight('#9aa8d8', '#4a3428', 1.05));
+const sun = new THREE.DirectionalLight('#ffb070', 2.3);
 sun.position.copy(SUN_DIR).multiplyScalar(110);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
@@ -266,7 +267,7 @@ function skyIsle(cx, cy, cz, R, theme, sd) {
     for (const [x, z, k] of fixed) isleTree(g, k, 1.2 * s, x * R, z * R);
     isleFlora(g, R, theme, fixed);
     g.add(at(rot(mesh(new THREE.CircleGeometry(R * 0.28, 24), toon('#5c96b4', { emissive: '#2c5a72', emissiveIntensity: 0.35 }), false), -PI / 2, 0, 0), R * 0.25, 0.04, R * 0.3));
-    const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.8 * s, R * 3.2), new THREE.MeshBasicMaterial({ map: fallTexFar, color: '#e6f4fa', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
+    const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.8 * s, R * 3.2), new THREE.MeshBasicMaterial({ map: fallTexFar, color: '#acb5c8', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
     fall.position.set(R * 0.62, -R * 1.6, R * 0.62);
     fall.rotation.y = PI / 4;
     g.add(fall);
