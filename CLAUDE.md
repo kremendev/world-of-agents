@@ -1122,7 +1122,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     time. v3.10.0's own desktop test then ran on the GitHub install (17 Nov): step 3 in `woa-trust-check2` (the app
     asked for trust on opening the folder, yes recorded the trust Claude Code reads, the session after the setup was
     the Lead with the pane, but in Auto from the user settings, now in the README's trust step), and part 2 in
-    `woa-test` and `woa-v3-test` (template 4, each its own team enabled). Still to come: a specialist start in each.
+    `woa-test` and `woa-v3-test` (template 4, each its own team enabled). Dima reports the React dev started in both
+    (17 Nov), which closes the list. The traces can't show it either way: the desktop app removes a deleted session's
+    transcript (woa-test's one session after its setup, 22:55, was deleted), and the hall replays only the session it
+    follows. `woa-trust-check` and `woa-trust-check2` are gone.
 
 18. v4.0.0 changes direction (Dima, 16 Nov): the Forge Keep in 3D. three.js, pinned and bundled; an anime style with
     cel shading, ink outlines and chibi proportions; nine areas joined by paths; states mapped to places; idle life
@@ -1151,6 +1154,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `model/gltf-binary`; tools/models with the runner's allowlist (tested with Blender's Python and a stand-in bpy,
     a planted job refused, and the check planted out let it run); tests/models.test.ts; docs/ASSETS.md's list; the
     README's credits; eleven planted bugs in a throwaway worktree, all caught. The notice beside the plugin's copy
-    comes with the step that bundles the models. Step 2 is done: src/world/map.ts, the town's world.js in strict
+    comes with the step that bundles the models. Dima starts the runner only from tools/models/blender, his old copies
+    in Documents\WoA-models deleted (17 Nov). Step 2 is done: src/world/map.ts, the town's world.js in strict
     TypeScript, identical in every room, spot, road line, graph node and all 420 routes (both run and compared), with
     map.test.ts; six planted bugs caught, once a test was sharpened (a terrace is reached from outside its house).
