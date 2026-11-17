@@ -175,6 +175,33 @@ for (let i = 0; i < 22; i++) {
 
 /* far isles: each a small world of its own, so they read as places and not as shapes */
 const isleSide = strataMat(-0.75, 1.35);
+// The isles' trees and bushes come from the Blender flora set, drawn with the island's own; without the set, the isle
+// keeps its hand-built trees and no more. Spots are in isle units (R), clear of what the isle's theme builds (CLEAR).
+const ISLE_FLORA = {
+  ruin: { trees: ['tree_pine', 'tree_spruce', 'tree_dead', 'tree_pine', 'tree_oak'], clear: [[-0.25, -0.1, 0.32], [0.35, 0.3, 0.3], [0.1, 0.5, 0.14]] },
+  farm: { trees: ['tree_oak', 'tree_fruit', 'tree_maple', 'tree_birch', 'tree_fruit'], clear: [[-0.2, -0.15, 0.32], [0.3, 0.25, 0.46], [0.35, -0.45, 0.22], [0.05, 0.55, 0.12]] },
+  shrine: { trees: ['tree_cherry', 'tree_maple', 'tree_cherry', 'tree_cypress'], clear: [[0, 0, 0.45]] },
+  falls: { trees: ['tree_pine', 'tree_spruce', 'tree_birch', 'tree_willow', 'tree_spruce'], clear: [[0.25, 0.3, 0.33], [0.52, 0.52, 0.26]] },
+};
+const ISLE_BUSHES = ['bush_round', 'bush_round', 'bush_flower', 'bush_berry', 'bush_fern', 'bush_grass'];
+function isleTree(g, kind, s, x, z) {
+  if (KIT.flora) plantFlora(kind, s, g.position.x + x, g.position.z + z, g.position.y);
+  else g.add(at(tree(FLORA_FALLBACK[kind], s), x, 0, z));
+}
+function isleFlora(g, R, theme, fixed) {
+  if (!KIT.flora) return;
+  const { trees, clear } = ISLE_FLORA[theme], s = R / 10;
+  const taken = [...clear, ...fixed.map(([x, z]) => [x, z, 0.16])];
+  const spot = (minK, maxK, r) => {
+    for (let tries = 0; tries < 60; tries++) {
+      const a = rr(0, PI * 2), k = rr(minK, maxK), x = Math.cos(a) * k, z = Math.sin(a) * k;
+      if (taken.every(([cx, cz, cr]) => Math.hypot(x - cx, z - cz) > cr + r)) { taken.push([x, z, r]); return [x * R, z * R]; }
+    }
+    return null;
+  };
+  for (let i = 0; i < 7; i++) { const p = spot(0.3, 0.74, 0.12); if (p) plantFlora(trees[i % trees.length], rr(1.0, 1.3) * s, g.position.x + p[0], g.position.z + p[1], g.position.y); }
+  for (let i = 0; i < 9; i++) { const p = spot(0.15, 0.78, 0.05); if (p) plantFlora(pick(ISLE_BUSHES), rr(0.75, 1.25) * s, g.position.x + p[0], g.position.z + p[1], g.position.y); }
+}
 function skyIsle(cx, cy, cz, R, theme, sd) {
   const g = new THREE.Group();
   g.position.set(cx, cy, cz);
@@ -203,7 +230,8 @@ function skyIsle(cx, cy, cz, R, theme, sd) {
     for (const sd2 of [-1, 1]) g.add(at(mesh(new THREE.BoxGeometry(0.7 * s, 3.2 * s, 0.7 * s), M.stone), R * 0.35 + sd2 * 1.3 * s, 1.6 * s, R * 0.3));
     g.add(at(mesh(new THREE.BoxGeometry(3.3 * s, 0.6 * s, 0.7 * s), M.stone), R * 0.35, 3.4 * s, R * 0.3));
     g.add(at(skullPole(2.4), R * 0.1, 0, R * 0.5));
-    for (const [x, z, k] of [[0.5, -0.5, 'pine'], [-0.6, 0.5, 'autumn'], [0.2, 0.6, 'dead']]) g.add(at(tree(k, 1.2 * s), x * R, 0, z * R));
+    for (const [x, z, k] of [[0.5, -0.5, 'tree_pine'], [-0.6, 0.5, 'tree_maple'], [0.2, 0.6, 'tree_dead']]) isleTree(g, k, 1.2 * s, x * R, z * R);
+    isleFlora(g, R, theme, [[0.5, -0.5], [-0.6, 0.5], [0.2, 0.6]]);
   } else if (theme === 'farm') {
     const h = at(new THREE.Group(), -R * 0.2, 0, -R * 0.15);
     h.add(at(mesh(wallUV(new THREE.BoxGeometry(3.6 * s, 2.2 * s, 2.8 * s), 2.2 * s, 1.3), M.plankWall), 0, 1.1 * s, 0));
@@ -224,15 +252,19 @@ function skyIsle(cx, cy, cz, R, theme, sd) {
     mill.add(hub);
     SPINNERS.push({ o: hub, axis: 'z', v: 0.4 });
     g.add(mill);
-    g.add(at(tree('autumn', 1.1 * s), -R * 0.55, 0, R * 0.4));
+    isleTree(g, 'tree_maple', 1.1 * s, -R * 0.55, R * 0.4);
     g.add(at(hay(0.5 * s), R * 0.05, 0, R * 0.55));
+    isleFlora(g, R, theme, [[-0.55, 0.4]]);
   } else if (theme === 'shrine') {
     for (let i = 0; i < 6; i++) { const a = i / 6 * PI * 2; g.add(at(rot(mesh(new THREE.BoxGeometry(0.7 * s, rr(2, 3) * s, 0.5 * s), M.stone), 0, -a, rr(-0.1, 0.1)), Math.cos(a) * 3 * s, 1.2 * s, Math.sin(a) * 3 * s)); }
     g.add(totem(4 * s));
     for (const a of [0.8, 3.9]) g.add(at(brazier(0, 1.2 * s), Math.cos(a) * 1.8 * s, 0, Math.sin(a) * 1.8 * s));
-    for (const [x, z] of [[0.6, 0.4], [-0.5, -0.5], [0.4, -0.6]]) g.add(at(tree('autumn', 1.1 * s), x * R, 0, z * R));
+    for (const [x, z] of [[0.6, 0.4], [-0.5, -0.5], [0.4, -0.6]]) isleTree(g, 'tree_maple', 1.1 * s, x * R, z * R);
+    isleFlora(g, R, theme, [[0.6, 0.4], [-0.5, -0.5], [0.4, -0.6]]);
   } else if (theme === 'falls') {
-    for (const [x, z, k] of [[-0.5, -0.3, 'pine'], [-0.2, -0.6, 'pine'], [0.4, -0.4, 'round'], [-0.6, 0.3, 'autumn']]) g.add(at(tree(k, 1.2 * s), x * R, 0, z * R));
+    const fixed = [[-0.5, -0.3, 'tree_pine'], [-0.2, -0.6, 'tree_pine'], [0.4, -0.4, 'tree_oak'], [-0.6, 0.3, 'tree_maple']];
+    for (const [x, z, k] of fixed) isleTree(g, k, 1.2 * s, x * R, z * R);
+    isleFlora(g, R, theme, fixed);
     g.add(at(rot(mesh(new THREE.CircleGeometry(R * 0.28, 24), toon('#5c96b4', { emissive: '#2c5a72', emissiveIntensity: 0.35 }), false), -PI / 2, 0, 0), R * 0.25, 0.04, R * 0.3));
     const fall = new THREE.Mesh(new THREE.PlaneGeometry(1.8 * s, R * 3.2), new THREE.MeshBasicMaterial({ map: fallTexFar, color: '#e6f4fa', transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false }));
     fall.position.set(R * 0.62, -R * 1.6, R * 0.62);
