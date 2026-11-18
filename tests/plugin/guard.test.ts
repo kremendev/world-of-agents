@@ -735,11 +735,12 @@ describe("the project's team (v3.9)", () => {
     const a = folder('a');
     const b = folder('b');
     const c = folder('c');
+    const d = folder('d');
     giveOwnTeam(home, a, 'shared', 1);
     giveOwnTeam(home, b, 'empty', 2);
     const at = (input: string, project: string) => decide(input, undefined, home, project);
     afterAll(() => {
-      for (const dir of [home, a, b, c]) rmSync(dir, { recursive: true, force: true });
+      for (const dir of [home, a, b, c, d]) rmSync(dir, { recursive: true, force: true });
     });
 
     it("each session gets its own project's rows, whatever another project has", () => {
@@ -760,7 +761,6 @@ describe("the project's team (v3.9)", () => {
     });
 
     it('a switch in one project counts at once there, and nowhere else', () => {
-      const d = folder('d');
       const key = giveOwnTeam(home, d, 'shared', 3).project.key;
       changeProject(home, key, { action: 'switch', id: 'frontend-react-dev', on: false }, 4);
       expect(at(start(frontend, 'woa-team:frontend-react-dev'), d)).toBe(denial(REASONS.off));

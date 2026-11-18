@@ -32,6 +32,8 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
+    // before each run: the temp folders a killed run left behind, older than an hour (tests/sweep-temp.ts)
+    globalSetup: ['./tests/global-setup.ts'],
     // A test under plugin/ is the mod's, run by `claude plugin test plugin` in the engine's own kit, not by Vitest.
     exclude: [...configDefaults.exclude, 'plugin/**'],
     // No styles in tests, except the stylesheet as text: layout.test.ts checks a rule in it.

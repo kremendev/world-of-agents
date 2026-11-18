@@ -205,7 +205,9 @@ tools/world-check/ the world's checks in real Edge, by hand, never in npm run ch
                   town's test copy), seats.mjs (every figure on every seat, against the town's rule), spots.mjs
                   (every standing spot and its walk on clear floor), walk.mjs (the demo run played into the world:
                   every figure at its place, no walk over furniture), cast/ (the cast comparison's placements and views)
-tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
+tests/            global-setup.ts and sweep-temp.ts: before every Vitest run, our temp folders a killed run left
+                  under os.tmpdir() ("woa-", "woa " and Playwright's profiles), older than an hour, never a link.
+                  invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
                   its texture) and listed in docs/ASSETS.md with its author, a Tripo character with its ProduceID.
@@ -733,6 +735,9 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   `plugin/.claude-plugin/types/` when a session hot-reloads `plugin/` (`woa`'s `--plugin-dir`); ESLint and Prettier
   ignore that folder, and the engine writes a `.gitignore` of `*` there (seen 8 Nov). It also writes `plugin/tsconfig.json`,
   which only extends that folder and isn't ignored: delete it, never commit it.
+- A test's temp folder starts "woa-" or "woa " and is removed in its own cleanup. One a killed run leaves goes in the
+  next run's sweep (`tests/sweep-temp.ts`, once it is an hour old), and so does an Edge profile a browser check leaves:
+  those scripts close the browser in `finally`.
 - jsdom has no canvas: `src/test/setup.ts` mocks `getContext` to return null; drawing code must handle that.
 - A fake stream or server in a test is bounded: it sends a fixed amount (twice a cap at most), then closes, and waits a
   turn between pieces. On 16 Nov `github.test.ts`'s endless stream, with the size cap planted out, held the PC's memory
@@ -1248,4 +1253,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     and the walk clip speeds up with the hurry up to the town's 2.6x; five planted bugs caught. Then (his review of the
     six-minute run) a Next step button in Demo: the player's next(stepMs), the walkers' landed() through WorldView's
     `skips` and world.land(), so the figures land, then the run moves on a step; walk.mjs with NEXT=6 finds no fault;
-    six planted bugs caught. Next: the tests' temp folders, then 4c.
+    six planted bugs caught. The tests' temp folders done: the sweep before every Vitest run (213 leftovers on its
+    first), guard.test.ts's leaked folder fixed, the browser checks closing Edge in finally; eight planted bugs caught.
+    Next: 4c, which waits for the raised-hand clip from Tripo, and the lantern question.

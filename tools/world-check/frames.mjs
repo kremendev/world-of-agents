@@ -16,47 +16,51 @@ const browser = await chromium.launch({
   headless: true,
   args: ['--disable-frame-rate-limit', '--disable-gpu-vsync'],
 });
-const page = await (
-  await browser.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: +s })
-).newPage();
-await page.goto(url);
-await page.waitForFunction(
-  () => {
-    const c = document.querySelector('canvas.world');
-    return c && !c.hidden;
-  },
-  null,
-  { timeout: 120000, polling: 200 },
-);
-await page.waitForTimeout(3000);
-const r = await page.evaluate(
-  () =>
-    new Promise((done) => {
-      const t = [];
-      const finish = () => {
-        const d = t
-          .slice(1)
-          .map((x, i) => x - t[i])
-          .sort((a, b) => a - b);
-        const c = document.querySelector('canvas.world');
-        done({
-          frames: d.length,
-          fps: +(d.length / ((t.at(-1) - t[0]) / 1000)).toFixed(1),
-          median: +d[d.length >> 1].toFixed(2),
-          p95: +d[Math.floor(d.length * 0.95)].toFixed(2),
-          canvas: `${c.width}x${c.height}`,
-        });
-      };
-      const tick = (now) => {
-        t.push(now);
-        if (now - t[0] < 10000) requestAnimationFrame(tick);
-        else finish();
-      };
-      requestAnimationFrame(tick);
-    }),
-);
-console.log(
-  `${s * 100}%  viewport ${w}x${h}  canvas ${r.canvas} device px  ${r.fps} fps` +
-    `  frame median ${r.median} ms  p95 ${r.p95} ms  (${r.frames} frames)`,
-);
-await browser.close();
+// the profile Edge runs with is removed when it closes: in finally, so a check that throws leaves none behind
+try {
+  const page = await (
+    await browser.newContext({ viewport: { width: +w, height: +h }, deviceScaleFactor: +s })
+  ).newPage();
+  await page.goto(url);
+  await page.waitForFunction(
+    () => {
+      const c = document.querySelector('canvas.world');
+      return c && !c.hidden;
+    },
+    null,
+    { timeout: 120000, polling: 200 },
+  );
+  await page.waitForTimeout(3000);
+  const r = await page.evaluate(
+    () =>
+      new Promise((done) => {
+        const t = [];
+        const finish = () => {
+          const d = t
+            .slice(1)
+            .map((x, i) => x - t[i])
+            .sort((a, b) => a - b);
+          const c = document.querySelector('canvas.world');
+          done({
+            frames: d.length,
+            fps: +(d.length / ((t.at(-1) - t[0]) / 1000)).toFixed(1),
+            median: +d[d.length >> 1].toFixed(2),
+            p95: +d[Math.floor(d.length * 0.95)].toFixed(2),
+            canvas: `${c.width}x${c.height}`,
+          });
+        };
+        const tick = (now) => {
+          t.push(now);
+          if (now - t[0] < 10000) requestAnimationFrame(tick);
+          else finish();
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+  console.log(
+    `${s * 100}%  viewport ${w}x${h}  canvas ${r.canvas} device px  ${r.fps} fps` +
+      `  frame median ${r.median} ms  p95 ${r.p95} ms  (${r.frames} frames)`,
+  );
+} finally {
+  await browser.close();
+}
