@@ -84,7 +84,8 @@ node tools/world-check/walk.mjs http://localhost:5173/src/world/check/index.html
 ```
 
 The check page's `?demo` plays the demo run into the world as the page does. A figure standing still, not held, must
-stand where `placeFor()` puts it; every walk's whole path is checked once for furniture.
+stand where `placeFor()` puts it; every walk's whole path is checked once for furniture. `NEXT=6` presses the demo's
+Next step every 6 s, the figures landing first, as the page does.
 
 ## A frame's time
 

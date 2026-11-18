@@ -1,6 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { SPOTS, routeFromNode, type SpotId } from './map';
-import { HURRY, MIN_DESK_MS, isHeld, sendTo, standingAt, step, whereIs, type Walker } from './walkers';
+import {
+  HURRY,
+  MIN_DESK_MS,
+  isHeld,
+  landed,
+  sendTo,
+  standingAt,
+  step,
+  whereIs,
+  type Walker,
+} from './walkers';
 
 const SPEED = 2.3;
 const T0 = 10_000;
@@ -151,5 +161,18 @@ describe('the walkers', () => {
     const held = sendTo(standingAt('desk-frontend', T0), 'yard-1', T0 + 100, SPEED, true, 'desk-frontend');
     expect(held.holdUntil).toBe(T0 + MIN_DESK_MS);
     expect(step(held, T0 + MIN_DESK_MS, SPEED, true)).toEqual(standingAt('yard-1', T0 + MIN_DESK_MS));
+  });
+
+  it("lands every figure where it is going for the demo's Next step: a walk at its end, a hold on its next place", () => {
+    const walking = sendTo(standingAt('court-bench', 0), 'desk-frontend', T0, SPEED, false);
+    expect(landed(walking, T0 + 100)).toEqual(standingAt('desk-frontend', T0 + 100));
+    const held: Walker = {
+      ...standingAt('desk-backend', T0),
+      holdUntil: T0 + MIN_DESK_MS,
+      next: 'court-bench',
+    };
+    expect(landed(held, T0 + 100)).toEqual(standingAt('court-bench', T0 + 100));
+    const still = standingAt('yard-1', 5);
+    expect(landed(still, T0)).toBe(still);
   });
 });

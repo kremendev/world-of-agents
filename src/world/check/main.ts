@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 import { ROOM, SPOTS } from '../map';
 import { placeFor } from '../places';
-import { DEMO_RUN } from '../../script/demoRun';
+import { DEMO_TASK, KEEP_STEP_MS, demoRun } from '../../script/demoRun';
 import { createPlayer } from '../../script/player';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../../state/office';
 import { createWorld, type World } from '../scene/world';
@@ -44,12 +44,13 @@ const world = await createWorld({
   reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 });
 world.start();
-// ?demo: the demo run, each event through the reducer into the world, as App and WorldView do in Demo
+// ?demo: the demo run at the keep's pace, each event through the reducer into the world, as App and WorldView do
 let office = INITIAL_OFFICE;
 let ended = false;
-if (new URLSearchParams(location.search).has('demo')) {
+const params = new URLSearchParams(location.search);
+if (params.has('demo')) {
   world.update(office, false);
-  createPlayer(DEMO_RUN, {
+  const player = createPlayer(demoRun(DEMO_TASK, KEEP_STEP_MS), {
     onEvent: (event) => {
       office = officeReducer(office, event);
       world.update(office, false);
@@ -58,7 +59,17 @@ if (new URLSearchParams(location.search).has('demo')) {
     onEnd: () => {
       ended = true;
     },
-  }).play();
+  });
+  player.play();
+  // &next=<s>: the demo's Next step every so many seconds, the figures landing first, as App and WorldView do
+  const every = Number(params.get('next'));
+  if (every > 0) {
+    const timer = setInterval(() => {
+      if (ended) return clearInterval(timer);
+      world.land();
+      player.next(KEEP_STEP_MS);
+    }, every * 1000);
+  }
 }
 window.__world = {
   scene: world.scene,

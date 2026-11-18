@@ -20,7 +20,7 @@ import { CAMERA, roomView } from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
 import type { OfficeState } from '../../state/office';
-import { isHeld, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
+import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
 import { FIGURES, SEATED, createCast, fetchCast, groundAt, type AgentKey, type Mode } from './cast';
@@ -784,7 +784,7 @@ export async function createWorld(opts: WorldOptions) {
       atWork[a.id] =
         !p.walking && !held && w.spot === WORK[a.id] && !!office && LIT.has(office.agents[a.id].state);
       cast.lanternFor(a, mode, t);
-      cast.drive(a, mode, dt, p.walking ? null : w.spot);
+      cast.drive(a, mode, dt, p.walking ? null : w.spot, w.walk ? w.walk.speed / speed : 1);
     }
     const smashing = !!atWork.frontend && office?.agents.frontend.state === 'writing';
     // the furnace burns as hard as the team works
@@ -938,6 +938,11 @@ export async function createWorld(opts: WorldOptions) {
         const to = placeFor(id, next, live, scrolls);
         if (to) walkers[id] = sendTo(walkers[id], to, now, FIGURES[id].speed, REDUCE, WORK[id]);
       }
+    },
+    /** The demo's "Next step": every figure at once where it is going, before the next step's places come in. */
+    land() {
+      const now = performance.now();
+      for (const id of CAST_FILES) walkers[id] = landed(walkers[id], now);
     },
     /** A new run: everyone back at their start spot at once, no scroll fetched. */
     restart() {

@@ -14,6 +14,11 @@ export type Player = {
   pause: () => void;
   /** Starts the run over. Given a script, plays that one from now on (through parseEvent() as well). */
   restart: (script?: readonly unknown[]) => void;
+  /**
+   * While playing: moves the run on to the start of its next step (`stepMs` long each), playing every event up to
+   * there now, and goes on from there on time (v4.0.0, the demo's "Next step", Dima 18 Nov).
+   */
+  next: (stepMs: number) => void;
 };
 
 /** The entries that pass parseEvent(). Entries that fail are dropped (and logged in dev). */
@@ -82,5 +87,14 @@ export function createPlayer(script: readonly unknown[], handlers: PlayerHandler
     play();
   }
 
-  return { play, pause, restart };
+  function nextStep(stepMs: number): void {
+    if (!playing) return;
+    const now = playedMs + performance.now() - startedAt;
+    clearTimeout(timer);
+    playedMs = (Math.floor(now / stepMs) + 1) * stepMs;
+    startedAt = performance.now();
+    sendDue();
+  }
+
+  return { play, pause, restart, next: nextStep };
 }

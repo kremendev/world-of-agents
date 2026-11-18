@@ -66,7 +66,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 src/events/       Zod schema for OfficeEvent + parseEvent(): the gate every event passes
 src/version.ts    the plugin's version from plugin.json (3.2d): the hall states it, the page's badge shows it
 src/state/        office.ts: OfficeState, INITIAL_OFFICE, the pure officeReducer(), workingCount()
-src/script/       demoRun.ts (the 9-step run as timed events), player.ts (play/pause/restart on a timer)
+src/script/       demoRun.ts (the 9-step run as timed events, 8 s a step, 40 s in the Forge Keep), player.ts (play,
+                  pause and restart on a timer)
 src/pixel/        sprite format, crisp scaling (scale.ts), baking and drawing (draw.ts)
 src/assets/       pixel art as text: characters.ts, workstation.ts, hall.ts (generated from the design)
 src/office/       roster.ts (agents: race, look, v2 model and tools), stations.ts (workstation builder),
@@ -1242,5 +1243,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     walks on clear floor; ten planted bugs caught. Step 4 is done: walkers.ts (the turn mid-path, the hurry, the desk
     hold, reduced motion), world.update() and restart() through WorldView, the dev screens and the sparks only while
     their dev works at its desk; walk.mjs plays the demo into the world with no fault in either mode; 13 planted bugs
-    caught. With it 4b is done. Waits for Dima: the demo's pace in the keep (walks of 20 to 36 s, steps 8 s apart),
-    and whether the walk clip speeds up with the hurry. Next: the tests' temp folders, then 4c.
+    caught. With it 4b is done. Dima's answers (18 Nov): the demo plays slower in the keep (KEEP_STEP_MS, 40 s a step,
+    the least for every walk 38; the 2D hall keeps 8 s; App takes the keep's pace where it can draw; pace.test.ts),
+    and the walk clip speeds up with the hurry up to the town's 2.6x; five planted bugs caught. Then (his review of the
+    six-minute run) a Next step button in Demo: the player's next(stepMs), the walkers' landed() through WorldView's
+    `skips` and world.land(), so the figures land, then the run moves on a step; walk.mjs with NEXT=6 finds no fault;
+    six planted bugs caught. Next: the tests' temp folders, then 4c.

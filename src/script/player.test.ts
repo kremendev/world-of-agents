@@ -151,4 +151,30 @@ describe('player', () => {
     expect(warn).not.toHaveBeenCalled();
     expect(onEvent.mock.calls.map(([event]) => event)).toEqual(DEMO_RUN);
   });
+
+  it('moves on to the next step at once with next(), playing what came before it, then goes on on time', () => {
+    const { player, sentAt, onEnd } = setup([idle(0), idle(1500), idle(4000), idle(4200), idle(9000)]);
+    player.play();
+    vi.advanceTimersByTime(500);
+    // half a second into the first 4 s step: the rest of it, and the next step's start, now
+    player.next(4000);
+    expect(sentAt()).toEqual([0, 1500, 4000]);
+    vi.advanceTimersByTime(199);
+    expect(sentAt()).toEqual([0, 1500, 4000]);
+    vi.advanceTimersByTime(1);
+    expect(sentAt()).toEqual([0, 1500, 4000, 4200]);
+    // the last step: everything left, and the run ends
+    player.next(4000);
+    player.next(4000);
+    expect(sentAt()).toEqual([0, 1500, 4000, 4200, 9000]);
+    expect(onEnd).toHaveBeenCalledOnce();
+  });
+
+  it('does nothing on next() while paused', () => {
+    const { player, sentAt } = setup();
+    player.play();
+    player.pause();
+    player.next(1000);
+    expect(sentAt()).toEqual([0]);
+  });
 });

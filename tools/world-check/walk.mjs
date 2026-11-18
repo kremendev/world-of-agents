@@ -7,6 +7,7 @@
 // first and last 0.6 m by a seat are left out; the highest step met is said, so nothing hides under the line.
 //
 //   node tools/world-check/walk.mjs <url of the render check page> [reduce]      exit 1 on any fault
+//   NEXT=<s>: the demo's Next step pressed every s seconds, the figures landing first, as the page does
 import { chromium } from 'playwright-core';
 
 const [url, reduce] = process.argv.slice(2);
@@ -16,6 +17,7 @@ if (!url) {
 }
 const demo = new URL(url);
 demo.searchParams.set('demo', '');
+if (process.env.NEXT) demo.searchParams.set('next', process.env.NEXT);
 const SEATED = ['type', 'smash', 'readsit', 'sit', 'drink'];
 const browser = await chromium.launch({
   channel: 'msedge',

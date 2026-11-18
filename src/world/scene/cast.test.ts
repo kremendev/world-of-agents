@@ -220,6 +220,18 @@ describe('the cast in a scene', () => {
     expect(cast.actors.backend.model.acts.walk?.timeScale).toBeCloseTo(2.25 / (0.59 * 2.18), 6);
   });
 
+  it("paces the walk clip with the walk: the hurry speeds it up, as far as the town's 2.6x (Dima, 18 Nov)", () => {
+    const { cast } = build(true);
+    const a = cast.actors.backend;
+    const own = 2.25 / (0.59 * 2.18);
+    cast.drive(a, 'walk', 0.016, null, 1.2);
+    expect(a.model.acts.walk?.timeScale).toBeCloseTo(own * 1.2, 6);
+    cast.drive(a, 'walk', 0.016, null, 2.5);
+    expect(a.model.acts.walk?.timeScale).toBe(2.6);
+    cast.drive(a, 'walk', 0.016, null);
+    expect(a.model.acts.walk?.timeScale).toBeCloseTo(own, 6);
+  });
+
   it('measures the seat only once the seated clip has faded in, so the hips are over the seat', () => {
     const scene = new THREE.Scene();
     const sp = SPOTS['court-bench'];

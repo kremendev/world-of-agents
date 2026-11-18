@@ -6,11 +6,19 @@ import { reviewsOf } from '../page/review';
 import { restingWalkers, sendTo, step, walkerAt } from '../office/hall/walkers';
 import { MAX_TASK_CHARS } from '../page/task';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
-import { DEMO_RUN, DEMO_TASK, STEP_MS, demoRun } from './demoRun';
+import { DEMO_RUN, DEMO_TASK, KEEP_STEP_MS, STEP_MS, demoRun } from './demoRun';
 
 describe('demo run', () => {
   it('passes parseEvent() unchanged, event by event', () => {
     for (const event of DEMO_RUN) expect(parseEvent(event)).toEqual({ ok: true, event });
+  });
+
+  it('plays the same run in the Forge Keep, each step longer, the order within a step as it was (Dima, 18 Nov)', () => {
+    const keep = demoRun(DEMO_TASK, KEEP_STEP_MS);
+    expect(keep).toEqual(
+      DEMO_RUN.map((e) => ({ ...e, at: Math.floor(e.at / STEP_MS) * KEEP_STEP_MS + (e.at % STEP_MS) })),
+    );
+    expect(KEEP_STEP_MS).toBe(40000);
   });
 
   it("quotes your task in the Lead's first line, and changes nothing else", () => {

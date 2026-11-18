@@ -127,6 +127,8 @@ export type Actor = {
     readonly acts: Readonly<Partial<Record<ClipName, THREE.AnimationAction>>>;
     cur: ClipName;
     readonly baseY: number;
+    /** The walk clip's pace at the figure's own speed (the town's: its speed over 0.59 heights a second, 0.8x to 2.6x). */
+    readonly walkScale: number;
     /** Where the hips sit in each seated clip, so a seated model lines up with the town's chairs. */
     readonly seat: Readonly<Partial<Record<ClipName, number>>>;
     readonly hips: THREE.Object3D;
@@ -279,7 +281,8 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
     if (!acts.idle || !acts.walk || !acts.sit || !acts.play_mobile_game) {
       throw new Error(`the ${id} model lacks one of its four clips`);
     }
-    acts.walk.timeScale = Math.min(2.6, Math.max(0.8, speed / (WALK_RATE * H)));
+    const walkScale = Math.min(2.6, Math.max(0.8, speed / (WALK_RATE * H)));
+    acts.walk.timeScale = walkScale;
     mixer.update(0);
     // the legs, for seating, and how high an ankle stands when the feet are flat (idle, on the ground)
     const bone = (n: string) => m.getObjectByName('mixamorig' + n) as THREE.Bone | undefined;
@@ -307,7 +310,20 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
       H,
       seatY: rigSeatY(H, hipY),
       phase: o.phases[id],
-      model: { obj: m, mixer, acts, cur: 'idle', baseY, seat, hips, legs, ankleH, bent: false, ikW: 0 },
+      model: {
+        obj: m,
+        mixer,
+        acts,
+        cur: 'idle',
+        baseY,
+        walkScale,
+        seat,
+        hips,
+        legs,
+        ankleH,
+        bent: false,
+        ikW: 0,
+      },
       lantern,
     };
   }
@@ -356,8 +372,12 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
     return top;
   }
 
-  /** One frame of a figure: its clip for `mode`, seated on the seat at `spotId` with its legs bent to the floor. */
-  function drive(a: Actor, mode: Mode, dt: number, spotId: SpotId | null) {
+  /**
+   * One frame of a figure: its clip for `mode`, seated on the seat at `spotId` with its legs bent to the floor. `pace`:
+   * how many times its own speed it walks at (2.5 on a hurried walk), which the walk clip follows up to the town's 2.6x
+   * (Dima, 18 Nov).
+   */
+  function drive(a: Actor, mode: Mode, dt: number, spotId: SpotId | null, pace = 1) {
     const M = a.model;
     // put back what last frame's IK turned, so a bone no track moves never keeps it
     if (M.bent && M.legs) {
@@ -379,9 +399,9 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
       // with reduced motion the mixer's time stands still, and a fade never ends: switch at once
       if (REDUCE) prev.setEffectiveWeight(0);
       else prev.crossFadeTo(next, 0.3, false);
-      if (want === 'walk') next.timeScale = M.acts.walk?.timeScale || 1;
       M.cur = want;
     }
+    if (want === 'walk') (M.acts.walk as THREE.AnimationAction).timeScale = Math.min(2.6, M.walkScale * pace);
     M.mixer.update(REDUCE ? 0 : dt);
     const seated = want !== 'walk' && want !== 'idle';
     let top: number | null = null;

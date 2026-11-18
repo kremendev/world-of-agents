@@ -3,7 +3,8 @@ import { HallView } from '../office/hall/HallView';
 import type { World } from './scene/world';
 import { CONTEXT_GRACE_MS, canDrawWorld } from './support';
 
-type Props = ComponentProps<typeof HallView>;
+/** HallView's props, and `skips`: how many times the demo's "Next step" was pressed (each one lands the figures). */
+type Props = ComponentProps<typeof HallView> & { skips?: number };
 type Phase = 'loading' | 'ready' | 'fallback';
 
 /**
@@ -13,7 +14,7 @@ type Phase = 'loading' | 'ready' | 'fallback';
  * doesn't come back within CONTEXT_GRACE_MS hands over to the 2D hall. The props are HallView's, so the page swaps one
  * for the other; the world gets the office as it changes and walks the figures there (4b).
  */
-export function WorldView(props: Props) {
+export function WorldView({ skips = 0, ...props }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const [supported] = useState(canDrawWorld);
@@ -64,6 +65,16 @@ export function WorldView(props: Props) {
   useEffect(() => {
     if (phase === 'ready' && hasRoom) worldRef.current?.resize(width, height);
   }, [phase, hasRoom, width, height]);
+
+  // the demo's "Next step": every figure where it is going, before the next step's office comes in (declared before
+  // the office's effect, so when both change in one render the figures land first)
+  const lastSkips = useRef(skips);
+  useEffect(() => {
+    const world = worldRef.current;
+    if (phase !== 'ready' || !world || lastSkips.current === skips) return;
+    lastSkips.current = skips;
+    world.land();
+  }, [phase, skips]);
 
   // the office as it is: each figure to its place (4b); a new run (Restart) puts everyone back at once first
   const { office, run, live = false } = props;

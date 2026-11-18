@@ -18,6 +18,7 @@ type Fake = {
   dispose: () => void;
   update: (office: unknown, live: boolean) => void;
   restart: () => void;
+  land: () => void;
 };
 const fakeWorld = (): Fake => ({
   start: vi.fn(),
@@ -26,6 +27,7 @@ const fakeWorld = (): Fake => ({
   dispose: vi.fn(),
   update: vi.fn(),
   restart: vi.fn(),
+  land: vi.fn(),
 });
 
 const props = (room: { width: number; height: number } | null = { width: 800, height: 560 }) => ({
@@ -168,5 +170,24 @@ describe('WorldView', () => {
       (fn as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder;
     expect(order(world.restart)[0]).toBeLessThan(order(world.update).at(-1) as number);
     expect(world.update).toHaveBeenLastCalledWith(INITIAL_OFFICE, false);
+  });
+
+  it("lands the figures on the demo's Next step, before the next step's office comes in", async () => {
+    scene.canDraw.mockReturnValue(true);
+    const world = fakeWorld();
+    scene.create.mockResolvedValue(world);
+    const { rerender } = render(<WorldView {...props()} skips={0} />);
+    await settle();
+    expect(world.land).not.toHaveBeenCalled();
+    const next = officeReducer(INITIAL_OFFICE, { type: 'state', agent: 'lead', state: 'thinking', at: 1 });
+    rerender(<WorldView {...props()} office={next} skips={1} />);
+    expect(world.land).toHaveBeenCalledOnce();
+    const order = (fn: unknown) =>
+      (fn as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder;
+    expect(order(world.land)[0]).toBeLessThan(order(world.update).at(-1) as number);
+    expect(world.update).toHaveBeenLastCalledWith(next, false);
+    // the same count again lands nobody
+    rerender(<WorldView {...props()} office={next} skips={1} />);
+    expect(world.land).toHaveBeenCalledOnce();
   });
 });

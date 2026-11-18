@@ -1,10 +1,13 @@
 import type { AgentId, AgentState, OfficeEvent, TaskStatus } from '../events/schema';
 
-/** How long each of the nine steps of the demo run lasts, in milliseconds. Long enough for every walk. */
+/** How long each of the nine steps of the demo run lasts in the 2D hall, in milliseconds. Long enough for every walk. */
 export const STEP_MS = 8000;
 
-/** When step n (1 to 9) starts, in milliseconds from the start of the run. */
-const step = (n: number) => (n - 1) * STEP_MS;
+/**
+ * The same in the Forge Keep (v4.0.0, Dima, 18 Nov): its walks take 20 to 36 s, so each step lasts long enough for every
+ * one to land (38 s is the least; src/world/pace.test.ts holds it). The run takes six minutes there.
+ */
+export const KEEP_STEP_MS = 40000;
 
 const TASKS = {
   plan: { title: 'Write spec.md and tasks.md', owner: 'lead' },
@@ -72,13 +75,15 @@ const REVIEW = [
 export const DEMO_TASK = 'Create a dashboard';
 
 /**
- * The scripted run from the v1 spec. `at` is milliseconds from the start of the run.
+ * The scripted run from the v1 spec. `at` is milliseconds from the start of the run; each step lasts `stepMs`.
  * Events carry no positions and no 'walking': the hall works out where each agent goes from its state and
  * task (the Reviewer reading "ui" walks to the Frontend desk), so a real v2 run can send the same events.
  * `taskText` is what you sent: only the Lead's first line quotes it; the work is always the dashboard's.
  * It is untrusted text, so it goes through parseEvent() with the rest and renders as plain text.
  */
-export function demoRun(taskText: string): readonly OfficeEvent[] {
+export function demoRun(taskText: string, stepMs = STEP_MS): readonly OfficeEvent[] {
+  /** When step n (1 to 9) starts, in milliseconds from the start of the run. */
+  const step = (n: number) => (n - 1) * stepMs;
   return [
     // 1. Everyone rests.
     act('lead', 'idle', step(1)),

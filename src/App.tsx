@@ -3,6 +3,7 @@ import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
+import { canDrawWorld } from './world/support';
 import { WorldView } from './world/WorldView';
 import { useStage } from './office/hall/useStage';
 import { agentById } from './office/roster';
@@ -15,7 +16,7 @@ import { TaskBar } from './page/TaskBar';
 import { TaskBoard } from './page/TaskBoard';
 import { TeamPage, type TeamSession } from './page/TeamPage';
 import type { Exchange } from './team/api';
-import { DEMO_RUN, DEMO_TASK, demoRun } from './script/demoRun';
+import { DEMO_TASK, KEEP_STEP_MS, STEP_MS, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
 import { VERSION } from './version';
@@ -67,6 +68,10 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // Goes up on every restart; the hall puts everyone back at their rest spots when it changes.
   const [run, setRun] = useState(0);
   const [task, setTask] = useState(DEMO_TASK);
+  // the demo's pace: the Forge Keep's walks are long, so where it can draw, each step lasts long enough for them
+  const [stepMs] = useState(() => (canDrawWorld() ? KEEP_STEP_MS : STEP_MS));
+  // the demo's "Next step" (Dima, 18 Nov): the figures land where they are going, and the run moves on a step
+  const [skips, setSkips] = useState(0);
   const [selected, setSelected] = useState<AgentId>('lead');
   const [feedAgent, setFeedAgent] = useState<AgentId | null>(null);
   // The review board: closed, or open at a review (`at`) or at its heading (null). `n` counts openings, and the board
@@ -86,7 +91,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
 
   useEffect(() => {
     if (!demo) return;
-    const p = createPlayer(DEMO_RUN, {
+    const p = createPlayer(demoRun(DEMO_TASK, stepMs), {
       // A script's `at` is when it plays. In the office it is the time of day, as in a real run.
       onEvent: (event) => setDemoOffice((state) => officeReducer(state, { ...event, at: Date.now() })),
       onRestart: () => {
@@ -102,7 +107,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
       p.pause();
       player.current = null;
     };
-  }, [demo]);
+  }, [demo, stepMs]);
 
   // Status first: play() and restart() can end the run straight away, and that must win.
   const control = (next: RunStatus, action: (p: Player) => void) => () => {
@@ -110,12 +115,16 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     if (player.current) action(player.current);
   };
   const restart = control('playing', (p) => p.restart());
+  const nextStep = () => {
+    setSkips((n) => n + 1);
+    player.current?.next(stepMs);
+  };
 
   // v1 sends nothing anywhere: the typed task labels the run and goes into the Lead's first line,
   // and the scripted run starts over with it (Restart then replays that run).
   const send = (text: string) => {
     setTask(text);
-    control('playing', (p) => p.restart(demoRun(text)))();
+    control('playing', (p) => p.restart(demoRun(text, stepMs)))();
   };
 
   const playDemo = () => {
@@ -253,6 +262,9 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               >
                 Pause
               </button>
+              <button type="button" onClick={nextStep} disabled={runStatus !== 'playing'}>
+                Next step
+              </button>
               <button type="button" onClick={restart}>
                 Restart
               </button>
@@ -308,6 +320,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               live={live}
               hushed={live && hall.hushed}
               room={stage.fit}
+              skips={skips}
             />
           </section>
           {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}

@@ -149,6 +149,16 @@ export function step(w: Walker, now: number, speed: number, reducedMotion: boole
   return settled(w, now);
 }
 
+/**
+ * Where a figure stands once the demo's "Next step" moves the run on (Dima, 18 Nov): a walking figure at its walk's
+ * end, a held one at the place it was waiting to go to, as reduced motion would have it; one standing stays.
+ */
+export function landed(w: Walker, now: number): Walker {
+  if (w.walk) return standingAt(w.walk.to, now);
+  if (w.holdUntil !== null) return standingAt(w.next ?? w.spot, now);
+  return w;
+}
+
 /** Held at its work spot now: its work has ended, but it hasn't left. */
 export const isHeld = (w: Walker, now: number) => w.holdUntil !== null && now < w.holdUntil;
 
