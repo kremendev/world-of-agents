@@ -16,7 +16,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ROOM, type RoomId } from '../map';
+import { CAMERA, roomView } from '../camera';
+import type { RoomId } from '../map';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
 import { createHouses, type HouseRec, type TaskStatus, type WallSide } from './houses';
@@ -174,17 +175,17 @@ export async function createWorld(opts: WorldOptions) {
   }
 
   /* ---------------- camera */
-  const camera = new THREE.PerspectiveCamera(34, W / H0, 0.5, 900);
-  const HOME = { t: new THREE.Vector3(0, 0, 2), p: new THREE.Vector3(46, 70, 96) };
+  const camera = new THREE.PerspectiveCamera(CAMERA.fov, W / H0, CAMERA.near, CAMERA.far);
+  const HOME = { t: new THREE.Vector3(...CAMERA.home.target), p: new THREE.Vector3(...CAMERA.home.position) };
   camera.position.copy(HOME.p);
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(HOME.t);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.minDistance = 6;
-  controls.maxDistance = 150;
-  controls.maxPolarAngle = 1.3;
-  controls.minPolarAngle = 0.12;
+  controls.minDistance = CAMERA.minDistance;
+  controls.maxDistance = CAMERA.maxDistance;
+  controls.maxPolarAngle = CAMERA.maxPolarAngle;
+  controls.minPolarAngle = CAMERA.minPolarAngle;
   controls.screenSpacePanning = false;
   controls.zoomSpeed = 0.8;
   controls.update();
@@ -192,7 +193,7 @@ export async function createWorld(opts: WorldOptions) {
   function clampTarget() {
     const t = controls.target;
     const r = Math.hypot(t.x, t.z);
-    const max = 52;
+    const max = CAMERA.targetRadius;
     if (r > max) {
       const k = max / r;
       camera.position.x -= t.x * (1 - k);
@@ -200,12 +201,12 @@ export async function createWorld(opts: WorldOptions) {
       t.x *= k;
       t.z *= k;
     }
-    if (t.y < 0 || t.y > 4) {
-      const ny = Math.max(0, Math.min(4, t.y));
+    if (t.y < CAMERA.targetMinY || t.y > CAMERA.targetMaxY) {
+      const ny = Math.max(CAMERA.targetMinY, Math.min(CAMERA.targetMaxY, t.y));
       camera.position.y += ny - t.y;
       t.y = ny;
     }
-    if (camera.position.y < 1.2) camera.position.y = 1.2;
+    if (camera.position.y < CAMERA.minHeight) camera.position.y = CAMERA.minHeight;
   }
   let fly: {
     t0: number;
@@ -240,21 +241,11 @@ export async function createWorld(opts: WorldOptions) {
       flyTo(HOME.t.clone(), HOME.p.clone());
       return;
     }
-    const r = ROOM[id];
     const H = HOUSES[id];
     focusRoom = id;
     if (H) H.view = 'ground';
-    const dir = camera.position.clone().sub(controls.target).setY(0).normalize();
-    if (dir.lengthSq() < 0.01) dir.set(0.45, 0, 0.9);
-    const dist = r.kind === 'house' ? Math.max(r.w, r.d) * 1.15 + 8 : r.r * 1.6 + 7;
-    const target = new THREE.Vector3(r.x, 1.0, r.z);
-    flyTo(
-      target,
-      target
-        .clone()
-        .addScaledVector(dir, dist)
-        .setY(dist * 0.85),
-    );
+    const view = roomView(id, [camera.position.x - controls.target.x, camera.position.z - controls.target.z]);
+    flyTo(new THREE.Vector3(...view.target), new THREE.Vector3(...view.position));
   }
   const stopFly = () => {
     fly = null;

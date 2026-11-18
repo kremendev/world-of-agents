@@ -3,7 +3,7 @@ import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
-import { HallView } from './office/hall/HallView';
+import { WorldView } from './world/WorldView';
 import { useStage } from './office/hall/useStage';
 import { agentById } from './office/roster';
 import { ActivityFeed } from './page/ActivityFeed';
@@ -300,7 +300,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
 
         <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
           <section aria-label="Forge Hall office" className="scene">
-            <HallView
+            <WorldView
               office={office}
               run={run}
               selected={selected}

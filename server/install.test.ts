@@ -184,6 +184,24 @@ describe('the hall the plugin carries', () => {
     expect(files).toContain('/index.html');
   });
 
+  // v4.0.0, 4a: an install copies plugin/ alone, so the models' licence goes beside them (docs/ASSETS.md says the same).
+  it("carries the models' notice beside them, naming every model: Dima's, all rights reserved, not under the MIT licence", () => {
+    const served = [...readManifest(JSON.parse(text('plugin/hall/manifest.json')) as unknown).keys()];
+    const models = served.filter((path) => path.endsWith('.glb')).sort();
+    // every model of src/world/models, each a file of its own: Vite inlines one under 4 KB as data:, which the page's
+    // connect-src refuses, and the manifest would lack it
+    const sources = readdirSync(join(REPO, 'src/world/models')).filter((name) => name.endsWith('.glb'));
+    expect(models).toHaveLength(sources.length);
+    const notice = text('plugin/hall/MODELS-LICENSE.md');
+    expect(notice).toContain('Copyright (c) 2026 Dmitriy Kremen. All rights reserved.');
+    expect(notice).toContain(
+      "They are **not** covered by the repository's MIT licence, which applies to the code only.",
+    );
+    expect([...notice.matchAll(/^- page(\/\S+)$/gm)].map((m) => m[1])).toEqual(models);
+    // beside the page, never in it: the hall serves only what the manifest names
+    expect(served.some((path) => path.includes('MODELS-LICENSE'))).toBe(false);
+  });
+
   it('is the Live page, with no policy of its own: the hall sends its Content-Security-Policy as a header', () => {
     const index = text('plugin/hall/page/index.html');
     expect(index).not.toContain('Content-Security-Policy');

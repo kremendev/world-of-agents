@@ -257,6 +257,15 @@ h1 {
   image-rendering: pixelated;
 }
 
+/* v4.0.0: the Forge Keep in 3D, in the hall's place; hidden while it loads (the 2D hall shows meanwhile). */
+.world {
+  display: block;
+}
+
+.world[hidden] {
+  display: none;
+}
+
 /*
  * ---- Text on top of the hall. --u is CSS px per art pixel; --x/--y/--w/--h are art pixels. Its minimum sizes are in
  * rem, so it grows with browser zoom while the hall doesn't: settleLabels() hides what would overlap. ----

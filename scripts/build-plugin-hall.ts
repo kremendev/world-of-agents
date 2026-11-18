@@ -3,6 +3,7 @@
 //   page/          the page, built by Vite as for npm run hall: Live, base "/", no CSP meta tag (the hall sends the header)
 //   server.mjs     server/plugin-hall.ts and all it imports, Zod included, in one file that imports only node: modules
 //   manifest.json  each page file by URL path, with its content type: the only files the plugin's hall serves
+//   MODELS-LICENSE.md  v4.0.0: the page's 3D models are Dima's, all rights reserved (scripts/models-notice.ts)
 //
 // npm run check:hall (the --check flag) builds the same into a temp folder and fails if any file differs from
 // plugin/hall/, either way. A build takes seconds and tests must not run builds, so it isn't in npm run check: it is the
@@ -14,6 +15,7 @@ import { join, relative, resolve, sep } from 'node:path';
 import { build as bundle } from 'esbuild';
 import { build } from 'vite';
 import { listPage } from '../server/page';
+import { modelsNotice } from './models-notice';
 
 const REPO = resolve(import.meta.dirname, '..');
 const HALL = join(REPO, 'plugin', 'hall');
@@ -70,6 +72,7 @@ async function buildInto(out: string): Promise<void> {
   const unlisted = filesIn(page).filter((file) => !(`/${file}` in files));
   if (unlisted.length > 0) fail(`the page has files the hall would not serve: ${unlisted.join(', ')}`);
   writeFileSync(join(out, 'manifest.json'), `${JSON.stringify({ files }, null, 2)}\n`);
+  writeFileSync(join(out, 'MODELS-LICENSE.md'), modelsNotice(files));
 
   const imports = [
     ...readFileSync(join(out, 'server.mjs'), 'utf8').matchAll(/^import .* from "([^"]+)";$/gm),

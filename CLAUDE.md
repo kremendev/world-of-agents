@@ -163,7 +163,8 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json (no setting
                   readLedger(), recountOf() and recount() (3.2d), summarize(), the dated price table, the pane's "This PC"
                   line and scopeLine()), types.d.ts
                   the state contract that plugin.json names; *.test.tsx are kit tests), voice/speak.ps1 (the voice
-                  script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json),
+                  script), hall/ (built by build:plugin-hall, tracked: page/, server.mjs, manifest.json, and from
+                  v4.0.0 MODELS-LICENSE.md: the models it carries are Dima's, all rights reserved, never served),
                   skills/setup-project/ (SKILL.md: the dry run; template.json and setup.mjs: copy the fixed settings into
                   a project's .claude/settings.local.json; versions/: every earlier template.json, for the upgrade) and skills/setup-project-write/ (SKILL.md: the write); tested in
                   server/setup-skill.test.ts. skills/team/ (SKILL.md: /world-of-agents:team, which the mod answers). skills/setup-gates/ (gates.mjs and SKILL.md),
@@ -176,7 +177,11 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
                   cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom. check/: the render check's
-                  page, dev server only (/src/world/check/index.html), never built
+                  page, dev server only (/src/world/check/index.html), never built. camera.ts: the camera's limits and
+                  how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
+                  `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
+                  can't draw, fails to load or loses its context for CONTEXT_GRACE_MS; scene/ comes in by a dynamic
+                  import, its own chunk
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
                   Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
@@ -193,7 +198,8 @@ tests/            invisible.test.ts: no bidi controls, zero-width characters or 
                   source check (mod.test.ts). They live outside plugin/ because `claude plugin test plugin` runs every
                   test file under it
 scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod-surface.json (the mod's expected surface),
-                  build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx),
+                  build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx) and
+                  models-notice.ts (the MODELS-LICENSE.md it writes beside the models, naming each),
                   dev-refresh.mjs (dev:refresh: copies new and changed files, deletes the ones plugin/ no longer has,
                   never deletes a folder, refuses a target outside ~/Downloads/woa-dev and any link)
 tools/claude-code-types/  index.d.ts: the engine's mods API types (`claude-code`, `claude-code/testing`) for one Claude
@@ -217,6 +223,10 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
 ```
 
 ## How the hall is drawn
+
+This is the 2D hall. From v4.0.0 (4a) the stage shows the 3D Forge Keep (`src/world/`, docs/v4.0-plan.md) wherever
+WebGL 2 is, and the 2D hall is frozen as its fallback: it keeps working and keeps its tests, but new world features
+aren't drawn in it (Dima, 17 Nov). jsdom has no WebGL, so every test of the page runs on the 2D hall.
 
 - **Units are art pixels.** The hall is 672 x 480 art px; the design shows it at 2 CSS px per art px (1344 x 960).
 - **Sprites** are `{ rows: string[], palette: Record<char, hex> }`. One string per row, `.` = transparent.
@@ -1170,3 +1180,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     back, bloom.ts). What is left is written down: 0.187's new PCF shadows (gone with shadows off in both), the signs'
     font, the particles. Three look questions for Dima from it: bloom, crease lines, the signs' font. models.test.ts
     unpacks two models and finds every vertex where it was; six planted bugs, all caught.
+    Step 4 is done: camera.ts (the limits and the town's room framing as numbers; camera.test.ts holds every room,
+    from nine sides, to the limits; the port renders pixel for pixel as before the move), WorldView in App's stage
+    (the WebGL 2 probe, the 2D hall while it loads and as the fallback, the hidden-tab pause, the context's grace;
+    WorldView.test.tsx), and the plugin's hall carrying the 17 models with MODELS-LICENSE.md beside them
+    (install.test.ts). Twenty planted bugs (twelve in WorldView, five in the camera, three in the notice), all caught.
+    Until 4b the world has no agents and until 4d there is no agent list, so on v3-next the stage's agent buttons go
+    once the world is ready (the canvas's label already names the HUD's list, as the plan has it).
