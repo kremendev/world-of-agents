@@ -184,7 +184,8 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
                   cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; cast.ts (4b): the five
                   characters (fetchCast(), createCast(): sized to the town's rig heights, toon, clips, the seats with
-                  two-bone IK, the Reviewer's lantern on its root as in the town, groundAt()). places.ts (4b): where
+                  two-bone IK, the Reviewer's lantern light on its root as in the town and its flame in the right hand,
+                  groundAt()). places.ts (4b): where
                   the agents are, pure: START and IDLE_AREAS (never a work room or the Forge for idle), WORK, FETCH,
                   VISIT, CHECK, and placeFor(), the 2D hall's destinationFor() on the keep's spots with Dima's answers
                   (map.ts has 4b's seven spots after the town's 21). walkers.ts (4b): the 2D hall's walkers with the
@@ -1255,4 +1256,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `skips` and world.land(), so the figures land, then the run moves on a step; walk.mjs with NEXT=6 finds no fault;
     six planted bugs caught. The tests' temp folders done: the sweep before every Vitest run (213 leftovers on its
     first), guard.test.ts's leaked folder fixed, the browser checks closing Edge in finally; eight planted bugs caught.
-    Next: 4c, which waits for the raised-hand clip from Tripo, and the lantern question.
+    The lantern (Dima, 18 Nov): the town's light on the root, the town's green flame in the hand with a 0.25 m halo, lit
+    with the light; six planted bugs caught. Next: 4c, which waits for the raised-hand clip from Tripo.

@@ -94,6 +94,7 @@ export async function createWorld(opts: WorldOptions) {
     phases: agentPhase,
     start: START,
     groundY,
+    flameTex: props.flameTex,
   });
   const actors = Object.values(cast.actors);
   /** Where each figure is and where it goes (../walkers.ts), the office it last heard of, and Live's fetched scrolls (scrolls). */

@@ -48,7 +48,9 @@ function parse(dataUrl: string): Promise<GLTF> {
 // the kit's toon material, without the renderer the real kit needs
 const kit = {
   toon: (color: string, extra = {}) => new THREE.MeshToonMaterial({ color, ...extra }),
+  TEX: { soft: new THREE.Texture() },
 } as unknown as Kit;
+const flameTex = new THREE.Texture();
 const flat = () => 0.02;
 const phases = { lead: 0, designer: 1, frontend: 2, backend: 3, reviewer: 4 };
 
@@ -111,7 +113,7 @@ describe('the cast in a scene', () => {
     } as FetchedCast;
     return {
       scene,
-      cast: createCast(kit, scene, fetched, { reducedMotion, phases, start: START, groundY: flat }),
+      cast: createCast(kit, scene, fetched, { reducedMotion, phases, start: START, groundY: flat, flameTex }),
     };
   };
 
@@ -141,7 +143,7 @@ describe('the cast in a scene', () => {
     });
   });
 
-  it("hangs the town's one carried light, the Reviewer's lantern, from its root, where the town leaves it", () => {
+  it("hangs the town's one carried light, the Reviewer's lantern, from its root by the head, as the town does", () => {
     const { scene, cast } = build(true);
     const lights: THREE.Light[] = [];
     scene.traverse((o) => {
@@ -158,6 +160,25 @@ describe('the cast in a scene', () => {
       4,
       2,
     ]);
+  });
+
+  it("shows the lantern in the right hand: the town's green flame and its halo, sized in metres (Dima, 18 Nov)", () => {
+    const { scene, cast } = build(true);
+    const lamp = cast.actors.reviewer.lamp;
+    expect(lamp?.group.parent?.name).toBe('mixamorigRightHand');
+    const [flame, halo] = (lamp?.flicker.children ?? []) as THREE.Sprite[];
+    expect((flame?.material as THREE.SpriteMaterial).map).toBe(flameTex);
+    expect((flame?.material as THREE.SpriteMaterial).color.toArray()).toEqual([0.6, 2.4, 1.2]);
+    expect((halo?.material as THREE.SpriteMaterial).blending).toBe(THREE.AdditiveBlending);
+    // the town's sizes in the world, whatever scale the bones carry
+    scene.updateMatrixWorld(true);
+    const size = flame?.getWorldScale(new THREE.Vector3());
+    expect(size?.x).toBeCloseTo(0.16, 6);
+    expect(size?.y).toBeCloseTo(0.3, 6);
+    // the halo a quarter metre, not the town's 0.7: by the lap it washed the robe green (Dima, 18 Nov)
+    expect(halo?.getWorldScale(new THREE.Vector3()).x).toBeCloseTo(0.25, 6);
+    // only the Reviewer carries one
+    expect(cast.actors.lead.lamp).toBeNull();
   });
 
   it('plays the clip for each pose, switching at once with reduced motion', () => {
@@ -267,12 +288,17 @@ describe('the cast in a scene', () => {
     const r = moving.actors.reviewer;
     moving.lanternFor(r, 'idle', 1);
     expect(r.lantern?.intensity).toBeGreaterThan(0);
+    // the flame you see shows with the light, flickering as the town's did
+    expect(r.lamp?.group.visible).toBe(true);
+    expect(r.lamp?.flicker.scale.y).not.toBe(1);
     for (const mode of ['read', 'readsit', 'sit', 'type'] as const) {
       moving.lanternFor(r, mode, 1);
       expect(r.lantern?.intensity, mode).toBe(0);
+      expect(r.lamp?.group.visible, mode).toBe(false);
     }
     const still = build(true).cast;
     still.lanternFor(still.actors.reviewer, 'readsit', 1);
     expect(still.actors.reviewer.lantern?.intensity).toBe(2.5);
+    expect(still.actors.reviewer.lamp?.group.visible).toBe(true);
   });
 });

@@ -5,7 +5,10 @@
  * takes the clicks; here a plain group stands in its place, since no hand-built figure is ever shown (docs/v4.0-plan.md,
  * "One path, no stand-ins"). The one thing the figure carried that the scene sees is the Reviewer's lantern light. The
  * town means to move a figure's lights to its model's hand, but it looks for them under the figure's body, and the
- * lantern light hangs from its root: so in the town it stays there, 2.2 m up, and it does here (Checked, 4b step 2).
+ * lantern light hangs from its root, so in the town it stays there, 2.2 m up (Checked, 4b step 2), and it does here.
+ * The lantern itself shows in the model's right hand: the town's own green flame and halo, from the hand-built figure's
+ * staff, which the town hides with that figure; lit when the light is (Dima, 18 Nov: a light in the hand blew the robe
+ * out green, centimetres from it).
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -47,6 +50,8 @@ const CLIP_FOR: Partial<Record<Mode, ClipName>> = {
   readsit: 'sit',
   drink: 'sit',
 };
+/** The Reviewer's lantern light, as the town makes it: green, 2.5 at 4 m, on the root by the head. */
+const LANTERN = { intensity: 2.5, distance: 4 } as const;
 /** The poses of a seated figure; the Reviewer's lantern is out only when it stands and isn't reading. */
 export const SEATED: ReadonlySet<Mode> = new Set(['type', 'smash', 'readsit', 'sit', 'drink']);
 // the walk clips cover 0.59 body heights a second at 1x (4 steps in 2.33 s, measured from the files)
@@ -137,8 +142,10 @@ export type Actor = {
     bent: boolean;
     ikW: number;
   };
-  /** The Reviewer's lantern light, on its root. */
+  /** The Reviewer's lantern light, on its root by the head, as in the town. */
   readonly lantern: THREE.PointLight | null;
+  /** The lantern you see, in the model's right hand: the town's flame and halo, flickering in `flicker`. */
+  readonly lamp: { readonly group: THREE.Group; readonly flicker: THREE.Group } | null;
 };
 
 /* ---------- seating. The seated clips were made for a taller chair than the town's, so on its own a clip either floats
@@ -212,6 +219,8 @@ export type CastOptions = {
   /** Where each figure stands when the keep is built. */
   readonly start: Readonly<Record<AgentKey, SpotId>>;
   readonly groundY: (x: number, z: number) => number;
+  /** The props' painted flame (the town's TEX.flame), for the Reviewer's lantern. */
+  readonly flameTex: THREE.Texture;
 };
 
 /**
@@ -255,12 +264,52 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
       ob.frustumCulled = false; // a skinned body moves away from its rest-pose bounds when it sits
       ob.raycast = () => {}; // nothing picks or seats on a figure
     });
-    // the town's Reviewer carries a lantern light, on its root where the hand-built figure's staff held it
+    // the town's Reviewer carries a lantern: its light on the root where the town leaves it, and the flame you see in
+    // the model's right hand (Dima, 18 Nov), sized in metres whatever the bones' scale
     let lantern: THREE.PointLight | null = null;
+    let lamp: Actor['lamp'] = null;
     if (id === 'reviewer') {
-      lantern = new THREE.PointLight('#6dffa0', 2.5, 4, 2);
+      lantern = new THREE.PointLight('#6dffa0', LANTERN.intensity, LANTERN.distance, 2);
       lantern.position.set(-0.18, 2.2, 0.35);
       root.add(lantern);
+      const hand = m.getObjectByName('mixamorigRightHand');
+      if (!hand) throw new Error('the reviewer model has no right hand');
+      const group = new THREE.Group();
+      const flicker = new THREE.Group();
+      group.add(flicker);
+      const flame = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: o.flameTex,
+          color: new THREE.Color(0.6, 2.4, 1.2),
+          transparent: true,
+          depthWrite: false,
+          toneMapped: false,
+        }),
+      );
+      flame.center.set(0.5, 0.05);
+      flame.scale.set(0.16, 0.3, 1);
+      flame.position.y = 0.02;
+      const halo = new THREE.Sprite(
+        new THREE.SpriteMaterial({
+          map: kit.TEX.soft,
+          color: '#5effa0',
+          transparent: true,
+          opacity: 0.55,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+        }),
+      );
+      // a quarter metre, not the town's 0.7, which was for a lantern held up on a staff: by the robe it washed it green
+      halo.scale.setScalar(0.25);
+      halo.position.y = 0.08;
+      // nothing picks or seats on a figure; and a sprite needs a camera on the ray, which the seat finder has none of
+      flame.raycast = () => {};
+      halo.raycast = () => {};
+      flicker.add(flame, halo);
+      hand.add(group);
+      m.updateMatrixWorld(true);
+      group.scale.setScalar(1 / hand.getWorldScale(new THREE.Vector3()).x);
+      lamp = { group, flicker };
     }
     const seat: Partial<Record<ClipName, number>> = {};
     for (const clip of g.animations) {
@@ -325,6 +374,7 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
         ikW: 0,
       },
       lantern,
+      lamp,
     };
   }
 
@@ -450,12 +500,17 @@ export function createCast(kit: Kit, scene: THREE.Scene, fetched: FetchedCast, o
 
   /**
    * The Reviewer's lantern, as the town's hand-built figure set it each frame: lit, flickering, while it stands and isn't
-   * reading, dark otherwise. With reduced motion the town never touches it, so it stays as made, lit.
+   * reading, dark otherwise. With reduced motion the town never touches it, so it stays as made, lit. The flame in the
+   * hand shows while the light is lit and flickers with it, as the town's flame did.
    */
   function lanternFor(a: Actor, mode: Mode, t: number) {
-    if (!a.lantern || REDUCE) return;
-    const k = 1 + Math.sin(t * 11 + a.phase) * 0.14 + Math.sin(t * 27) * 0.07;
-    a.lantern.intensity = !SEATED.has(mode) && mode !== 'read' ? 2.5 * k : 0;
+    if (!a.lantern || !a.lamp) return;
+    if (!REDUCE) {
+      const k = 1 + Math.sin(t * 11 + a.phase) * 0.14 + Math.sin(t * 27) * 0.07;
+      a.lantern.intensity = !SEATED.has(mode) && mode !== 'read' ? LANTERN.intensity * k : 0;
+      a.lamp.flicker.scale.set(1 / Math.sqrt(k), k, 1);
+    }
+    a.lamp.group.visible = a.lantern.intensity > 0;
   }
 
   return { actors, drive, lanternFor };

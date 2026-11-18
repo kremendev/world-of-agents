@@ -23,6 +23,9 @@ declare global {
       rooms: typeof ROOM;
       groundY: World['groundY'];
       whereIs: World['whereIs'];
+      update: World['update'];
+      stop: World['stop'];
+      start: World['start'];
       placeFor: typeof placeFor;
       readonly office: OfficeState;
       readonly ended: boolean;
@@ -84,6 +87,9 @@ window.__world = {
   rooms: ROOM,
   groundY: world.groundY,
   whereIs: world.whereIs,
+  update: world.update,
+  stop: () => world.stop(),
+  start: () => world.start(),
   placeFor,
   get office() {
     return office;
