@@ -701,11 +701,12 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
 - Flag any security issue you notice and explain the risk, even if it is outside the current task.
 - When a guard, a hook or a permission rule blocks Claude, it stops and tells Dima what is blocking. It never turns the
   plugin, a hook or a setting off to get past it, by any route: a settings file, the CLI or a command (Dima, 18 Nov).
-  The case: on 18 Nov World of Agents (3.10.0 from GitHub) was on at local scope in agent-office itself, and in a new
-  session its guard denied every Edit and Write, since plain Claude isn't the Lead. Claude asked, and on Dima's answer
-  ran `claude plugin disable world-of-agents@world-of-agents --scope local`; from now on it stops and says what blocks,
-  and the switch is Dima's. World of Agents stays off in agent-office: it is where plain Claude develops it, and since
-  v3.8 the guard denies any main session that isn't the Lead.
+  The case: on 18 Nov World of Agents (3.10.0 from GitHub) was on at local scope in this repo itself, then at
+  Downloads\agent-office, and in a new session its guard denied every Edit and Write, since plain Claude isn't the Lead.
+  Claude asked, and on Dima's answer ran `claude plugin disable world-of-agents@world-of-agents --scope local`; from now
+  on it stops and says what blocks, and the switch is Dima's. World of Agents stays off in this repo (the switch is in its
+  `.claude/settings.local.json`, which moved with it to D:\Dev\projects\personal\world-of-agents on 18 Nov): it is where
+  plain Claude develops it, and since v3.8 the guard denies any main session that isn't the Lead.
 
 ## Testing notes
 
@@ -893,7 +894,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
 
 6. The long run, v3.1.0 to v3.4.0 (Dima's brief of 11 Nov), on the branch `v3-next`, built alone and tested by Dima at the
    end. Commits go on `v3-next` only, one per finished part, pushed there: never `main`, never a tag or a release. After
-   each part: `npm run check` from `C:\`, `check:hall` when the hall changes, planted bugs for the new logic, and this
+   each part: `npm run check` from `D:\`, `check:hall` when the hall changes, planted bugs for the new logic, and this
    status. Each version gets a desktop checklist for Dima in docs/release-notes/<version>-check.md. Real model runs only
    where nothing else can prove a fact, tiny, in throwaway folders under D:\Dev\scratch\woa-*, deleted after use.
    Done: 3.1a (the Reviewer's report format, its parser, the hall's Read/Grep/Glob counts on the Reviewer's report).
@@ -1009,7 +1010,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
 11. Long run 2, v3.5.0 to v3.7.0 (Dima's brief of 14 Nov), on `v3-next`, alone until a version is ready for his test.
     Same rules as the first long run: one commit per finished part, pushed to `v3-next`; never `main`, a tag or a
     release; `--force-with-lease` only on `v3-next`, only to fold fixes into a version. After each part: `npm run check`
-    from `C:\`, `check:hall` when the hall changes, planted bugs, and this status. Dima's real team is
+    from `D:\`, `check:hall` when the hall changes, planted bugs, and this status. Dima's real team is
     `~/.world-of-agents/team`: tests use a throwaway HOME. Stop for Dima on a rule to loosen, new art, or Pro limits.
     v3.5.0 (docs/v3.5-plan.md): 3.5a done (TypeScript 6.0.3, typescript-eslint 8.72.2, ESLint 10.15.0, `npm audit` clean
     through the minimatch override; the hooks plugin keeps its two classic rules). 3.5b done (the hall starts detached
