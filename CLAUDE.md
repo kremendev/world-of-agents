@@ -17,7 +17,7 @@ npm test         # vitest run
 npm run test:mod # the mod's kit tests: claude plugin test plugin (check needs Claude Code on PATH for this and mod:surface)
 npm run types:update  # copies the installed Claude Code's mods API types into tools/claude-code-types (on purpose only)
 npm run build:plugin-hall  # the prebuilt hall in plugin/hall/ (tracked): run after any change to server/ or the page
-npm run dev:refresh   # mirrors plugin/ into the desktop dev install, ~/Downloads/woa-dev/plugin
+npm run dev:refresh   # mirrors plugin/ into the desktop dev install, D:\Dev\sandboxes\woa-dev\plugin
 npm run check:hall    # builds it again in a temp folder and fails on any difference (not in check: a build takes seconds)
 npm run release:check # check:hall, then check: before every release tag
 npm run format   # prettier --write .
@@ -223,7 +223,7 @@ scripts/          types-update.mjs (npm run types:update), mod-surface.mjs + mod
                   build-plugin-hall.ts (build:plugin-hall and, with --check, check:hall; run with tsx) and
                   models-notice.ts (the MODELS-LICENSE.md it writes beside the models, naming each),
                   dev-refresh.mjs (dev:refresh: copies new and changed files, deletes the ones plugin/ no longer has,
-                  never deletes a folder, refuses a target outside ~/Downloads/woa-dev and any link)
+                  never deletes a folder, refuses a target outside D:\Dev\sandboxes\woa-dev and any link)
 tools/claude-code-types/  index.d.ts: the engine's mods API types (`claude-code`, `claude-code/testing`) for one Claude
                   Code version, generated, -diff in .gitattributes. tsconfig.mod.json type-checks the mod against it
 bin/              woa: the launcher, bash for Git Bash (finds the repo from its own location). woa.test.ts runs it
@@ -745,7 +745,7 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   until VS Code died, twice: a stream that answers at once is read in microtasks alone, so no timer runs, Vitest's own
   timeout included, and `Uint8Array` pieces live outside the V8 heap, so `--max-old-space-size` doesn't stop them (both
   checked). A failing size check says one short line, never the body.
-- Planted bugs (Dima, 16 Nov) go in a throwaway git worktree (`~/Downloads/woa-plant`, the uncommitted files copied in,
+- Planted bugs (Dima, 16 Nov) go in a throwaway git worktree (`D:\Dev\scratch\woa-plant`, the uncommitted files copied in,
   `node_modules` a junction), never in the working tree, so a crash leaves nothing behind there. Each run has a hard
   timeout that ends the whole process tree (`taskkill /T /F`) and a 512 MB heap through `NODE_OPTIONS`. A run that dies,
   times out, prints no summary, reports fewer results than it has tests, or has unhandled errors is FAILED, never caught.
@@ -778,8 +778,8 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   so it spends nothing, and `WOA_CAPTURE=1` counts the hooks. SessionStart's `agent_type` shows the main agent, and
   `--debug-file` shows which copy loaded. `marketplace add` refuses `file://`; to test the cached copy, serve a bare repo
   over HTTP through `git http-backend`, because Claude Code clones shallow.
-- Desktop checks of the working copy use a dev install: `~/Downloads/woa-dev/` is a folder marketplace (`woa-dev`) holding a
-  copy of `plugin/`, installed at local scope in `~/Downloads/woa-m2-test/`. Claude Code refuses a junction or symlink there
+- Desktop checks of the working copy use a dev install: `D:\Dev\sandboxes\woa-dev\` is a folder marketplace (`woa-dev`) holding a
+  copy of `plugin/`, installed at local scope in `D:\Dev\sandboxes\woa-m2-test\`. Claude Code refuses a junction or symlink there
   (a link-traversing entry), so refresh the copy after each change with `npm run dev:refresh`, then run
   `/reload-plugins` in the desktop session. Not `rm -rf … && cp -r …`: a hall started from the dev install stands in
   `woa-dev/plugin/hall`, Windows won't remove that folder, and the copy then lands in a nested `plugin/plugin/`.
@@ -893,7 +893,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
    end. Commits go on `v3-next` only, one per finished part, pushed there: never `main`, never a tag or a release. After
    each part: `npm run check` from `C:\`, `check:hall` when the hall changes, planted bugs for the new logic, and this
    status. Each version gets a desktop checklist for Dima in docs/release-notes/<version>-check.md. Real model runs only
-   where nothing else can prove a fact, tiny, in throwaway folders under ~/Downloads/woa-*, deleted after use.
+   where nothing else can prove a fact, tiny, in throwaway folders under D:\Dev\scratch\woa-*, deleted after use.
    Done: 3.1a (the Reviewer's report format, its parser, the hall's Read/Grep/Glob counts on the Reviewer's report).
    3.1b (the Reviewer on Opus, the guard denies an Agent call with `model`; a terminal run showed Opus follows the format,
    its report is a parser case). v3.1.0's desktop checklist has steps for both.

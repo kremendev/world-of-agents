@@ -1,10 +1,10 @@
-// npm run dev:refresh: mirrors plugin/ into the desktop dev install, ~/Downloads/woa-dev/plugin (CLAUDE.md, Testing notes).
+// npm run dev:refresh: mirrors plugin/ into the desktop dev install, D:\Dev\sandboxes\woa-dev\plugin (CLAUDE.md, Testing notes).
 //
 // It copies every file of plugin/ that is new or changed, and deletes the files plugin/ no longer has. It never deletes a
 // folder: a hall started from the dev install runs in woa-dev/plugin/hall, and Windows won't remove a folder a process
 // stands in. (The old `rm -rf` stops there half done, and the `cp -r` after it then copies into a nested plugin/plugin/.)
 //
-// It refuses any target outside ~/Downloads/woa-dev, a target or root reached through a link, and a link on either side.
+// It refuses any target outside D:\Dev\sandboxes\woa-dev, a target or root reached through a link, and a link on either side.
 // Before it changes anything it checks it can write every file it will replace or delete: if a program holds one, it
 // names that file and changes nothing.
 
@@ -130,7 +130,7 @@ export function mirror({ source, target, root }) {
 
 // Run only as a script, so tests can import it.
 if (process.argv[1]?.endsWith('dev-refresh.mjs')) {
-  const root = join(homedir(), 'Downloads', 'woa-dev');
+  const root = join('D:\\', 'Dev', 'sandboxes', 'woa-dev');
   const target = join(root, 'plugin');
   const shown = (path) => path.replace(homedir(), '~').split(sep).join('/');
   try {

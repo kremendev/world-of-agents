@@ -1,16 +1,17 @@
 # World of Agents: background Blender runner.
 # Started by woa_watch.bat. Runs headless (no window, no mouse or keyboard), so the PC stays free.
-# Every .py dropped into WoA-models\jobs runs once in a clean scene, then moves to jobs\done.
+# Every .py dropped into HOME\jobs runs once in a clean scene, then moves to jobs\done.
 # Progress and errors go to jobs\status.txt. Stop it by closing the console window, or by creating jobs\STOP.
 #
 # Only the jobs beside this runner may run (v4.0.0, 4a): when it starts it takes the SHA-256 of each woa_b*.py in its
 # own folder, and a dropped file whose bytes match none of them is refused and moved to jobs\refused, never run. So a
 # download, a script or an agent's file that lands in jobs\ can't run code here. It runs the very bytes it checked, and
-# before each job writes its own woa_kit.py into WoA-models, since every job loads the kit from there.
+# before each job writes its own woa_kit.py into HOME. HOME is named here only: each job gets it as WOA_HOME, beside
+# __file__, and loads the kit from it, and the kit takes it as its HOME. A move of the folder is this one line.
 import bpy, os, time, glob, shutil, traceback, hashlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-HOME = os.path.join(os.path.expanduser('~'), 'Documents', 'WoA-models')
+HOME = r'D:\Dev\assets\world-of-agents\woa-models'
 JOBS = os.path.join(HOME, 'jobs')
 DONE = os.path.join(JOBS, 'done')
 REFUSED = os.path.join(JOBS, 'refused')
@@ -70,7 +71,7 @@ while True:
             bpy.ops.wm.read_factory_settings(use_empty=True)
             with open(os.path.join(HOME, 'woa_kit.py'), 'wb') as f:
                 f.write(KIT)
-            exec(compile(code.decode('utf-8'), path, 'exec'), {'__name__': '__main__', '__file__': path})
+            exec(compile(code.decode('utf-8'), path, 'exec'), {'__name__': '__main__', '__file__': path, 'WOA_HOME': HOME})
             stamp('ok %s (%.0fs)' % (name, time.time() - t0))
         except Exception:
             stamp('FAIL %s\n%s' % (name, traceback.format_exc()))

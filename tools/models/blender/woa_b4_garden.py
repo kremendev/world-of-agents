@@ -3,7 +3,7 @@
 # Static models are in their own local frames (the page drops each into the group it already places);
 # the flora file holds one object per kind at the origin (tree_oak, bush_fern ...), which the page draws as instances.
 import os
-exec(compile(open(os.path.join(os.path.expanduser('~'), 'Documents', 'WoA-models', 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))
+exec(compile(open(os.path.join(WOA_HOME, 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))  # WOA_HOME: from woa_watch.py
 from math import sin, cos, pi, atan2, hypot, tan, radians, sqrt
 
 KEEP = os.path.join(HOME, 'keep')

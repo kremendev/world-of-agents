@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { RefreshError, mirror } from '../scripts/dev-refresh.mjs';
 
-// npm run dev:refresh mirrors plugin/ into ~/Downloads/woa-dev/plugin. These run it on temp folders only.
+// npm run dev:refresh mirrors plugin/ into D:\Dev\sandboxes\woa-dev\plugin. These run it on temp folders only.
 
 let box: string;
 let source: string;

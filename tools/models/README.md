@@ -11,14 +11,15 @@ Python: none is on PATH on Dima's PC. Blender's own runs these, numpy included:
 ## The keep: Blender jobs
 
 They run on Dima's PC through a headless runner, so the PC stays free: `blender/woa_watch.bat` starts
-`blender -b --python woa_watch.py`, which runs each job dropped into `Documents\WoA-models\jobs` in a clean scene, moves
+`blender -b --python woa_watch.py`, which runs each job dropped into `D:\Dev\assets\world-of-agents\woa-models\jobs` in a clean scene, moves
 it to `jobs\done` and logs to `jobs\status.txt`.
 
 **Only its own jobs run (4a).** When the runner starts it takes the SHA-256 of each `woa_b*.py` beside it; a file in
 `jobs\` whose bytes match none of them is refused, logged and moved to `jobs\refused`, never run. Start it from this
 folder, `tools/models/blender/woa_watch.bat`, so the jobs it trusts are the repository's. To run a changed job, change it
-here and start the runner again. Before each job it writes its own `woa_kit.py` into `Documents\WoA-models`, where every
-job loads the kit from. Still close its window when a batch is done (or create `jobs\STOP`).
+here and start the runner again. Before each job it writes its own `woa_kit.py` into that folder and hands the job the
+folder as `WOA_HOME`, from which it loads the kit. The folder is named in one place, `HOME` in `woa_watch.py`, so a move is
+one line there. Still close its window when a batch is done (or create `jobs\STOP`).
 
 | Job                | Makes                                                                                   |
 | ------------------ | --------------------------------------------------------------------------------------- |
@@ -27,7 +28,7 @@ job loads the kit from. Still close its window when a batch is done (or create `
 | `woa_b3_town.py`   | house_library, house_studio, yard, watch, dock                                          |
 | `woa_b4_garden.py` | forge (with its entrances), altar, garden, bridge, flora (10 trees, 5 bushes)           |
 
-Jobs write models to `Documents\WoA-models\keep` and previews to `WoA-models\renders`. Coordinates: the world's
+Jobs write models to `woa-models\keep` and previews to `woa-models\renders`. Coordinates: the world's
 (x, y up, z) is Blender's (x, -z, y); a `rotation.y` of a is a Blender Z rotation of a.
 
 ## From a .glb to the page

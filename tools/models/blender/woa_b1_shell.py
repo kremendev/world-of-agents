@@ -3,7 +3,7 @@
 # Everything sits in the town's own coordinates: town (x, y, z) with y up  ->  Blender (x, -z, y).
 # Exports keep/underside.glb, keep/walls.glb, keep/towers.glb, keep/gate.glb, then renders cel-shaded previews.
 import os
-exec(compile(open(os.path.join(os.path.expanduser('~'), 'Documents', 'WoA-models', 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))
+exec(compile(open(os.path.join(WOA_HOME, 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))  # WOA_HOME: from woa_watch.py
 from math import sin, cos, pi, atan2, hypot, floor, radians
 
 KEEP = os.path.join(HOME, 'keep')

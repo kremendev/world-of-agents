@@ -7,7 +7,7 @@
 # The Forge is one static model: plaza paving, furnace body, chimney, iron bands, horns, skull, spikes, mouth frame.
 # The glowing mouth, the fire light and the props stay in the page (they react to how hard the team works).
 import os
-exec(compile(open(os.path.join(os.path.expanduser('~'), 'Documents', 'WoA-models', 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))
+exec(compile(open(os.path.join(WOA_HOME, 'woa_kit.py'), encoding='utf-8').read(), 'woa_kit.py', 'exec'))  # WOA_HOME: from woa_watch.py
 from math import sin, cos, pi, atan2, hypot, tan, radians, sqrt
 
 KEEP = os.path.join(HOME, 'keep')

@@ -3,7 +3,7 @@
 import bpy, bmesh, math, random, os, traceback
 from mathutils import Matrix, Vector, Euler
 
-HOME = os.path.join(os.path.expanduser('~'), 'Documents', 'WoA-models')
+HOME = WOA_HOME  # the models folder: woa_watch.py hands it to the job, whose globals this kit runs in
 OUT = os.path.join(HOME, 'renders')
 LOG = []
 def log(*a):
