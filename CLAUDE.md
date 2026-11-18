@@ -213,6 +213,8 @@ tests/            global-setup.ts and sweep-temp.ts: before every Vitest run, ou
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
                   its texture) and listed in docs/ASSETS.md with its author, a Tripo character with its ProduceID.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
+                  blender-runner.test.ts: tools/models/blender read as text: the runner names the models folder once
+                  (HOME) and hands it to each job as WOA_HOME; no job or the kit names a folder of its own.
                   tests/plugin/: Vitest tests of the plugin's scripts (send, handshake, guard, guard-woa-folder: no edit
                   into ~/.world-of-agents, guard-backlog and its mock
                   twin: BACKLOG.md on disk, agent-prompts: the check in the prompts, hall-check, run-directly:

@@ -3,7 +3,8 @@
 The models in `src/world/models/` are Dima's, all rights reserved, not under the repository's MIT licence (see
 `docs/ASSETS.md`). This folder holds what makes them: the Blender jobs for the keep, and the steps that slim and pack a
 model into the GLB the page loads. It came from `town/` on the branch `forge-keep` (89ae8b1). Nothing here runs in
-`npm run check`; ESLint lints `to-glb.mjs`, the rest is Python.
+`npm run check`; ESLint lints `to-glb.mjs`, the rest is Python. `tests/blender-runner.test.ts` reads the runner, the kit
+and the jobs as text and holds them to the one models folder below.
 
 Python: none is on PATH on Dima's PC. Blender's own runs these, numpy included:
 `"C:\Program Files\Blender Foundation\Blender 5.3\5.3\python\bin\python.exe"`.
