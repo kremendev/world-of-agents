@@ -38,11 +38,10 @@ The owner works on Windows in Git Bash. Give commands that work there.
 - TypeScript 6.0.3, typescript-eslint 8.72.2 and ESLint 10.15.0 (with `@eslint/js` 10.0.1), pinned exactly (v3.5a).
   Not TypeScript 7: typescript-eslint 8 accepts only below 6.1. Upgrade them together.
 - `overrides` in package.json gives typescript-estree `minimatch` 11.0.8 (GHSA-g3hv-75wg-m249, fixed in 11.0.1) until a
-  stable typescript-eslint asks for `^11.0.1`; then drop it. `npm audit` was clean until 17 Nov, when GHSA-fc5q-39xc-vjpf
-  (picomatch up to 4.0.7, the newest, ReDoS, no patched version) came to cover the copy vite, tinyglobby and
-  typescript-eslint use: build and lint tools matching our own patterns, never in the bundle. `npm audit fix --force`
-  would put vite back to 6.2.7, so it waits for a patched picomatch. After changing an override, remove
-  the nested copy from package-lock.json and node_modules, or npm keeps it and calls it "invalid".
+  stable typescript-eslint asks for `^11.0.1`; then drop it. `npm audit` is clean again: GHSA-fc5q-39xc-vjpf (picomatch
+  up to 4.0.7, ReDoS), which from 17 Nov flagged the copy vite, tinyglobby and typescript-eslint use, was withdrawn on
+  18 Nov, and nothing was changed for it (`npm audit fix --force` would have put vite back to 6.2.7). After changing an
+  override, remove the nested copy from package-lock.json and node_modules, or npm keeps it and calls it "invalid".
 - eslint-plugin-react-hooks 7 (ESLint 10 needs it): eslint.config.js turns on its two classic rules only. Its presets
   add the React Compiler's rules (8 `react-hooks/refs` errors in App.tsx and ReviewBoard.tsx, 14 Nov): a choice of its own.
 - `yaml` 2.9.1, pinned exactly, is a dependency from v3.10 (it was a dev dependency from 3.6e): `server/skill-check.ts`
