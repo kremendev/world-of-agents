@@ -684,6 +684,13 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   prompts treat it as data, and least privilege, not the prompt, limits what a hijacked agent can do. The
   prompt and agent text that reach the hall are still untrusted text.
 - Flag any security issue you notice and explain the risk, even if it is outside the current task.
+- When a guard, a hook or a permission rule blocks Claude, it stops and tells Dima what is blocking. It never turns the
+  plugin, a hook or a setting off to get past it, by any route: a settings file, the CLI or a command (Dima, 18 Nov).
+  The case: on 18 Nov World of Agents (3.10.0 from GitHub) was on at local scope in agent-office itself, and in a new
+  session its guard denied every Edit and Write, since plain Claude isn't the Lead. Claude asked, and on Dima's answer
+  ran `claude plugin disable world-of-agents@world-of-agents --scope local`; from now on it stops and says what blocks,
+  and the switch is Dima's. World of Agents stays off in agent-office: it is where plain Claude develops it, and since
+  v3.8 the guard denies any main session that isn't the Lead.
 
 ## Testing notes
 
