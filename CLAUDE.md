@@ -171,7 +171,12 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json (no setting
                   server/setup-gates.test.ts).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from `town/` on `forge-keep`. models/: the
-                  keep's GLB files (4a), Dima's, all rights reserved (docs/ASSETS.md)
+                  keep's GLB files (4a), Dima's, all rights reserved (docs/ASSETS.md). map.ts: the town's world.js (4a).
+                  scene/ (4a, three only, never React): the town's modules in its build order, which its seeded random
+                  numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
+                  materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
+                  cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom. check/: the render check's
+                  page, dev server only (/src/world/check/index.html), never built
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
                   Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
@@ -1158,3 +1163,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     in Documents\WoA-models deleted (17 Nov). Step 2 is done: src/world/map.ts, the town's world.js in strict
     TypeScript, identical in every room, spot, road line, graph node and all 420 routes (both run and compared), with
     map.test.ts; six planted bugs caught, once a test was sharpened (a terrace is reached from outside its house).
+    Step 3 is done: src/world/scene/, the town's scene modules in its build order (the seeded random numbers depend on
+    it), on the path where every model is there, with no agents (4b). The real-render comparison passes view by view
+    (docs/v4.0-plan.md, Tech, "Checked"): eleven views at most 0.044% of pixels and 0.19/255 off. It found what a render
+    alone hid: the line and grade passes reading an empty depth (fixed: the real one), and 0.187's bloom (r160's put
+    back, bloom.ts). What is left is written down: 0.187's new PCF shadows (gone with shadows off in both), the signs'
+    font, the particles. Three look questions for Dima from it: bloom, crease lines, the signs' font. models.test.ts
+    unpacks two models and finds every vertex where it was; six planted bugs, all caught.
