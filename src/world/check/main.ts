@@ -2,7 +2,7 @@
 // controls and a frame count, as the town's test copy does (town/test/serve.sh); from 4b also the cast, a way to put
 // a figure on a spot, and the spots, for the cast's comparison and the seats check. Dev server only; see index.html.
 import * as THREE from 'three';
-import { SPOTS } from '../map';
+import { ROOM, SPOTS } from '../map';
 import { createWorld, type World } from '../scene/world';
 
 declare global {
@@ -15,6 +15,8 @@ declare global {
       actors: World['cast']['actors'];
       place: World['place'];
       spots: typeof SPOTS;
+      rooms: typeof ROOM;
+      groundY: World['groundY'];
       THREE: typeof THREE;
       ready: boolean;
     };
@@ -43,6 +45,8 @@ window.__world = {
   actors: world.cast.actors,
   place: world.place,
   spots: SPOTS,
+  rooms: ROOM,
+  groundY: world.groundY,
   THREE,
   ready: true,
 };

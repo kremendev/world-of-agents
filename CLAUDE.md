@@ -184,7 +184,9 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; cast.ts (4b): the five
                   characters (fetchCast(), createCast(): sized to the town's rig heights, toon, clips, the seats with
                   two-bone IK, the Reviewer's lantern on its root as in the town, groundAt()). places.ts (4b): where
-                  the agents are, pure (IDLE_AREAS, START; never a work room or the Forge for idle). check/: the
+                  the agents are, pure: START and IDLE_AREAS (never a work room or the Forge for idle), WORK, FETCH,
+                  VISIT, CHECK, and placeFor(), the 2D hall's destinationFor() on the keep's spots with Dima's answers
+                  (map.ts has 4b's seven spots after the town's 21). check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
                   camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
@@ -197,7 +199,8 @@ tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa
 tools/world-check/ the world's checks in real Edge, by hand, never in npm run check (README.md has the commands):
                   render.mjs and compare.mjs (the render comparison against the town), policy.mjs, serve.ts and
                   models-page.mjs (what the page's policy refuses), frames.mjs (a frame's time), town.mjs (the
-                  town's test copy)
+                  town's test copy), seats.mjs (every figure on every seat, against the town's rule), spots.mjs
+                  (every standing spot and its walk on clear floor), cast/ (the cast comparison's placements and views)
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
@@ -1229,4 +1232,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     (Dima: so for 4b, ask again in 4c whether it follows the hand) and 4a's light pass missing the town's figure's-light
     clause; seats.mjs: 40 of 40 with reduced motion in both, without it 38 of 40 in both (the Backend dev's toes 5 cm up
     at two seats, as in the town); 16 planted bugs caught after three tests were sharpened. After 4b, its own part: the
-    tests' temp folders (docs/v4.0-plan.md, Parts).
+    tests' temp folders (docs/v4.0-plan.md, Parts). Step 3 is done: placeFor() in places.ts, the 2D hall's rules on
+    the keep's spots with Dima's answers (a waiting Lead in the War room in Live too, a Lead checking in the Workshop,
+    the Reviewer beside the desk), seven new spots in map.ts (the scrolls at the War hall's board, the visits, the
+    check); places.test.ts against the 2D hall's kinds over 2,160 cases; spots.mjs: all 20 standing spots and their
+    walks on clear floor; ten planted bugs caught.

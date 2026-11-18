@@ -326,6 +326,46 @@ const SPOT_DEFS = {
   'court-well': S('court', -3.9, 1.0, face(-3.9, 1.0, -5.8, 2.0), 'idle', 'chatting by the well'),
   'garden-easel': S('garden', 3.0, -3.4, face(3.0, -3.4, 2.2, -4.3), 'paint', 'painting in the garden'),
   'garden-pond': S('garden', 1.4, 2.4, face(1.4, 2.4, -1, 0), 'idle', 'watching the pond'),
+  // 4b, not in the town (Dima's answers of 17 Nov, docs/v4.0-plan.md, "States and places"): where the devs collect their
+  // task scrolls, at the War hall's task board on its north wall; where the Reviewer reviews, beside the agent at its
+  // desk, the way round the desk first; and where the Lead checks on the devs, in the Workshop facing their desks
+  'fetch-designer': S('war', 2.7, -1.6, face(2.7, -1.6, 3.8, -4.4), 'idle', 'collecting the task scroll'),
+  'fetch-frontend': S('war', 3.8, -1.4, face(3.8, -1.4, 3.8, -4.4), 'idle', 'collecting the task scroll'),
+  'fetch-backend': S('war', 4.9, -1.6, face(4.9, -1.6, 3.8, -4.4), 'idle', 'collecting the task scroll'),
+  'visit-designer': S(
+    'studio',
+    -3.3,
+    -2.1,
+    face(-3.3, -2.1, -2.0, -2.38),
+    'read',
+    "reviewing the Designer's work",
+    {
+      via: [-3.4, -0.6],
+    },
+  ),
+  'visit-frontend': S(
+    'workshop',
+    -4.3,
+    -2.0,
+    face(-4.3, -2.0, -3.0, -2.18),
+    'read',
+    "reviewing the Frontend dev's work",
+    {
+      via: [-4.4, -0.4],
+    },
+  ),
+  'visit-backend': S(
+    'workshop',
+    3.2,
+    -2.0,
+    face(3.2, -2.0, 2.0, -2.18),
+    'read',
+    "reviewing the Backend dev's work",
+    {
+      via: [3.4, -0.4],
+    },
+  ),
+  'workshop-check': S('workshop', -0.5, 0.4, face(-0.5, 0.4, -0.5, -1.4), 'point', 'checking on the devs'),
 } as const satisfies Record<string, SpotDef>;
 
 export type SpotId = keyof typeof SPOT_DEFS;

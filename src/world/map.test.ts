@@ -54,7 +54,8 @@ describe('the map', () => {
   });
 
   it('puts every spot in its area: inside, or for a terrace or beer garden just outside its house', () => {
-    expect(SPOT_IDS).toHaveLength(21);
+    // the town's 21, and 4b's 7: three to fetch a scroll, three to review at a desk, one to check on the devs
+    expect(SPOT_IDS).toHaveLength(28);
     for (const id of SPOT_IDS) {
       const s = SPOTS[id];
       const r = ROOM[s.room];

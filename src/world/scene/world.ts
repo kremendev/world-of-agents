@@ -882,6 +882,8 @@ export async function createWorld(opts: WorldOptions) {
     housePicks,
     agentPhase,
     cast,
+    /** The height a figure stands at, at a point: a floor, a terrace, the dais, a footbridge or grass. */
+    groundY,
     /** Puts a figure on a spot at once, facing the spot's way, as reduced motion does. */
     place(id: AgentKey, spot: SpotId) {
       const sp = SPOTS[spot];
