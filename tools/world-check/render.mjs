@@ -8,6 +8,8 @@
 // port: the render check's page on the dev server, http://localhost:5173/src/world/check/index.html
 // town: the town's test copy (town.mjs, served by serve.ts); its three comes from THREE_DIR in place of the CDN.
 // NOSHADOW=1: no light casts a shadow, in either, to tell three's shadow sampling apart from everything else.
+// CAST=<placements.json> ({ "lead": "war-table", ... }, 4b): the figures stay, each on the same spot in both, every
+// clip at its first frame (the town starts each at a random time), 30 frames before the first view.
 import { chromium } from 'playwright-core';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,6 +27,7 @@ if (mode === 'town' && !THREE_DIR) {
   process.exit(2);
 }
 const views = JSON.parse(readFileSync(viewsFile, 'utf8'));
+const cast = process.env.CAST ? JSON.parse(readFileSync(process.env.CAST, 'utf8')) : null;
 const FRAMES_PER_VIEW = 8;
 mkdirSync(out, { recursive: true });
 
@@ -61,10 +64,31 @@ const t0 = Date.now();
 await page.goto(url);
 if (mode === 'town') {
   await page.waitForFunction(() => window.WOA && window.WOA.has3D && window.__dbg, null, { timeout: 300000 });
-  // the comparison is of the world: the town's figures and its HUD go
-  await page.evaluate(() => {
-    for (const a of Object.values(window.__dbg.actors)) a.c.root.visible = false;
-  });
+  if (cast) {
+    // every figure's model, then each on its spot, as the town's seats.cjs puts them
+    await page.waitForFunction(() => Object.values(window.__dbg.actors).every((a) => a.c.model), null, {
+      timeout: 300000,
+    });
+    await page.evaluate((cast) => {
+      const W = window.WOA;
+      for (const [id, spot] of Object.entries(cast)) {
+        const a = window.__dbg.actors[id];
+        const sp = W.data.SPOTS[spot];
+        a.path = [];
+        a.from = spot;
+        Object.assign(W.agents[id], { spot, arrived: true, needs: false });
+        a.c.root.position.set(sp.x, a.c.root.position.y, sp.z);
+        a.c.root.rotation.y = sp.ry;
+        for (const act of Object.values(a.c.model.acts)) act.time = 0;
+      }
+    }, cast);
+  } else {
+    // the comparison is of the world: the town's figures go
+    await page.evaluate(() => {
+      for (const a of Object.values(window.__dbg.actors)) a.c.root.visible = false;
+    });
+  }
+  // and its HUD
   await page
     .addStyleTag({
       content:
@@ -73,6 +97,25 @@ if (mode === 'town') {
     .catch(() => {});
 } else {
   await page.waitForFunction(() => window.__world && window.__world.ready, null, { timeout: 300000 });
+  if (cast) {
+    await page.evaluate((cast) => {
+      for (const [id, spot] of Object.entries(cast)) {
+        window.__world.place(id, spot);
+        for (const act of Object.values(window.__world.actors[id].model.acts)) act.time = 0;
+      }
+    }, cast);
+  }
+}
+if (cast) {
+  const f0 = await page.evaluate((h) => window[h].frames, mode === 'town' ? '__dbg' : '__world');
+  await page.waitForFunction(
+    ([h, n]) => window[h].frames >= n,
+    [mode === 'town' ? '__dbg' : '__world', f0 + 30],
+    {
+      timeout: 600000,
+      polling: 500,
+    },
+  );
 }
 const hook = mode === 'town' ? '__dbg' : '__world';
 if (process.env.NOSHADOW === '1') {

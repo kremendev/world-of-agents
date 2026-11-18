@@ -1,6 +1,9 @@
 // The render check (v4.0.0, 4a): mounts the Forge Keep full window and hands the comparison script the camera, the
-// controls and a frame count, as the town's test copy does (town/test/serve.sh). Dev server only; see index.html.
-import { createWorld } from '../scene/world';
+// controls and a frame count, as the town's test copy does (town/test/serve.sh); from 4b also the cast, a way to put
+// a figure on a spot, and the spots, for the cast's comparison and the seats check. Dev server only; see index.html.
+import * as THREE from 'three';
+import { SPOTS } from '../map';
+import { createWorld, type World } from '../scene/world';
 
 declare global {
   interface Window {
@@ -9,6 +12,10 @@ declare global {
       camera: import('three').PerspectiveCamera;
       controls: import('three/examples/jsm/controls/OrbitControls.js').OrbitControls;
       readonly frames: number;
+      actors: World['cast']['actors'];
+      place: World['place'];
+      spots: typeof SPOTS;
+      THREE: typeof THREE;
       ready: boolean;
     };
   }
@@ -33,5 +40,9 @@ window.__world = {
   get frames() {
     return world.frames;
   },
+  actors: world.cast.actors,
+  place: world.place,
+  spots: SPOTS,
+  THREE,
   ready: true,
 };

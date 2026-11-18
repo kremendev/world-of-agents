@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
+import { AGENT_IDS } from '../../events/schema';
 import bridge from '../models/bridge.glb?url&inline';
 import dock from '../models/dock.glb?url&inline';
 import { CAST_FILES, KIT_FILES, modelUrl, plainModel, textureUrl } from './models';
@@ -34,6 +35,10 @@ describe('the keep models', () => {
     expect([...Object.keys(KIT_FILES), ...CAST_FILES].sort()).toEqual(files);
     for (const name of files) expect(modelUrl(name)).toMatch(new RegExp(`/${name}\\.glb$`));
     expect(() => modelUrl('missing')).toThrow('no model missing in the bundle');
+  });
+
+  it("has one character for each of the app's agents, in the app's order", () => {
+    expect([...CAST_FILES]).toEqual([...AGENT_IDS]);
   });
 
   it("gives a character's texture only from the bundle's own JPEGs, whatever name the file gives", () => {

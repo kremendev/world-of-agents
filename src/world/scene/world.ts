@@ -17,18 +17,19 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CAMERA, roomView } from '../camera';
-import type { RoomId } from '../map';
+import { SPOTS, type RoomId, type SpotId } from '../map';
+import { START } from '../places';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
+import { createCast, fetchCast, groundAt, type AgentKey, type Mode } from './cast';
 import { createHouses, type HouseRec, type TaskStatus, type WallSide } from './houses';
 import { configureRenderer, createKit, loadSignFont } from './kit';
 import { createLand } from './land';
-import { fetchKitModels } from './models';
+import { CAST_FILES, fetchKitModels } from './models';
 import { createProps } from './props';
 import { createScatter } from './scatter';
 
-const AGENT_ORDER = ['lead', 'designer', 'frontend', 'backend', 'reviewer'] as const;
-export type AgentKey = (typeof AGENT_ORDER)[number];
+export type { AgentKey } from './cast';
 
 export type WorldOptions = {
   canvas: HTMLCanvasElement;
@@ -58,6 +59,7 @@ export async function createWorld(opts: WorldOptions) {
   // then the houses (m4), the areas (m5) and the scatter (m5b)
   const kit = createKit(renderer, scene);
   const fetched = fetchKitModels();
+  const fetchedCast = fetchCast();
   // the signs' face loads beside the models; the houses and the areas paint their lettering once
   const font = loadSignFont();
   const props = createProps(kit);
@@ -82,7 +84,18 @@ export async function createWorld(opts: WorldOptions) {
 
   // Each agent's phase draws on the shared generator here, where the town builds its agents, so everything after it
   // (the falling leaves) is placed as in the town. 4b gives the agents these phases.
-  const agentPhase = Object.fromEntries(AGENT_ORDER.map((id) => [id, rnd() * 6])) as Record<AgentKey, number>;
+  const agentPhase = Object.fromEntries(CAST_FILES.map((id) => [id, rnd() * 6])) as Record<AgentKey, number>;
+  // the cast stands where the town builds its agents, its roots added to the scene in the town's order
+  const groundY = groundAt(land.crossings);
+  const cast = createCast(kit, scene, await fetchedCast, {
+    reducedMotion: REDUCE,
+    phases: agentPhase,
+    start: START,
+    groundY,
+  });
+  const actors = Object.values(cast.actors);
+  /** The spot each figure stands at (4b step 4 walks them there). */
+  const at: Record<AgentKey, SpotId> = { ...START };
 
   /* ---------------- bake: everything that never moves is merged by material,
      so the town draws in a few hundred calls instead of thousands */
@@ -110,6 +123,7 @@ export async function createWorld(opts: WorldOptions) {
         });
       }
     }
+    for (const a of actors) dyn.add(a.root);
     for (const { f } of FLAMES) dyn.add(f);
     for (const s of SPINNERS) dyn.add(s.o);
     for (const f of FLAGS) dyn.add(f);
@@ -405,7 +419,13 @@ export async function createWorld(opts: WorldOptions) {
     });
     for (const l of found) {
       const anc: THREE.Object3D[] = [];
-      for (let o = l.parent, d = 0; o && d < 40; o = o.parent, d++) if (toggles.has(o)) anc.push(o);
+      let actor = false;
+      for (let o = l.parent, d = 0; o && d < 40; o = o.parent, d++) {
+        if (toggles.has(o)) anc.push(o);
+        if (o.userData.agentId) actor = true;
+      }
+      // a figure's light (the Reviewer's lantern) goes where the figure goes
+      if (actor) continue;
       scene.attach(l);
       if (anc.length) PARKED.push({ l, anc, base: l.intensity });
     }
@@ -723,6 +743,14 @@ export async function createWorld(opts: WorldOptions) {
     const t = (now - t0) / 1000;
     const dt = Math.min(0.05, t - last);
     last = t;
+    // the cast, as the town's tick drives it: the root eases to the ground under it, the figure takes its spot's pose
+    for (const a of actors) {
+      const gy = groundY(a.root.position.x, a.root.position.z);
+      a.root.position.y += (gy - a.root.position.y) * Math.min(1, dt * 12);
+      const mode: Mode = SPOTS[at[a.id]].pose;
+      cast.lanternFor(a, mode, t);
+      cast.drive(a, mode, dt, at[a.id]);
+    }
     // the furnace burns as hard as the team works
     const heat = 0.25 + working * 0.35;
     const flick = REDUCE ? 0 : Math.sin(t * 9) * 0.08 + Math.sin(t * 23) * 0.05;
@@ -853,6 +881,15 @@ export async function createWorld(opts: WorldOptions) {
     controls,
     housePicks,
     agentPhase,
+    cast,
+    /** Puts a figure on a spot at once, facing the spot's way, as reduced motion does. */
+    place(id: AgentKey, spot: SpotId) {
+      const sp = SPOTS[spot];
+      const a = cast.actors[id];
+      a.root.position.set(sp.x, groundY(sp.x, sp.z), sp.z);
+      a.root.rotation.y = sp.ry;
+      at[id] = spot;
+    },
     get frames() {
       return frames;
     },

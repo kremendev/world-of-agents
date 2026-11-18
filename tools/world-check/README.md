@@ -10,6 +10,7 @@ WebGL a full render takes minutes.
 | `render.mjs`      | Renders the views in `views.json` of the port or of the town, the same way for both                    |
 | `compare.mjs`     | Compares two folders of renders view by view against the rule set on 17 Nov; writes a diff image each  |
 | `policy.mjs`      | Reports what a page's Content-Security-Policy refused, and whether the world or the 2D hall came up    |
+| `seats.mjs`       | Every figure on every seated spot, in the town or the port: hips and toes against the town's rule      |
 | `frames.mjs`      | A frame's time on this PC's GPU, at one Windows scaling                                                |
 | `serve.ts`        | A static server on 127.0.0.1 with the hall's own policy header, or none (the control). Never port 4319 |
 | `models-page.mjs` | Builds the page that loads a plain GLB and one with a packed image, for `policy.mjs models`            |
@@ -30,6 +31,12 @@ THREE_DIR=<scratch>/three160/package node tools/world-check/render.mjs town http
 node tools/world-check/compare.mjs <scratch>/town <scratch>/port <scratch>/diff
 ```
 
+With `CAST=<placements.json>` (`{ "lead": "war-table", ... }`) on both renders the figures stay, each on the same spot in
+both, every clip at its first frame, since the town starts each at a random time.
+
+`cast/` holds 4b's two placements, all five at work and all five at rest, each with its views: two close ones of every
+figure, from the front and from behind (`CAST=tools/world-check/cast/cast-work.json` with `cast/views-cast-work.json`).
+
 Passing the numbers isn't the end of it: look at every diff image, and explain or fix each difference left. With
 `NOSHADOW=1` on both renders no light casts a shadow, which tells three's shadow sampling apart from the rest.
 
@@ -48,6 +55,16 @@ node tools/world-check/policy.mjs page http://127.0.0.1:4382/
 For the Pages build, its meta policy instead of the header (Git Bash rewrites the base path without the first variable):
 `MSYS_NO_PATHCONV=1 VITE_LIVE=false npx vite build --base=/world-of-agents/ --outDir <scratch>/pages`, then
 `serve.ts <scratch>/pages 4383 none /world-of-agents/`. That overwrites nothing in `dist/`.
+
+## The seats
+
+```bash
+node tools/world-check/seats.mjs port http://localhost:5173/src/world/check/index.html          # and again with reduce
+THREE_DIR=<scratch>/three160/package node tools/world-check/seats.mjs town http://127.0.0.1:8765/
+```
+
+The town's rule (forge-keep): every figure's hips within 0.4 cm of their target, 5.5% of its height above the seat, and
+its toes within 5 cm of the floor, with and without reduced motion.
 
 ## A frame's time
 

@@ -181,9 +181,12 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   world.js (4a). scene/ (4a, three only, never React): the town's modules in its build order, which its
                   seeded random numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
-                  cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom. check/: the render check's
-                  page, dev server only (/src/world/check/index.html), never built. camera.ts: the camera's limits and
-                  how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
+                  cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; cast.ts (4b): the five
+                  characters (fetchCast(), createCast(): sized to the town's rig heights, toon, clips, the seats with
+                  two-bone IK, the Reviewer's lantern on its root as in the town, groundAt()). places.ts (4b): where
+                  the agents are, pure (IDLE_AREAS, START; never a work room or the Forge for idle). check/: the
+                  render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
+                  camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
                   can't draw, fails to load or loses its context for CONTEXT_GRACE_MS; scene/ comes in by a dynamic
                   import, its own chunk
@@ -1220,3 +1223,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     budget), each in docs/ASSETS.md with its ProduceID; textureUrl() looks a texture up in the bundle's own table;
     the hall serves .jpg as image/jpeg; the plugin's hall carries all 27 files and its notice names the textures;
     eight planted bugs caught.
+    Step 2 is done: scene/cast.ts (the town's m6b-glb.js with its rigs' heights and groundY(): loaded, toon, clips,
+    the seats with two-bone IK) and places.ts (START, idle areas only); the render comparison with the figures in, 20
+    views, passes, and with shadows off only outline pixels differ; it found the Reviewer's lantern belongs on its root
+    (Dima: so for 4b, ask again in 4c whether it follows the hand) and 4a's light pass missing the town's figure's-light
+    clause; seats.mjs: 40 of 40 with reduced motion in both, without it 38 of 40 in both (the Backend dev's toes 5 cm up
+    at two seats, as in the town); 16 planted bugs caught after three tests were sharpened. After 4b, its own part: the
+    tests' temp folders (docs/v4.0-plan.md, Parts).
