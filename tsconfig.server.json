@@ -23,5 +23,5 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["server", "scripts"]
+  "include": ["server", "scripts", "tools/world-check"]
 }

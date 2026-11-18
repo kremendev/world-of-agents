@@ -30,7 +30,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 ## Stack and why
 
 - React 19 + TypeScript (strict, `noUncheckedIndexedAccess`) + Vite 7, Vitest 5 + Testing Library, Zod 4. Fonts self-hosted
-  through Fontsource: Pixelify Sans and, from v3.6, Inter.
+  through Fontsource: Pixelify Sans, from v3.6 Inter, and from v4.0 M PLUS Rounded 1c 5.3.0, pinned exactly, for the
+  Forge Keep's signs only (kit.ts loads its Latin file at weight 800 through FontFace; canvas text needs it loaded first).
 - Zod is imported as `import * as z from 'zod'` (Zod's own advice), never `import { z }`: with the namespace import
   esbuild drops Zod's 64 locales from the bundled hall (779 KB to 210 KB, 2d).
 - The office is drawn on **Canvas 2D**. Switch to PixiJS only if sprite handling gets painful.
@@ -52,6 +53,9 @@ The owner works on Windows in Git Bash. Give commands that work there.
   brings six packages for its types alone (fflate, @types/webxr, meshoptimizer, @types/stats.js, @tweenjs/tween.js,
   @dimforge/rapier3d-compat), none with an install script; nothing imports them, and meshoptimizer and rapier3d are
   WebAssembly, which the page's policy refuses. Upgrade three and its types together, as a task of its own.
+- `playwright-core` 1.65.1 and `pngjs` 7.0.0, pinned exactly, dev dependencies (Dima, 18 Nov) for tools/world-check:
+  no install script and no dependencies. playwright-core drives the installed Edge (`channel: 'msedge'`), no browser
+  download.
 - Vite 7 is one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
 - npm blocks dependency install scripts. `esbuild` is approved in `package.json` `allowScripts`. If a new
   package asks, review it and approve by name; never `npm install-scripts approve --all`.
@@ -186,6 +190,10 @@ tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
                   Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
                   buffer in its binary chunk, an image a file beside it); README.md has the pipeline
+tools/world-check/ the world's checks in real Edge, by hand, never in npm run check (README.md has the commands):
+                  render.mjs and compare.mjs (the render comparison against the town), policy.mjs, serve.ts and
+                  models-page.mjs (what the page's policy refuses), frames.mjs (a frame's time), town.mjs (the
+                  town's test copy)
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
@@ -1191,5 +1199,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     packed image is refused (connect-src blob, the model drawn without it) and a plain one loads, a control without the
     policy loading both; the Pages build shows the world with no violation (no eval) and so does the plugin's own page
     under the header; a frame takes 9 ms at 100%, 125% and 150% on this PC's RTX 5070 (the integrated Radeon not
-    measured); three and the scene are an 860 KB chunk (235 KB gzipped). Waits for Dima: the three look questions
-    (bloom, crease lines, the signs' font), then 4b.
+    measured); three and the scene are an 860 KB chunk (235 KB gzipped).
+    Dima's answers (18 Nov, docs/v4.0-plan.md): r160's bloom; the town's look, so no crease lines (a side-by-side
+    render for him to judge later, outside the repo); M PLUS Rounded 1c on the signs and the task board, self-hosted,
+    Latin 800 only (install.test.ts holds the bundle to that one file; three planted bugs caught); the checks' scripts
+    in tools/world-check/ with playwright-core and pngjs pinned; no release before 4d brings back agent selection for
+    the keyboard and screen readers. Next: 4b.

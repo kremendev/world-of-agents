@@ -7,7 +7,7 @@
  */
 import * as THREE from 'three';
 import { FLOOR_H, ROOM, face, toWorld, type Vec2 } from '../map';
-import type { Kit } from './kit';
+import { SIGN_FONT, type Kit } from './kit';
 import type { Land } from './land';
 import { kitMat, kitNode, type KitModels } from './models';
 import type { Props } from './props';
@@ -817,9 +817,7 @@ export function createHouses(
   const boardTex = new THREE.CanvasTexture(boardCanvas);
   boardTex.colorSpace = THREE.SRGBColorSpace;
   let boardTasks = tasks;
-  // The town painted this lettering in "M PLUS Rounded 1c" from Google Fonts, which the page's policy refuses; the stack
-  // falls back to the self-hosted Inter (the world's label font is a question before 4d).
-  const BOARD_FONT = '"M PLUS Rounded 1c", "Inter Variable", sans-serif';
+  // the town's lettering, in its font, self-hosted (SIGN_FONT, loaded before the houses are built)
   function drawBoard(next: readonly TaskStatus[] = boardTasks) {
     boardTasks = next;
     const g = boardCanvas.getContext('2d');
@@ -829,7 +827,7 @@ export function createHouses(
     g.fillStyle = '#2e2422';
     g.fillRect(0, 0, W, 280);
     g.fillStyle = '#e3d5b6';
-    g.font = `800 40px ${BOARD_FONT}`;
+    g.font = `800 40px ${SIGN_FONT}`;
     g.textAlign = 'left';
     g.fillText('TASKS', 28, 58);
     g.fillStyle = '#ffd27a';
@@ -853,7 +851,7 @@ export function createHouses(
       g.roundRect(x + 6, y + 6, 66, 18, 8);
       g.fill();
       g.fillStyle = '#1e1a1c';
-      g.font = `800 46px ${BOARD_FONT}`;
+      g.font = `800 46px ${SIGN_FONT}`;
       g.textAlign = 'center';
       g.fillText(ch, x + 39, y + 70);
     });

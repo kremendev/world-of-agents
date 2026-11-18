@@ -21,7 +21,7 @@ import type { RoomId } from '../map';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
 import { createHouses, type HouseRec, type TaskStatus, type WallSide } from './houses';
-import { configureRenderer, createKit } from './kit';
+import { configureRenderer, createKit, loadSignFont } from './kit';
 import { createLand } from './land';
 import { fetchKitModels } from './models';
 import { createProps } from './props';
@@ -58,8 +58,11 @@ export async function createWorld(opts: WorldOptions) {
   // then the houses (m4), the areas (m5) and the scatter (m5b)
   const kit = createKit(renderer, scene);
   const fetched = fetchKitModels();
+  // the signs' face loads beside the models; the houses and the areas paint their lettering once
+  const font = loadSignFont();
   const props = createProps(kit);
   const land = await createLand(kit, props, fetched);
+  await font;
   const houses = createHouses(
     kit,
     props,

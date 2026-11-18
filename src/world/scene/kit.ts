@@ -6,8 +6,29 @@
  */
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import signFontUrl from '@fontsource/m-plus-rounded-1c/files/m-plus-rounded-1c-latin-800-normal.woff2?url';
 
 const { PI } = Math;
+
+/**
+ * The lettering on the signs and the task board (Dima, 18 Nov): the town's M PLUS Rounded 1c, self-hosted through
+ * Fontsource (SIL OFL 1.1), its Latin subset at weight 800 only, the one weight the town paints with. The HUD stays Inter.
+ */
+export const SIGN_FONT = '"M PLUS Rounded 1c", "Inter Variable", sans-serif';
+
+/**
+ * Loads the signs' face. Canvas text is painted once, so the face has to be there first; the page's CSS never asks
+ * for it, so nothing else would load it. If it fails, the stack's next font paints the lettering.
+ */
+export async function loadSignFont(): Promise<void> {
+  const face = new FontFace('M PLUS Rounded 1c', `url("${signFontUrl}")`, { weight: '800' });
+  try {
+    await face.load();
+    document.fonts.add(face);
+  } catch {
+    // the lettering falls back to the stack's next font
+  }
+}
 
 /** The palette: anime light, war-camp details. */
 export const COL = {

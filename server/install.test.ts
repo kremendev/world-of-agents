@@ -202,6 +202,14 @@ describe('the hall the plugin carries', () => {
     expect(served.some((path) => path.includes('MODELS-LICENSE'))).toBe(false);
   });
 
+  it("carries the signs' font as one file, its Latin subset at weight 800 (Dima, 18 Nov)", () => {
+    const served = [...readManifest(JSON.parse(text('plugin/hall/manifest.json')) as unknown).keys()];
+    // Fontsource's CSS would bring every subset (Japanese alone is dozens of files) and every weight
+    expect(served.filter((path) => path.includes('m-plus-rounded-1c'))).toEqual([
+      expect.stringMatching(/^\/assets\/m-plus-rounded-1c-latin-800-normal-[\w-]+\.woff2$/),
+    ]);
+  });
+
   it('is the Live page, with no policy of its own: the hall sends its Content-Security-Policy as a header', () => {
     const index = text('plugin/hall/page/index.html');
     expect(index).not.toContain('Content-Security-Policy');

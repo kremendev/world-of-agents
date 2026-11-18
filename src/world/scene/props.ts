@@ -5,7 +5,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import type { Kit } from './kit';
+import { SIGN_FONT, type Kit } from './kit';
 import { byKitMaterial, kitNode, type KitModels } from './models';
 
 const { PI } = Math;
@@ -1245,8 +1245,7 @@ export function createProps(kit: Kit) {
         parent.add(at(mesh(new THREE.BoxGeometry(0.12, h + 0.15, 0.12), M.woodD), x, (h + 0.15) / 2, z));
     }
   }
-  // The town painted this lettering in "M PLUS Rounded 1c" from Google Fonts, which the page's policy refuses;
-  // the stack falls back to the self-hosted Inter (the world's label font is a question before 4d).
+  // the town's lettering, in its font, self-hosted (SIGN_FONT, loaded before the houses and areas are built)
   function signPost(text: string): THREE.Group {
     const g = new THREE.Group();
     g.add(at(mesh(new THREE.BoxGeometry(0.1, 2.2, 0.1), M.woodD), 0, 1.1, 0));
@@ -1257,7 +1256,7 @@ export function createProps(kit: Kit) {
       c.lineWidth = 8;
       c.strokeRect(4, 4, W - 8, H - 8);
       c.fillStyle = '#e3d5b6';
-      c.font = '800 40px "M PLUS Rounded 1c", "Inter Variable", sans-serif';
+      c.font = `800 40px ${SIGN_FONT}`;
       c.textAlign = 'center';
       c.textBaseline = 'middle';
       c.fillText(text, W / 2, H / 2 + 2);
