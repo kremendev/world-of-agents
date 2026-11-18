@@ -170,13 +170,15 @@ describe('the cast in a scene', () => {
     expect((flame?.material as THREE.SpriteMaterial).map).toBe(flameTex);
     expect((flame?.material as THREE.SpriteMaterial).color.toArray()).toEqual([0.6, 2.4, 1.2]);
     expect((halo?.material as THREE.SpriteMaterial).blending).toBe(THREE.AdditiveBlending);
-    // the town's sizes in the world, whatever scale the bones carry
+    // the town's sizes in the world, whatever scale the bones carry. To 5 places, not 6: the counter-scale is measured in
+    // the rest pose, and each clip then starts at a random time, whose float32 pose moves the hand's scale by about a
+    // millionth (a run on 18 Nov missed 6 places by 5.5e-7)
     scene.updateMatrixWorld(true);
     const size = flame?.getWorldScale(new THREE.Vector3());
-    expect(size?.x).toBeCloseTo(0.16, 6);
-    expect(size?.y).toBeCloseTo(0.3, 6);
+    expect(size?.x).toBeCloseTo(0.16, 5);
+    expect(size?.y).toBeCloseTo(0.3, 5);
     // the halo a quarter metre, not the town's 0.7: by the lap it washed the robe green (Dima, 18 Nov)
-    expect(halo?.getWorldScale(new THREE.Vector3()).x).toBeCloseTo(0.25, 6);
+    expect(halo?.getWorldScale(new THREE.Vector3()).x).toBeCloseTo(0.25, 5);
     // only the Reviewer carries one
     expect(cast.actors.lead.lamp).toBeNull();
   });
