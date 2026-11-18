@@ -1187,3 +1187,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     (install.test.ts). Twenty planted bugs (twelve in WorldView, five in the camera, three in the notice), all caught.
     Until 4b the world has no agents and until 4d there is no agent list, so on v3-next the stage's agent buttons go
     once the world is ready (the canvas's label already names the HUD's list, as the plan has it).
+    Step 5 is done, and with it 4a (docs/v4.0-plan.md, Security and Tech, "Checked"): under the hall's header a GLB's
+    packed image is refused (connect-src blob, the model drawn without it) and a plain one loads, a control without the
+    policy loading both; the Pages build shows the world with no violation (no eval) and so does the plugin's own page
+    under the header; a frame takes 9 ms at 100%, 125% and 150% on this PC's RTX 5070 (the integrated Radeon not
+    measured); three and the scene are an 860 KB chunk (235 KB gzipped). Waits for Dima: the three look questions
+    (bloom, crease lines, the signs' font), then 4b.
