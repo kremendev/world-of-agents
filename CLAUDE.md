@@ -186,7 +186,9 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   two-bone IK, the Reviewer's lantern on its root as in the town, groundAt()). places.ts (4b): where
                   the agents are, pure: START and IDLE_AREAS (never a work room or the Forge for idle), WORK, FETCH,
                   VISIT, CHECK, and placeFor(), the 2D hall's destinationFor() on the keep's spots with Dima's answers
-                  (map.ts has 4b's seven spots after the town's 21). check/: the
+                  (map.ts has 4b's seven spots after the town's 21). walkers.ts (4b): the 2D hall's walkers with the
+                  town's turn mid-path at the 2.5x hurry, the 3 s desk hold and reduced motion's jump; world.ts's
+                  update(office, live) and restart(), fed by WorldView. check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
                   camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
@@ -200,7 +202,8 @@ tools/world-check/ the world's checks in real Edge, by hand, never in npm run ch
                   render.mjs and compare.mjs (the render comparison against the town), policy.mjs, serve.ts and
                   models-page.mjs (what the page's policy refuses), frames.mjs (a frame's time), town.mjs (the
                   town's test copy), seats.mjs (every figure on every seat, against the town's rule), spots.mjs
-                  (every standing spot and its walk on clear floor), cast/ (the cast comparison's placements and views)
+                  (every standing spot and its walk on clear floor), walk.mjs (the demo run played into the world:
+                  every figure at its place, no walk over furniture), cast/ (the cast comparison's placements and views)
 tests/            invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.
                   models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
@@ -1236,4 +1239,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     the keep's spots with Dima's answers (a waiting Lead in the War room in Live too, a Lead checking in the Workshop,
     the Reviewer beside the desk), seven new spots in map.ts (the scrolls at the War hall's board, the visits, the
     check); places.test.ts against the 2D hall's kinds over 2,160 cases; spots.mjs: all 20 standing spots and their
-    walks on clear floor; ten planted bugs caught.
+    walks on clear floor; ten planted bugs caught. Step 4 is done: walkers.ts (the turn mid-path, the hurry, the desk
+    hold, reduced motion), world.update() and restart() through WorldView, the dev screens and the sparks only while
+    their dev works at its desk; walk.mjs plays the demo into the world with no fault in either mode; 13 planted bugs
+    caught. With it 4b is done. Waits for Dima: the demo's pace in the keep (walks of 20 to 36 s, steps 8 s apart),
+    and whether the walk clip speeds up with the hurry. Next: the tests' temp folders, then 4c.

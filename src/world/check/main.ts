@@ -1,8 +1,13 @@
 // The render check (v4.0.0, 4a): mounts the Forge Keep full window and hands the comparison script the camera, the
 // controls and a frame count, as the town's test copy does (town/test/serve.sh); from 4b also the cast, a way to put
-// a figure on a spot, and the spots, for the cast's comparison and the seats check. Dev server only; see index.html.
+// a figure on a spot, and the spots, for the cast's comparison and the seats check. With ?demo it plays the demo run into
+// the world, as the page does, for the walking check (tools/world-check/walk.mjs). Dev server only; see index.html.
 import * as THREE from 'three';
 import { ROOM, SPOTS } from '../map';
+import { placeFor } from '../places';
+import { DEMO_RUN } from '../../script/demoRun';
+import { createPlayer } from '../../script/player';
+import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../../state/office';
 import { createWorld, type World } from '../scene/world';
 
 declare global {
@@ -17,6 +22,10 @@ declare global {
       spots: typeof SPOTS;
       rooms: typeof ROOM;
       groundY: World['groundY'];
+      whereIs: World['whereIs'];
+      placeFor: typeof placeFor;
+      readonly office: OfficeState;
+      readonly ended: boolean;
       THREE: typeof THREE;
       ready: boolean;
     };
@@ -35,6 +44,22 @@ const world = await createWorld({
   reducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
 });
 world.start();
+// ?demo: the demo run, each event through the reducer into the world, as App and WorldView do in Demo
+let office = INITIAL_OFFICE;
+let ended = false;
+if (new URLSearchParams(location.search).has('demo')) {
+  world.update(office, false);
+  createPlayer(DEMO_RUN, {
+    onEvent: (event) => {
+      office = officeReducer(office, event);
+      world.update(office, false);
+    },
+    onRestart: () => {},
+    onEnd: () => {
+      ended = true;
+    },
+  }).play();
+}
 window.__world = {
   scene: world.scene,
   camera: world.camera,
@@ -47,6 +72,14 @@ window.__world = {
   spots: SPOTS,
   rooms: ROOM,
   groundY: world.groundY,
+  whereIs: world.whereIs,
+  placeFor,
+  get office() {
+    return office;
+  },
+  get ended() {
+    return ended;
+  },
   THREE,
   ready: true,
 };

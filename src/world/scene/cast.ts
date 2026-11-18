@@ -48,7 +48,7 @@ const CLIP_FOR: Partial<Record<Mode, ClipName>> = {
   drink: 'sit',
 };
 /** The poses of a seated figure; the Reviewer's lantern is out only when it stands and isn't reading. */
-const SEATED: ReadonlySet<Mode> = new Set(['type', 'smash', 'readsit', 'sit', 'drink']);
+export const SEATED: ReadonlySet<Mode> = new Set(['type', 'smash', 'readsit', 'sit', 'drink']);
 // the walk clips cover 0.59 body heights a second at 1x (4 steps in 2.33 s, measured from the files)
 const WALK_RATE = 0.59;
 

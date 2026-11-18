@@ -11,7 +11,7 @@ type Phase = 'loading' | 'ready' | 'fallback';
  * fallback, docs/v4.0-plan.md). three.js and the scene come in through a dynamic import, so nothing waits for them, and
  * the 2D hall stays on screen until the world is ready. The world pauses while the tab is hidden; a lost context that
  * doesn't come back within CONTEXT_GRACE_MS hands over to the 2D hall. The props are HallView's, so the page swaps one
- * for the other. 4a's world has no agents yet (4b).
+ * for the other; the world gets the office as it changes and walks the figures there (4b).
  */
 export function WorldView(props: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -64,6 +64,19 @@ export function WorldView(props: Props) {
   useEffect(() => {
     if (phase === 'ready' && hasRoom) worldRef.current?.resize(width, height);
   }, [phase, hasRoom, width, height]);
+
+  // the office as it is: each figure to its place (4b); a new run (Restart) puts everyone back at once first
+  const { office, run, live = false } = props;
+  const lastRun = useRef(run);
+  useEffect(() => {
+    const world = worldRef.current;
+    if (phase !== 'ready' || !world) return;
+    if (lastRun.current !== run) {
+      lastRun.current = run;
+      world.restart();
+    }
+    world.update(office, live);
+  }, [phase, office, run, live]);
 
   // no drawing while the tab is hidden
   useEffect(() => {

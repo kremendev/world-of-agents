@@ -1,6 +1,6 @@
 import { act, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { INITIAL_OFFICE } from '../state/office';
+import { INITIAL_OFFICE, officeReducer } from '../state/office';
 import { CONTEXT_GRACE_MS } from './support';
 import { WorldView } from './WorldView';
 
@@ -16,8 +16,17 @@ type Fake = {
   stop: () => void;
   resize: (w: number, h: number) => void;
   dispose: () => void;
+  update: (office: unknown, live: boolean) => void;
+  restart: () => void;
 };
-const fakeWorld = (): Fake => ({ start: vi.fn(), stop: vi.fn(), resize: vi.fn(), dispose: vi.fn() });
+const fakeWorld = (): Fake => ({
+  start: vi.fn(),
+  stop: vi.fn(),
+  resize: vi.fn(),
+  dispose: vi.fn(),
+  update: vi.fn(),
+  restart: vi.fn(),
+});
 
 const props = (room: { width: number; height: number } | null = { width: 800, height: 560 }) => ({
   office: INITIAL_OFFICE,
@@ -138,5 +147,26 @@ describe('WorldView', () => {
     expect(world3d(container)).toBeNull();
     expect(hall2d(container)).not.toBeNull();
     expect(world.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('gives the world the office as it changes, and on a new run puts everyone back first (4b)', async () => {
+    scene.canDraw.mockReturnValue(true);
+    const world = fakeWorld();
+    scene.create.mockResolvedValue(world);
+    const { rerender } = render(<WorldView {...props()} />);
+    await settle();
+    // ready: the office it was given, before anything changed
+    expect(world.update).toHaveBeenCalledExactlyOnceWith(INITIAL_OFFICE, false);
+    const busy = officeReducer(INITIAL_OFFICE, { type: 'state', agent: 'backend', state: 'writing', at: 1 });
+    rerender(<WorldView {...props()} office={busy} live />);
+    expect(world.update).toHaveBeenLastCalledWith(busy, true);
+    expect(world.restart).not.toHaveBeenCalled();
+    // Restart: back to the start spots, then the office of the new run
+    rerender(<WorldView {...props()} office={INITIAL_OFFICE} run={1} />);
+    expect(world.restart).toHaveBeenCalledOnce();
+    const order = (fn: unknown) =>
+      (fn as { mock: { invocationCallOrder: number[] } }).mock.invocationCallOrder;
+    expect(order(world.restart)[0]).toBeLessThan(order(world.update).at(-1) as number);
+    expect(world.update).toHaveBeenLastCalledWith(INITIAL_OFFICE, false);
   });
 });

@@ -18,10 +18,12 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CAMERA, roomView } from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
-import { START } from '../places';
+import { FETCH, START, WORK, placeFor } from '../places';
+import type { OfficeState } from '../../state/office';
+import { isHeld, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
-import { createCast, fetchCast, groundAt, type AgentKey, type Mode } from './cast';
+import { FIGURES, SEATED, createCast, fetchCast, groundAt, type AgentKey, type Mode } from './cast';
 import { createHouses, type HouseRec, type TaskStatus, type WallSide } from './houses';
 import { configureRenderer, createKit, loadSignFont } from './kit';
 import { createLand } from './land';
@@ -94,8 +96,16 @@ export async function createWorld(opts: WorldOptions) {
     groundY,
   });
   const actors = Object.values(cast.actors);
-  /** The spot each figure stands at (4b step 4 walks them there). */
-  const at: Record<AgentKey, SpotId> = { ...START };
+  /** Where each figure is and where it goes (../walkers.ts), the office it last heard of, and Live's fetched scrolls (scrolls). */
+  const resting = () =>
+    Object.fromEntries(CAST_FILES.map((id) => [id, standingAt(START[id])])) as Record<AgentKey, Walker>;
+  let walkers = resting();
+  let office: OfficeState | null = null;
+  let live = false;
+  const scrolls = new Set<string>();
+  /** A dev at its desk doing its work: its screen lit (the plan's table: the work, its screen lit). */
+  const LIT: ReadonlySet<string> = new Set(['thinking', 'reading', 'writing', 'waiting']);
+  const atWork: Partial<Record<AgentKey, boolean>> = {};
 
   /* ---------------- bake: everything that never moves is merged by material,
      so the town draws in a few hundred calls instead of thousands */
@@ -730,27 +740,53 @@ export async function createWorld(opts: WorldOptions) {
   sizePost(W, H0);
 
   /* ---------------- loop */
-  // nobody works yet (4a has no agents): the furnace idles and the dev desks' screens stay dim
+  // the furnace follows the work in 4c; until then it idles
   const working = 0;
-  const deskLit = { frontend: false, backend: false };
   let t0 = -1;
   let last = 0;
   let frames = 0;
   let paused = false;
-  const smashing = false;
   function frame(now: number) {
     if (t0 < 0) t0 = now;
     const t = (now - t0) / 1000;
     const dt = Math.min(0.05, t - last);
     last = t;
-    // the cast, as the town's tick drives it: the root eases to the ground under it, the figure takes its spot's pose
+    // the cast, as the town's tick drives it: each figure where its walker is, turning towards where it goes, its root
+    // easing to the ground under it; standing, the pose of its spot; held at its work spot, sitting with the work stopped
     for (const a of actors) {
+      const speed = FIGURES[a.id].speed;
+      let w = step(walkers[a.id], now, speed, REDUCE);
+      // Live: a dev that has reached the board takes every scroll waiting for it and heads for its work
+      if (
+        office &&
+        live &&
+        !w.walk &&
+        w.spot === FETCH[a.id] &&
+        placeFor(a.id, office, live, scrolls) === w.spot
+      ) {
+        for (const tk of office.tasks) if (tk.owner === a.id) scrolls.add(tk.id);
+        const to = placeFor(a.id, office, live, scrolls);
+        if (to) w = sendTo(w, to, now, speed, REDUCE, WORK[a.id]);
+      }
+      walkers[a.id] = w;
+      const p = whereIs(w, now);
+      a.root.position.x = p.x;
+      a.root.position.z = p.z;
+      if (p.walking) {
+        const diff = p.heading - a.root.rotation.y;
+        a.root.rotation.y += Math.atan2(Math.sin(diff), Math.cos(diff)) * Math.min(1, dt * 10);
+      } else a.root.rotation.y = p.heading;
       const gy = groundY(a.root.position.x, a.root.position.z);
       a.root.position.y += (gy - a.root.position.y) * Math.min(1, dt * 12);
-      const mode: Mode = SPOTS[at[a.id]].pose;
+      const held = isHeld(w, now);
+      const pose = SPOTS[w.spot].pose;
+      const mode: Mode = p.walking ? 'walk' : held ? (SEATED.has(pose) ? 'sit' : 'idle') : pose;
+      atWork[a.id] =
+        !p.walking && !held && w.spot === WORK[a.id] && !!office && LIT.has(office.agents[a.id].state);
       cast.lanternFor(a, mode, t);
-      cast.drive(a, mode, dt, at[a.id]);
+      cast.drive(a, mode, dt, p.walking ? null : w.spot);
     }
+    const smashing = !!atWork.frontend && office?.agents.frontend.state === 'writing';
     // the furnace burns as hard as the team works
     const heat = 0.25 + working * 0.35;
     const flick = REDUCE ? 0 : Math.sin(t * 9) * 0.08 + Math.sin(t * 23) * 0.05;
@@ -761,7 +797,7 @@ export async function createWorld(opts: WorldOptions) {
       [deskF, 'frontend'],
       [deskB, 'backend'],
     ] as const) {
-      const lit = deskLit[who];
+      const lit = !!atWork[who];
       const sm = dk.screen?.material;
       if (sm) sm.opacity += ((lit ? 1 : 0.3) - sm.opacity) * Math.min(1, dt * 4);
       if (dk.light) dk.light.intensity = lit ? 3.5 : 0;
@@ -884,13 +920,40 @@ export async function createWorld(opts: WorldOptions) {
     cast,
     /** The height a figure stands at, at a point: a floor, a terrace, the dais, a footbridge or grass. */
     groundY,
-    /** Puts a figure on a spot at once, facing the spot's way, as reduced motion does. */
+    /** Puts a figure on a spot at once, facing the spot's way, as reduced motion does (the checks' own use). */
     place(id: AgentKey, spot: SpotId) {
       const sp = SPOTS[spot];
-      const a = cast.actors[id];
-      a.root.position.set(sp.x, groundY(sp.x, sp.z), sp.z);
-      a.root.rotation.y = sp.ry;
-      at[id] = spot;
+      cast.actors[id].root.position.y = groundY(sp.x, sp.z);
+      walkers[id] = standingAt(spot, performance.now());
+    },
+    /**
+     * The office as it is now: each figure sent to its place (../places.ts). `live`: the office comes from a real run,
+     * so the devs fetch their scrolls from the board first.
+     */
+    update(next: OfficeState, isLive: boolean) {
+      office = next;
+      live = isLive;
+      const now = performance.now();
+      for (const id of CAST_FILES) {
+        const to = placeFor(id, next, live, scrolls);
+        if (to) walkers[id] = sendTo(walkers[id], to, now, FIGURES[id].speed, REDUCE, WORK[id]);
+      }
+    },
+    /** A new run: everyone back at their start spot at once, no scroll fetched. */
+    restart() {
+      walkers = resting();
+      scrolls.clear();
+    },
+    /**
+     * Where a figure is, between frames too: the spot it stands at (a walk that has got there stands there), where it
+     * walks to and the walk's path, and whether it is held at its work spot.
+     */
+    whereIs(id: AgentKey) {
+      const now = performance.now();
+      const w = step(walkers[id], now, FIGURES[id].speed, REDUCE);
+      const walking = whereIs(w, now).walking;
+      const walk = walking ? w.walk : null;
+      return { spot: w.spot, to: walk?.to ?? null, path: walk?.path ?? null, walking, held: isHeld(w, now) };
     },
     get frames() {
       return frames;

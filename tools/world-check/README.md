@@ -11,6 +11,7 @@ WebGL a full render takes minutes.
 | `compare.mjs`     | Compares two folders of renders view by view against the rule set on 17 Nov; writes a diff image each  |
 | `policy.mjs`      | Reports what a page's Content-Security-Policy refused, and whether the world or the 2D hall came up    |
 | `spots.mjs`       | Every standing spot, and the walk to it from its room's hub, on clear floor; the seats as its control  |
+| `walk.mjs`        | The demo run played into the world: every figure where placeFor() puts it, and no walk over furniture  |
 | `seats.mjs`       | Every figure on every seated spot, in the town or the port: hips and toes against the town's rule      |
 | `frames.mjs`      | A frame's time on this PC's GPU, at one Windows scaling                                                |
 | `serve.ts`        | A static server on 127.0.0.1 with the hall's own policy header, or none (the control). Never port 4319 |
@@ -75,6 +76,15 @@ node tools/world-check/spots.mjs http://localhost:5173/src/world/check/index.htm
 
 Rays straight down in the real scene: anything more than 8 cm above the height a figure stands at blocks. A seat must
 be found under every seated spot, or the check itself is broken.
+
+## The walks
+
+```bash
+node tools/world-check/walk.mjs http://localhost:5173/src/world/check/index.html          # and again with reduce
+```
+
+The check page's `?demo` plays the demo run into the world as the page does. A figure standing still, not held, must
+stand where `placeFor()` puts it; every walk's whole path is checked once for furniture.
 
 ## A frame's time
 
