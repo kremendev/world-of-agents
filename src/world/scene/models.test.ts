@@ -3,7 +3,7 @@ import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { describe, expect, it } from 'vitest';
 import bridge from '../models/bridge.glb?url&inline';
 import dock from '../models/dock.glb?url&inline';
-import { KIT_FILES, modelUrl, plainModel } from './models';
+import { CAST_FILES, KIT_FILES, modelUrl, plainModel, textureUrl } from './models';
 
 // The page fetches each model by its bundle URL; here a model comes inline, as bytes, since a test has no server.
 const parse = (dataUrl: string) =>
@@ -31,9 +31,25 @@ describe('the keep models', () => {
     const files = Object.keys(import.meta.glob('../models/*.glb'))
       .map((path) => path.slice('../models/'.length, -'.glb'.length))
       .sort();
-    expect(Object.keys(KIT_FILES).sort()).toEqual(files);
+    expect([...Object.keys(KIT_FILES), ...CAST_FILES].sort()).toEqual(files);
     for (const name of files) expect(modelUrl(name)).toMatch(new RegExp(`/${name}\\.glb$`));
     expect(() => modelUrl('missing')).toThrow('no model missing in the bundle');
+  });
+
+  it("gives a character's texture only from the bundle's own JPEGs, whatever name the file gives", () => {
+    const jpegs = Object.keys(import.meta.glob('../models/*.jpg'))
+      .map((path) => path.slice('../models/'.length))
+      .sort();
+    expect(jpegs).toEqual(CAST_FILES.map((id) => `${id}.jpg`).sort());
+    for (const file of jpegs) expect(textureUrl(file)).toMatch(new RegExp(`/${file.replace('.', '\\.')}$`));
+    for (const file of [
+      'missing.jpg',
+      '../lead.jpg',
+      'lead.glb',
+      'https://example.com/lead.jpg',
+      '/lead.jpg',
+    ])
+      expect(() => textureUrl(file), file).toThrow(`no texture ${file} in the bundle`);
   });
 
   // dock.glb has packed normals and bridge.glb none, so both of plainModel's paths run; each node of both is dequantized

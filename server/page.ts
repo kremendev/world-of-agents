@@ -11,8 +11,10 @@ export const PAGE_TYPES: Readonly<Record<string, string>> = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
-  // v4.0.0: the Forge Keep's models, our own files only (docs/ASSETS.md), never one an event names.
+  // v4.0.0: the Forge Keep's models and the characters' textures, our own files only (docs/ASSETS.md), never one an
+  // event names.
   '.glb': 'model/gltf-binary',
+  '.jpg': 'image/jpeg',
 };
 
 /** The page the hall serves: its folder, and each file by its URL path ("/assets/app.js") with its content type. */

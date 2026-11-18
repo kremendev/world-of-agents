@@ -42,10 +42,29 @@ type StaticName = { [K in KitName]: (typeof KIT_FILES)[K] extends 'static' ? K :
 type PartsName = Exclude<KitName, StaticName>;
 export type KitModels = { readonly [K in StaticName]: THREE.Group } & { readonly [K in PartsName]: GLTF };
 
+/** The cast (4b): one Tripo character per agent, its JPEG a file beside it. */
+export const CAST_FILES = ['lead', 'designer', 'frontend', 'backend', 'reviewer'] as const;
+
+const TEXTURES = import.meta.glob('../models/*.jpg', {
+  query: '?url',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
+
 /** A model's URL in the bundle, by its name. */
 export function modelUrl(name: string): string {
   const url = URLS[`../models/${name}.glb`];
   if (!url) throw new Error(`no model ${name} in the bundle`);
+  return url;
+}
+
+/**
+ * A character's texture URL in the bundle, by the file name its GLB gives. The bundle renames every file, so the name
+ * is looked up in the bundle's own table of our JPEGs: whatever a file names, it can only ever get one of those.
+ */
+export function textureUrl(file: string): string {
+  const url = TEXTURES[`../models/${file}`];
+  if (!url) throw new Error(`no texture ${file} in the bundle`);
   return url;
 }
 

@@ -187,10 +187,18 @@ describe('the hall the plugin carries', () => {
   // v4.0.0, 4a: an install copies plugin/ alone, so the models' licence goes beside them (docs/ASSETS.md says the same).
   it("carries the models' notice beside them, naming every model: Dima's, all rights reserved, not under the MIT licence", () => {
     const served = [...readManifest(JSON.parse(text('plugin/hall/manifest.json')) as unknown).keys()];
-    const models = served.filter((path) => path.endsWith('.glb')).sort();
-    // every model of src/world/models, each a file of its own: Vite inlines one under 4 KB as data:, which the page's
-    // connect-src refuses, and the manifest would lack it
-    const sources = readdirSync(join(REPO, 'src/world/models')).filter((name) => name.endsWith('.glb'));
+    const models = served.filter((path) => path.endsWith('.glb') || path.endsWith('.jpg')).sort();
+    // every model and texture of src/world/models, each a file of its own: Vite inlines one under 4 KB as data:, which
+    // the page's policy refuses, and the manifest would lack it
+    const sources = readdirSync(join(REPO, 'src/world/models'));
+    expect(sources.some((name) => name.endsWith('.jpg'))).toBe(true);
+    for (const name of sources) {
+      const [stem, ext] = name.split('.');
+      expect(
+        models.filter((path) => new RegExp(`^/assets/${stem}-[\\w-]+\\.${ext}$`).test(path)),
+        name,
+      ).toHaveLength(1);
+    }
     expect(models).toHaveLength(sources.length);
     const notice = text('plugin/hall/MODELS-LICENSE.md');
     expect(notice).toContain('Copyright (c) 2026 Dmitriy Kremen. All rights reserved.');

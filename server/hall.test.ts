@@ -22,6 +22,8 @@ let root: string;
 let dist: string;
 /** A model's first bytes: binary, with a NUL and bytes over 0x7f, so a text read would change them. */
 const GLB = Buffer.from([0x67, 0x6c, 0x54, 0x46, 0x02, 0x00, 0x00, 0x00, 0xff, 0xfe, 0x80, 0x00]);
+/** A JPEG's start and end markers around bytes no text decoding would keep (4b: a character's texture). */
+const JPG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x80, 0xfe, 0xff, 0xd9]);
 /** dist/ as npm run hall serves it: every page file in it. */
 const distPage = (): Page => ({ dir: dist, files: new Map(Object.entries(listPage(dist))) });
 let hall: Hall;
@@ -35,6 +37,7 @@ beforeAll(() => {
   writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Forge Hall</title>');
   writeFileSync(join(dist, 'assets', 'app.js'), 'export {};');
   writeFileSync(join(dist, 'assets', 'keep.glb'), GLB);
+  writeFileSync(join(dist, 'assets', 'lead.jpg'), JPG);
   writeFileSync(join(dist, 'notes.txt'), 'not part of the page');
   writeFileSync(join(dist, 'favicon.svg'), readFileSync(join(import.meta.dirname, '../public/favicon.svg')));
   writeFileSync(join(root, 'secret.js'), 'outside dist');
@@ -623,6 +626,12 @@ describe('the built page', () => {
     expect(model.bytes.equals(GLB)).toBe(true);
   });
 
+  it("serves a character's texture as image/jpeg, byte for byte", async () => {
+    const texture = await call({ path: '/assets/lead.jpg' });
+    expect([texture.status, texture.headers['content-type']]).toEqual([200, 'image/jpeg']);
+    expect(texture.bytes.equals(JPG)).toBe(true);
+  });
+
   it.each([
     '/../secret.js',
     '/%2e%2e/secret.js',
@@ -640,6 +649,7 @@ describe('the built page', () => {
     expect(listPage(dist)).toEqual({
       '/assets/app.js': 'text/javascript; charset=utf-8',
       '/assets/keep.glb': 'model/gltf-binary',
+      '/assets/lead.jpg': 'image/jpeg',
       '/favicon.svg': 'image/svg+xml',
       '/index.html': 'text/html; charset=utf-8',
     });
@@ -720,6 +730,7 @@ describe("the plugin's page: only the files its manifest names", () => {
     ['a kind the page is not made of', '/notes.txt', 'text/plain'],
     ['a type its extension is not served as', '/app.js', 'text/html; charset=utf-8'],
     ['a model under another type', '/assets/keep.glb', 'application/octet-stream'],
+    ['a texture under another type', '/assets/lead.jpg', 'image/png'],
   ])('refuses a manifest that names %s', (_, path, type) => {
     expect(() => readManifest({ files: { [path]: type } })).toThrow();
   });

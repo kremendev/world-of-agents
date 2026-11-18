@@ -176,9 +176,10 @@ plugin/           the Claude Code plugin: .claude-plugin/plugin.json (no setting
                   server/setup-gates.test.ts).
                   An install from GitHub is a copy in Claude Code's cache: nothing outside plugin/ comes with it
 src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from `town/` on `forge-keep`. models/: the
-                  keep's GLB files (4a), Dima's, all rights reserved (docs/ASSETS.md). map.ts: the town's world.js (4a).
-                  scene/ (4a, three only, never React): the town's modules in its build order, which its seeded random
-                  numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
+                  keep's GLB files (4a) and the cast's, each JPEG beside its character (4b), Dima's, all rights reserved
+                  (docs/ASSETS.md); a texture's URL only from the bundle's own table (textureUrl()). map.ts: the town's
+                  world.js (4a). scene/ (4a, three only, never React): the town's modules in its build order, which its
+                  seeded random numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
                   cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom. check/: the render check's
                   page, dev server only (/src/world/check/index.html), never built. camera.ts: the camera's limits and
@@ -305,7 +306,10 @@ after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlo
   Reviewer's library nook in the corner.
 - **Cast** (agent names never change): Lead/PM = goblin strategist (smallest); Designer = elf artisan;
   Frontend dev = orc with two huge swords; Backend dev = orc with a huge forge hammer (orcs are the biggest);
-  Reviewer = skeleton scholar with spectacles and a candle.
+  Reviewer = skeleton scholar with spectacles and a candle. That is the 2D hall's cast. The Forge Keep's (v4.0.0, 4b,
+  the Tripo models as made, no chibi; docs/ASSETS.md): Lead/PM = goblin, the smallest (1.32 m); Designer = elf
+  (1.78 m); Frontend dev = female orc (1.92 m); Reviewer = reaper (1.95 m); Backend dev = male orc, the biggest
+  (2.18 m), so the Frontend dev is just under the Reviewer.
 - **Workstations**: war-forge style in dark iron and blood red: spiked throne chair, iron-banded desk with a
   red runner, horned PC with red code, red-glow keyboard. Orcs get the larger set.
 - **Style rules**: original fantasy only. Orcs, elves, goblins and skeletons are generic and fine; no
@@ -1204,4 +1208,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     render for him to judge later, outside the repo); M PLUS Rounded 1c on the signs and the task board, self-hosted,
     Latin 800 only (install.test.ts holds the bundle to that one file; three planted bugs caught); the checks' scripts
     in tools/world-check/ with playwright-core and pngjs pinned; no release before 4d brings back agent selection for
-    the keyboard and screen readers. Next: 4b.
+    the keyboard and screen readers. 4b in four steps (docs/v4.0-plan.md, Parts). Step 1 is done: the five characters
+    as GLB with their JPEGs beside them (8.64 MB together, 1.66 to 1.84 MB each, the models 15.67 MB in all, under the
+    budget), each in docs/ASSETS.md with its ProduceID; textureUrl() looks a texture up in the bundle's own table;
+    the hall serves .jpg as image/jpeg; the plugin's hall carries all 27 files and its notice names the textures;
+    eight planted bugs caught.
