@@ -22,8 +22,7 @@ import { DEMO_TASK, KEEP_STEP_MS, STEP_MS, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
 import { VERSION } from './version';
-
-type RunStatus = 'playing' | 'paused' | 'ended';
+import { TopBar, type RunStatus } from './hud/TopBar';
 
 /** The hosted demo (VITE_LIVE=false) has no hall to find, so it says where to go next. The last word is the link. */
 const HOSTED_STATUS =
@@ -321,7 +320,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const activity = (
     <div className="side">
       <div className="side-content" inert={sideOpen}>
-        {demo && <TaskBar onSend={send} />}
+        {demo && !keep && <TaskBar onSend={send} />}
         <ActivityFeed
           office={office}
           agent={feedAgent}
@@ -342,7 +341,31 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
       <main className={keep ? 'app keep' : 'app'} hidden={teamOpen}>
         {keep ? (
           <>
-            <header className="hud-panel hud-top">{header}</header>
+            <header className="hud-panel hud-top">
+              <TopBar
+                version={hall.version ?? VERSION}
+                mode={mode}
+                office={office}
+                runText={runText}
+                ledger={live && hall.ledger ? ledgerText(hall.ledger) : null}
+                demo={
+                  demo
+                    ? {
+                        status: runStatus,
+                        onPlay: control('playing', (p) => p.play()),
+                        onPause: control('paused', (p) => p.pause()),
+                        onNext: nextStep,
+                        onRestart: restart,
+                        onSend: send,
+                        onBackToLive: hall.status !== 'no-hall' ? backToLive : undefined,
+                        onGoLive: hall.hallFound ? goLive : undefined,
+                      }
+                    : null
+                }
+                onPlayDemo={live && hall.status !== 'checking' ? playDemo : undefined}
+                onTeam={live && hall.status !== 'checking' ? openTeam : undefined}
+              />
+            </header>
             <div className="hud-under">{statusLine}</div>
             <nav className="hud-panel hud-rail" aria-label="Rooms">
               <h2 className="hud-rail-head">Rooms</h2>

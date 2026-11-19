@@ -67,6 +67,15 @@ describe('the HUD over the world (4d.1)', () => {
     expect(within(drawer).getByRole('heading', { name: 'Task board' })).toBeInTheDocument();
   });
 
+  it('the top bar takes the task input while the demo has no tasks; the drawer has none, and no "This PC" line', async () => {
+    const { container } = render(<App />);
+    await settle();
+    const top = container.querySelector('.hud-top') as HTMLElement;
+    expect(screen.getAllByRole('textbox', { name: 'Task for the Lead/PM' })).toHaveLength(1);
+    expect(within(top).getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/This PC/);
+  });
+
   it("the agent list selects an agent, as the 2D hall's sprites do: the card shows it and the feed follows", async () => {
     const { container } = render(<App />);
     await settle();

@@ -2315,3 +2315,113 @@ button.tp-card:hover {
   max-height: 40%;
   overflow-y: auto;
 }
+
+.hud-button:hover:not(:disabled) {
+  background: var(--ui-selected);
+}
+
+.hud-button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.hud-icon {
+  width: 2.5rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-chip {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.375rem;
+  padding: 0 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* The version chip, the "+N" chip and the mode chip when Offline or Ended; Demo and Live carry their chips' colours. */
+.hud-version,
+.hud-mode,
+.hud-more {
+  background: var(--ui-raised);
+  color: var(--ui-muted);
+}
+
+.hud-divider {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  margin: 0.25rem 0;
+  background: var(--ui-line-strong);
+}
+
+.hud-brand,
+.hud-controls,
+.hud-group {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hud-group {
+  gap: 0.375rem;
+}
+
+.hud-run {
+  flex: 1 1 12rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.hud-run-line {
+  margin: 0;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hud-tiles {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 0.375rem;
+  overflow: hidden;
+}
+
+.hud-top .task-row {
+  flex-wrap: nowrap;
+}
+
+.hud-top .task-row input {
+  min-height: 2.5rem;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 0.5rem;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-size: 0.875rem;
+}
+
+.hud-top .task-row input::placeholder {
+  color: var(--ui-muted);
+}
+
+.hud-top .task-row .primary {
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border-radius: 0.5rem;
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+  font-size: 0.875rem;
+}

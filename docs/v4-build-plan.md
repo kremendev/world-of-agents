@@ -9,7 +9,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 
 - [x] S0 this plan in the repo, the decisions copied into `docs/v4.0-plan.md`
 - [x] 4d.1 HUD shell and tokens
-- [ ] 4d.2 top bar
+- [x] 4d.2 top bar
 - [ ] 4d.3 rooms rail and camera wiring
 - [ ] 4d.4 agent list, agent card, Follow
 - [ ] 4d.5 drawer
@@ -306,3 +306,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   built). Choice: `src/hud/contrast.test.ts`, new, reading `:root` from the stylesheet: text 4.5:1 and the focus ring and
   meaningful borders 3:1 on every ground the HUD uses, the name tag over the brightest and darkest world, every chip, and
   no colour in a HUD rule but the tokens, the panel shadow and the tag border. Why: the plan's rule, written once.
+- **4d.2, "before a Demo run starts".** The demo starts playing as the page loads, so a run is never literally not
+  started. Choice: the top bar shows the task input while the demo run has no tasks yet (before the Lead splits the work,
+  and again after Restart or a send); once there are tasks, the run line and the tiles. Why: it is the moment the run
+  line would only say "Tasks done: 0 of 0", and the input is reachable again by Restart, which keeps the text as today.
+- **4d.2, "Back to live" and "Go live".** The spec's right side lists the four icon buttons for Demo; today's page also
+  offers these two there while a hall answers. Choice: kept, as text buttons after the "Demo run" group. Why: removing
+  them would take away the way back to a live run.
+- **4d.2, the mode chip's class.** The classic page's `.mode-offline` and `.mode-ended` carry their own colours. Choice:
+  the HUD's chip takes Demo's and Live's colours from the chips (inline, as every chip does) and has no `mode-*` class,
+  so Offline and Ended stay muted as specified.
