@@ -47,7 +47,7 @@ describe('the HUD over the world (4d.1)', () => {
     expect(world.resize).toHaveBeenLastCalledWith(1440, 900);
   });
 
-  it('puts the five areas in their places: top bar, rooms, agents, the card and the drawer', async () => {
+  it('puts the areas in their places: top bar, rooms, agents and the drawer; the card waits for an agent', async () => {
     const { container } = render(<App />);
     await settle();
     const top = container.querySelector('.hud-top') as HTMLElement;
@@ -58,10 +58,15 @@ describe('the HUD over the world (4d.1)', () => {
     expect(
       within(agents)
         .getAllByRole('button')
-        .map((b) => b.textContent),
-    ).toEqual(['Lead/PM', 'Designer', 'Frontend dev', 'Backend dev', 'Reviewer']);
-    const card = container.querySelector('.hud-card') as HTMLElement;
-    expect(within(card).getByRole('heading', { level: 2, name: 'Lead/PM' })).toBeInTheDocument();
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual([
+      'Lead/PM, Idle',
+      'Designer, Idle',
+      'Frontend dev, Idle',
+      'Backend dev, Idle',
+      'Reviewer, Idle',
+    ]);
+    expect(container.querySelector('.hud-card')).toBeNull();
     const drawer = screen.getByRole('complementary', { name: 'Activity and tasks' });
     expect(within(drawer).getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
     expect(within(drawer).getByRole('heading', { name: 'Task board' })).toBeInTheDocument();
@@ -76,19 +81,84 @@ describe('the HUD over the world (4d.1)', () => {
     expect(container.textContent).not.toMatch(/This PC/);
   });
 
-  it("the agent list selects an agent, as the 2D hall's sprites do: the card shows it and the feed follows", async () => {
+  it("the agent list opens an agent's card and closes it again (4d.4)", async () => {
     const { container } = render(<App />);
     await settle();
     const agents = screen.getByRole('group', { name: 'Agents' });
-    fireEvent.click(within(agents).getByRole('button', { name: 'Backend dev' }));
-    expect(within(agents).getByRole('button', { name: 'Backend dev' })).toHaveAttribute(
+    const backend = within(agents).getByRole('button', { name: /^Backend dev/ });
+    fireEvent.click(backend);
+    expect(backend).toHaveAttribute('aria-pressed', 'true');
+    expect(within(agents).getByRole('button', { name: /^Lead\/PM/ })).toHaveAttribute(
       'aria-pressed',
-      'true',
+      'false',
     );
-    expect(within(agents).getByRole('button', { name: 'Lead/PM' })).toHaveAttribute('aria-pressed', 'false');
     const card = container.querySelector('.hud-card') as HTMLElement;
     expect(within(card).getByRole('heading', { level: 2, name: 'Backend dev' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Activity · Backend dev' })).toBeInTheDocument();
+    // the feed keeps showing everyone: "Show in Activity" is the card's to ask
+    expect(screen.getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
+    fireEvent.click(backend);
+    expect(container.querySelector('.hud-card')).toBeNull();
+    expect(backend).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('a click on a figure in the world opens its card, and a second click keeps it open (4d.4)', async () => {
+    const { container } = render(<App />);
+    await settle();
+    const cardHeading = () =>
+      within(container.querySelector('.hud-card') as HTMLElement).getByRole('heading', { level: 2 });
+    act(() => world.clickFigure('reviewer'));
+    expect(cardHeading()).toHaveTextContent('Reviewer');
+    act(() => world.clickFigure('reviewer'));
+    expect(cardHeading()).toHaveTextContent('Reviewer');
+    act(() => world.clickFigure('designer'));
+    expect(cardHeading()).toHaveTextContent('Designer');
+  });
+
+  it('Follow keeps the agent in view until a hand move or a second press, and unpresses the room (4d.4)', async () => {
+    render(<App />);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    expect(world.follow).toHaveBeenLastCalledWith('designer');
+    expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Whole keep' })).toHaveAttribute('aria-pressed', 'false');
+    act(() => world.moveByHand());
+    expect(screen.getByRole('button', { name: 'Follow' })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Following' }));
+    expect(world.follow).toHaveBeenLastCalledWith(null);
+  });
+
+  it('Esc and Close close the card, and the focus goes back to what opened it (D19)', async () => {
+    const { container } = render(<App />);
+    await settle();
+    const lead = screen.getByRole('button', { name: /^Lead\/PM/ });
+    lead.focus();
+    fireEvent.click(lead);
+    screen.getByRole('button', { name: 'Follow' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.querySelector('.hud-card')).toBeNull();
+    expect(lead).toHaveFocus();
+
+    // a card a figure opened: back to the world
+    const canvas = container.querySelector('canvas.world') as HTMLCanvasElement;
+    canvas.focus();
+    act(() => world.clickFigure('backend'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close the card' }));
+    expect(container.querySelector('.hud-card')).toBeNull();
+    expect(canvas).toHaveFocus();
+  });
+
+  it('"Show in Activity" filters the feed to the agent and moves the focus there; the Reviewer\'s opens the reviews', async () => {
+    render(<App />);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: /^Backend dev/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show in Activity' }));
+    expect(screen.getByRole('heading', { name: 'Activity · Backend dev' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: /^Reviewer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show in Activity' }));
+    expect(screen.getByRole('heading', { name: 'Activity · Reviewer' })).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('the rooms rail sends the camera, and a hand move leaves no room pressed (4d.3)', async () => {

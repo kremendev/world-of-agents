@@ -1,8 +1,8 @@
-import { useId, useMemo } from 'react';
+import { useId, useMemo, type Ref } from 'react';
 import type { AgentId } from '../events/schema';
 import { spriteSize, toRuns, type PixelSprite } from '../pixel/sprite';
 import type { OfficeState } from '../state/office';
-import { agentById } from '../office/roster';
+import { agentById, specialistWords } from '../office/roster';
 import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
 
@@ -29,18 +29,27 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
 /**
  * Everything about the selected agent: who it is and what it is doing.
  * `live`: a real run, so the model and tools are the real ones.
+ * The HUD's card (4d.4) shows it without the 2D sprite (`portrait`, D14), with a guild lead's specialists at work
+ * (`specialists`, D13), and with a heading the focus can be moved to (`headingRef`, D17).
  */
 export function AgentPanel({
   office,
   agent: id,
   live = false,
+  portrait = true,
+  specialists = false,
+  headingRef,
 }: {
   office: OfficeState;
   agent: AgentId;
   live?: boolean;
+  portrait?: boolean;
+  specialists?: boolean;
+  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const agent = agentById(id);
   const { state, taskId, copies } = office.agents[id];
+  const helping = specialists && id !== 'lead' ? office.specialists[id] : [];
   const task = office.tasks.find((t) => t.id === taskId);
   const chip = STATE_STYLE[state];
   const headingId = useId();
@@ -48,11 +57,15 @@ export function AgentPanel({
   return (
     <section className="panel agent-panel" aria-labelledby={headingId}>
       <div className="agent-card">
-        <div className="sprite-tile">
-          <SpritePreview sprite={agent.sprite} scale={3} />
-        </div>
+        {portrait && (
+          <div className="sprite-tile">
+            <SpritePreview sprite={agent.sprite} scale={3} />
+          </div>
+        )}
         <div className="agent-intro">
-          <h2 id={headingId}>{agent.name}</h2>
+          <h2 id={headingId} ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
+            {agent.name}
+          </h2>
           <p className="muted">
             {agent.race} · {live ? 'model' : 'model in v2'}: {agent.model}
           </p>
@@ -62,6 +75,9 @@ export function AgentPanel({
               {chip.label}
             </span>
             {copies && <span className="chip copies-chip">x{copies}</span>}
+            {helping.length > 0 && (
+              <span className="chip specialists-chip">+ {helping.map(specialistWords).join(', ')}</span>
+            )}
           </div>
         </div>
       </div>

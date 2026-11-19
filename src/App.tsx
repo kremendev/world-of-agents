@@ -3,6 +3,8 @@ import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
+import { AgentCard } from './hud/AgentCard';
+import { AgentList } from './hud/AgentList';
 import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
@@ -11,7 +13,7 @@ import type { World } from './world/scene/world';
 import { canDrawWorld } from './world/support';
 import { WorldView } from './world/WorldView';
 import { useStage } from './office/hall/useStage';
-import { ROSTER, agentById } from './office/roster';
+import { agentById } from './office/roster';
 import { ActivityFeed } from './page/ActivityFeed';
 import { ledgerText } from './page/ledgerText';
 import { AgentPanel } from './page/AgentPanel';
@@ -99,7 +101,6 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // The view the rooms rail shows as pressed (4d.3): the camera starts on the whole keep; a hand move clears it.
   const [view, setView] = useState<View | null>('overview');
   const [cutaway, setCutaway] = useState(false);
-  useEffect(() => world?.onHandMove(() => setView(null)), [world]);
   const showView = (next: View) => {
     setView(next);
     world?.flyToRoom(next);
@@ -108,6 +109,84 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     world?.setOpenHouses(!cutaway);
     setCutaway(!cutaway);
   };
+
+  // The agent card (4d.4), open for one agent or none. A list button opens it or closes it again; a click on a figure
+  // opens it. Close and Esc close it, and the focus goes back to what opened it (or to the agent's list button).
+  const [card, setCard] = useState<AgentId | null>(null);
+  const [following, setFollowing] = useState<AgentId | null>(null);
+  const cardOpener = useRef<HTMLElement | null>(null);
+  const cardFocusBack = useRef<AgentId | null>(null);
+  const cardHeading = useRef<HTMLHeadingElement>(null);
+  const openCard = (id: AgentId, toggle: boolean) => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement && active.closest('.hud-card'))) {
+      cardOpener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    }
+    // the 2D hall shows the same agent, should it take over
+    setSelected(id);
+    setCard((was) => (toggle && was === id ? null : id));
+  };
+  const closeCard = () => {
+    cardFocusBack.current = card;
+    setCard(null);
+  };
+  useEffect(() => {
+    const was = cardFocusBack.current;
+    if (card !== null || was === null) return;
+    cardFocusBack.current = null;
+    const back = cardOpener.current;
+    (back?.isConnected
+      ? back
+      : document.querySelector<HTMLElement>(`.hud-agent[data-agent="${was}"]`)
+    )?.focus();
+  }, [card]);
+  // a click on a figure in the world, through the latest openCard
+  const pick = useRef((id: AgentId) => openCard(id, false));
+  pick.current = (id: AgentId) => openCard(id, false);
+  useEffect(() => world?.onPick((id) => pick.current(id)), [world]);
+  // Follow: on until a hand move or a second press; while on, no room is the one in view
+  const toggleFollow = (id: AgentId) => {
+    const next = following === id ? null : id;
+    world?.follow(next);
+    setFollowing(next);
+    if (next) setView(null);
+  };
+  useEffect(
+    () =>
+      world?.onHandMove(() => {
+        setView(null);
+        setFollowing(null);
+      }),
+    [world],
+  );
+  // "Show in Activity": the feed filtered to that agent, the focus on its heading. The Reviewer's opens the review board
+  // over it too, as a click on the Reviewer does in the 2D hall (v3.1, D9).
+  const focusActivity = useRef(false);
+  const showActivity = (id: AgentId) => {
+    setFeedAgent(id);
+    if (id === 'reviewer') {
+      openBoard(null);
+      return;
+    }
+    setBoard(null);
+    focusActivity.current = true;
+  };
+  useEffect(() => {
+    if (!focusActivity.current) return;
+    focusActivity.current = false;
+    activityHeading.current?.focus();
+  });
+  // Esc in the HUD (D19): the review board closes first (its own handler), then the card.
+  useEffect(() => {
+    if (!keep || teamOpen || sideOpen || card === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      cardFocusBack.current = card;
+      setCard(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [keep, teamOpen, sideOpen, card]);
 
   useEffect(() => {
     if (!demo) return;
@@ -415,22 +494,19 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
 
         {keep ? (
           <>
-            <div className="hud-panel hud-agents" role="group" aria-label="Agents">
-              {ROSTER.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  className="hud-button"
-                  aria-pressed={selected === a.id}
-                  onClick={() => select(a.id)}
-                >
-                  {a.name}
-                </button>
-              ))}
-            </div>
-            <div className="hud-panel hud-card">
-              <AgentPanel office={office} agent={selected} live={live} />
-            </div>
+            <AgentList office={office} card={card} onToggle={(id) => openCard(id, true)} />
+            {card && (
+              <AgentCard
+                office={office}
+                agent={card}
+                live={live}
+                following={following === card}
+                onFollow={() => toggleFollow(card)}
+                onShowActivity={() => showActivity(card)}
+                onClose={closeCard}
+                headingRef={cardHeading}
+              />
+            )}
             <aside className="hud-panel hud-drawer" aria-label="Activity and tasks">
               {activity}
               <TaskBoard office={office} />

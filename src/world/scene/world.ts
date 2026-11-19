@@ -277,23 +277,56 @@ export async function createWorld(opts: WorldOptions) {
   }
   // A hand move (a drag past a few pixels, the wheel, an arrow key on the focused canvas) stops a flight and tells the
   // page, which then shows no room as the one in view (4d.3). A click alone stops a flight and nothing else.
+  // A click on a figure picks it (4d.4, the town's picking): a ray through its skinned meshes, the agent from its root.
+  // Follow keeps the followed figure in view until a hand move or the page stops it.
   let handMoved: (() => void) | null = null;
+  let picked: ((id: AgentKey) => void) | null = null;
+  let following: AgentKey | null = null;
   let down: { x: number; y: number; moved: boolean } | null = null;
+  const raycaster = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const pickables = actors.map((a) => a.root);
+  function pickAt(e: PointerEvent): AgentKey | null {
+    const rect = renderer.domElement.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return null;
+    ndc.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    raycaster.setFromCamera(ndc, camera);
+    for (
+      let o: THREE.Object3D | null = raycaster.intersectObjects(pickables, true)[0]?.object ?? null;
+      o;
+      o = o.parent
+    ) {
+      const id = (o.userData as { agentId?: AgentKey }).agentId;
+      if (id) return id;
+    }
+    return null;
+  }
   const handMove = () => {
     fly = null;
+    following = null;
     handMoved?.();
   };
+  let hoverAt = 0;
   const onPointerDown = (e: PointerEvent) => {
     fly = null;
     down = { x: e.clientX, y: e.clientY, moved: false };
   };
   const onPointerMove = (e: PointerEvent) => {
+    // the mouse over a figure, a few times a second: the pointer says it can be clicked
+    if (!down && e.pointerType === 'mouse' && e.timeStamp - hoverAt > 90) {
+      hoverAt = e.timeStamp;
+      renderer.domElement.style.cursor = pickAt(e) ? 'pointer' : '';
+    }
     if (!down || down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) <= 4) return;
     down.moved = true;
     handMove();
   };
-  const onPointerUp = () => {
+  const onPointerUp = (e: PointerEvent) => {
+    const click = down && !down.moved;
     down = null;
+    if (e.type !== 'pointerup' || !click) return;
+    const id = pickAt(e);
+    if (id) picked?.(id);
   };
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.key.startsWith('Arrow')) handMove();
@@ -314,7 +347,13 @@ export async function createWorld(opts: WorldOptions) {
 
   /* ---------------- houses open up as you come close, or when you open one.
      Two-storey houses show the ground floor (upper storey lifts away) or the upper floor (only the roof lifts). */
-  const houseIsOpen = (H: HouseRec) => openHouses || focusRoom === H.id || !!H.near;
+  // the house a followed figure is inside opens too (the town's rule)
+  const followedIn = (H: HouseRec) => {
+    if (!following) return false;
+    const sp = SPOTS[walkers[following].spot];
+    return sp.room === H.id && !sp.out;
+  };
+  const houseIsOpen = (H: HouseRec) => openHouses || focusRoom === H.id || !!H.near || followedIn(H);
   // whether the camera is close enough to open a house, with a margin so it doesn't flip at the edge
   function nearHouse(H: HouseRec, dist: number) {
     const t = controls.target;
@@ -778,6 +817,7 @@ export async function createWorld(opts: WorldOptions) {
   let last = 0;
   let frames = 0;
   let paused = false;
+  const followAt = new THREE.Vector3();
   function frame(now: number) {
     if (t0 < 0) t0 = now;
     const t = (now - t0) / 1000;
@@ -929,6 +969,13 @@ export async function createWorld(opts: WorldOptions) {
       controls.target.lerpVectors(fly.ft, fly.tt, e);
       camera.position.lerpVectors(fly.fp, fly.tp, e);
       if (k >= 1) fly = null;
+    } else if (following) {
+      // the town's follow: the point the camera orbits eases to the figure, and the camera moves with it
+      cast.actors[following].root.getWorldPosition(followAt);
+      followAt.y += 0.8;
+      const delta = followAt.sub(controls.target).multiplyScalar(REDUCE ? 1 : Math.min(1, dt * 4));
+      controls.target.add(delta);
+      camera.position.add(delta);
     }
     updateParked();
     controls.update();
@@ -1019,6 +1066,21 @@ export async function createWorld(opts: WorldOptions) {
         if (handMoved === fn) handMoved = null;
       };
     },
+    /** The page's one listener for a click on a figure; returns its removal. */
+    onPick(fn: (id: AgentKey) => void) {
+      picked = fn;
+      return () => {
+        if (picked === fn) picked = null;
+      };
+    },
+    /** Keeps a figure in view as it walks (null: stops), until a hand move; a flight in progress ends. */
+    follow(id: AgentKey | null) {
+      following = id;
+      if (id) {
+        fly = null;
+        focusRoom = null;
+      }
+    },
     setOpenHouses(on: boolean) {
       openHouses = on;
     },
@@ -1030,6 +1092,7 @@ export async function createWorld(opts: WorldOptions) {
       for (const [type, fn] of canvasListeners)
         renderer.domElement.removeEventListener(type, fn as EventListener);
       handMoved = null;
+      picked = null;
       controls.dispose();
       composer.dispose();
       nTarget.dispose();

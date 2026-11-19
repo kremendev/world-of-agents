@@ -2492,3 +2492,85 @@ button.tp-card:hover {
   color: var(--ui-muted);
   font-size: 0.8125rem;
 }
+
+/* The agent list and the agent card (4d.4). */
+.hud-agent {
+  box-sizing: border-box;
+  flex: none;
+  min-height: 2.5rem;
+  padding: 0 0.5rem 0 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 0.5rem;
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.hud-agent:hover,
+.hud-agent[aria-pressed='true'] {
+  background: var(--ui-selected);
+}
+
+.hud-agent[aria-pressed='true'] {
+  border-color: var(--ui-accent);
+}
+
+/* An agent that needs you or failed keeps that border, pressed or not. */
+.hud-agent.needs {
+  border-color: var(--ui-flag);
+}
+
+.hud-agent.error {
+  border-color: var(--ui-danger);
+}
+
+.hud-agent-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.hud-card {
+  padding: 1rem;
+}
+
+.hud-card .agent-panel {
+  padding: 0;
+}
+
+.hud-card h2 {
+  margin-right: 2.5rem;
+}
+
+.hud-card .muted {
+  color: var(--ui-muted);
+}
+
+.hud-card .specialists-chip {
+  background: var(--ui-raised);
+  color: var(--ui-link);
+}
+
+.hud-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+}
+
+.hud-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.hud-button.hud-primary,
+.hud-button.hud-primary:hover:not(:disabled) {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent);
+  color: var(--ui-on-accent);
+}

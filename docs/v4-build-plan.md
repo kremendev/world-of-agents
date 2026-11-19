@@ -11,7 +11,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.1 HUD shell and tokens
 - [x] 4d.2 top bar
 - [x] 4d.3 rooms rail and camera wiring
-- [ ] 4d.4 agent list, agent card, Follow
+- [x] 4d.4 agent list, agent card, Follow
 - [ ] 4d.5 drawer
 - [ ] 4d.6 world labels: name tags and bubbles
 - [ ] 4d.7 needs-you banner and Show me
@@ -323,3 +323,14 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4d.3, what a hand move is.** Choice: a drag past 4 px, the wheel, or an arrow key on the focused canvas; a click
   alone (picking a figure, 4d.4) stops a flight but leaves the pressed room. The world reports it through
   `onHandMove()`, one listener, the page's. Why: a click on a figure doesn't move the camera, so it shouldn't say it did.
+- **4d.4, what a click on an agent does.** The 2D hall's click selects, filters the feed and, for the Reviewer, opens the
+  review board. Choice: in the HUD a list button opens the card or closes it again (it is a pressed toggle), a click on
+  a figure opens it and never closes it, and neither filters the feed: "Show in Activity" does that, and the
+  Reviewer's opens the review board over it as the 2D click does (v3.1, D9). Why: the spec gives filtering its own
+  button, and the board stays one click from the Reviewer.
+- **4d.4, Follow.** Choice: primary colours whether on or off, the words and `aria-pressed` saying which; it stays on
+  when the card closes or another card opens, until a hand move or a second press, as the spec says. A figure
+  followed into a house opens that house (the town's rule). Why: the spec's words, and the town's behaviour.
+- **4d.4, picking.** Choice: the town's: a ray through the figures' skinned meshes, the agent from the root's
+  `agentId`, on a pointer up that didn't drag; the mouse over a figure shows the pointer cursor. The town's click on a
+  house (fly to it) is left out: the rail does that. Why: the plan names agent picking only.
