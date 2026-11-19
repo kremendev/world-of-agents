@@ -1,0 +1,296 @@
+# v4.0.0 build plan: finish the Forge Keep
+
+Written 19 Nov 2026 for Claude Code in VS Code, at Dima's request: **build as fast as possible, test later, and every
+open question is answered here.** It sits beside `docs/v4.0-plan.md`, the design plan, and wins where they differ. Its
+answers are Dima's decisions (he asked for the best choice to be taken for each). 4a and 4b are done; this plan covers
+4d, 4c, 4f, the raised-hand clip, the test phase and the release prep.
+
+## Progress (tick each step in the commit that finishes it)
+
+- [x] S0 this plan in the repo, the decisions copied into `docs/v4.0-plan.md`
+- [ ] 4d.1 HUD shell and tokens
+- [ ] 4d.2 top bar
+- [ ] 4d.3 rooms rail and camera wiring
+- [ ] 4d.4 agent list, agent card, Follow
+- [ ] 4d.5 drawer
+- [ ] 4d.6 world labels: name tags and bubbles
+- [ ] 4d.7 needs-you banner and Show me
+- [ ] 4d.8 status line
+- [ ] 4d.9 narrow layouts
+- [ ] 4d.10 4d's docs and leftovers
+- [ ] 4c.1 idle life: the schedule
+- [ ] 4c.2 idle life: in the world
+- [ ] 4c.3 small talk
+- [ ] 4c.4 the furnace and the flames
+- [ ] 4c.5 needs-you and error markers
+- [ ] 4c.6 the screens
+- [ ] 4c.7 4c's docs
+- [ ] 4f.1 the assets test
+- [ ] 4f.2 the size budget test
+- [ ] 4f.3 the bundled hall's types
+- [ ] 4f.4 CLAUDE.md and the README text
+- [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking)
+- [ ] T the test phase (later, with Dima)
+- [ ] R the release prep (no tag)
+
+## How to work
+
+**The standing rules (unchanged, from CLAUDE.md):**
+
+- Commits are Dima's only: `git -c user.name="Dmitriy Kremen" -c user.email="335452314+kremendev@users.noreply.github.com" commit`.
+  No Co-Authored-By, no Claude-Session, no "Generated with Claude Code", anywhere.
+- One commit per finished step, on `v3-next`, pushed. Never `main`, never a force-push, never a history rewrite.
+- **No tag and no release** before Dima's desktop check. R prepares; Dima releases.
+- A guard, hook or permission rule that blocks you is Dima's to switch: stop and say what blocks. Never turn off the
+  plugin, a hook or a setting to get past it.
+- Never run catalog installers. Never work around a network block or a classifier denial. Never touch credentials or
+  payment details.
+- The models are Dima's, all rights reserved, not MIT: never relicense them; `docs/ASSETS.md` lists each one.
+- Agent role names never change (Lead/PM, Designer, Frontend dev, Backend dev, Reviewer). Original fantasy only: no
+  game's or show's characters, names or emblems.
+- Security rules of `docs/v4.0-plan.md` hold: the CSP stays as it is, no image packed into a GLB, no compressed models,
+  nothing an agent sends becomes a model, texture, URL or 3D text, agent text is React text through `AgentText` (never
+  `innerHTML`, never `dangerouslySetInnerHTML`).
+- Rebuild the bundled hall in the same commit as a source change, as the repo does today.
+
+**The speed rules (new, Dima's):**
+
+- **Per commit:** `npm run check` from `D:\` (the drive-letter rule in CLAUDE.md), plus Vitest or React tests for the
+  step's pure logic and new components. That's all.
+- **Deferred to T:** the Edge checks in `tools/world-check/` (renders, compare, seats, walk, spots, policy, frames),
+  planted-bug rounds, the Narrator pass, the three Windows scalings and frame times. Don't run them before T.
+- **Don't stop for a question this plan answers.** For one it doesn't, take the option that (1) keeps every security
+  and accessibility rule, (2) matches this plan and the mockup, (3) is smaller to build. Write it under "Decisions taken
+  during the build" at the end of this file in the same commit, and carry on.
+- **Stop only for:** a block (above), anything that can't be undone outside the repo, credentials, a network block, or
+  `npm run check` failing for a reason outside your step that you can't fix in a few lines.
+- Change only what a step needs. No refactors of code the step doesn't touch. `forge-keep` and `town/` stay frozen.
+- If the session runs out, the next one starts from the first unticked step here.
+
+## The decisions (19 Nov)
+
+- **D1 The HUD mockup is approved** as drawn on Dima's "Forge Keep HUD" canvas (four boards: working overview, agent
+  card with Follow, needs-you in Live, the label fonts). The spec below is that mockup in words; build from it.
+- **D2 The world's label font:** name tags in **M PLUS Rounded 1c 700**, the self-hosted Latin subset the signs already
+  use, falling back to Inter; bubbles in **Inter 500**. Tags are short names, and the rounded face makes them part of the
+  keep; bubbles carry agent text in any language, which the Latin-only rounded subset can't, and keep the HUD's text
+  rules. No new font file.
+- **D3 Panels are solid** (`--ui-surface`), not glass: a stylesheet test can prove their contrast, which it can't over a
+  moving 3D world.
+- **D4 Demo controls** are icon buttons (Play, Pause, Next step, Restart) with `aria-label` and `title`. Before a run
+  starts, the top bar's middle shows the task input ("e.g. Create a dashboard") as the task bar does today; once the
+  run plays, the run line and the tiles replace it. Restart keeps the text, as today.
+- **D5 The drawer** starts open when the window is at least 80rem (1280 px at 100%) wide, closed below; the viewer's
+  last choice is kept in `localStorage` (every read and write in try/catch, the page fine without it).
+- **D6 Order: 4d before 4c.** The labels layer and the agent list come first: 4c's markers and small talk draw on them,
+  and 4d brings back agent selection for the keyboard and screen readers, which blocks any release.
+- **D7 Needs-you doesn't wait for Tripo.** A needs-you agent always shows an amber raised-hand marker over its head
+  (kept after the clip lands: it reads at the usual 21 m). The figure plays `raise_hand` if its GLB has it, its idle
+  clip until then.
+- **D8 Error:** a red "!" marker over the head (`--ui-danger-fill` disc, `--ui-on-danger` mark), the tag's border in
+  `--ui-danger`, the agent at its work spot.
+- **D9 Idle life** with the four clips there are (walk, idle, sit, play_mobile_game), by place and props: the two orcs
+  at the Training yard anvil (idle clip, sparks from the anvil now and then) or drinking at the Tavern (sit, a mug);
+  the Designer at the Garden easel or the pond (idle); the Reviewer reading on the Courtyard bench or by the Tavern fire
+  (sit); the Lead wandering the outdoor paths between idle spots, pausing 8 to 15 s. Each idle agent changes activity
+  every 45 to 90 s. Never a work room, never the Forge (they may walk through it).
+- **D10 Small talk stays** (today's 2D hall has it): two or more idle agents in one idle area sometimes trade a line
+  from our own fixed list, at most one bubble per area every 20 s. Never agent output.
+- **D11 The furnace and flames** as `docs/v4.0-plan.md` proposes: the mouth's colour follows 0, 1 and 2+ working
+  agents (the 2D hall's three colours), the glow grows up to 4, as one glowing material and one light; each fire and
+  candle flickers in its own phase. Reduced motion stops the flicker; the colour still changes.
+- **D12 Screens:** every lit screen in the keep belongs to a work spot and glows only while that spot's owner works
+  there (4b did the two dev desks; 4c applies the rule to any other screen the scene has).
+- **D13 Specialists stay A:** the guild lead's name tag and card add "+ React dev" (the running specialist's name).
+- **D14 No portrait in the agent card** for v4.0: name, species and model, look, state, task, tools, as today's panel.
+- **D15 Narrow windows:** under 70rem the rooms rail becomes a "Rooms" menu button in the top bar, the drawer
+  overlays the world and starts closed, and the agent list scrolls sideways. Under 48rem (the Pages demo on a phone)
+  the top bar wraps to two rows and the drawer and card take the full width.
+- **D16 Name tags and bubbles are HTML** over the canvas, projected from each figure's head every frame, at a fixed
+  screen size, hidden when off screen or behind the camera, no occlusion test. Name tags are `aria-hidden`; everything
+  they say is in the agent list.
+- **D17 Show me** flies the camera to the agent in about a second (cuts with reduced motion), opens its card and moves
+  the focus to the card's heading.
+- **D18 Several agents needing you:** one banner, a row per agent (up to 3), each with its own Show me, then "and N
+  more".
+- **D19 Esc** closes the card first, then the drawer, and puts the focus back where it came from.
+- **D20 Status messages** that aren't needs-you (Live waiting for a task, Hall offline, Session ended, Hall restarted,
+  the hosted line) show as a slim muted line under the top bar, not a banner.
+- **D21 4e in this push is only the raised-hand clip.** The apprentice figures (B), more clips (read, smash, spar,
+  drink, hammer, paint), the crease-lines render for Dima and the scrying orb's look come after v4.0.0.
+- **D22 The README's pictures** are taken in T with the existing render tools at 1440 x 900.
+- **D23 Testing:** per commit as in "How to work"; the rest in T.
+
+## The HUD (4d): the mockup in words
+
+**Look.** Only the existing `--ui-*` tokens (the Team page's, in the app's stylesheet) and Inter. The chips keep the colours they have
+(`STATE_STYLE` in `src/office/states.ts`, `STATUS_CHIP` in `src/office/tasks.ts`); the needs-you banner uses the
+needs-you chip's pair (`#4d3a0c` ground, `#ffd97a` text) with a `--ui-flag` border, made two tokens
+(`--ui-needs-bg`, `--ui-needs`). The tag pill's ground is `rgba(20,18,16,.86)`, a token too (`--ui-tag-bg`). No other
+new colour. Sizes in rem, nothing under 13 px (0.8125rem). Panels: `--ui-surface`, 1px `--ui-line-strong`, radius
+0.75rem, shadow `0 10px 28px rgba(0,0,0,.38)`. Buttons 2.5rem high, radius 0.5rem, `--ui-raised` with
+`--ui-line-strong`; primary: `--ui-accent` with `--ui-on-accent`. Chips 1.375rem high, radius 0.375rem, 13 px 600.
+Focus ring 2px `--ui-link`, offset 2px, on everything focusable, always visible.
+
+**Layout** (1440 x 900 reference, 1rem = 16 px; every panel inset 1rem from the window's edges):
+
+- **World:** fills the window behind everything (`WorldView`, its fixed `role="img"` label unchanged).
+- **Top bar** (top, full width, 4rem): left, the `h1` "World of Agents", the version chip (`v` + `VERSION`, muted on
+  `--ui-raised`) and the mode chip (Demo in the thinking chip's colours, Live in the done chip's, Offline and Ended
+  muted). A divider. The middle, growing, `min-width: 0`: line 1 (13 px, muted, ellipsis) "Run: <task text> · Tasks
+  done: X of N", and in Live " · " plus today's `ledgerText` ("This PC: 48K tokens · about $0.62 at API prices"); line
+  2 the task tiles, up to 5 chips "<owner> · <status>" in the status colours with the task title as `title`, then a
+  "+N" chip. Before a Demo run, the task input in place of both lines (D4). Right: in Demo the four icon buttons in a
+  `role="group"` "Demo run", their disabled states as today; in Live, "Play demo" where today's page offers it. A
+  divider, then "Team" (opens the Team page, as today).
+- **Status line** (D20): under the top bar, centred over the world, muted text on a slim panel, only when there is one.
+- **Needs-you banner** (D18): under the top bar, across the world between the rail and the drawer. Raised-hand icon,
+  the text of `whoIsWaiting()` ("Frontend dev needs your approval in Claude Code"), 15 px 600, and a primary
+  "Show me". It takes the status line's place while it shows. The `aria-live` region says what it says today.
+- **Rooms rail** (left, under the top bar, 11.75rem wide): the heading "Rooms" (13 px, uppercase, muted, letter
+  spacing 0.04em), then a button per view: "Whole keep" and the rooms in the map's order, with the map's own names (the
+  mockup drew War hall, Library, Design studio, Workshop, The Forge, Tavern, Training yard, Courtyard, Garden),
+  2.25rem each. The current view's button is
+  `aria-pressed="true"` (`--ui-selected` ground, `--ui-accent` border). A badge shows how many agents are in a room
+  (`aria-hidden`; the button's label says "Workshop, 2 agents"); a room holding a needs-you agent shows its badge in
+  the needs-you pair and adds ", one needs you" to the label. A divider, then the Cutaway toggle (`aria-pressed`,
+  "On"/"Off" beside it). Moving the camera by hand, or Follow, clears the pressed room.
+- **Agent list** (bottom left): a panel holding one button per agent: its name (14 px 600) and its state chip. Pressed
+  while its card is open (`--ui-selected`, accent border); a needs-you agent's border in `--ui-flag`, an error's in
+  `--ui-danger`. A click opens the card, the same as clicking the figure in the world.
+- **Agent card** (above the agent list, right of the rail, 24.5rem wide): today's `AgentPanel` content (name as `h2`,
+  species and model, look, state chip, the waiting note, current task, task status, tools, specialists per D13), a
+  close button (icon, "Close the card"), then "Follow" (a toggle: `aria-pressed`, reads "Following" while on, primary
+  colours) and "Show in Activity" (opens the drawer on Activity filtered to that agent, today's agent filter). Follow
+  keeps the agent in view until the camera is moved by hand or Follow is pressed again.
+- **Drawer** (right, under the top bar to the bottom, 24rem wide): a `role="tablist"` with "Activity" and "Task
+  board" (arrow keys move between them), and a collapse button (chevron, "Close the drawer"). Closed, it leaves a
+  handle at the right edge ("Activity", with the unread For-you count). Activity is today's `ActivityFeed` unchanged
+  (For you strip, Only for me, Show everyone, Copy, the Review board); Task board is today's `TaskBoard`.
+- **Name tags** (D2, D16): a pill per figure above its head: an 8 px dot in its state chip's text colour, then the
+  name, 13 px M PLUS Rounded 1c 700, `--ui-text` on `--ui-tag-bg` with a 1px `rgba(242,235,225,.18)` border. The
+  selected agent's border is `--ui-accent`, a needs-you agent's `--ui-flag`, an error's `--ui-danger`.
+- **Bubbles:** `--ui-text` ground, `--ui-on-accent` text, Inter 500 14 px / 19 px, at most 16rem wide, radius 14 px, a
+  tail to the tag. The message text through `AgentText`. Today's bubble rules: never while its agent walks, its time
+  runs only while it is on screen.
+
+**Keyboard and screen readers:** tab order top bar, banner, rail, world (arrow keys pan when the canvas has focus),
+agent list, card, drawer. Esc per D19. Every state the world shows is in the agent list and the card. Narrator gets
+its pass in T.
+
+**Narrow** per D15.
+
+## The steps
+
+Each step: build, its tests, `npm run check`, tick it above, commit, push. Commit messages in the repo's style, the
+step first: "4d.3 (docs/v4-build-plan.md): the rooms rail …".
+
+**S0.** Save this file as `docs/v4-build-plan.md`. In `docs/v4.0-plan.md`, under Questions, add "Decided (Dima,
+19 Nov): the HUD mockup, the label font and the remaining questions, in docs/v4-build-plan.md (D1 to D23)", and
+under Parts, the order 4d, 4c, 4f (D6). Commit.
+
+**4d.1 HUD shell and tokens.** A HUD component over `WorldView` with the five areas (top bar, rail, agent list, card
+slot, drawer) as positioned panels, the new tokens (`--ui-needs-bg`, `--ui-needs`, `--ui-tag-bg`) and the panel,
+button and chip styles. Today's components move into their places without changing behaviour. The 2D hall fallback
+keeps today's layout. Extend the stylesheet contrast test to the new pairs (banner, tag on its pill, bubble, chips on
+the panel).
+
+**4d.2 Top bar.** As specified, with the task input before a Demo run, the tiles with "+N", the Live ledger, the icon
+buttons (Next step included), Play demo and Team. React tests: the run line, the tiles' text and order, "+N", the
+buttons' names and disabled states, the ledger only in Live.
+
+**4d.3 Rooms rail.** Buttons fly the camera to the room's view (the views from 4a), "Whole keep" to the overview, a cut
+with reduced motion. The counts come from where each agent is (`placeFor()` and the map's rooms), as a pure function
+with its own test. Cutaway toggle wired to the scene's cutaway. A hand move or Follow clears the pressed button.
+
+**4d.4 Agent list, card and Follow.** The list, the card (D13, D14), Follow, Show in Activity, Esc, focus back. A click
+on a figure opens the same card: a raycast on its figure (port the town's picking if 4a didn't bring it). React tests for the list's names, chips and pressed state, the
+card's content and Follow's toggle.
+
+**4d.5 Drawer.** Tabs with arrow keys, the collapse and the handle with its count, D5's default and memory, Esc. React
+tests.
+
+**4d.6 World labels.** A labels layer over the canvas: name tags and bubbles per D2 and D16, projected each frame,
+hidden off screen; the specialist's "+ name" per D13; the selected, needs-you and error borders. Self-host nothing new:
+the tags use the signs' font file. Tests for the pure parts (projection to screen, the hide rule, a tag's text) and that
+a bubble renders agent text as text.
+
+**4d.7 Needs-you banner and Show me.** D17, D18. React tests: one row per agent up to 3 and "and N more", Show me opens
+the card and moves the focus.
+
+**4d.8 Status line.** D20, from today's mode and hosted states. React tests.
+
+**4d.9 Narrow layouts.** D15, by CSS and a Rooms menu button (a disclosure). React test for the menu button's
+`aria-expanded`.
+
+**4d.10 4d's docs.** In `docs/v4.0-plan.md`, 4d: what was built, "Checked" only for what the tests prove (the Edge
+checks wait for T). Remove the stage UI the HUD replaced. CLAUDE.md: the HUD's place in the page and its rules.
+
+**4c.1 Idle life: the schedule.** A pure, seeded schedule of idle activities per D9 (where, which clip, which prop,
+how long). Tests: no idle spot in a work room or at the Forge, every activity in an idle area, the change every 45 to
+90 s, with reduced motion each idle agent stands at one idle spot.
+
+**4c.2 Idle life in the world.** The schedule through the walkers (a work event still pulls the agent back at once,
+from where it stands), the clips, the props (the yard anvil's sparks, the mug). Reduced motion: no wandering, no idle
+animation. Tests on the walker side.
+
+**4c.3 Small talk.** D10 through the bubbles layer, a fixed list of our own lines (a dozen, plain and in the keep's
+voice; no agent output, no real names). Tests: lines only from the list, the rate, only between idle agents in one
+area.
+
+**4c.4 The furnace and the flames.** D11. Tests for the colour and glow by working count (a pure function) and that
+reduced motion stops the flicker but not the colour.
+
+**4c.5 Needs-you and error markers.** D7, D8, as HTML markers in the labels layer (`aria-hidden`), a gentle bob that
+stops with reduced motion; `raise_hand` played when the character has it. Tests: the marker for needs-you and error,
+the clip chosen when present and the idle clip when not.
+
+**4c.6 The screens.** D12 for every screen in the scene. A test for the rule.
+
+**4c.7 4c's docs.** `docs/v4.0-plan.md` 4c, CLAUDE.md where it describes what the world shows.
+
+**4f.1 The assets test.** A test that fails on any GLB or JPEG in the repo not listed in `docs/ASSETS.md` with its
+author and licence, and on a Tripo model without its ProduceID.
+
+**4f.2 The size budget test.** All models under 16 MB of files and 9 MB compressed, each character under 2 MB with
+its JPEG (`docs/v4.0-plan.md`, Models).
+
+**4f.3 The bundled hall's types.** `.glb` and `.jpg` in `PAGE_TYPES` and in the hall's manifest, held by a test (skip
+whatever 4a already holds; say so in the commit).
+
+**4f.4 CLAUDE.md and the README.** CLAUDE.md's "Design: v1 is locked", "How the hall is drawn" and font rules: the 2D
+part kept for the fallback, the 3D world and the HUD described; the cast's lines (the Frontend dev's female orc, the
+Reviewer's reaper, the heights). The README's description and "Credits and license" checked; its pictures wait for T.
+
+**CLIP The raised-hand clip** (any time Dima's files are there; check at the start of each step, never wait). Dima
+exports each character from Tripo with the extra clip into `D:\Dev\assets\world-of-agents\tripo\raise-hand\` (the five
+GLBs, the names saying which is which). Then: the same pipeline as 4b's characters (`tools/models/slim_chars.py`,
+`to_gltf_json.py`, `pack_gltf.py`, `to-glb.mjs`, per `tools/models/README.md`), the clip named `raise_hand`, each
+character still under 2 MB and the totals under budget, the AIGC label and ProduceID kept and listed in
+`docs/ASSETS.md`, a test that every character carries `raise_hand`. The seats check runs again in T.
+
+**T The test phase** (later, with Dima at his PC; one commit per check that finds and fixes something):
+
+- `npm run check` and `check:hall` clean.
+- `tools/world-check/`: the render comparison (world and cast), the seats (with and without reduced motion), walk.mjs
+  over the demo, spots.mjs, the policy check on the plugin page and the Pages build, the frames.
+- Planted bugs for 4d and 4c: at least one per new test file, each caught, then removed.
+- A screenshot per room and of each HUD state (working, card, needs-you, narrow), in Edge, no console errors, nothing
+  reported by the policy.
+- Dima: Narrator over the HUD, the self-check at three Windows scalings (100, 125, 150 %), frame times in a real window
+  on his GPU, the look against the mockup.
+- The README's pictures (D22).
+
+**R The release prep** (no tag, no release): `plugin.json` to 4.0.0 and the version wherever the repo keeps it,
+`docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of
+`docs/release-notes/v3.10.0-check.md` (fresh install, Demo, Live, needs-you, Team page, the 2D fallback with WebGL off,
+reduced motion). Then stop: Dima checks, then says tag.
+
+## Later, after v4.0.0 (not in this push)
+
+The apprentice figures (B); more clips (read, the keyboard smash, spar, drink, hammer, paint) through 4e's checks; the
+crease-lines render for Dima; the scrying orb's flat look; frame-time tuning from T's numbers.
+
+## Decisions taken during the build
+
+(Add each one here, in the commit that takes it: the question, the choice, one line why.)
