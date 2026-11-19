@@ -21,9 +21,11 @@ beforeEach(() => {
   world = fakeWorld();
   scene.create.mockReset().mockResolvedValue(world);
   undoLayout = stubLayout(1440, 900);
+  localStorage.clear();
 });
 afterEach(() => {
   undoLayout();
+  localStorage.clear();
   vi.unstubAllEnvs();
   vi.useRealTimers();
 });
@@ -69,7 +71,7 @@ describe('the HUD over the world (4d.1)', () => {
     expect(container.querySelector('.hud-card')).toBeNull();
     const drawer = screen.getByRole('complementary', { name: 'Activity and tasks' });
     expect(within(drawer).getByRole('heading', { name: 'Activity' })).toBeInTheDocument();
-    expect(within(drawer).getByRole('heading', { name: 'Task board' })).toBeInTheDocument();
+    expect(within(drawer).getByRole('tab', { name: 'Task board' })).toBeInTheDocument();
   });
 
   it('the top bar takes the task input while the demo has no tasks; the drawer has none, and no "This PC" line', async () => {
@@ -207,5 +209,73 @@ describe('the HUD over the world (4d.1)', () => {
     expect(container.querySelector('.app-header')).not.toBeNull();
     expect(container.querySelector('.hall')).not.toBeNull();
     expect(world.dispose).toHaveBeenCalledOnce();
+  });
+});
+
+describe('the drawer (4d.5)', () => {
+  const drawer = () => screen.queryByRole('complementary', { name: 'Activity and tasks' });
+
+  it('starts open in a wide window, on Activity, with the task board a tab away', async () => {
+    render(<App />);
+    await settle();
+    expect(drawer()).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    fireEvent.click(screen.getByRole('tab', { name: 'Task board' }));
+    expect(screen.getByRole('heading', { name: 'Task board' })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Activity' })).toBeNull();
+  });
+
+  it('starts closed in a narrower window, its handle there instead', async () => {
+    undoLayout();
+    undoLayout = stubLayout(1200, 800);
+    render(<App />);
+    await settle();
+    expect(drawer()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it("keeps the viewer's choice for the next visit", async () => {
+    const { unmount } = render(<App />);
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Close the drawer' }));
+    expect(drawer()).toBeNull();
+    // the focus was on the close button, inside: it goes to the handle
+    expect(screen.getByRole('button', { name: 'Activity' })).toHaveFocus();
+    unmount();
+    render(<App />);
+    await settle();
+    expect(drawer()).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Activity' }));
+    expect(drawer()).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveFocus();
+  });
+
+  it('Esc closes the card first, then the drawer, the focus going back each time (D19)', async () => {
+    const { container } = render(<App />);
+    await settle();
+    const lead = screen.getByRole('button', { name: /^Lead\/PM/ });
+    lead.focus();
+    fireEvent.click(lead);
+    screen.getByRole('tab', { name: 'Activity' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.querySelector('.hud-card')).toBeNull();
+    expect(drawer()).not.toBeNull();
+    expect(lead).toHaveFocus();
+    screen.getByRole('tab', { name: 'Activity' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(drawer()).toBeNull();
+    expect(screen.getByRole('button', { name: 'Activity' })).toHaveFocus();
+  });
+
+  it('"Show in Activity" opens a closed drawer on the Activity tab', async () => {
+    render(<App />);
+    await settle();
+    fireEvent.click(screen.getByRole('tab', { name: 'Task board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close the drawer' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show in Activity' }));
+    expect(drawer()).not.toBeNull();
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Activity · Designer' })).toHaveFocus();
   });
 });

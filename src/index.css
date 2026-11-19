@@ -2310,12 +2310,6 @@ button.tp-card:hover {
   flex: 1 1 auto;
 }
 
-.hud-drawer .task-board {
-  flex: none;
-  max-height: 40%;
-  overflow-y: auto;
-}
-
 .hud-button:hover:not(:disabled) {
   background: var(--ui-selected);
 }
@@ -2573,4 +2567,73 @@ button.tp-card:hover {
   border-color: var(--ui-accent);
   background: var(--ui-accent);
   color: var(--ui-on-accent);
+}
+
+/* The drawer (4d.5): two tabs, a close button, and a handle at the edge while it is closed. */
+.hud-drawer[hidden] {
+  display: none;
+}
+
+.app.keep.drawer-closed {
+  --hud-drawer-w: 8rem;
+}
+
+.hud-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0 0.75rem;
+}
+
+.hud-tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.hud-tab {
+  min-height: 2.25rem;
+  padding: 0 0.75rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--ui-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hud-tab[aria-selected='true'] {
+  border-bottom-color: var(--ui-accent);
+  color: var(--ui-text);
+}
+
+.hud-tabpanel {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.hud-tabpanel[hidden] {
+  display: none;
+}
+
+.hud-tabpanel .task-board {
+  overflow-y: auto;
+}
+
+.hud-handle {
+  top: var(--hud-top);
+  right: var(--hud-edge);
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
 }

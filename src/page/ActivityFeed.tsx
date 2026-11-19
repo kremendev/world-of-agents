@@ -174,6 +174,7 @@ function stripLine(line: FeedLine, office: OfficeState) {
  * At the top, the "For you" strip (v3.1): the flagged rows not yet read (To you, Needs you, Failed), whatever the agent
  * filter, newest first, three at most. An item stays until it is clicked: the click marks it read, shows everyone if
  * the filter hides its row, and moves the focus to that row. `readScope` is where the marks are kept (useReadMarks).
+ * `onUnread` hears how many of those wait, for the HUD drawer's handle (4d.5).
  * "Only for me" narrows the list to the flagged rows, read or not, with the agent filter still applied.
  */
 export function ActivityFeed({
@@ -183,6 +184,7 @@ export function ActivityFeed({
   onOpenReview = () => {},
   headingRef,
   readScope = null,
+  onUnread,
 }: {
   office: OfficeState;
   agent: AgentId | null;
@@ -190,6 +192,7 @@ export function ActivityFeed({
   onOpenReview?: (at: number) => void;
   headingRef?: Ref<HTMLHeadingElement>;
   readScope?: string | null;
+  onUnread?: (count: number) => void;
 }) {
   const headingId = useId();
   const { read, markRead } = useReadMarks(readScope);
@@ -197,6 +200,7 @@ export function ActivityFeed({
   const filtered = feedLines(office.log, agent);
   const log = mine ? onlyFlagged(filtered) : filtered;
   const unread = forYou(feedLines(office.log, null), read);
+  useEffect(() => onUnread?.(unread.length), [onUnread, unread.length]);
   const list = useRef<HTMLUListElement>(null);
   // The row a strip click moves the focus to, once the render it asked for (read, maybe unfiltered) is on screen.
   const focusRow = useRef<string | null>(null);

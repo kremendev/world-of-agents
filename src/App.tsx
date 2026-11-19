@@ -5,6 +5,8 @@ import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { AgentCard } from './hud/AgentCard';
 import { AgentList } from './hud/AgentList';
+import { Drawer, type DrawerTab } from './hud/Drawer';
+import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
 import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
@@ -164,6 +166,8 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const focusActivity = useRef(false);
   const showActivity = (id: AgentId) => {
     setFeedAgent(id);
+    setDrawer(true);
+    setTab('activity');
     if (id === 'reviewer') {
       openBoard(null);
       return;
@@ -176,17 +180,51 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     focusActivity.current = false;
     activityHeading.current?.focus();
   });
-  // Esc in the HUD (D19): the review board closes first (its own handler), then the card.
+  // The drawer (4d.5): open from the start in a wide window or as the viewer last left it (D5), on one of two tabs.
+  // Closed, its handle opens it again; the focus goes to the handle when it closes from inside, to its tab when it opens.
+  const [drawerOpen, setDrawerOpen] = useState(drawerStartsOpen);
+  const [tab, setTab] = useState<DrawerTab>('activity');
+  const [unread, setUnread] = useState(0);
+  const handleRef = useRef<HTMLButtonElement>(null);
+  const drawerFocus = useRef<'handle' | 'tab' | null>(null);
+  const setDrawer = (open: boolean) => {
+    saveDrawer(open);
+    setDrawerOpen(open);
+  };
+  // its own Close button was where the focus was: the handle takes it
+  const closeDrawer = () => {
+    drawerFocus.current = 'handle';
+    setDrawer(false);
+  };
+  const openDrawer = () => {
+    drawerFocus.current = 'tab';
+    setDrawer(true);
+  };
   useEffect(() => {
-    if (!keep || teamOpen || sideOpen || card === null) return;
+    const to = drawerFocus.current;
+    drawerFocus.current = null;
+    if (to === 'handle') handleRef.current?.focus();
+    if (to === 'tab')
+      document.querySelector<HTMLElement>('.hud-drawer [role="tab"][aria-selected="true"]')?.focus();
+  }, [drawerOpen]);
+
+  // Esc in the HUD (D19): the review board closes first (its own handler), then the card, then the drawer.
+  useEffect(() => {
+    if (!keep || teamOpen || sideOpen || (card === null && !drawerOpen)) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      cardFocusBack.current = card;
-      setCard(null);
+      if (card !== null) {
+        cardFocusBack.current = card;
+        setCard(null);
+        return;
+      }
+      if (document.activeElement?.closest('.hud-drawer')) drawerFocus.current = 'handle';
+      saveDrawer(false);
+      setDrawerOpen(false);
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [keep, teamOpen, sideOpen, card]);
+  }, [keep, teamOpen, sideOpen, card, drawerOpen]);
 
   useEffect(() => {
     if (!demo) return;
@@ -421,6 +459,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
           onOpenReview={openBoard}
           headingRef={activityHeading}
           readScope={demo ? null : hall.start}
+          onUnread={setUnread}
         />
       </div>
       {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
@@ -431,7 +470,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // and what is below it. Their order is the HUD's tab order too: top bar, status, rooms, the world, agents, card, drawer.
   return (
     <>
-      <main className={keep ? 'app keep' : 'app'} hidden={teamOpen}>
+      <main className={keep ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'} hidden={teamOpen}>
         {keep ? (
           <>
             <header className="hud-panel hud-top">
@@ -507,10 +546,17 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 headingRef={cardHeading}
               />
             )}
-            <aside className="hud-panel hud-drawer" aria-label="Activity and tasks">
-              {activity}
-              <TaskBoard office={office} />
-            </aside>
+            <Drawer
+              open={drawerOpen}
+              tab={tab}
+              onTab={setTab}
+              onOpen={openDrawer}
+              onClose={closeDrawer}
+              unread={unread}
+              activity={activity}
+              tasks={<TaskBoard office={office} />}
+              handleRef={handleRef}
+            />
           </>
         ) : (
           <div className="lower">

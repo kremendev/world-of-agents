@@ -43,12 +43,28 @@ export type FakeWorld = ReturnType<typeof fakeWorld>;
 
 /**
  * jsdom lays nothing out: every element 0 x 0 and no ResizeObserver, so the stage would never get the size the world
- * waits for. This gives every element `width` x `height` and an observer that measures once, when it starts watching.
- * Returns the undo.
+ * waits for. This gives every element `width` x `height`, an observer that measures once, when it starts watching, and
+ * width media queries answered for a window that wide. Returns the undo.
  */
 export function stubLayout(width = 1440, height = 900) {
   const w = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
   const h = vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(height);
+  // a window this wide answers (min-width: Nrem) and (max-width: Nrem) at 16 px a rem; every other query: no
+  const media = vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+    const m = /^\((min|max)-width:\s*([\d.]+)rem\)$/.exec(query);
+    const px = m ? Number(m[2]) * 16 : NaN;
+    const matches = m ? (m[1] === 'min' ? width >= px : width <= px) : false;
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    } as MediaQueryList;
+  });
   const had = 'ResizeObserver' in window;
   const was = window.ResizeObserver;
   window.ResizeObserver = class {
@@ -62,6 +78,7 @@ export function stubLayout(width = 1440, height = 900) {
   return () => {
     w.mockRestore();
     h.mockRestore();
+    media.mockRestore();
     if (had) window.ResizeObserver = was;
     else delete (window as { ResizeObserver?: unknown }).ResizeObserver;
   };

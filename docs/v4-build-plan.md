@@ -12,7 +12,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.2 top bar
 - [x] 4d.3 rooms rail and camera wiring
 - [x] 4d.4 agent list, agent card, Follow
-- [ ] 4d.5 drawer
+- [x] 4d.5 drawer
 - [ ] 4d.6 world labels: name tags and bubbles
 - [ ] 4d.7 needs-you banner and Show me
 - [ ] 4d.8 status line
@@ -334,3 +334,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4d.4, picking.** Choice: the town's: a ray through the figures' skinned meshes, the agent from the root's
   `agentId`, on a pointer up that didn't drag; the mouse over a figure shows the pointer cursor. The town's click on a
   house (fly to it) is left out: the rail does that. Why: the plan names agent picking only.
+- **4d.5, the handle's count.** The unread "For you" count lives in the feed, with its read marks. Choice: the feed
+  tells the page through one optional callback (`onUnread`), and both tab panels stay mounted while hidden, so the feed
+  keeps its open rows, filter and marks, and counts while the drawer is closed. Why: the feed stays as it is; a second
+  copy of its read marks would drift from the first.
+- **4d.5, the focus.** Choice: closing with the drawer's own button or Esc from inside it puts the focus on the handle;
+  opening from the handle puts it on the chosen tab. Every open or close the viewer makes is kept as the choice (D5),
+  "Show in Activity" included. Why: the focus never falls to the page's start, and one rule is simpler than two.

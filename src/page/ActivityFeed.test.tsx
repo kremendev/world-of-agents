@@ -505,3 +505,14 @@ describe('a proposed note in the feed', () => {
     expect(document.querySelector('.feed-line.flagged')).toBeNull();
   });
 });
+
+describe('the unread count for the HUD drawer (4d.5)', () => {
+  it('tells how many "For you" items wait, and again when one is read', () => {
+    const onUnread = vi.fn();
+    render(<ActivityFeed office={run} agent={null} onShowEveryone={() => {}} onUnread={onUnread} />);
+    expect(onUnread).toHaveBeenLastCalledWith(1);
+    const strip = screen.getByRole('region', { name: 'For you' });
+    fireEvent.click(within(strip).getByRole('button'));
+    expect(onUnread).toHaveBeenLastCalledWith(0);
+  });
+});
