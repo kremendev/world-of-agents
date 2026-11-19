@@ -91,6 +91,40 @@ describe('the HUD over the world (4d.1)', () => {
     expect(screen.getByRole('heading', { name: 'Activity · Backend dev' })).toBeInTheDocument();
   });
 
+  it('the rooms rail sends the camera, and a hand move leaves no room pressed (4d.3)', async () => {
+    render(<App />);
+    await settle();
+    expect(screen.getByRole('button', { name: 'Whole keep' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(screen.getByRole('button', { name: /^Workshop/ }));
+    expect(world.flyToRoom).toHaveBeenLastCalledWith('workshop');
+    expect(screen.getByRole('button', { name: /^Workshop/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Whole keep' })).toHaveAttribute('aria-pressed', 'false');
+    act(() => world.moveByHand());
+    expect(screen.getByRole('button', { name: /^Workshop/ })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Whole keep' }));
+    expect(world.flyToRoom).toHaveBeenLastCalledWith('overview');
+  });
+
+  it('the Cutaway toggle opens every house and closes them again (4d.3)', async () => {
+    render(<App />);
+    await settle();
+    const toggle = screen.getByRole('button', { name: 'Cutaway' });
+    fireEvent.click(toggle);
+    expect(world.setOpenHouses).toHaveBeenLastCalledWith(true);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(toggle);
+    expect(world.setOpenHouses).toHaveBeenLastCalledWith(false);
+    expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('the world takes the focus, for the arrow keys to pan it (4d.3)', async () => {
+    const { container } = render(<App />);
+    await settle();
+    const canvas = container.querySelector('canvas.world') as HTMLCanvasElement;
+    expect(canvas.tabIndex).toBe(0);
+    expect(canvas).toHaveAttribute('role', 'img');
+  });
+
   it('goes back to the page it had when the 2D hall takes over from a lost context', async () => {
     vi.useFakeTimers();
     const { container } = render(<App />);

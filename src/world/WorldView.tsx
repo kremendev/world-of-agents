@@ -142,6 +142,8 @@ export function WorldView({ skips = 0, onWorld, ...props }: Props) {
         ref={canvasRef}
         className="world"
         role="img"
+        // the arrow keys pan the view while it has the focus (4d.3)
+        tabIndex={0}
         aria-label="The Forge Keep, where the agents work. Their states are in the agent list."
         hidden={phase !== 'ready'}
       />

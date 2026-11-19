@@ -275,11 +275,42 @@ export async function createWorld(opts: WorldOptions) {
     const view = roomView(id, [camera.position.x - controls.target.x, camera.position.z - controls.target.z]);
     flyTo(new THREE.Vector3(...view.target), new THREE.Vector3(...view.position));
   }
-  const stopFly = () => {
+  // A hand move (a drag past a few pixels, the wheel, an arrow key on the focused canvas) stops a flight and tells the
+  // page, which then shows no room as the one in view (4d.3). A click alone stops a flight and nothing else.
+  let handMoved: (() => void) | null = null;
+  let down: { x: number; y: number; moved: boolean } | null = null;
+  const handMove = () => {
     fly = null;
+    handMoved?.();
   };
-  renderer.domElement.addEventListener('pointerdown', stopFly);
-  renderer.domElement.addEventListener('wheel', stopFly, { passive: true });
+  const onPointerDown = (e: PointerEvent) => {
+    fly = null;
+    down = { x: e.clientX, y: e.clientY, moved: false };
+  };
+  const onPointerMove = (e: PointerEvent) => {
+    if (!down || down.moved || Math.hypot(e.clientX - down.x, e.clientY - down.y) <= 4) return;
+    down.moved = true;
+    handMove();
+  };
+  const onPointerUp = () => {
+    down = null;
+  };
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key.startsWith('Arrow')) handMove();
+  };
+  const canvasListeners = [
+    ['pointerdown', onPointerDown],
+    ['pointermove', onPointerMove],
+    ['pointerup', onPointerUp],
+    ['pointercancel', onPointerUp],
+    ['wheel', handMove],
+    ['keydown', onKeyDown],
+  ] as const;
+  for (const [type, fn] of canvasListeners) {
+    renderer.domElement.addEventListener(type, fn as EventListener, { passive: true });
+  }
+  // the arrow keys pan while the canvas has the focus
+  controls.listenToKeyEvents(renderer.domElement);
 
   /* ---------------- houses open up as you come close, or when you open one.
      Two-storey houses show the ground floor (upper storey lifts away) or the upper floor (only the roof lifts). */
@@ -981,6 +1012,13 @@ export async function createWorld(opts: WorldOptions) {
       sizePost(w, h);
     },
     flyToRoom,
+    /** The page's one listener for a hand move of the camera; returns its removal. */
+    onHandMove(fn: () => void) {
+      handMoved = fn;
+      return () => {
+        if (handMoved === fn) handMoved = null;
+      };
+    },
     setOpenHouses(on: boolean) {
       openHouses = on;
     },
@@ -989,8 +1027,9 @@ export async function createWorld(opts: WorldOptions) {
     },
     dispose() {
       renderer.setAnimationLoop(null);
-      renderer.domElement.removeEventListener('pointerdown', stopFly);
-      renderer.domElement.removeEventListener('wheel', stopFly);
+      for (const [type, fn] of canvasListeners)
+        renderer.domElement.removeEventListener(type, fn as EventListener);
+      handMoved = null;
       controls.dispose();
       composer.dispose();
       nTarget.dispose();

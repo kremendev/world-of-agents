@@ -3,6 +3,9 @@ import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
+import { roomBadges, type View } from './hud/rooms';
+import { RoomsRail } from './hud/RoomsRail';
+import { TopBar, type RunStatus } from './hud/TopBar';
 import { useBox } from './hud/useBox';
 import type { World } from './world/scene/world';
 import { canDrawWorld } from './world/support';
@@ -22,7 +25,6 @@ import { DEMO_TASK, KEEP_STEP_MS, STEP_MS, demoRun } from './script/demoRun';
 import { createPlayer, type Player } from './script/player';
 import { INITIAL_OFFICE, doneCount, officeReducer, type OfficeState } from './state/office';
 import { VERSION } from './version';
-import { TopBar, type RunStatus } from './hud/TopBar';
 
 /** The hosted demo (VITE_LIVE=false) has no hall to find, so it says where to go next. The last word is the link. */
 const HOSTED_STATUS =
@@ -94,6 +96,18 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const [world, setWorld] = useState<World | null>(null);
   const keep = world !== null;
   const box = useBox(stage.ref, keep);
+  // The view the rooms rail shows as pressed (4d.3): the camera starts on the whole keep; a hand move clears it.
+  const [view, setView] = useState<View | null>('overview');
+  const [cutaway, setCutaway] = useState(false);
+  useEffect(() => world?.onHandMove(() => setView(null)), [world]);
+  const showView = (next: View) => {
+    setView(next);
+    world?.flyToRoom(next);
+  };
+  const toggleCutaway = () => {
+    world?.setOpenHouses(!cutaway);
+    setCutaway(!cutaway);
+  };
 
   useEffect(() => {
     if (!demo) return;
@@ -367,9 +381,13 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               />
             </header>
             <div className="hud-under">{statusLine}</div>
-            <nav className="hud-panel hud-rail" aria-label="Rooms">
-              <h2 className="hud-rail-head">Rooms</h2>
-            </nav>
+            <RoomsRail
+              badges={roomBadges(office)}
+              view={view}
+              onView={showView}
+              cutaway={cutaway}
+              onCutaway={toggleCutaway}
+            />
           </>
         ) : (
           <>

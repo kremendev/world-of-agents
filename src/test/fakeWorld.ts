@@ -4,15 +4,29 @@ import { vi } from 'vitest';
  * What the page's tests need of the Forge Keep (4d): jsdom has no WebGL, so a test that wants the HUD mocks
  * `world/scene/world` to resolve with this, and `world/support` to say it can draw.
  */
-export const fakeWorld = () => ({
-  start: vi.fn(),
-  stop: vi.fn(),
-  resize: vi.fn(),
-  dispose: vi.fn(),
-  update: vi.fn(),
-  restart: vi.fn(),
-  land: vi.fn(),
-});
+export const fakeWorld = () => {
+  // the page's hand-move listener, so a test can move the camera "by hand"
+  let handMoved: (() => void) | null = null;
+  return {
+    start: vi.fn(),
+    stop: vi.fn(),
+    resize: vi.fn(),
+    dispose: vi.fn(),
+    update: vi.fn(),
+    restart: vi.fn(),
+    land: vi.fn(),
+    flyToRoom: vi.fn(),
+    setOpenHouses: vi.fn(),
+    onHandMove: vi.fn((fn: () => void) => {
+      handMoved = fn;
+      return () => {
+        if (handMoved === fn) handMoved = null;
+      };
+    }),
+    /** The test's own: a drag, the wheel or an arrow key on the canvas. */
+    moveByHand: () => handMoved?.(),
+  };
+};
 
 export type FakeWorld = ReturnType<typeof fakeWorld>;
 

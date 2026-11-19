@@ -10,7 +10,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] S0 this plan in the repo, the decisions copied into `docs/v4.0-plan.md`
 - [x] 4d.1 HUD shell and tokens
 - [x] 4d.2 top bar
-- [ ] 4d.3 rooms rail and camera wiring
+- [x] 4d.3 rooms rail and camera wiring
 - [ ] 4d.4 agent list, agent card, Follow
 - [ ] 4d.5 drawer
 - [ ] 4d.6 world labels: name tags and bubbles
@@ -316,3 +316,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4d.2, the mode chip's class.** The classic page's `.mode-offline` and `.mode-ended` carry their own colours. Choice:
   the HUD's chip takes Demo's and Live's colours from the chips (inline, as every chip does) and has no `mode-*` class,
   so Offline and Ended stay muted as specified.
+- **4d.3, the counts in Live.** `placeFor()` sends a Live dev to the War hall's board until the world has handed it its
+  scroll, which only the world knows. Choice: the counts use `placeFor()` without Live's scroll stop, so a working dev
+  counts at its desk from the start, and a figure on its way counts where it is going. Why: with the stop, the badge
+  would keep a dev in the War hall for its whole task; without it, it is wrong only for the walk to the board.
+- **4d.3, what a hand move is.** Choice: a drag past 4 px, the wheel, or an arrow key on the focused canvas; a click
+  alone (picking a figure, 4d.4) stops a flight but leaves the pressed room. The world reports it through
+  `onHandMove()`, one listener, the page's. Why: a click on a figure doesn't move the camera, so it shouldn't say it did.

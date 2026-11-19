@@ -2425,3 +2425,70 @@ button.tp-card:hover {
   color: var(--ui-on-accent);
   font-size: 0.875rem;
 }
+
+/* The rooms rail (4d.3). */
+.hud-rooms {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.hud-room {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.25rem;
+  padding: 0 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hud-room:hover {
+  background: var(--ui-raised);
+}
+
+.hud-room[aria-pressed='true'] {
+  border-color: var(--ui-accent);
+  background: var(--ui-selected);
+}
+
+.hud-badge {
+  box-sizing: border-box;
+  min-width: 1.375rem;
+  padding: 0 0.375rem;
+  border-radius: 0.375rem;
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.375rem;
+  text-align: center;
+}
+
+.hud-badge.needs {
+  background: var(--ui-needs-bg);
+  color: var(--ui-needs);
+}
+
+.hud-rule {
+  height: 1px;
+  margin: 0.5rem 0;
+  background: var(--ui-line-strong);
+}
+
+.hud-onoff {
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+}
