@@ -3,10 +3,12 @@ import type { AgentId } from './events/schema';
 import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
+import { useBox } from './hud/useBox';
+import type { World } from './world/scene/world';
 import { canDrawWorld } from './world/support';
 import { WorldView } from './world/WorldView';
 import { useStage } from './office/hall/useStage';
-import { agentById } from './office/roster';
+import { ROSTER, agentById } from './office/roster';
 import { ActivityFeed } from './page/ActivityFeed';
 import { ledgerText } from './page/ledgerText';
 import { AgentPanel } from './page/AgentPanel';
@@ -88,6 +90,11 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const activityHeading = useRef<HTMLHeadingElement>(null);
   const player = useRef<Player | null>(null);
   const stage = useStage();
+  // The Forge Keep once it is on screen (4d): the page is then a HUD over it, filling the window. Until it is, and
+  // whenever the 2D hall takes over, the page keeps the layout it had.
+  const [world, setWorld] = useState<World | null>(null);
+  const keep = world !== null;
+  const box = useBox(stage.ref, keep);
 
   useEffect(() => {
     if (!demo) return;
@@ -226,91 +233,129 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // The demo says everything to you, as in v1. A real run only its final report: updates would talk over the work.
   const said = demo ? [...office.messages].reverse().find((m) => m.to === 'you') : finalReport(office);
 
+  // The run's header and the status line: the classic page's top, or the HUD's top bar while the world is on screen.
+  const header = (
+    <>
+      <div className="brand">
+        <h1>World of Agents</h1>
+        <span className="badge forge-badge">Forge Hall · v{hall.version ?? VERSION}</span>
+        {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
+      </div>
+      <div className="run-info">
+        {runText && (
+          <span className="run-task" title={runText}>
+            Run: {runText}
+          </span>
+        )}
+        <span>
+          Tasks done: {doneCount(office)} of {office.tasks.length}
+        </span>
+        {live && hall.ledger && <span className="run-ledger">{ledgerText(hall.ledger)}</span>}
+      </div>
+      {demo && (
+        <div className="run-controls" role="group" aria-label="Demo run">
+          <button
+            type="button"
+            onClick={control('playing', (p) => p.play())}
+            disabled={runStatus !== 'paused'}
+          >
+            Play
+          </button>
+          <button
+            type="button"
+            onClick={control('paused', (p) => p.pause())}
+            disabled={runStatus !== 'playing'}
+          >
+            Pause
+          </button>
+          <button type="button" onClick={nextStep} disabled={runStatus !== 'playing'}>
+            Next step
+          </button>
+          <button type="button" onClick={restart}>
+            Restart
+          </button>
+          {hall.status !== 'no-hall' && (
+            <button type="button" onClick={backToLive}>
+              Back to live
+            </button>
+          )}
+          {hall.hallFound && (
+            <button type="button" onClick={goLive}>
+              Go live
+            </button>
+          )}
+        </div>
+      )}
+      {live && hall.status !== 'checking' && (
+        <div className="run-controls">
+          <button type="button" onClick={playDemo}>
+            Play demo
+          </button>
+          <button type="button" onClick={openTeam}>
+            Team
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const statusLine = (
+    <p
+      className={waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'}
+      title={status}
+    >
+      {hosted ? (
+        <>
+          {HOSTED_STATUS}{' '}
+          <a href={REPO_URL} rel="noreferrer">
+            README
+          </a>
+        </>
+      ) : (
+        status
+      )}
+    </p>
+  );
+
+  // The activity column: the review board covers it only, never the hall. What it covers is inert while it is open.
+  const activity = (
+    <div className="side">
+      <div className="side-content" inert={sideOpen}>
+        {demo && <TaskBar onSend={send} />}
+        <ActivityFeed
+          office={office}
+          agent={feedAgent}
+          onShowEveryone={() => setFeedAgent(null)}
+          onOpenReview={openBoard}
+          headingRef={activityHeading}
+          readScope={demo ? null : hall.start}
+        />
+      </div>
+      {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
+    </div>
+  );
+
+  // Three slots, whatever the layout, so the world under them never mounts again: what is above the stage, the stage,
+  // and what is below it. Their order is the HUD's tab order too: top bar, status, rooms, the world, agents, card, drawer.
   return (
     <>
-      <main className="app" hidden={teamOpen}>
-        <header className="app-header">
-          <div className="brand">
-            <h1>World of Agents</h1>
-            <span className="badge forge-badge">Forge Hall · v{hall.version ?? VERSION}</span>
-            {mode.label && <span className={`badge mode-${mode.kind}`}>{mode.label}</span>}
-          </div>
-          <div className="run-info">
-            {runText && (
-              <span className="run-task" title={runText}>
-                Run: {runText}
-              </span>
-            )}
-            <span>
-              Tasks done: {doneCount(office)} of {office.tasks.length}
-            </span>
-            {live && hall.ledger && <span className="run-ledger">{ledgerText(hall.ledger)}</span>}
-          </div>
-          {demo && (
-            <div className="run-controls" role="group" aria-label="Demo run">
-              <button
-                type="button"
-                onClick={control('playing', (p) => p.play())}
-                disabled={runStatus !== 'paused'}
-              >
-                Play
-              </button>
-              <button
-                type="button"
-                onClick={control('paused', (p) => p.pause())}
-                disabled={runStatus !== 'playing'}
-              >
-                Pause
-              </button>
-              <button type="button" onClick={nextStep} disabled={runStatus !== 'playing'}>
-                Next step
-              </button>
-              <button type="button" onClick={restart}>
-                Restart
-              </button>
-              {hall.status !== 'no-hall' && (
-                <button type="button" onClick={backToLive}>
-                  Back to live
-                </button>
-              )}
-              {hall.hallFound && (
-                <button type="button" onClick={goLive}>
-                  Go live
-                </button>
-              )}
-            </div>
-          )}
-          {live && hall.status !== 'checking' && (
-            <div className="run-controls">
-              <button type="button" onClick={playDemo}>
-                Play demo
-              </button>
-              <button type="button" onClick={openTeam}>
-                Team
-              </button>
-            </div>
-          )}
-        </header>
+      <main className={keep ? 'app keep' : 'app'} hidden={teamOpen}>
+        {keep ? (
+          <>
+            <header className="hud-panel hud-top">{header}</header>
+            <div className="hud-under">{statusLine}</div>
+            <nav className="hud-panel hud-rail" aria-label="Rooms">
+              <h2 className="hud-rail-head">Rooms</h2>
+            </nav>
+          </>
+        ) : (
+          <>
+            <header className="app-header">{header}</header>
+            {statusLine}
+          </>
+        )}
 
-        <p
-          className={
-            waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'
-          }
-          title={status}
-        >
-          {hosted ? (
-            <>
-              {HOSTED_STATUS}{' '}
-              <a href={REPO_URL} rel="noreferrer">
-                README
-              </a>
-            </>
-          ) : (
-            status
-          )}
-        </p>
-
-        <div ref={stage.ref} className={stage.fit?.stacked ? 'stage stacked' : 'stage'}>
+        <div ref={stage.ref} className={!keep && stage.fit?.stacked ? 'stage stacked' : 'stage'}>
           <section aria-label="Forge Hall office" className="scene">
             <WorldView
               office={office}
@@ -319,31 +364,43 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               onSelect={select}
               live={live}
               hushed={live && hall.hushed}
-              room={stage.fit}
+              room={keep ? (box ?? stage.fit) : stage.fit}
               skips={skips}
+              onWorld={setWorld}
             />
           </section>
-          {/* The review board covers this column only, never the hall. What it covers is inert while it is open. */}
-          <div className="side">
-            <div className="side-content" inert={sideOpen}>
-              {demo && <TaskBar onSend={send} />}
-              <ActivityFeed
-                office={office}
-                agent={feedAgent}
-                onShowEveryone={() => setFeedAgent(null)}
-                onOpenReview={openBoard}
-                headingRef={activityHeading}
-                readScope={demo ? null : hall.start}
-              />
-            </div>
-            {board && <ReviewBoard key={board.n} reviews={reviews} at={board.at} onClose={closeBoard} />}
-          </div>
+          {!keep && activity}
         </div>
 
-        <div className="lower">
-          <TaskBoard office={office} />
-          <AgentPanel office={office} agent={selected} live={live} />
-        </div>
+        {keep ? (
+          <>
+            <div className="hud-panel hud-agents" role="group" aria-label="Agents">
+              {ROSTER.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  className="hud-button"
+                  aria-pressed={selected === a.id}
+                  onClick={() => select(a.id)}
+                >
+                  {a.name}
+                </button>
+              ))}
+            </div>
+            <div className="hud-panel hud-card">
+              <AgentPanel office={office} agent={selected} live={live} />
+            </div>
+            <aside className="hud-panel hud-drawer" aria-label="Activity and tasks">
+              {activity}
+              <TaskBoard office={office} />
+            </aside>
+          </>
+        ) : (
+          <div className="lower">
+            <TaskBoard office={office} />
+            <AgentPanel office={office} agent={selected} live={live} />
+          </div>
+        )}
       </main>
 
       {teamOpen && <TeamPage session={teamState} onBack={closeTeam} />}

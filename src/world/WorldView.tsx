@@ -3,8 +3,12 @@ import { HallView } from '../office/hall/HallView';
 import type { World } from './scene/world';
 import { CONTEXT_GRACE_MS, canDrawWorld } from './support';
 
-/** HallView's props, and `skips`: how many times the demo's "Next step" was pressed (each one lands the figures). */
-type Props = ComponentProps<typeof HallView> & { skips?: number };
+/**
+ * HallView's props, and `skips`: how many times the demo's "Next step" was pressed (each one lands the figures), and
+ * `onWorld`: the world once it is on screen, and null when the 2D hall takes over again (the page lays its HUD over the
+ * world only, 4d).
+ */
+type Props = ComponentProps<typeof HallView> & { skips?: number; onWorld?: (world: World | null) => void };
 type Phase = 'loading' | 'ready' | 'fallback';
 
 /**
@@ -14,9 +18,11 @@ type Phase = 'loading' | 'ready' | 'fallback';
  * doesn't come back within CONTEXT_GRACE_MS hands over to the 2D hall. The props are HallView's, so the page swaps one
  * for the other; the world gets the office as it changes and walks the figures there (4b).
  */
-export function WorldView({ skips = 0, ...props }: Props) {
+export function WorldView({ skips = 0, onWorld, ...props }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
+  const tell = useRef(onWorld);
+  tell.current = onWorld;
   const [supported] = useState(canDrawWorld);
   const [phase, setPhase] = useState<Phase>(supported ? 'loading' : 'fallback');
   const width = props.room?.width ?? 0;
@@ -47,6 +53,7 @@ export function WorldView({ skips = 0, ...props }: Props) {
         worldRef.current = made;
         if (!document.hidden) made.start();
         setPhase('ready');
+        tell.current?.(made);
       })
       .catch((err: unknown) => {
         if (cancelled) return;
@@ -58,6 +65,7 @@ export function WorldView({ skips = 0, ...props }: Props) {
       if (world && worldRef.current === world) {
         world.dispose();
         worldRef.current = null;
+        tell.current?.(null);
       }
     };
   }, [supported, hasRoom]);
@@ -113,6 +121,7 @@ export function WorldView({ skips = 0, ...props }: Props) {
         worldRef.current = null;
         world?.dispose();
         setPhase('fallback');
+        tell.current?.(null);
       }, CONTEXT_GRACE_MS);
     };
     const onRestored = () => clearTimeout(timer);

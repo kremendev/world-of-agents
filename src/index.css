@@ -30,6 +30,10 @@
   --ui-on-danger: #fff4ef;
   --ui-flag: #ffd27a;
   --ui-flag-bg: #3d3111;
+  /* v4.0.0's HUD (4d): the needs-you chip's pair for the banner, and the name tags' ground over the world. */
+  --ui-needs-bg: #4d3a0c;
+  --ui-needs: #ffd97a;
+  --ui-tag-bg: rgba(20, 18, 16, 0.86);
   --ui-font: 'Inter Variable', system-ui, 'Segoe UI', Roboto, sans-serif;
   --ui-mono: ui-monospace, Consolas, monospace;
   --ui-radius: 8px;
@@ -2122,4 +2126,192 @@ button.tp-card:hover {
   .tp-form {
     padding: 18px 16px;
   }
+}
+
+/*
+ * ---- v4.0.0's HUD over the Forge Keep (4d, docs/v4-build-plan.md: Dima's approved mockup in words) ----
+ * While the world is on screen the page is a HUD: the world fills the window, and solid panels float over it, each
+ * 1rem from the window's edges. Only the --ui-* tokens and Inter; sizes in rem, nothing under 13 px; focus always
+ * visible. The 2D hall (while the world loads, and as the fallback) keeps the page above.
+ */
+.app.keep {
+  --hud-edge: 1rem;
+  /* under the top bar: its 4rem and an edge on each side */
+  --hud-top: 6rem;
+  --hud-rail-w: 11.75rem;
+  --hud-drawer-w: 24rem;
+  --hud-list-h: 3.75rem;
+  --hud-above-list: calc(var(--hud-edge) * 2 + var(--hud-list-h));
+  padding: 0;
+  gap: 0;
+  font-family: var(--ui-font);
+  color: var(--ui-text);
+}
+
+.app.keep .stage {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+.app.keep .scene {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--ui-bg);
+}
+
+.app.keep :focus-visible {
+  outline: 2px solid var(--ui-link);
+  outline-offset: 2px;
+}
+
+.hud-panel {
+  position: fixed;
+  z-index: 1;
+  box-sizing: border-box;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 0.75rem;
+  background: var(--ui-surface);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  color: var(--ui-text);
+}
+
+/* Today's panels inside a HUD panel: no second box. */
+.hud-panel .panel {
+  border: 0;
+  background: transparent;
+}
+
+.hud-button {
+  min-height: 2.5rem;
+  padding: 0 0.875rem;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 0.5rem;
+  background: var(--ui-raised);
+  color: var(--ui-text);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.hud-button[aria-pressed='true'] {
+  border-color: var(--ui-accent);
+  background: var(--ui-selected);
+}
+
+.hud-top {
+  top: var(--hud-edge);
+  left: var(--hud-edge);
+  right: var(--hud-edge);
+  min-height: 4rem;
+  padding: 0.5rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+}
+
+.hud-top h1 {
+  font-family: inherit;
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+/* Under the top bar, between the rooms and the drawer: the status line, or the needs-you banner in its place. */
+.hud-under {
+  position: fixed;
+  z-index: 1;
+  top: var(--hud-top);
+  left: calc(var(--hud-edge) * 2 + var(--hud-rail-w));
+  right: calc(var(--hud-edge) * 2 + var(--hud-drawer-w));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.hud-under > * {
+  pointer-events: auto;
+}
+
+.hud-under .status-line {
+  height: auto;
+  max-width: 100%;
+  padding: 0.25rem 0.875rem;
+  border: 1px solid var(--ui-line-strong);
+  border-radius: 0.75rem;
+  background: var(--ui-surface);
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+.hud-under .status-line.needs-you {
+  border-color: var(--ui-flag);
+  background: var(--ui-needs-bg);
+  color: var(--ui-needs);
+}
+
+.hud-under .status-line a {
+  color: var(--ui-link);
+}
+
+.hud-rail {
+  top: var(--hud-top);
+  left: var(--hud-edge);
+  width: var(--hud-rail-w);
+  max-height: calc(100% - var(--hud-top) - var(--hud-above-list));
+  padding: 0.75rem;
+  overflow-y: auto;
+}
+
+.hud-rail-head {
+  margin: 0 0 0.5rem;
+  color: var(--ui-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.hud-agents {
+  left: var(--hud-edge);
+  bottom: var(--hud-edge);
+  max-width: calc(100% - var(--hud-edge) * 3 - var(--hud-drawer-w));
+  min-height: var(--hud-list-h);
+  padding: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.hud-card {
+  left: calc(var(--hud-edge) * 2 + var(--hud-rail-w));
+  bottom: var(--hud-above-list);
+  width: 24.5rem;
+  max-width: calc(100% - var(--hud-edge) * 2);
+  max-height: calc(100% - var(--hud-top) - var(--hud-above-list) - 3.5rem);
+  overflow-y: auto;
+}
+
+.hud-drawer {
+  top: var(--hud-top);
+  right: var(--hud-edge);
+  bottom: var(--hud-edge);
+  width: var(--hud-drawer-w);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.hud-drawer .side {
+  flex: 1 1 auto;
+}
+
+.hud-drawer .task-board {
+  flex: none;
+  max-height: 40%;
+  overflow-y: auto;
 }

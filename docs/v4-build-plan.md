@@ -8,7 +8,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 ## Progress (tick each step in the commit that finishes it)
 
 - [x] S0 this plan in the repo, the decisions copied into `docs/v4.0-plan.md`
-- [ ] 4d.1 HUD shell and tokens
+- [x] 4d.1 HUD shell and tokens
 - [ ] 4d.2 top bar
 - [ ] 4d.3 rooms rail and camera wiring
 - [ ] 4d.4 agent list, agent card, Follow
@@ -294,3 +294,15 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 ## Decisions taken during the build
 
 (Add each one here, in the commit that takes it: the question, the choice, one line why.)
+
+- **4d.1, when the HUD shows.** The world takes a second or two to load, and the 2D hall can take over later (a lost
+  context). Choice: the HUD only while the world is on screen (`WorldView`'s `onWorld`); while it loads, and whenever
+  the 2D hall draws, the page keeps the layout it had. Why: the 2D hall is fitted to that layout ("the 2D hall fallback
+  keeps today's layout"), every existing page test keeps its meaning, and it is the smaller build.
+- **4d.1, the world mounted once.** App keeps three slots (above the stage, the stage, below it) in both layouts, so a
+  switch never mounts the world again; the HUD's parts sit in those slots in the spec's tab order (top bar, status,
+  rooms, the world, agents, card, drawer). Why: a second mount would build the whole scene again.
+- **4d.1, the contrast test.** The plan says to extend the stylesheet contrast test, but none existed (v3.11's was never
+  built). Choice: `src/hud/contrast.test.ts`, new, reading `:root` from the stylesheet: text 4.5:1 and the focus ring and
+  meaningful borders 3:1 on every ground the HUD uses, the name tag over the brightest and darkest world, every chip, and
+  no colour in a HUD rule but the tokens, the panel shadow and the tag border. Why: the plan's rule, written once.

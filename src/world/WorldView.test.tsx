@@ -151,6 +151,33 @@ describe('WorldView', () => {
     expect(world.dispose).toHaveBeenCalledOnce();
   });
 
+  it('tells the page the world once it is on screen, and null when the 2D hall takes over or it goes (4d)', async () => {
+    scene.canDraw.mockReturnValue(true);
+    const world = fakeWorld();
+    let resolve: (w: Fake) => void = () => {};
+    scene.create.mockReturnValue(new Promise<Fake>((r) => (resolve = r)));
+    const onWorld = vi.fn();
+    vi.useFakeTimers();
+    const { container } = render(<WorldView {...props()} onWorld={onWorld} />);
+    await settle();
+    expect(onWorld).not.toHaveBeenCalled();
+    await act(async () => resolve(world));
+    expect(onWorld).toHaveBeenCalledExactlyOnceWith(world);
+    act(() => world3d(container)?.dispatchEvent(new Event('webglcontextlost')));
+    act(() => vi.advanceTimersByTime(CONTEXT_GRACE_MS + 1));
+    expect(onWorld).toHaveBeenLastCalledWith(null);
+
+    // and on unmount
+    const again = fakeWorld();
+    scene.create.mockResolvedValue(again);
+    const told = vi.fn();
+    const { unmount } = render(<WorldView {...props()} onWorld={told} />);
+    await settle();
+    expect(told).toHaveBeenLastCalledWith(again);
+    unmount();
+    expect(told).toHaveBeenLastCalledWith(null);
+  });
+
   it('gives the world the office as it changes, and on a new run puts everyone back first (4b)', async () => {
     scene.canDraw.mockReturnValue(true);
     const world = fakeWorld();
