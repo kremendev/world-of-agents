@@ -2637,3 +2637,91 @@ button.tp-card:hover {
   font-weight: 600;
   cursor: pointer;
 }
+
+/*
+ * The world's labels (4d.6): a name tag over each figure and its bubble over the tag, at a fixed size, moved each frame.
+ * Tags in the signs' rounded face (D2: its one file, weight 800, the nearest to 700), bubbles in Inter.
+ */
+.hud-labels {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.hud-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  visibility: hidden;
+  will-change: transform;
+}
+
+.hud-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid rgba(242, 235, 225, 0.18);
+  border-radius: 999px;
+  background: var(--ui-tag-bg);
+  color: var(--ui-text);
+  font-family: 'M PLUS Rounded 1c', var(--ui-font);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.hud-tag.selected {
+  border-color: var(--ui-accent);
+}
+
+.hud-tag.needs {
+  border-color: var(--ui-flag);
+}
+
+.hud-tag.error {
+  border-color: var(--ui-danger);
+}
+
+.hud-tag-plus {
+  color: var(--ui-link);
+}
+
+.hud-dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+
+.hud-bubble {
+  position: relative;
+  max-width: 16rem;
+  margin: 0;
+  padding: 0.375rem 0.625rem;
+  border-radius: 14px;
+  background: var(--ui-text);
+  color: var(--ui-on-accent);
+  font-family: var(--ui-font);
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.1875rem;
+  overflow-wrap: anywhere;
+}
+
+/* the tail, down to the tag */
+.hud-bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -0.375rem;
+  left: 50%;
+  border: 0.375rem solid transparent;
+  border-top-color: var(--ui-text);
+  border-bottom: 0;
+  transform: translateX(-50%);
+}

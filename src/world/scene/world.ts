@@ -45,6 +45,10 @@ export type WorldOptions = {
 
 export type World = Awaited<ReturnType<typeof createWorld>>;
 
+/** A figure's head on screen: x and y from -1 to 1 across the canvas (y up), z beyond 1 behind the camera. */
+export type Head = { x: number; y: number; z: number; walking: boolean };
+export type Heads = Record<AgentKey, Head>;
+
 export async function createWorld(opts: WorldOptions) {
   const REDUCE = opts.reducedMotion;
   let W = opts.width;
@@ -818,6 +822,23 @@ export async function createWorld(opts: WorldOptions) {
   let frames = 0;
   let paused = false;
   const followAt = new THREE.Vector3();
+  // the page's labels (4d.6): where each figure's head is on screen, after the camera has moved, every frame
+  const walkingNow: Partial<Record<AgentKey, boolean>> = {};
+  const seatedNow: Partial<Record<AgentKey, boolean>> = {};
+  let framed: ((heads: Heads) => void) | null = null;
+  const headAt = new THREE.Vector3();
+  function tellHeads() {
+    if (!framed) return;
+    const heads = {} as Record<AgentKey, Head>;
+    for (const a of actors) {
+      a.root.getWorldPosition(headAt);
+      // a little over the head; seated, the head is lower (about the town's seated eye line)
+      headAt.y += FIGURES[a.id].H * (seatedNow[a.id] ? 0.74 : 1) + 0.25;
+      headAt.project(camera);
+      heads[a.id] = { x: headAt.x, y: headAt.y, z: headAt.z, walking: !!walkingNow[a.id] };
+    }
+    framed(heads);
+  }
   function frame(now: number) {
     if (t0 < 0) t0 = now;
     const t = (now - t0) / 1000;
@@ -855,6 +876,8 @@ export async function createWorld(opts: WorldOptions) {
       const mode: Mode = p.walking ? 'walk' : held ? (SEATED.has(pose) ? 'sit' : 'idle') : pose;
       atWork[a.id] =
         !p.walking && !held && w.spot === WORK[a.id] && !!office && LIT.has(office.agents[a.id].state);
+      walkingNow[a.id] = p.walking;
+      seatedNow[a.id] = !p.walking && (mode === 'sit' || SEATED.has(pose));
       cast.lanternFor(a, mode, t);
       cast.drive(a, mode, dt, p.walking ? null : w.spot, w.walk ? w.walk.speed / speed : 1);
     }
@@ -980,6 +1003,7 @@ export async function createWorld(opts: WorldOptions) {
     updateParked();
     controls.update();
     clampTarget();
+    tellHeads();
     if (!REDUCE) updateFX(t, dt);
     skyDome.position.copy(camera.position);
     uni(gradeU, 'focus').value = camera.position.distanceTo(controls.target);
@@ -1066,6 +1090,13 @@ export async function createWorld(opts: WorldOptions) {
         if (handMoved === fn) handMoved = null;
       };
     },
+    /** The page's one listener for where the heads are, each frame (4d.6); returns its removal. */
+    onFrame(fn: (heads: Heads) => void) {
+      framed = fn;
+      return () => {
+        if (framed === fn) framed = null;
+      };
+    },
     /** The page's one listener for a click on a figure; returns its removal. */
     onPick(fn: (id: AgentKey) => void) {
       picked = fn;
@@ -1093,6 +1124,7 @@ export async function createWorld(opts: WorldOptions) {
         renderer.domElement.removeEventListener(type, fn as EventListener);
       handMoved = null;
       picked = null;
+      framed = null;
       controls.dispose();
       composer.dispose();
       nTarget.dispose();

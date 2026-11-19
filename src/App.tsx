@@ -11,6 +11,7 @@ import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
 import { useBox } from './hud/useBox';
+import { WorldLabels } from './hud/WorldLabels';
 import type { World } from './world/scene/world';
 import { canDrawWorld } from './world/support';
 import { WorldView } from './world/WorldView';
@@ -528,7 +529,19 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               onWorld={setWorld}
             />
           </section>
-          {!keep && activity}
+          {world ? (
+            <WorldLabels
+              world={world}
+              office={office}
+              card={card}
+              run={run}
+              hushed={live && hall.hushed}
+              width={box?.width ?? 0}
+              height={box?.height ?? 0}
+            />
+          ) : (
+            activity
+          )}
         </div>
 
         {keep ? (

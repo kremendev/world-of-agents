@@ -189,6 +189,20 @@ describe('the HUD over the world (4d.1)', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
   });
 
+  it("lays the world's labels over it, in the stage, hidden from screen readers (4d.6)", async () => {
+    const { container } = render(<App />);
+    await settle();
+    const layer = container.querySelector('.stage .hud-labels') as HTMLElement;
+    expect(layer).toHaveAttribute('aria-hidden', 'true');
+    expect(layer.querySelectorAll('.hud-tag')).toHaveLength(5);
+    // the classic activity column is not in the stage any more: the drawer has it
+    expect(container.querySelector('.stage .side')).toBeNull();
+    act(() => world.frame());
+    expect((layer.querySelector('.hud-label') as HTMLElement).style.transform).toBe(
+      'translate(720.0px, 450.0px) translate(-50%, -100%)',
+    );
+  });
+
   it('the world takes the focus, for the arrow keys to pan it (4d.3)', async () => {
     const { container } = render(<App />);
     await settle();

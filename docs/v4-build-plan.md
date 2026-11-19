@@ -13,7 +13,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.3 rooms rail and camera wiring
 - [x] 4d.4 agent list, agent card, Follow
 - [x] 4d.5 drawer
-- [ ] 4d.6 world labels: name tags and bubbles
+- [x] 4d.6 world labels: name tags and bubbles
 - [ ] 4d.7 needs-you banner and Show me
 - [ ] 4d.8 status line
 - [ ] 4d.9 narrow layouts
@@ -341,3 +341,12 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4d.5, the focus.** Choice: closing with the drawer's own button or Esc from inside it puts the focus on the handle;
   opening from the handle puts it on the chosen tab. Every open or close the viewer makes is kept as the choice (D5),
   "Show in Activity" included. Why: the focus never falls to the page's start, and one rule is simpler than two.
+- **4d.6, the tags' weight.** D2 asks for M PLUS Rounded 1c 700 with no new font file, but the signs' one file is the
+  Latin subset at 800 (`loadSignFont()`). Choice: the tags ask for 700, and the browser draws the nearest face it
+  has, the 800 one. Why: "no new font file" is the harder rule; the difference at 13 px is slight.
+- **4d.6, "on screen" for a bubble.** Choice: a bubble's time runs only while it shows, and in the keep it doesn't show
+  while its agent walks or while its figure's head is off the view, so a bubble waits for its agent to come into view.
+  Messages already there when the layer comes (the world ready mid-run) are not news, as when the 2D hall's view
+  changes. Why: the rule's own words; a bubble no one could see is a bubble missed.
+- **4d.6, where the head is.** Choice: the figure's root plus its rig height (seated, 0.74 of it) plus 0.25 m, projected
+  after the camera moves each frame. Why: no bone lookup per frame, and the cast's heights are already the town's.

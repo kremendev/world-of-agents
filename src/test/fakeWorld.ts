@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
 import type { AgentId } from '../events/schema';
+import type { Heads } from '../world/scene/world';
 
 /**
  * What the page's tests need of the Forge Keep (4d): jsdom has no WebGL, so a test that wants the HUD mocks
@@ -9,7 +10,24 @@ export const fakeWorld = () => {
   // the page's listeners, so a test can move the camera "by hand" and click a figure
   let handMoved: (() => void) | null = null;
   let picked: ((id: AgentId) => void) | null = null;
+  let framed: ((heads: Heads) => void) | null = null;
   return {
+    onFrame: vi.fn((fn: (heads: Heads) => void) => {
+      framed = fn;
+      return () => {
+        if (framed === fn) framed = null;
+      };
+    }),
+    /** The test's own: one frame, every head where it is given (the rest in the middle of the view). */
+    frame: (heads: Partial<Heads> = {}) =>
+      framed?.({
+        lead: { x: 0, y: 0, z: 0.5, walking: false },
+        designer: { x: 0, y: 0, z: 0.5, walking: false },
+        frontend: { x: 0, y: 0, z: 0.5, walking: false },
+        backend: { x: 0, y: 0, z: 0.5, walking: false },
+        reviewer: { x: 0, y: 0, z: 0.5, walking: false },
+        ...heads,
+      }),
     follow: vi.fn(),
     onPick: vi.fn((fn: (id: AgentId) => void) => {
       picked = fn;

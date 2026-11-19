@@ -80,6 +80,11 @@ describe("the HUD's colours", () => {
       ['a bubble', token('--ui-on-accent'), token('--ui-text')],
       ['the error marker', token('--ui-on-danger'), token('--ui-danger-fill')],
       ...tagGrounds().map((g, i): [string, Rgba, Rgba] => [`a name tag (${i})`, token('--ui-text'), g]),
+      ...tagGrounds().map((g, i): [string, Rgba, Rgba] => [
+        `a tag's specialists (${i})`,
+        token('--ui-link'),
+        g,
+      ]),
     ];
     for (const [what, fg, bg] of pairs) expect(contrast(fg, bg), what).toBeGreaterThanOrEqual(4.5);
   });
