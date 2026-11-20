@@ -27,7 +27,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.7 4c's docs
 - [x] 4f.1 the assets test
 - [x] 4f.2 the size budget test
-- [ ] 4f.3 the bundled hall's types
+- [x] 4f.3 the bundled hall's types
 - [ ] 4f.4 CLAUDE.md and the README text
 - [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking)
 - [ ] T the test phase (later, with Dima)
@@ -427,3 +427,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   assertion added: the characters it measures are exactly the five agents' models, so one exported without its skin
   can't skip the 2 MB check. The raised-hand clip (CLIP) is measured by the same test when it lands. Why: no second
   copy of a test that already holds.
+- **4f.3, held since 4a.** `.glb` (`model/gltf-binary`) and `.jpg` (`image/jpeg`) are in `PAGE_TYPES`
+  (`server/page.ts`); `server/hall.test.ts` serves a model and a texture with those types, byte for byte, and
+  `server/install.test.ts` requires every model and texture of `src/world/models` once in the bundled hall's manifest,
+  whose reader refuses a type its extension isn't served as. Choice: nothing added, as the plan says. Why: each part of
+  the step already has its test.
