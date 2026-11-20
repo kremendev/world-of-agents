@@ -15,6 +15,14 @@ const api: OfficeEvent = {
 };
 
 describe('AgentPanel', () => {
+  it("shows the look of the keep's model when asked (the HUD's card), the sprite's otherwise (Dima, 20 Nov)", () => {
+    const { rerender } = render(<AgentPanel office={INITIAL_OFFICE} agent="reviewer" keepLook />);
+    expect(screen.getByText('Reaper: ragged black hood and robe, a green flame in hand')).toBeInTheDocument();
+    expect(screen.queryByText('Old scholar: hooded robe, spectacles, candle in hand')).toBeNull();
+    rerender(<AgentPanel office={INITIAL_OFFICE} agent="reviewer" />);
+    expect(screen.getByText('Old scholar: hooded robe, spectacles, candle in hand')).toBeInTheDocument();
+  });
+
   it('introduces the agent: name, race and v2 model, look, state chip and details', () => {
     render(
       <AgentPanel

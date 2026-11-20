@@ -462,3 +462,16 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   label moves, so a bubble rides with its tag; bubbles themselves are not part of the rule. Sizes are read each frame
   before any label is written (five tags, no layout forced between writes). Why: the rule's own words first, then the
   accessibility of the marker, then the smaller build.
+- **Dima, 20 Nov, the card's look line.** When the keep draws, the card shows a look line per character that matches
+  its 3D model, written from the concept images (`D:\Dev\assets\world-of-agents\concepts`), one short line each in
+  the roster's style, original fantasy, no names of games or shows; the 2D roster's lines stay for the 2D fallback.
+  The Designer's model matches no concept image: its line describes the model as rendered.
+- **Dima's look lines, the details.** Each line names only what the concept image and the model share, checked against
+  close renders of all five (the cast's rest views) and each model's own texture: the Lead's model has no hat, the
+  Frontend dev's no fur collar, the Backend dev's coat is red and gold over dark plate without the concept's fur, and
+  the Reviewer carries the green flame (the town's, in its hand) where the concept has a staff. The character sheet is a
+  dark-haired figure with a purple sash; the Designer's model is a silver-haired elf in cream and gold, so its line is
+  the model's. They live in `roster.ts` as `keepLook`, beside `look`; `AgentPanel` shows it when asked
+  (`keepLook`), which only the HUD's card does. The race stays as it is (the Reviewer's "Skeleton" is still true of a
+  reaper); the line starts "Reaper:". A test holds each line to the roster's style and 60 characters. Why: the rule's
+  own words, then the smaller build.

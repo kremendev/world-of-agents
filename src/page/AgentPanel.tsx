@@ -30,7 +30,8 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
  * Everything about the selected agent: who it is and what it is doing.
  * `live`: a real run, so the model and tools are the real ones.
  * The HUD's card (4d.4) shows it without the 2D sprite (`portrait`, D14), with a guild lead's specialists at work
- * (`specialists`, D13), and with a heading the focus can be moved to (`headingRef`, D17).
+ * (`specialists`, D13), with a heading the focus can be moved to (`headingRef`, D17), and with the look of the
+ * Forge Keep's model instead of the sprite's (`keepLook`, Dima, 20 Nov).
  */
 export function AgentPanel({
   office,
@@ -38,6 +39,7 @@ export function AgentPanel({
   live = false,
   portrait = true,
   specialists = false,
+  keepLook = false,
   headingRef,
 }: {
   office: OfficeState;
@@ -45,6 +47,7 @@ export function AgentPanel({
   live?: boolean;
   portrait?: boolean;
   specialists?: boolean;
+  keepLook?: boolean;
   headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const agent = agentById(id);
@@ -69,7 +72,7 @@ export function AgentPanel({
           <p className="muted">
             {agent.race} · {live ? 'model' : 'model in v2'}: {agent.model}
           </p>
-          <p>{agent.look}</p>
+          <p>{keepLook ? agent.keepLook : agent.look}</p>
           <div className="agent-chips">
             <span className="chip" style={{ background: chip.bg, color: chip.text }}>
               {chip.label}

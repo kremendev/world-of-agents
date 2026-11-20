@@ -8,7 +8,7 @@ import { AgentCard } from './AgentCard';
 const handlers = () => ({ onFollow: vi.fn(), onShowActivity: vi.fn(), onClose: vi.fn() });
 
 describe('the agent card (4d.4)', () => {
-  it("shows today's panel without the 2D portrait: name, species and model, look, state, task, tools", () => {
+  it("shows today's panel without the 2D portrait: name, species and model, the model's look, state, task, tools", () => {
     let office = officeReducer(INITIAL_OFFICE, {
       type: 'task',
       taskId: 't1',
@@ -30,7 +30,9 @@ describe('the agent card (4d.4)', () => {
     const agent = agentById('frontend');
     expect(screen.getByRole('heading', { level: 2, name: 'Frontend dev' })).toBeInTheDocument();
     expect(screen.getByText(`${agent.race} · model: ${agent.model}`)).toBeInTheDocument();
-    expect(screen.getByText(agent.look)).toBeInTheDocument();
+    // the look of the keep's model, not of the 2D sprite (Dima, 20 Nov)
+    expect(screen.getByText(agent.keepLook)).toBeInTheDocument();
+    expect(screen.queryByText(agent.look)).toBeNull();
     expect(screen.getByText('writing')).toBeInTheDocument();
     expect(screen.getByText('Build the cards')).toBeInTheDocument();
     expect(screen.getByText('In progress')).toBeInTheDocument();

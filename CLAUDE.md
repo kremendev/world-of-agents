@@ -70,7 +70,7 @@ src/script/       demoRun.ts (the 9-step run as timed events, 8 s a step, 40 s i
                   pause and restart on a timer)
 src/pixel/        sprite format, crisp scaling (scale.ts), baking and drawing (draw.ts)
 src/assets/       pixel art as text: characters.ts, workstation.ts, hall.ts (generated from the design)
-src/office/       roster.ts (agents: race, look, v2 model and tools), stations.ts (workstation builder),
+src/office/       roster.ts (agents: race, look, from v4.0 keepLook (the 3D model's), v2 model and tools), stations.ts (workstation builder),
                   tasks.ts (tile and status chip colours), states.ts (state bubble and chip colours, words)
 src/office/hall/  the Forge Hall: layout.ts, placements.ts (generated), surfaces.ts, draw.ts,
                   HallView.tsx (canvas + animation loop), HallLabels.tsx (HTML text and bubbles over it)
@@ -205,7 +205,7 @@ src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md
                   (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
                   under 70rem the Rooms menu button), HudStatus (the status line), NeedsYou (the banner, Show me),
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
-                  AgentCard (AgentPanel without its portrait, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
+                  AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
                   tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another), useBox
                   (an element's size), contrast.test.ts

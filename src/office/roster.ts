@@ -23,6 +23,11 @@ export type Agent = {
   tools: string;
   /** One line describing the sprite, for the agent panel. */
   look: string;
+  /**
+   * One line describing the Forge Keep's 3D model, for the HUD's card (Dima, 20 Nov): what its concept image and the
+   * model share, or for the Designer, whose model matches no concept image, the model as it renders.
+   */
+  keepLook: string;
   /** Who or what the agent is waiting for when its state is 'waiting'. */
   waitingFor: string;
 };
@@ -38,6 +43,7 @@ export const ROSTER: readonly Agent[] = [
     model: 'Opus',
     tools: 'Agent, Read, Grep, Glob, Edit, Write, EnterPlanMode, ExitPlanMode',
     look: 'Strategist: patched cape, map case, quill behind the ear',
+    keepLook: 'Strategist: wild dark hair, buttoned coat, leather straps',
     waitingFor: 'every task to finish',
   },
   {
@@ -50,6 +56,7 @@ export const ROSTER: readonly Agent[] = [
     model: 'Sonnet',
     tools: 'Agent, Read, Grep, Glob, Write, Edit',
     look: 'Artisan: work apron, brushes and pencils, brush in hand',
+    keepLook: 'Artisan: long silver hair, cream coat trimmed in gold',
     waitingFor: 'the Lead/PM',
   },
   {
@@ -62,6 +69,7 @@ export const ROSTER: readonly Agent[] = [
     model: 'Sonnet',
     tools: 'Agent, Read, Grep, Glob, Write, Edit, Bash',
     look: 'Two huge swords on the back, scar over the left eye',
+    keepLook: 'Warrior: long dark braids, belted leathers, hip pouches',
     waitingFor: 'the Designer',
   },
   {
@@ -74,6 +82,7 @@ export const ROSTER: readonly Agent[] = [
     model: 'Sonnet',
     tools: 'Agent, Read, Grep, Glob, Write, Edit, Bash',
     look: 'Huge forge hammer on the back, scars on jaw and arm',
+    keepLook: 'Warlord: hair tied high, red and gold coat over dark plate',
     waitingFor: 'the Lead/PM',
   },
   {
@@ -86,6 +95,7 @@ export const ROSTER: readonly Agent[] = [
     model: 'Opus',
     tools: 'Agent, Read, Grep, Glob',
     look: 'Old scholar: hooded robe, spectacles, candle in hand',
+    keepLook: 'Reaper: ragged black hood and robe, a green flame in hand',
     waitingFor: 'both devs to finish',
   },
 ];

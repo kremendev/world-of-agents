@@ -83,3 +83,16 @@ describe("the team pane's roster matches the page's", () => {
     }
   });
 });
+
+describe('the looks (Dima, 20 Nov)', () => {
+  it("gives each agent a line for the keep's model beside the sprite's, short, in the roster's style", () => {
+    for (const agent of ROSTER) {
+      // "Role: a, b, c", one line, as short as the sprite's lines
+      expect(agent.keepLook, agent.id).toMatch(/^[A-Z][a-z]+: [^\n]+$/);
+      expect(agent.keepLook.length, agent.id).toBeLessThanOrEqual(60);
+      expect(agent.keepLook, agent.id).not.toBe(agent.look);
+    }
+    // the keep's Reviewer is a reaper, as its model is (docs/ASSETS.md)
+    expect(agentById('reviewer').keepLook).toMatch(/^Reaper: /);
+  });
+});

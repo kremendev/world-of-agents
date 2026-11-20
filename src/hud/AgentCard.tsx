@@ -18,7 +18,8 @@ type Props = {
 
 /**
  * The agent card (4d.4): today's agent panel without its 2D portrait (D14), with the guild lead's specialists at work
- * (D13), a close button, Follow (a toggle, "Following" while on) and "Show in Activity".
+ * (D13) and the look of the keep's model (Dima, 20 Nov), a close button, Follow (a toggle, "Following" while on) and
+ * "Show in Activity".
  */
 export function AgentCard({
   office,
@@ -49,6 +50,7 @@ export function AgentCard({
         live={live}
         portrait={false}
         specialists
+        keepLook
         headingRef={headingRef}
       />
       <div className="hud-card-actions">
