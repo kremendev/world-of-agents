@@ -1,6 +1,6 @@
 import { vi } from 'vitest';
 import type { AgentId } from '../events/schema';
-import type { Heads } from '../world/scene/world';
+import type { FigureRooms, Heads } from '../world/scene/world';
 
 /**
  * What the page's tests need of the Forge Keep (4d): jsdom has no WebGL, so a test that wants the HUD mocks
@@ -11,7 +11,16 @@ export const fakeWorld = () => {
   let handMoved: (() => void) | null = null;
   let picked: ((id: AgentId) => void) | null = null;
   let framed: ((heads: Heads) => void) | null = null;
+  let roomsTold: ((rooms: FigureRooms) => void) | null = null;
   return {
+    onRooms: vi.fn((fn: (rooms: FigureRooms) => void) => {
+      roomsTold = fn;
+      return () => {
+        if (roomsTold === fn) roomsTold = null;
+      };
+    }),
+    /** The test's own: the world says where each figure is or is going. */
+    rooms: (rooms: FigureRooms) => roomsTold?.(rooms),
     onFrame: vi.fn((fn: (heads: Heads) => void) => {
       framed = fn;
       return () => {

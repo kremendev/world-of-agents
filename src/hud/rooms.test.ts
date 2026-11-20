@@ -11,6 +11,26 @@ const counts = (office: OfficeState) =>
   Object.fromEntries(roomBadges(office).map((b) => [b.id, [b.agents, b.needsYou]]));
 
 describe('who is in which room (4d.3)', () => {
+  it('counts from where the world says each figure is or is going, once it says (T: idle life moves them)', () => {
+    const office = set(INITIAL_OFFICE, 'backend', 'needs-you');
+    const badges = roomBadges(office, {
+      lead: 'garden',
+      designer: 'garden',
+      frontend: 'tavern',
+      backend: 'workshop',
+      reviewer: 'tavern',
+    });
+    expect(Object.fromEntries(badges.map((b) => [b.id, [b.agents, b.needsYou]]))).toMatchObject({
+      garden: [2, 0],
+      tavern: [2, 0],
+      workshop: [1, 1],
+      court: [0, 0],
+      yard: [0, 0],
+    });
+    // a figure the world doesn't name counts where its state puts it
+    expect(roomBadges(INITIAL_OFFICE, { reviewer: 'tavern' }).find((b) => b.id === 'court')?.agents).toBe(0);
+  });
+
   it("lists every room in the map's order, with the map's names", () => {
     expect(roomBadges(INITIAL_OFFICE).map((b) => b.name)).toEqual(ROOMS.map((r) => r.name));
     expect(roomBadges(INITIAL_OFFICE).map((b) => b.name)).toEqual([

@@ -224,6 +224,24 @@ describe('the HUD over the world (4d.1)', () => {
     expect(world.flyToRoom).toHaveBeenLastCalledWith('overview');
   });
 
+  it('counts each room from where the world says the figures are, idle life included (T)', async () => {
+    render(<App />);
+    await settle();
+    expect(screen.getByRole('button', { name: 'Courtyard, 1 agent' })).toBeInTheDocument();
+    // idle life took the Reviewer from the Courtyard's bench to the Tavern
+    act(() =>
+      world.rooms({
+        lead: 'garden',
+        designer: 'garden',
+        frontend: 'yard',
+        backend: 'tavern',
+        reviewer: 'tavern',
+      }),
+    );
+    expect(screen.getByRole('button', { name: 'Courtyard' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tavern, 2 agents' })).toBeInTheDocument();
+  });
+
   it('the Cutaway toggle opens every house and closes them again (4d.3)', async () => {
     render(<App />);
     await settle();

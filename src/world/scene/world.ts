@@ -55,6 +55,8 @@ export type World = Awaited<ReturnType<typeof createWorld>>;
  */
 export type Head = { x: number; y: number; z: number; walking: boolean; room?: RoomId | null };
 export type Heads = Record<AgentKey, Head>;
+/** The room each figure is in, or on its way to (T: the rooms rail counts from it, idle life included). */
+export type FigureRooms = Record<AgentKey, RoomId>;
 
 export async function createWorld(opts: WorldOptions) {
   const REDUCE = opts.reducedMotion;
@@ -880,6 +882,21 @@ export async function createWorld(opts: WorldOptions) {
   const AT_REST: ReadonlySet<string> = new Set(['idle', 'done']);
   const seatedNow: Partial<Record<AgentKey, boolean>> = {};
   let framed: ((heads: Heads) => void) | null = null;
+  let roomsTold: ((rooms: FigureRooms) => void) | null = null;
+  let roomsWere = '';
+  /** Each figure's room, where it stands or where it is going (its next stop after a hold), told when one changes. */
+  function tellRooms() {
+    if (!roomsTold) return;
+    const rooms = {} as FigureRooms;
+    for (const a of actors) {
+      const w = walkers[a.id];
+      rooms[a.id] = SPOTS[w.next ?? w.walk?.to ?? w.spot].room;
+    }
+    const key = actors.map((a) => rooms[a.id]).join();
+    if (key === roomsWere) return;
+    roomsWere = key;
+    roomsTold(rooms);
+  }
   const headAt = new THREE.Vector3();
   function tellHeads() {
     if (!framed) return;
@@ -1115,6 +1132,7 @@ export async function createWorld(opts: WorldOptions) {
     controls.update();
     clampTarget();
     tellHeads();
+    tellRooms();
     if (!REDUCE) updateFX(t, dt);
     skyDome.position.copy(camera.position);
     uni(gradeU, 'focus').value = camera.position.distanceTo(controls.target);
@@ -1212,6 +1230,14 @@ export async function createWorld(opts: WorldOptions) {
         if (framed === fn) framed = null;
       };
     },
+    /** The page's one listener for the room each figure is in or going to, told at once and on each change. */
+    onRooms(fn: (rooms: FigureRooms) => void) {
+      roomsTold = fn;
+      roomsWere = '';
+      return () => {
+        if (roomsTold === fn) roomsTold = null;
+      };
+    },
     /** The page's one listener for a click on a figure; returns its removal. */
     onPick(fn: (id: AgentKey) => void) {
       picked = fn;
@@ -1258,6 +1284,7 @@ export async function createWorld(opts: WorldOptions) {
       handMoved = null;
       picked = null;
       framed = null;
+      roomsTold = null;
       controls.dispose();
       composer.dispose();
       nTarget.dispose();

@@ -14,7 +14,7 @@ import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
 import { useBox } from './hud/useBox';
 import { WorldLabels } from './hud/WorldLabels';
-import type { World } from './world/scene/world';
+import type { FigureRooms, World } from './world/scene/world';
 import { canDrawWorld } from './world/support';
 import { WorldView } from './world/WorldView';
 import { useStage } from './office/hall/useStage';
@@ -108,6 +108,9 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const [world, setWorld] = useState<World | null>(null);
   const ready = world !== null;
   const box = useBox(stage.ref, hud);
+  // where the world says each figure is (or is going), idle life included, for the rooms rail's counts
+  const [figureRooms, setFigureRooms] = useState<FigureRooms | null>(null);
+  useEffect(() => world?.onRooms(setFigureRooms), [world]);
   // The view the rooms rail shows as pressed (4d.3): the camera starts on the whole keep; a hand move clears it.
   const [view, setView] = useState<View | null>('overview');
   const [cutaway, setCutaway] = useState(false);
@@ -566,7 +569,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               id={railId}
               disabled={!ready}
               open={roomsOpen}
-              badges={roomBadges(office)}
+              badges={roomBadges(office, ready ? figureRooms : null)}
               view={view}
               onView={showView}
               cutaway={cutaway}

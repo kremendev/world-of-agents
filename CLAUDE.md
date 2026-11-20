@@ -283,7 +283,8 @@ live region what a bubble must not miss. Bubbles follow the 2D hall's `talk.ts` 
 they show (not while the agent walks or is off the view), agent text through `AgentText`. No tag ever covers another
 or is hidden for it (Dima, 20 Nov): `settleTags()` stacks one that would overlap above it by its height and 4 px, a
 needs-you or failed agent's tag (with its marker) keeping its own spot; a bubble rides with its tag. The world tells the page
-of a hand move, a click on a figure and the heads each frame (one listener each, the page's); the page tells it where
+of a hand move, a click on a figure, the heads each frame, and each figure's room (where it is or is going, for the
+rooms rail's counts, idle life included) when one changes (one listener each, the page's); the page tells it where
 to fly, whom to follow and whether to cut away. Esc closes the review board, the rooms menu, the card, then the
 drawer, the focus going back each time.
 

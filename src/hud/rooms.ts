@@ -11,15 +11,20 @@ export type View = RoomId | 'overview';
 export type RoomBadge = { id: RoomId; name: string; agents: number; needsYou: number };
 
 /**
- * Who is in which room (4d.3), from the office alone: each agent at the place its state gives it (placeFor()), in the
- * map's order. A figure on its way counts where it is going. Live's scroll stop is left out: the page can't see which
- * scrolls the world has handed over, and a dev spends its task at its desk, so it counts there from the start.
+ * Who is in which room (4d.3), in the map's order. A figure on its way counts where it is going. Once the world is on
+ * screen it says where each figure is (`rooms`, T): idle life moves resting agents between the idle areas, which the
+ * office can't know. Until then, from the office alone: each agent at the place its state gives it (placeFor()), Live's
+ * scroll stop left out, since a dev spends its task at its desk.
  */
-export function roomBadges(office: OfficeState): RoomBadge[] {
+export function roomBadges(
+  office: OfficeState,
+  rooms: Readonly<Partial<Record<AgentId, RoomId>>> | null = null,
+): RoomBadge[] {
   const where = new Map<AgentId, RoomId>();
   for (const { id } of ROSTER) {
     const spot = placeFor(id, office);
-    if (spot) where.set(id, SPOTS[spot].room);
+    const room = rooms?.[id] ?? (spot ? SPOTS[spot].room : null);
+    if (room) where.set(id, room);
   }
   return ROOMS.map((room) => {
     const inside = ROSTER.filter((a) => where.get(a.id) === room.id);

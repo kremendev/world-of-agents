@@ -475,3 +475,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   (`keepLook`), which only the HUD's card does. The race stays as it is (the Reviewer's "Skeleton" is still true of a
   reaper); the line starts "Reaper:". A test holds each line to the roster's style and 60 characters. Why: the rule's
   own words, then the smaller build.
+- **T, the rooms' counts after idle life.** T's screenshots showed the Reviewer in the Tavern while the rail counted
+  it on the Courtyard's bench: the counts came from `placeFor()` (4d.3), which knows only an agent's rest spot, and
+  4c's idle life moves resting agents between the idle areas. Choice: the world tells the page each figure's room when
+  one changes (`onRooms`: where it stands, or where it is going, its next stop after a desk hold included), and the
+  rail counts from that once the world is ready; before, from `placeFor()` as 4d.3 had it. A Live dev on its way to
+  the War hall's board now counts there, which is true. Why: the rail must say where the figures are; the world is the
+  only one that knows.
