@@ -1313,4 +1313,10 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     is decided by its rule and logged at its end. 4d is done (19 and 20 Nov, 4d.1 to 4d.10): the HUD over the world,
     tested by React and Vitest tests only; its Edge checks wait for T (docs/v4.0-plan.md, Parts, 4d). 4c is done (20 Nov,
     4c.1 to 4c.7): idle life, small talk, the furnace, the markers and the screens, tested the same way, not waiting for
-    the raised-hand clip (D7). Next: 4f.
+    the raised-hand clip (D7). 4f is done (20 Nov). Then Dima's three changes (20 Nov): the HUD from the first paint, no
+    tag over another, and the card's look line from the keep's models; and T's half without him (docs/v4-build-plan.md,
+    T): the world checks, 31 planted bugs, the screenshots, and seven fixes (an idle test, the rooms rail's counts after
+    idle life, the world to the window's right edge, the tiles in a narrow window, the walk checks taught idle life, the
+    beer garden out of idle life, never two agents resting on one spot). Next: Dima's half of T (Narrator, the
+    three scalings, frame times in a real window, the look against the mockup), then the README's pictures (D22), then R.
+    The raised-hand clip goes in if it comes before T ends, else in 4.0.1.

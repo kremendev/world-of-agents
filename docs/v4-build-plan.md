@@ -281,6 +281,38 @@ character still under 2 MB and the totals under budget, the AIGC label and Produ
   on his GPU, the look against the mockup.
 - The README's pictures (D22).
 
+**T, Claude's half (20 Nov, Dima: "the part that doesn't need me, now").**
+
+- `npm run check` (113 files, 2221 tests) and `check:hall` clean at the end.
+- The render comparison against the town: the world 11 of 11 views (at most 0.52% of pixels, the Forge), each diff
+  image looked at: the figures' start spots (the keep's idle places against the town's) and the Forge's mouth, darker
+  at rest (D11, expected, not changed). The cast at work 10 of 10, at rest 10 of 10 (at most 0.75%, the Designer's
+  easel: three.js 0.187's shadow dither, as 4a found).
+- The seats: with reduced motion 40 of 40; without, 38 of 40, the Backend dev's toes 5.3 cm up at tavern-3 and the
+  courtyard bench against the rule's 5, as 4b recorded and as in the town. `spots.mjs`: all 20 standing spots clear.
+- The walks: `walk.mjs` over the demo, with and without reduced motion and with Next step, no faults after the fixes
+  below; `idle-walks.mjs` (new): all 14 walks idle life can take clear.
+- The policy: the plugin's own page under the hall's header and the Pages build under its meta tag show the world,
+  nothing refused.
+- Frames, headless on this PC's RTX 5070 with the HUD and the tags running: 9.5 ms median, p95 10.6 ms, at 1440 x 900
+  and at 4a's 100, 125 and 150% viewports (4a, without the HUD: 9 ms).
+- Planted bugs: 31 in the throwaway worktree, one or more per new test file of 4d, 4c and 4f.1, Dima's three changes
+  and T's fixes; all caught, one after `idleRun.test.ts` was sharpened.
+- Screenshots (`D:\Dev\scratch\t-shots`, 1440 x 900): every room, Cutaway, the backdrop while the world loads, the
+  status line, a run at work, a card with Follow, needs-you and Show me, the error marker, the drawer closed, the demo's
+  start, and at 1100 and 400 px wide the Rooms menu, the drawer and a card. The console: only the demo's own 404 for
+  `/api/health` (no hall there on purpose).
+- Fixed, a commit each: the idle test a plant got through; the rooms rail's counts after idle life; the world short of
+  the window's right edge (the classic page's scrollbar gutter); the tiles cut mid-word in a narrow window; `walk.mjs`
+  and `idle-walks.mjs` for idle life; the beer garden out of idle life (the Tavern's sign board); two agents resting on
+  one spot.
+- Seen, not changed, for Dima's look check: a tag stacked over a needs-you or failed one can sit far above its figure
+  in the whole keep's view (the rule as asked); the Library's room view is mostly the tower's roof (the town's
+  framing); at 400 px the top bar, its tiles wrapped, takes about a quarter of the height; in Live the status line says
+  "Type your task in Claude Code" while a run works (as the classic page always has).
+- Left: Dima's half (Narrator over the HUD, the three Windows scalings, frame times in a real window, the look against
+  the mockup), then the README's pictures (D22, from the redacted fixtures once the look is approved), then R.
+
 **R The release prep** (no tag, no release): `plugin.json` to 4.0.0 and the version wherever the repo keeps it,
 `docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of
 `docs/release-notes/v3.10.0-check.md` (fresh install, Demo, Live, needs-you, Team page, the 2D fallback with WebGL off,
