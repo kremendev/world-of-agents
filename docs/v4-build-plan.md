@@ -325,6 +325,14 @@ wide with and without a card; no console errors. Seen, not changed: at 400 px wi
 banner is squeezed into a narrow column by the room kept for the drawer's handle (`--hud-drawer-w` 8rem), and a
 stacked tag's line can run behind the tag it was moved off. T stays unticked until Dima's half.
 
+**T, Dima's three changes after that (20 Nov).** In Live only the generic status line hides while a run has tasks
+(the Lead waiting for your next message shows); the view eases to a new free area over 250 ms (at once with reduced
+motion); on a phone the banner spans the window under the top bar, the drawer and its handle under it (which ends the
+squeezed banner seen above). A commit each, each decision in "Decisions taken during the build", each seen in Edge on
+the stand-in hall. Planted bugs: 10, all caught. `npm run check` (114 files, 2250 tests) and `check:hall` clean. New
+shots in `D:\Dev\scratch\t-shots-2`: the status line with tasks (the Lead waiting, then working) and the phone's
+banner (the drawer closed and open, two waiting); no console errors.
+
 **R The release prep** (no tag, no release): `plugin.json` to 4.0.0 and the version wherever the repo keeps it,
 `docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of
 `docs/release-notes/v3.10.0-check.md` (fresh install, Demo, Live, needs-you, Team page, the 2D fallback with WebGL off,

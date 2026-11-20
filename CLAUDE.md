@@ -1328,6 +1328,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     beer garden out of idle life, never two agents resting on one spot). Then Dima's six fixes after his look at the shots
     (20 Nov): framing in the free area (setViewOffset), the Library's and the Courtyard's views with spots.mjs's view
     check, empty lines, the phone top bar, tags inside the window, a leader line; and a room chosen while following.
+    Then his three changes (20 Nov): only Live's generic status line hides while a run has tasks, the view eases to a
+    new free area (250 ms, at once with reduced motion), and on a phone the banner spans the window, the drawer under it.
     Next: Dima's half of T (Narrator, the three scalings, frame times in a real window, the look against the mockup),
     then the README's pictures (D22), then R.
     The raised-hand clip goes in if it comes before T ends, else in 4.0.1.
