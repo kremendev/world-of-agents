@@ -2822,3 +2822,47 @@ button.tp-card:hover {
     width: auto;
   }
 }
+
+/* Needs-you and error markers over a figure's tag (4c.5, D7, D8): a gentle bob, none with reduced motion. */
+.hud-marker {
+  box-sizing: border-box;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  animation: hud-bob 1.6s ease-in-out infinite;
+}
+
+.hud-marker.needs {
+  border: 1px solid var(--ui-needs-bg);
+  background: var(--ui-flag);
+  color: var(--ui-needs-bg);
+}
+
+.hud-marker.error {
+  background: var(--ui-danger-fill);
+  color: var(--ui-on-danger);
+  font-family: var(--ui-font);
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+@keyframes hud-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-0.25rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-marker {
+    animation: none;
+  }
+}

@@ -25,6 +25,10 @@ type Props = {
 
 type Said = Partial<Record<AgentId, string | null>>;
 
+/** The raised hand, as the needs-you banner draws it. */
+export const HAND =
+  'M8 12V5.5a1.5 1.5 0 0 1 3 0V11m0-1V4a1.5 1.5 0 0 1 3 0v6.5m0-.5V5.5a1.5 1.5 0 0 1 3 0V14c0 4-2.7 7-6.5 7-2.8 0-4.4-1.6-5.6-3.6L3.6 14.3a1.5 1.5 0 0 1 2.5-1.6L8 15';
+
 /**
  * The world's labels (4d.6, D2, D16): a name tag over each figure's head and its speech bubble over the tag, HTML over
  * the canvas at a fixed size, moved each frame to where the world projects the head, hidden off screen or behind the
@@ -32,7 +36,8 @@ type Said = Partial<Record<AgentId, string | null>>;
  * live region what a bubble must not miss. A bubble follows the 2D hall's rules (talk.ts): a message's first sentence,
  * after the ones before it, never while its agent walks, and its time runs only while it shows, so also not while its
  * agent is off screen. Agent text is React text through AgentText. Where no message shows, idle agents standing together
- * in an idle area trade our own small talk now and then (smallTalk.ts, D10).
+ * in an idle area trade our own small talk now and then (smallTalk.ts, D10). Over the tag of an agent that needs you, an
+ * amber raised hand (D7); of one that failed, a red "!" (D8); both bob gently, and stand still with reduced motion.
  */
 export function WorldLabels({ world, office, card, run, hushed, width, height }: Props) {
   const els = useRef<Partial<Record<AgentId, HTMLDivElement | null>>>({});
@@ -100,6 +105,7 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
         const tone = tagTone(office, id, card);
         const dot = STATE_STYLE[office.agents[id].state].text;
         const text = said[id];
+        const { state } = office.agents[id];
         return (
           <div
             key={id}
@@ -114,6 +120,21 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
                 <AgentText text={text} />
               </p>
             )}
+            {state === 'needs-you' && (
+              <span className="hud-marker needs">
+                <svg viewBox="0 0 24 24" width="18" height="18" focusable="false">
+                  <path
+                    d={HAND}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+            )}
+            {state === 'error' && <span className="hud-marker error">!</span>}
             <span className={tone ? `hud-tag ${tone}` : 'hud-tag'}>
               <span className="hud-dot" style={{ background: dot }} />
               {name}

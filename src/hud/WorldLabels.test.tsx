@@ -140,4 +140,19 @@ describe("the world's labels (4d.6)", () => {
     expect(heard.length).toBeGreaterThan(0);
     for (const line of heard) expect(KEEP_SMALL_TALK).toContain(line);
   });
+
+  it('marks an agent that needs you with a raised hand and one that failed with a "!" over its tag (4c.5)', () => {
+    let office = add(INITIAL_OFFICE, { type: 'state', agent: 'backend', state: 'needs-you', at: 1 });
+    office = add(office, { type: 'state', agent: 'reviewer', state: 'error', at: 2 });
+    const { container } = render(labels(office));
+    const marker = (id: string) => label(container, id).querySelector('.hud-marker');
+    expect(marker('backend')).toHaveClass('needs');
+    expect(marker('backend')?.querySelector('svg')).not.toBeNull();
+    expect(marker('reviewer')).toHaveClass('error');
+    expect(marker('reviewer')).toHaveTextContent('!');
+    for (const id of ['lead', 'designer', 'frontend']) expect(marker(id)).toBeNull();
+    // above the tag, inside the layer screen readers skip
+    expect(marker('backend')?.nextElementSibling).toHaveClass('hud-tag');
+    expect(container.querySelector('.hud-labels')).toHaveAttribute('aria-hidden', 'true');
+  });
 });

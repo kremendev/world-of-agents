@@ -21,6 +21,7 @@ import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
 import { workingCount, type OfficeState } from '../../state/office';
 import { forgeFlicker, forgeLook } from '../forge';
+import { figureMode } from '../clips';
 import { idleTick, type IdleRuns, type Where } from '../idleRun';
 import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
@@ -929,7 +930,13 @@ export async function createWorld(opts: WorldOptions) {
       a.root.position.y += (gy - a.root.position.y) * Math.min(1, dt * 12);
       const held = isHeld(w, now);
       const pose = SPOTS[w.spot].pose;
-      const mode: Mode = p.walking ? 'walk' : held ? (SEATED.has(pose) ? 'sit' : 'idle') : pose;
+      const mode: Mode = figureMode({
+        walking: p.walking,
+        pose,
+        held,
+        needsYou: office?.agents[a.id].state === 'needs-you',
+        hasRaise: !!a.model.acts.raise_hand,
+      });
       atWork[a.id] =
         !p.walking && !held && w.spot === WORK[a.id] && !!office && LIT.has(office.agents[a.id].state);
       walkingNow[a.id] = p.walking;

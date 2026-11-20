@@ -13,7 +13,7 @@
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FLOOR_H, ROOM, ROOMS, toLocal, type House, type SpotId, SPOTS } from '../map';
-import { CLIP_FOR, type ClipName, type Mode } from '../clips';
+import { CLIP_FOR, SEATED, type ClipName, type Mode } from '../clips';
 import type { Kit } from './kit';
 import type { Crossing } from './land';
 import { CAST_FILES, modelUrl, plainModel, textureUrl } from './models';
@@ -43,8 +43,8 @@ export function rigSeatY(H: number, hipY: number): number {
 export type { ClipName, Mode } from '../clips';
 /** The Reviewer's lantern light, as the town makes it: green, 2.5 at 4 m, on the root by the head. */
 const LANTERN = { intensity: 2.5, distance: 4 } as const;
-/** The poses of a seated figure; the Reviewer's lantern is out only when it stands and isn't reading. */
-export const SEATED: ReadonlySet<Mode> = new Set(['type', 'smash', 'readsit', 'sit', 'drink']);
+// the poses of a seated figure (../clips.ts); the Reviewer's lantern is out only when it stands and isn't reading
+export { SEATED } from '../clips';
 // the walk clips cover 0.59 body heights a second at 1x (4 steps in 2.33 s, measured from the files)
 const WALK_RATE = 0.59;
 

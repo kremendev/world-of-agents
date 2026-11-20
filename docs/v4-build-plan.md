@@ -22,7 +22,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.2 idle life: in the world
 - [x] 4c.3 small talk
 - [x] 4c.4 the furnace and the flames
-- [ ] 4c.5 needs-you and error markers
+- [x] 4c.5 needs-you and error markers
 - [ ] 4c.6 the screens
 - [ ] 4c.7 4c's docs
 - [ ] 4f.1 the assets test
@@ -404,3 +404,11 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   T's render comparison will show the Forge's mouth apart from the town's at rest: expected, not a fault. The flames,
   the fire lights and the hearth already flickered each in its own phase, none with reduced motion (4a), so they are
   unchanged; the core and the light follow the same heat as the mouth. Why: the furnace is the busy indicator.
+- **4c.5, "its idle clip until then".** A needs-you agent waits at its work spot, mostly in a chair, where the standing
+  idle clip would put it inside the chair. Choice: until its model has `raise_hand`, it plays its resting clip at that
+  spot, seated in a chair and idle standing, as the desk hold does (`figureMode()` in `src/world/clips.ts`, pure, with
+  `SEATED` moved there too). Whether `raise_hand` plays seated is for the CLIP step and T's seats check, once Dima's
+  files are there. Why: the plan's intent (D7: the figure rests until it can raise its hand) without a figure in a chair.
+- **4c.5, the markers.** Choice: the needs-you marker is the banner's raised hand in `--ui-needs-bg` on an
+  `--ui-flag` disc (amber), the error marker a bold "!" in `--ui-on-danger` on `--ui-danger-fill`, both over the tag in
+  the labels layer (hidden from screen readers with it), bobbing a quarter rem by CSS, still with reduced motion.

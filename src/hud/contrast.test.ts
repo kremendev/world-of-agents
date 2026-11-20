@@ -79,6 +79,7 @@ describe("the HUD's colours", () => {
       ['the needs-you banner', token('--ui-needs'), token('--ui-needs-bg')],
       ['a bubble', token('--ui-on-accent'), token('--ui-text')],
       ['the error marker', token('--ui-on-danger'), token('--ui-danger-fill')],
+      ['the needs-you marker', token('--ui-needs-bg'), token('--ui-flag')],
       ...tagGrounds().map((g, i): [string, Rgba, Rgba] => [`a name tag (${i})`, token('--ui-text'), g]),
       ...tagGrounds().map((g, i): [string, Rgba, Rgba] => [
         `a tag's specialists (${i})`,
