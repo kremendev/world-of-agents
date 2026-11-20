@@ -194,7 +194,14 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
                   can't draw, fails to load or loses its context for CONTEXT_GRACE_MS; scene/ comes in by a dynamic
-                  import, its own chunk
+                  import, its own chunk; from 4d it tells App its world (`onWorld`), which lays the HUD over it
+src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md, the approved mockup in words). TopBar
+                  (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
+                  under 70rem the Rooms menu button), HudStatus (the status line), NeedsYou (the banner, Show me),
+                  RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
+                  AgentCard (AgentPanel without its portrait, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
+                  viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
+                  tags and bubbles over the canvas, moved each frame), useBox (an element's size), contrast.test.ts
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
                   Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
@@ -249,7 +256,22 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
 
 This is the 2D hall. From v4.0.0 (4a) the stage shows the 3D Forge Keep (`src/world/`, docs/v4.0-plan.md) wherever
 WebGL 2 is, and the 2D hall is frozen as its fallback: it keeps working and keeps its tests, but new world features
-aren't drawn in it (Dima, 17 Nov). jsdom has no WebGL, so every test of the page runs on the 2D hall.
+aren't drawn in it (Dima, 17 Nov). jsdom has no WebGL, so every test of the page runs on the 2D hall, except the HUD's,
+which mock the world (`src/test/fakeWorld.ts`: a fake world, and `stubLayout()` for sizes, an observer and width media
+queries).
+
+**The HUD (4d)** is the page while the world is on screen; while it loads and whenever the 2D hall draws, the page keeps
+the layout below. App keeps three slots in both (above the stage, the stage, below it), so a switch never mounts the
+world again, and their order is the HUD's tab order: top bar, status or banner, rooms, the world, agents, card, drawer.
+Its rules: only the `--ui-*` tokens and Inter (the name tags in the signs' rounded face, its one file), solid panels,
+sizes in rem and nothing under 13 px, focus always visible; `src/hud/contrast.test.ts` holds text to 4.5:1 and the focus
+ring and meaningful borders to 3:1 on every ground, and no HUD rule may name a colour of its own (the panel shadow and
+the tag border aside). The labels over the canvas are `aria-hidden`: the agent list says everything a tag does, and the
+live region what a bubble must not miss. Bubbles follow the 2D hall's `talk.ts` rules, their time running only while
+they show (not while the agent walks or is off the view), agent text through `AgentText`. The world tells the page
+of a hand move, a click on a figure and the heads each frame (one listener each, the page's); the page tells it where
+to fly, whom to follow and whether to cut away. Esc closes the review board, the rooms menu, the card, then the
+drawer, the focus going back each time.
 
 - **Units are art pixels.** The hall is 672 x 480 art px; the design shows it at 2 CSS px per art px (1344 x 960).
 - **Sprites** are `{ rows: string[], palette: Record<char, hex> }`. One string per row, `.` = transparent.
@@ -1260,3 +1282,8 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     first), guard.test.ts's leaked folder fixed, the browser checks closing Edge in finally; eight planted bugs caught.
     The lantern (Dima, 18 Nov): the town's light on the root, the town's green flame in the hand with a 0.25 m halo, lit
     with the light; six planted bugs caught. Next: 4c, which waits for the raised-hand clip from Tripo.
+
+19. The v4.0.0 build plan (docs/v4-build-plan.md, Dima, 19 Nov): fast, the heavy checks in its phase T, every open
+    question answered (D1 to D23), the order 4d, 4c, 4f; a step's commit ticks it, and a question the plan doesn't answer
+    is decided by its rule and logged at its end. 4d is done (19 and 20 Nov, 4d.1 to 4d.10): the HUD over the world,
+    tested by React and Vitest tests only; its Edge checks wait for T (docs/v4.0-plan.md, Parts, 4d). Next: 4c.

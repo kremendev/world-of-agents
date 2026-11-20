@@ -2196,11 +2196,6 @@ button.tp-card:hover {
   cursor: pointer;
 }
 
-.hud-button[aria-pressed='true'] {
-  border-color: var(--ui-accent);
-  background: var(--ui-selected);
-}
-
 .hud-top {
   top: var(--hud-edge);
   left: var(--hud-edge);

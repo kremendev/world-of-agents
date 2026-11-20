@@ -17,7 +17,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.7 needs-you banner and Show me
 - [x] 4d.8 status line
 - [x] 4d.9 narrow layouts
-- [ ] 4d.10 4d's docs and leftovers
+- [x] 4d.10 4d's docs and leftovers
 - [ ] 4c.1 idle life: the schedule
 - [ ] 4c.2 idle life: in the world
 - [ ] 4c.3 small talk
