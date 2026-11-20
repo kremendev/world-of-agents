@@ -450,3 +450,15 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   button show disabled, Follow on the card shows disabled (no figure to follow yet), the name tags aren't there, and
   Show me opens the card without moving a camera that isn't there. Why: the rule's accessibility first (a control that
   can't act says so), then the smaller build; nothing in the HUD moves when the world arrives.
+- **Dima, 20 Nov, tags that would overlap.** A pure function, `settleTags()` in `src/hud/labels.ts`: the shown tags
+  sorted by screen y; one whose box would overlap a tag already placed moves up by its own height plus 4 px, again
+  until it is clear; no tag is ever hidden; a needs-you or failed agent's tag keeps its own spot and the others move
+  around it. Tests: side by side, two and three agents on one spot, a tag's own height, the fixed tags, and a seeded
+  sweep of 500 layouts with no overlap left.
+- **Dima's tag rule, the details.** Which end first: the lowest tag on the screen (the figure nearest the front) keeps
+  its spot and the ones above it move up, so a stack reads from the front; ties keep the roster's order. A fixed tag's
+  box runs from its marker's top to the tag's bottom, so nothing moves onto the raised hand or the "!". Two fixed tags
+  that would overlap stack like the others (the rule says never hide one, and one covering the other would). The whole
+  label moves, so a bubble rides with its tag; bubbles themselves are not part of the rule. Sizes are read each frame
+  before any label is written (five tags, no layout forced between writes). Why: the rule's own words first, then the
+  accessibility of the marker, then the smaller build.

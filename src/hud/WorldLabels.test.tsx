@@ -73,6 +73,34 @@ describe("the world's labels (4d.6)", () => {
     expect(label(container, 'reviewer').style.visibility).toBe('hidden');
   });
 
+  it('stacks tags that would overlap, a needs-you tag keeping its spot (Dima, 20 Nov)', () => {
+    // jsdom lays nothing out: every tag 100 x 20 px here, the marker and the tag at the label's top
+    const spies = [
+      vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(100),
+      vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(20),
+      vi.spyOn(HTMLElement.prototype, 'offsetTop', 'get').mockReturnValue(0),
+    ];
+    const y = (c: HTMLElement, id: string) =>
+      /translate\(500\.0px, ([\d.]+)px\)/.exec(label(c, id).style.transform)?.[1];
+    const { container, rerender } = render(labels(INITIAL_OFFICE));
+    // everyone on one spot: the first keeps it, each next one 24 px higher
+    act(() => world.frame());
+    expect(['lead', 'designer', 'frontend', 'backend', 'reviewer'].map((id) => y(container, id))).toEqual([
+      '250.0',
+      '226.0',
+      '202.0',
+      '178.0',
+      '154.0',
+    ]);
+    // the Backend dev needs you: its tag keeps the spot, the others stack over it
+    rerender(labels(add(INITIAL_OFFICE, { type: 'state', agent: 'backend', state: 'needs-you', at: 1 })));
+    act(() => world.frame());
+    expect(y(container, 'backend')).toBe('250.0');
+    expect(y(container, 'lead')).toBe('226.0');
+    expect(y(container, 'reviewer')).toBe('154.0');
+    for (const s of spies) s.mockRestore();
+  });
+
   it("says a new message's first sentence, as text: markup in it stays text", () => {
     const { container, rerender } = render(labels(INITIAL_OFFICE));
     rerender(labels(add(INITIAL_OFFICE, says('<img src=x onerror=alert(1)> is **done**. More later.'))));

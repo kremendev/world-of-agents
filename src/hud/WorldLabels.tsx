@@ -7,7 +7,7 @@ import { AgentText } from '../page/AgentText';
 import type { Message, OfficeState } from '../state/office';
 import type { World } from '../world/scene/world';
 import type { RoomId } from '../world/map';
-import { tagText, tagTone, toScreen } from './labels';
+import { settleTags, tagText, tagTone, toScreen, type TagBox } from './labels';
 import { keepSmallTalk } from './smallTalk';
 
 type Props = {
@@ -35,8 +35,10 @@ export const HAND =
  * camera. The whole layer is hidden from screen readers: the agent list says everything a tag does, and the page's
  * live region what a bubble must not miss. A bubble follows the 2D hall's rules (talk.ts): a message's first sentence,
  * after the ones before it, never while its agent walks, and its time runs only while it shows, so also not while its
- * agent is off screen. Agent text is React text through AgentText. Where no message shows, idle agents standing together
- * in an idle area trade our own small talk now and then (smallTalk.ts, D10). Over the tag of an agent that needs you, an
+ * agent is off screen. Agent text is React text through AgentText. Tags never overlap: settleTags() stacks one that would
+ * cover another above it, a needs-you or failed agent's keeping its spot (Dima, 20 Nov); a bubble rides with its tag.
+ * Where no message shows, idle agents standing together in an idle area trade our own small talk now and then
+ * (smallTalk.ts, D10). Over the tag of an agent that needs you, an
  * amber raised hand (D7); of one that failed, a red "!" (D8); both bob gently, and stand still with reduced motion.
  */
 export function WorldLabels({ world, office, card, run, hushed, width, height }: Props) {
@@ -78,13 +80,38 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
         together.set(room, [...(together.get(room) ?? []), id]);
       }
       const chat = keepSmallTalk(together, now);
+      // where each shown tag lands and how big it is, all read before anything is written
+      const boxes: TagBox[] = [];
       for (const { id } of ROSTER) {
         const head = heads[id];
         const el = els.current[id];
         if (!head || !el) continue;
         const at = toScreen(head, size.current.width, size.current.height);
+        if (!at.shown) continue;
+        const tag = el.querySelector<HTMLElement>('.hud-tag');
+        const marker = el.querySelector<HTMLElement>('.hud-marker');
+        // a marker belongs to its tag: from the marker's top to the tag's bottom
+        const top = marker?.offsetTop ?? tag?.offsetTop ?? 0;
+        const bottom = (tag?.offsetTop ?? 0) + (tag?.offsetHeight ?? 0);
+        const { state } = officeNow.current.agents[id];
+        boxes.push({
+          id,
+          x: at.x,
+          y: at.y,
+          width: tag?.offsetWidth ?? 0,
+          height: bottom - top,
+          fixed: state === 'needs-you' || state === 'error',
+        });
+      }
+      const up = settleTags(boxes);
+      for (const { id } of ROSTER) {
+        const head = heads[id];
+        const el = els.current[id];
+        if (!head || !el) continue;
+        const at = toScreen(head, size.current.width, size.current.height);
+        const y = at.y + (up[id] ?? 0);
         el.style.visibility = at.shown ? 'visible' : 'hidden';
-        el.style.transform = `translate(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px) translate(-50%, -100%)`;
+        el.style.transform = `translate(${at.x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
         const talk = speak(speech.current[id] ?? SILENT, now, head.walking || !at.shown);
         speech.current[id] = talk.speech;
         // a message beats small talk, as in the 2D hall
