@@ -628,3 +628,14 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   either, so it shows over a run with tasks too: it says the run on screen may be missing its start. The test is the
   line's own words (`LIVE_NOTE` in `App.tsx`), so a new Live line shows until someone decides otherwise. Why: the
   request's own words, then the accessibility rule (nothing hidden that says something).
+- **Dima, 20 Nov, the view's slide.** When the card or the drawer opens or closes, `setViewOffset` eases to its new
+  insets over about 250 ms (ease-out); at once with reduced motion. The easing is a pure function, tested.
+- **The view's slide, the details.** `slideOffset()` (`src/world/camera.ts`, `SLIDE_MS` 250) eases the offset itself,
+  cubic ease-out, which is the insets eased (the offset is half their difference); the world's loop runs it each frame
+  before the heads are told, so the tags slide with the view. Every change of the free area slides, not only the card's
+  and the drawer's: the banner coming or going and the window crossing 70rem move the same view, and one rule is the
+  smaller build. Three land at once: the first free area (there is nothing on screen to move from yet), a resize (the
+  canvas's own size changes under the offset; a slide under way ends there), and any with reduced motion. A new free
+  area mid-slide starts from where the view is. Seen in Edge on the stand-in hall: the card opening moves a tag 200 px,
+  fast at first and settled by 249 ms, back the same way on closing; with reduced motion it is there on the first
+  frame. Why: the request's own words, then the smaller build.

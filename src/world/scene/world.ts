@@ -16,7 +16,16 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CAMERA, roomView, viewOffset, type Insets } from '../camera';
+import {
+  CAMERA,
+  NO_OFFSET,
+  SLIDE_MS,
+  roomView,
+  slideOffset,
+  viewOffset,
+  type Insets,
+  type Offset,
+} from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
 import { workingCount, type OfficeState } from '../../state/office';
@@ -859,12 +868,21 @@ export async function createWorld(opts: WorldOptions) {
     frameView();
   }
   // the area the HUD's panels leave free (Dima, 20 Nov): what the camera looks at goes to its middle, the canvas's
-  // size unchanged; the labels and the picking project through this camera, so they follow
+  // size unchanged; the labels and the picking project through this camera, so they follow. A new free area is slid
+  // to (slideOffset(), in the loop); the first one, and the view after a resize, land at once.
   let free: Insets | null = null;
+  let freeSeen = false;
+  let offset = NO_OFFSET;
+  let slide: { from: Offset; to: Offset; t0: number } | null = null;
+  const offsetFor = () => viewOffset(W, H0, free) ?? NO_OFFSET;
+  function showOffset(o: Offset) {
+    offset = o;
+    if (o.x === 0 && o.y === 0) camera.clearViewOffset();
+    else camera.setViewOffset(W, H0, o.x, o.y, W, H0);
+  }
   function frameView() {
-    const o = viewOffset(W, H0, free);
-    if (o) camera.setViewOffset(W, H0, o.x, o.y, W, H0);
-    else camera.clearViewOffset();
+    slide = null;
+    showOffset(offsetFor());
   }
   for (const u of [lineU, gradeU]) {
     uni(u, 'near').value = camera.near;
@@ -1136,6 +1154,11 @@ export async function createWorld(opts: WorldOptions) {
       controls.target.add(delta);
       camera.position.add(delta);
     }
+    if (slide) {
+      const elapsed = performance.now() - slide.t0;
+      showOffset(slideOffset(slide.from, slide.to, elapsed, REDUCE));
+      if (REDUCE || elapsed >= SLIDE_MS) slide = null;
+    }
     updateParked();
     controls.update();
     clampTarget();
@@ -1287,7 +1310,15 @@ export async function createWorld(opts: WorldOptions) {
     /** How far the HUD's panels reach into the canvas (null: none); the view's middle goes to the free area's. */
     setFreeArea(insets: Insets | null) {
       free = insets;
-      frameView();
+      const to = offsetFor();
+      const first = !freeSeen;
+      freeSeen = true;
+      // the page tells it after each of its renders: only a change moves the view
+      const going = slide ? slide.to : offset;
+      if (to.x === going.x && to.y === going.y) return;
+      // the first lands at once, there being nothing on screen to move from yet
+      slide = { from: first ? to : offset, to, t0: performance.now() };
+      showOffset(slideOffset(slide.from, to, 0, REDUCE));
     },
     setTasks(tasks: readonly TaskStatus[]) {
       houses.drawBoard(tasks);

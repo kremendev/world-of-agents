@@ -1,6 +1,15 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { CAMERA, OWN_SIDE, roomView, viewOffset, type Vec3 } from './camera';
+import {
+  CAMERA,
+  NO_OFFSET,
+  OWN_SIDE,
+  SLIDE_MS,
+  roomView,
+  slideOffset,
+  viewOffset,
+  type Vec3,
+} from './camera';
 import { ROOMS } from './map';
 
 /** Whether a view is one the camera's controls and clampTarget() leave as it is. */
@@ -102,5 +111,55 @@ describe('the camera', () => {
     const [dx, dz] = [position[0] - target[0], position[2] - target[2]];
     expect(dz / dx).toBeCloseTo(4 / 3);
     expect(dx).toBeGreaterThan(0);
+  });
+});
+
+describe('the view sliding to a new free area (Dima, 20 Nov)', () => {
+  const from = { x: 0, y: -60 };
+  const to = { x: 204, y: 12 };
+  const at = (ms: number, reduced = false) => slideOffset(from, to, ms, reduced);
+  // how far along the way, 0 to 1, on each axis
+  const along = (ms: number) => [
+    (at(ms).x - from.x) / (to.x - from.x),
+    (at(ms).y - from.y) / (to.y - from.y),
+  ];
+
+  it('takes about 250 ms, from where it was to the new offset exactly', () => {
+    expect(SLIDE_MS).toBe(250);
+    expect(at(0)).toEqual(from);
+    expect(at(-16)).toEqual(from);
+    expect(at(SLIDE_MS)).toBe(to);
+    expect(at(SLIDE_MS + 1000)).toBe(to);
+    const [x, y] = along(SLIDE_MS - 1);
+    expect(x).toBeLessThan(1);
+    expect(x).toBeGreaterThan(0.99);
+    expect(y).toBeCloseTo(x as number, 12);
+  });
+
+  it('eases out: fast at first, settling at the end, never back or past', () => {
+    expect(along(125)[0]).toBeCloseTo(0.875, 12);
+    let was = 0;
+    for (let ms = 5; ms <= SLIDE_MS; ms += 5) {
+      const [k] = along(ms) as [number];
+      expect(k, `${ms} ms`).toBeGreaterThan(was);
+      expect(k, `${ms} ms`).toBeLessThanOrEqual(1);
+      // ahead of a steady pace all the way
+      if (ms < SLIDE_MS) expect(k, `${ms} ms`).toBeGreaterThan(ms / SLIDE_MS);
+      was = k;
+    }
+    // the first 25 ms cover far more ground than the last 25
+    const first = along(25)[0] as number;
+    const last = 1 - (along(SLIDE_MS - 25)[0] as number);
+    expect(first).toBeGreaterThan(last * 50);
+  });
+
+  it('lands at once with reduced motion', () => {
+    expect(at(0, true)).toBe(to);
+    expect(at(100, true)).toBe(to);
+  });
+
+  it('slides from none and back to none', () => {
+    expect(slideOffset(NO_OFFSET, to, 125, false)).toEqual({ x: 204 * 0.875, y: 12 * 0.875 });
+    expect(slideOffset(to, NO_OFFSET, SLIDE_MS, false)).toBe(NO_OFFSET);
   });
 });

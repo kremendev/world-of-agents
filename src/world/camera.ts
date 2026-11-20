@@ -76,3 +76,22 @@ export function viewOffset(
   const y = (bottom - top) / 2;
   return x === 0 && y === 0 ? null : { x, y };
 }
+
+/** A view offset as viewOffset() gives it, none being NO_OFFSET. */
+export type Offset = { readonly x: number; readonly y: number };
+export const NO_OFFSET: Offset = { x: 0, y: 0 };
+
+/** How long the view takes to move to a new free area (Dima, 20 Nov), in ms. */
+export const SLIDE_MS = 250;
+
+/**
+ * The view offset `elapsed` ms into its move from `from` to `to`, when the free area changes (a card or the drawer
+ * opening or closing; Dima, 20 Nov): eased out (cubic) over SLIDE_MS, so it starts fast and settles; at once with
+ * reduced motion.
+ */
+export function slideOffset(from: Offset, to: Offset, elapsed: number, reduced: boolean): Offset {
+  if (reduced || elapsed >= SLIDE_MS) return to;
+  const k = Math.max(0, elapsed) / SLIDE_MS;
+  const e = 1 - (1 - k) ** 3;
+  return { x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e };
+}
