@@ -22,6 +22,7 @@ import { FETCH, START, WORK, placeFor } from '../places';
 import { workingCount, type OfficeState } from '../../state/office';
 import { forgeFlicker, forgeLook } from '../forge';
 import { figureMode } from '../clips';
+import { screenLit } from '../screens';
 import { idleTick, type IdleRuns, type Where } from '../idleRun';
 import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
@@ -114,8 +115,6 @@ export async function createWorld(opts: WorldOptions) {
   let office: OfficeState | null = null;
   let live = false;
   const scrolls = new Set<string>();
-  /** A dev at its desk doing its work: its screen lit (the plan's table: the work, its screen lit). */
-  const LIT: ReadonlySet<string> = new Set(['thinking', 'reading', 'writing', 'waiting']);
   const atWork: Partial<Record<AgentKey, boolean>> = {};
 
   /* ---------------- bake: everything that never moves is merged by material,
@@ -937,8 +936,13 @@ export async function createWorld(opts: WorldOptions) {
         needsYou: office?.agents[a.id].state === 'needs-you',
         hasRaise: !!a.model.acts.raise_hand,
       });
-      atWork[a.id] =
-        !p.walking && !held && w.spot === WORK[a.id] && !!office && LIT.has(office.agents[a.id].state);
+      // at its own work spot doing its work: its screen lit, if it has one (../screens.ts, D12)
+      atWork[a.id] = screenLit(a.id, {
+        spot: w.spot,
+        walking: p.walking,
+        held,
+        state: office?.agents[a.id].state ?? null,
+      });
       walkingNow[a.id] = p.walking;
       seatedNow[a.id] = !p.walking && (mode === 'sit' || SEATED.has(pose));
       cast.lanternFor(a, mode, t);

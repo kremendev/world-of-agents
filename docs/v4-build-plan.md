@@ -23,7 +23,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.3 small talk
 - [x] 4c.4 the furnace and the flames
 - [x] 4c.5 needs-you and error markers
-- [ ] 4c.6 the screens
+- [x] 4c.6 the screens
 - [ ] 4c.7 4c's docs
 - [ ] 4f.1 the assets test
 - [ ] 4f.2 the size budget test
@@ -412,3 +412,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4c.5, the markers.** Choice: the needs-you marker is the banner's raised hand in `--ui-needs-bg` on an
   `--ui-flag` disc (amber), the error marker a bold "!" in `--ui-on-danger` on `--ui-danger-fill`, both over the tag in
   the labels layer (hidden from screen readers with it), bobbing a quarter rem by CSS, still with reduced motion.
+- **4c.6, which screens.** The keep has two lit screens, the dev desks' (4b already lit them by the rule); the Library's
+  orb, the War hall's task board and the keyboards' red keys are not screens. Choice: the rule moves into
+  `src/world/screens.ts`, pure (`SCREENS`, each at its owner's work spot, and `screenLit()`), the world lights both
+  through it, and its test also reads the scene's source, so a third `desk('screen')` without an owner fails. Why: the
+  rule then holds for any screen added later, and nothing new is drawn.
