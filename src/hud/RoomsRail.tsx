@@ -1,6 +1,9 @@
 import { roomLabel, type RoomBadge, type View } from './rooms';
 
 type Props = {
+  /** For the narrow window's Rooms button (D15): its id, and whether that menu shows it. */
+  id?: string;
+  open?: boolean;
   badges: readonly RoomBadge[];
   /** The view the camera was last sent to; null once it moved by hand or follows an agent. */
   view: View | null;
@@ -14,9 +17,9 @@ type Props = {
  * pressed. A room's badge says how many agents are in it, in the needs-you colours when one of them needs you; the
  * badge is for the eye, and the button's name says the same in words. Under them, the Cutaway toggle.
  */
-export function RoomsRail({ badges, view, onView, cutaway, onCutaway }: Props) {
+export function RoomsRail({ id, open = false, badges, view, onView, cutaway, onCutaway }: Props) {
   return (
-    <nav className="hud-panel hud-rail" aria-label="Rooms">
+    <nav id={id} className={open ? 'hud-panel hud-rail open' : 'hud-panel hud-rail'} aria-label="Rooms">
       <h2 className="hud-rail-head">Rooms</h2>
       <ul className="hud-rooms">
         <li>

@@ -16,7 +16,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.6 world labels: name tags and bubbles
 - [x] 4d.7 needs-you banner and Show me
 - [x] 4d.8 status line
-- [ ] 4d.9 narrow layouts
+- [x] 4d.9 narrow layouts
 - [ ] 4d.10 4d's docs and leftovers
 - [ ] 4c.1 idle life: the schedule
 - [ ] 4c.2 idle life: in the world
@@ -362,3 +362,11 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   the HUD shows the page's status line whenever nobody needs you, those included, as one muted line (the hosted one
   wraps for its link); the banner takes its place otherwise. Why: the same words in both layouts, and the local Demo's
   line is the only place that says a hall is still watching behind it.
+- **4d.9, the wrapped top bar.** Under 48rem the top bar wraps, to two rows or more (the task input, long tiles, a big
+  browser zoom). Choice: App measures the bar (`useBox`) and sets `--hud-top` to its height plus an edge each side, so
+  the rail, the status line, the banner and the drawer always start under it; 6rem stays the fallback. Why: a fixed
+  number for "two rows" would overlap at three, and the measurement is a few lines.
+- **4d.9, the Rooms menu.** Choice: a disclosure (`aria-expanded`, `aria-controls` the rail), shown by CSS under 70rem
+  only; the rail is the same component, hidden there unless the menu is open, over the other panels. A room chosen
+  closes it, and Esc closes it before anything else, the focus back on the button. Why: one rail, no second list; Esc's
+  order follows what was opened last.

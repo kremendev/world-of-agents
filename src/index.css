@@ -2781,3 +2781,49 @@ button.tp-card:hover {
   margin: 0 0 0.625rem;
   font-size: 0.8125rem;
 }
+
+/*
+ * Narrow windows (4d.9, D15). Under 70rem the rooms are a menu behind the top bar's "Rooms" button, and what sat right of
+ * the rail moves to the edge; under 48rem (a phone) the drawer and the card take the whole width. The top bar wraps as
+ * it needs to, and what is under it starts where it ends (App measures it into --hud-top).
+ */
+.hud-rooms-button {
+  display: none;
+}
+
+@media (max-width: 70rem) {
+  .hud-rooms-button {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .hud-rail {
+    display: none;
+    z-index: 2;
+  }
+
+  .hud-rail.open {
+    display: block;
+  }
+
+  .hud-under,
+  .hud-card {
+    left: var(--hud-edge);
+  }
+
+  .hud-agents {
+    max-width: calc(100% - var(--hud-edge) * 2);
+  }
+}
+
+@media (max-width: 48rem) {
+  .hud-drawer {
+    left: var(--hud-edge);
+    width: auto;
+  }
+
+  .hud-card {
+    right: var(--hud-edge);
+    width: auto;
+  }
+}

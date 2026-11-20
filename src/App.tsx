@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import type { AgentId } from './events/schema';
 import { finalReport, shortLine, waitingAgents, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
@@ -108,8 +108,16 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const [cutaway, setCutaway] = useState(false);
   const showView = (next: View) => {
     setView(next);
+    setRoomsOpen(false);
     world?.flyToRoom(next);
   };
+  // In a narrow window (D15) the rail is a menu behind the top bar's "Rooms" button; a choice closes it.
+  const [roomsOpen, setRoomsOpen] = useState(false);
+  const roomsButton = useRef<HTMLButtonElement>(null);
+  const railId = useId();
+  // The top bar wraps in a narrow window; what sits under it starts where it ends (--hud-top), measured.
+  const topBar = useRef<HTMLElement>(null);
+  const topBox = useBox(topBar, keep);
   const toggleCutaway = () => {
     world?.setOpenHouses(!cutaway);
     setCutaway(!cutaway);
@@ -226,11 +234,17 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
       document.querySelector<HTMLElement>('.hud-drawer [role="tab"][aria-selected="true"]')?.focus();
   }, [drawerOpen]);
 
-  // Esc in the HUD (D19): the review board closes first (its own handler), then the card, then the drawer.
+  // Esc in the HUD (D19): the review board closes first (its own handler), then the narrow window's rooms menu, then
+  // the card, then the drawer.
   useEffect(() => {
-    if (!keep || teamOpen || sideOpen || (card === null && !drawerOpen)) return;
+    if (!keep || teamOpen || sideOpen || (card === null && !drawerOpen && !roomsOpen)) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      if (roomsOpen) {
+        setRoomsOpen(false);
+        roomsButton.current?.focus();
+        return;
+      }
       if (card !== null) {
         cardFocusBack.current = card;
         setCard(null);
@@ -242,7 +256,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [keep, teamOpen, sideOpen, card, drawerOpen]);
+  }, [keep, teamOpen, sideOpen, card, drawerOpen, roomsOpen]);
 
   useEffect(() => {
     if (!demo) return;
@@ -491,10 +505,16 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // and what is below it. Their order is the HUD's tab order too: top bar, status, rooms, the world, agents, card, drawer.
   return (
     <>
-      <main className={keep ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'} hidden={teamOpen}>
+      <main
+        className={keep ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'}
+        hidden={teamOpen}
+        style={
+          keep && topBox ? ({ '--hud-top': `calc(${topBox.height}px + 2rem)` } as CSSProperties) : undefined
+        }
+      >
         {keep ? (
           <>
-            <header className="hud-panel hud-top">
+            <header ref={topBar} className="hud-panel hud-top">
               <TopBar
                 version={hall.version ?? VERSION}
                 mode={mode}
@@ -517,6 +537,12 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 }
                 onPlayDemo={live && hall.status !== 'checking' ? playDemo : undefined}
                 onTeam={live && hall.status !== 'checking' ? openTeam : undefined}
+                rooms={{
+                  open: roomsOpen,
+                  controls: railId,
+                  onToggle: () => setRoomsOpen(!roomsOpen),
+                  buttonRef: roomsButton,
+                }}
               />
             </header>
             <div className="hud-under">
@@ -529,6 +555,8 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               )}
             </div>
             <RoomsRail
+              id={railId}
+              open={roomsOpen}
               badges={roomBadges(office)}
               view={view}
               onView={showView}

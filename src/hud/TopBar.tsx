@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { agentById } from '../office/roster';
 import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
@@ -31,6 +31,8 @@ type Props = {
   /** Live: "Play demo" and "Team", where the page offers them today. */
   onPlayDemo?: () => void;
   onTeam?: () => void;
+  /** In a narrow window (D15), the rooms as a menu: the disclosure button that shows and hides the rail. */
+  rooms?: { open: boolean; controls: string; onToggle: () => void; buttonRef?: Ref<HTMLButtonElement> };
 };
 
 /** Today's dashboard: up to 5 tiles, or 4 and "+N" when there are more. */
@@ -104,7 +106,7 @@ function IconButton({
  * tasks the task input), then the controls. The run line is one line: what it can't show it cuts, and says whole in its
  * title. Tiles keep the order the tasks came in; each one's title is its task's.
  */
-export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam }: Props) {
+export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam, rooms }: Props) {
   const { tasks } = office;
   const line = [
     runText ? `Run: ${runText}` : null,
@@ -131,6 +133,18 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           </span>
         )}
       </div>
+      {rooms && (
+        <button
+          ref={rooms.buttonRef}
+          type="button"
+          className="hud-button hud-rooms-button"
+          aria-expanded={rooms.open}
+          aria-controls={rooms.controls}
+          onClick={rooms.onToggle}
+        >
+          Rooms
+        </button>
+      )}
       <span className="hud-divider" aria-hidden="true" />
       <div className="hud-run">
         {demo && tasks.length === 0 ? (

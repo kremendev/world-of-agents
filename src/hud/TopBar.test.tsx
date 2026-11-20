@@ -179,4 +179,26 @@ describe("the HUD's top bar (4d.2)", () => {
     expect(onPlayDemo).toHaveBeenCalledOnce();
     expect(onTeam).toHaveBeenCalledOnce();
   });
+
+  it('in a narrow window, a Rooms button that shows and hides the rooms, where it is given one', () => {
+    const onToggle = vi.fn();
+    const { rerender } = bar();
+    expect(screen.queryByRole('button', { name: 'Rooms' })).toBeNull();
+    rerender(
+      <TopBar
+        version="4.0.0"
+        mode={{}}
+        office={three}
+        runText={null}
+        ledger={null}
+        demo={null}
+        rooms={{ open: true, controls: 'rail', onToggle }}
+      />,
+    );
+    const rooms = screen.getByRole('button', { name: 'Rooms' });
+    expect(rooms).toHaveAttribute('aria-expanded', 'true');
+    expect(rooms).toHaveAttribute('aria-controls', 'rail');
+    fireEvent.click(rooms);
+    expect(onToggle).toHaveBeenCalledOnce();
+  });
 });

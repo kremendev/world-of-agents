@@ -420,3 +420,40 @@ describe('the status line (4d.8, D20)', () => {
     });
   });
 });
+
+describe('narrow windows (4d.9, D15)', () => {
+  it('the top bar has a Rooms button that shows and hides the rooms, a disclosure', async () => {
+    undoLayout();
+    undoLayout = stubLayout(1000, 700);
+    render(<App />);
+    await settle();
+    const button = screen.getByRole('button', { name: 'Rooms' });
+    const rail = screen.getByRole('navigation', { name: 'Rooms' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveAttribute('aria-controls', rail.id);
+    expect(rail).not.toHaveClass('open');
+    fireEvent.click(button);
+    expect(button).toHaveAttribute('aria-expanded', 'true');
+    expect(rail).toHaveClass('open');
+    // a choice closes the menu
+    fireEvent.click(screen.getByRole('button', { name: /^Tavern/ }));
+    expect(world.flyToRoom).toHaveBeenLastCalledWith('tavern');
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    // Esc closes it first, the focus back on the button
+    fireEvent.click(button);
+    screen.getByRole('button', { name: 'Whole keep' }).focus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(button).toHaveAttribute('aria-expanded', 'false');
+    expect(button).toHaveFocus();
+  });
+
+  it('starts with the drawer closed, and puts what is under the top bar where the top bar ends', async () => {
+    undoLayout();
+    undoLayout = stubLayout(700, 900);
+    const { container } = render(<App />);
+    await settle();
+    expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
+    // every element is 900 px tall here: the top bar's own height, and an edge each side
+    expect(main(container).style.getPropertyValue('--hud-top')).toBe('calc(900px + 2rem)');
+  });
+});
