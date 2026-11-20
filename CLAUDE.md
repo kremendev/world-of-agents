@@ -189,7 +189,11 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   VISIT, CHECK, and placeFor(), the 2D hall's destinationFor() on the keep's spots with Dima's answers
                   (map.ts has 4b's seven spots after the town's 21). walkers.ts (4b): the 2D hall's walkers with the
                   town's turn mid-path at the 2.5x hurry, the 3 s desk hold and reduced motion's jump; world.ts's
-                  update(office, live) and restart(), fed by WorldView. check/: the
+                  update(office, live) and restart(), fed by WorldView. 4c: idle.ts (D9's idle activities on the
+                  keep's idle spots, pure and seeded), idleRun.ts (the walkers' side: who moves on, never two on one
+                  spot), clips.ts (the pose-to-clip table, SEATED, figureMode(): a needs-you figure's raised hand),
+                  forge.ts (the furnace's colour and heat by working count), screens.ts (each lit screen at its
+                  owner's work spot, and when it glows); all pure, read by scene/world.ts. check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
                   camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
@@ -272,6 +276,13 @@ they show (not while the agent walks or is off the view), agent text through `Ag
 of a hand move, a click on a figure and the heads each frame (one listener each, the page's); the page tells it where
 to fly, whom to follow and whether to cut away. Esc closes the review board, the rooms menu, the card, then the
 drawer, the focus going back each time.
+
+**What the keep shows (4c)**, beside where the agents are (4b): resting agents live on the keep's idle spots, never a
+work room or the Forge (`src/world/idle.ts`, a fixed seed), a work event pulling them away at once; idle agents standing
+together trade our own small talk (`src/hud/smallTalk.ts`, never agent output); the furnace takes the 2D hall's three
+mouth colours by working count; a raised hand or a "!" over the tag of an agent that needs you or failed; each of the
+two screens glows only while its owner works at it. Reduced motion: no wandering, no idle clip, no flicker, sparks or
+bob; the furnace's colour still changes.
 
 - **Units are art pixels.** The hall is 672 x 480 art px; the design shows it at 2 CSS px per art px (1344 x 960).
 - **Sprites** are `{ rows: string[], palette: Record<char, hex> }`. One string per row, `.` = transparent.
@@ -1286,4 +1297,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
 19. The v4.0.0 build plan (docs/v4-build-plan.md, Dima, 19 Nov): fast, the heavy checks in its phase T, every open
     question answered (D1 to D23), the order 4d, 4c, 4f; a step's commit ticks it, and a question the plan doesn't answer
     is decided by its rule and logged at its end. 4d is done (19 and 20 Nov, 4d.1 to 4d.10): the HUD over the world,
-    tested by React and Vitest tests only; its Edge checks wait for T (docs/v4.0-plan.md, Parts, 4d). Next: 4c.
+    tested by React and Vitest tests only; its Edge checks wait for T (docs/v4.0-plan.md, Parts, 4d). 4c is done (20 Nov,
+    4c.1 to 4c.7): idle life, small talk, the furnace, the markers and the screens, tested the same way, not waiting for
+    the raised-hand clip (D7). Next: 4f.

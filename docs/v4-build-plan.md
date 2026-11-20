@@ -24,7 +24,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.4 the furnace and the flames
 - [x] 4c.5 needs-you and error markers
 - [x] 4c.6 the screens
-- [ ] 4c.7 4c's docs
+- [x] 4c.7 4c's docs
 - [ ] 4f.1 the assets test
 - [ ] 4f.2 the size budget test
 - [ ] 4f.3 the bundled hall's types
