@@ -15,7 +15,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.5 drawer
 - [x] 4d.6 world labels: name tags and bubbles
 - [x] 4d.7 needs-you banner and Show me
-- [ ] 4d.8 status line
+- [x] 4d.8 status line
 - [ ] 4d.9 narrow layouts
 - [ ] 4d.10 4d's docs and leftovers
 - [ ] 4c.1 idle life: the schedule
@@ -357,3 +357,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   (the visible words first), and the banner is a region named "Needs you". Why: a screen reader's list of buttons tells
   them apart. `whoIsWaiting()` keeps its words, now built from `waitingAgents()` and `waitingWords()`, which the banner
   uses too.
+- **4d.8, which states get the line.** D20 lists Live's and the hosted demo's; the page also says something in a local
+  Demo ("Demo · the hall keeps watching Claude Code", "Demo · a scripted run") and while it looks for the hall. Choice:
+  the HUD shows the page's status line whenever nobody needs you, those included, as one muted line (the hosted one
+  wraps for its link); the banner takes its place otherwise. Why: the same words in both layouts, and the local Demo's
+  line is the only place that says a hall is still watching behind it.

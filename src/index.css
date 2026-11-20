@@ -2235,9 +2235,11 @@ button.tp-card:hover {
   pointer-events: auto;
 }
 
-.hud-under .status-line {
-  height: auto;
+/* The status line (4d.8, D20): muted, one line, on a slim panel; the hosted demo's wraps so its link shows. */
+.hud-status {
+  box-sizing: border-box;
   max-width: 100%;
+  margin: 0;
   padding: 0.25rem 0.875rem;
   border: 1px solid var(--ui-line-strong);
   border-radius: 0.75rem;
@@ -2245,15 +2247,17 @@ button.tp-card:hover {
   color: var(--ui-muted);
   font-size: 0.8125rem;
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.hud-under .status-line.needs-you {
-  border-color: var(--ui-flag);
-  background: var(--ui-needs-bg);
-  color: var(--ui-needs);
+.hud-status.wraps {
+  white-space: normal;
+  overflow: visible;
 }
 
-.hud-under .status-line a {
+.hud-status a {
   color: var(--ui-link);
 }
 

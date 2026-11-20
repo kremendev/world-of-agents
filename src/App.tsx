@@ -6,6 +6,7 @@ import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { AgentCard } from './hud/AgentCard';
 import { AgentList } from './hud/AgentList';
 import { Drawer, type DrawerTab } from './hud/Drawer';
+import { HudStatus } from './hud/HudStatus';
 import { NeedsYou } from './hud/NeedsYou';
 import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
 import { roomBadges, type View } from './hud/rooms';
@@ -447,21 +448,23 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     </>
   );
 
+  // What the status line says; the hosted demo's ends in a link to the README.
+  const statusWords = hosted ? (
+    <>
+      {HOSTED_STATUS}{' '}
+      <a href={REPO_URL} rel="noreferrer">
+        README
+      </a>
+    </>
+  ) : (
+    status
+  );
   const statusLine = (
     <p
       className={waiting.length > 0 ? 'status-line needs-you' : hosted ? 'status-line hosted' : 'status-line'}
       title={status}
     >
-      {hosted ? (
-        <>
-          {HOSTED_STATUS}{' '}
-          <a href={REPO_URL} rel="noreferrer">
-            README
-          </a>
-        </>
-      ) : (
-        status
-      )}
+      {statusWords}
     </p>
   );
 
@@ -517,7 +520,13 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               />
             </header>
             <div className="hud-under">
-              {waitingIds.length > 0 ? <NeedsYou waiting={waitingIds} onShowMe={showMe} /> : statusLine}
+              {waitingIds.length > 0 ? (
+                <NeedsYou waiting={waitingIds} onShowMe={showMe} />
+              ) : (
+                <HudStatus title={status} wraps={hosted}>
+                  {statusWords}
+                </HudStatus>
+              )}
             </div>
             <RoomsRail
               badges={roomBadges(office)}

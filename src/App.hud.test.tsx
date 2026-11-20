@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
 import type { AgentId, OfficeEvent } from './events/schema';
 import { FakeEventSource } from './test/fakeEventSource';
+import { RETRY_MS } from './live/hall';
 import { CONTEXT_GRACE_MS } from './world/support';
 import { fakeWorld, stubLayout, type FakeWorld } from './test/fakeWorld';
 
@@ -326,7 +327,7 @@ describe('the needs-you banner and Show me, in Live (4d.7)', () => {
     expect(within(under).getByRole('region', { name: 'Needs you' })).toHaveTextContent(
       'Backend dev needs your approval in Claude Code',
     );
-    expect(under.querySelector('.status-line')).toBeNull();
+    expect(under.querySelector('.hud-status')).toBeNull();
     // the live region says it as it always has
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
       'Backend dev needs your approval in Claude Code',
@@ -353,6 +354,69 @@ describe('the needs-you banner and Show me, in Live (4d.7)', () => {
     act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));
     await settle();
     expect(container.querySelector('.hud-needs')).toBeNull();
-    expect(container.querySelector('.hud-under .status-line')).not.toBeNull();
+    expect(container.querySelector('.hud-under .hud-status')).not.toBeNull();
+  });
+});
+
+describe('the status line (4d.8, D20)', () => {
+  const line = (container: HTMLElement) => container.querySelector('.hud-under .hud-status') as HTMLElement;
+
+  it("the hosted demo's line, which wraps so its link to the README shows", async () => {
+    const { container } = render(<App />);
+    await settle();
+    expect(line(container)).toHaveClass('wraps');
+    expect(line(container)).toHaveTextContent(/^Demo · scripted run with no AI calls\..* README$/);
+    expect(within(line(container)).getByRole('link', { name: 'README' })).toHaveAttribute(
+      'href',
+      'https://github.com/kremendev/world-of-agents',
+    );
+  });
+
+  describe('in Live', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.unstubAllEnvs();
+      FakeEventSource.all = [];
+      vi.stubGlobal('EventSource', FakeEventSource);
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, version: '9.8.7' }) })),
+      );
+    });
+    afterEach(() => vi.unstubAllGlobals());
+
+    const live = async (...events: OfficeEvent[]) => {
+      const view = render(<App />);
+      await settle();
+      act(() => {
+        for (const e of events) FakeEventSource.latest.send(e);
+        FakeEventSource.latest.replayed();
+      });
+      await settle();
+      return view;
+    };
+
+    it('waiting for a task, then for your next message, then a session ended: one muted line each', async () => {
+      const { container } = await live();
+      expect(line(container)).toHaveTextContent(
+        'Live · Type your task in Claude Code. The hall only watches.',
+      );
+      expect(line(container)).not.toHaveClass('wraps');
+      act(() => FakeEventSource.latest.send({ type: 'awaiting-prompt', at: 1 }));
+      expect(line(container)).toHaveTextContent('Lead/PM is waiting for your next message in Claude Code');
+      act(() => FakeEventSource.latest.send({ type: 'session-end', at: 2 }));
+      expect(line(container)).toHaveTextContent('Session ended · waiting for the next one');
+      expect(line(container)).toHaveAttribute('title', 'Session ended · waiting for the next one');
+    });
+
+    it('the hall offline, then restarted', async () => {
+      const { container } = await live();
+      act(() => FakeEventSource.latest.fail());
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(line(container)).toHaveTextContent('Hall offline · reconnecting');
+      act(() => vi.advanceTimersByTime(RETRY_MS));
+      act(() => FakeEventSource.latest.replayed('hall-start-id-02'));
+      expect(line(container)).toHaveTextContent('Live · Hall restarted. Earlier events are gone.');
+    });
   });
 });
