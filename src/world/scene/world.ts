@@ -20,6 +20,7 @@ import { CAMERA, roomView } from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
 import type { OfficeState } from '../../state/office';
+import { idleTick, type IdleRuns, type Where } from '../idleRun';
 import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
@@ -481,6 +482,49 @@ export async function createWorld(opts: WorldOptions) {
     deskF.g.add(sp);
     sparks.push(sp);
   }
+  // Idle life's props (4c.2): an orc in the yard strikes the training dummy it faces, and sparks fly now and then; an
+  // orc drinking in the Tavern holds a mug. Made here, after the bake, so they can show and hide.
+  const sparkSprite = (i: number) => {
+    const sp = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: TEX.spark,
+        color: i % 2 ? '#ffd27a' : '#ffffff',
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    sp.scale.setScalar(0.22);
+    sp.raycast = () => {};
+    return sp;
+  };
+  const YARD_SPARKS = (['yard-1', 'yard-2'] as const).map((spot, j) => {
+    const sp = SPOTS[spot];
+    const g = new THREE.Group();
+    // between the orc and its dummy, 1.4 m ahead of the spot
+    g.position.set(sp.x + Math.sin(sp.ry) * 1.1, 1.2, sp.z + Math.cos(sp.ry) * 1.1);
+    const sprites = [0, 1, 2].map(sparkSprite);
+    g.add(...sprites);
+    scene.add(g);
+    return { spot, sprites, ph: j * 1.7 };
+  });
+  const MUGS: Partial<Record<AgentKey, THREE.Object3D>> = {};
+  for (const id of ['frontend', 'backend'] as const) {
+    const hand = cast.actors[id].root.getObjectByName('mixamorigRightHand');
+    if (!hand) continue;
+    const mug = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.13, 10), toon(COL.woodL));
+    const foam = new THREE.Mesh(new THREE.CylinderGeometry(0.057, 0.057, 0.025, 10), toon('#f3ead2'));
+    foam.position.y = 0.075;
+    mug.add(body, foam);
+    mug.position.set(0, 0.09, 0.05);
+    hand.add(mug);
+    cast.actors[id].root.updateMatrixWorld(true);
+    mug.scale.setScalar(1 / hand.getWorldScale(new THREE.Vector3()).x);
+    mug.visible = false;
+    MUGS[id] = mug;
+  }
 
   /* ---------------- lights stay put
      three.js rebuilds every material when the number of visible lights changes. Lights that hung on folding walls,
@@ -824,6 +868,11 @@ export async function createWorld(opts: WorldOptions) {
   const followAt = new THREE.Vector3();
   // the page's labels (4d.6): where each figure's head is on screen, after the camera has moved, every frame
   const walkingNow: Partial<Record<AgentKey, boolean>> = {};
+  // idle life (4c.2): each resting agent's activity, run a few times a second; a fixed seed, so a check sees one keep
+  let idleRuns: IdleRuns = {};
+  let idleAt = Number.NEGATIVE_INFINITY;
+  const IDLE_SEED = 0x5eed;
+  const AT_REST: ReadonlySet<string> = new Set(['idle', 'done']);
   const seatedNow: Partial<Record<AgentKey, boolean>> = {};
   let framed: ((heads: Heads) => void) | null = null;
   const headAt = new THREE.Vector3();
@@ -880,6 +929,26 @@ export async function createWorld(opts: WorldOptions) {
       seatedNow[a.id] = !p.walking && (mode === 'sit' || SEATED.has(pose));
       cast.lanternFor(a, mode, t);
       cast.drive(a, mode, dt, p.walking ? null : w.spot, w.walk ? w.walk.speed / speed : 1);
+      const mug = MUGS[a.id];
+      if (mug) {
+        const run = idleRuns[a.id];
+        mug.visible = !!run && run.act.prop === 'mug' && !p.walking && w.spot === run.act.spot;
+      }
+    }
+    // idle life (4c.2): a few times a second, each resting agent's activity, and where the ones that move on go
+    if (office && now - idleAt >= 250) {
+      idleAt = now;
+      const rest = new Set(CAST_FILES.filter((id) => AT_REST.has(office?.agents[id].state ?? 'idle')));
+      const where = {} as Record<AgentKey, Where>;
+      for (const id of CAST_FILES) {
+        const w = walkers[id];
+        where[id] = { spot: w.spot, to: w.walk?.to ?? null, walking: !!walkingNow[id] };
+      }
+      const tick = idleTick(idleRuns, rest, where, now, { seed: IDLE_SEED, reducedMotion: REDUCE });
+      idleRuns = tick.runs;
+      for (const [id, to] of Object.entries(tick.to) as [AgentKey, SpotId][]) {
+        walkers[id] = sendTo(walkers[id], to, now, FIGURES[id].speed, REDUCE, WORK[id]);
+      }
     }
     const smashing = !!atWork.frontend && office?.agents.frontend.state === 'writing';
     // the furnace burns as hard as the team works
@@ -921,6 +990,25 @@ export async function createWorld(opts: WorldOptions) {
         );
         sp.material.rotation = t * 3 + i;
       });
+      for (const ys of YARD_SPARKS) {
+        const striking = (['frontend', 'backend'] as const).some((id) => {
+          const run = idleRuns[id];
+          return (
+            run?.act.prop === 'sparks' &&
+            run.act.spot === ys.spot &&
+            walkers[id].spot === ys.spot &&
+            !walkingNow[id]
+          );
+        });
+        // a strike now and then: a short burst at each peak, about every 3.5 s
+        const k = Math.abs(Math.sin(t * 0.9 + ys.ph));
+        ys.sprites.forEach((sp, i) => {
+          const hit = striking && k > 0.97;
+          sp.material.opacity = hit ? (k - 0.97) * 33 : 0;
+          sp.position.set((i - 1) * 0.16, (i % 2) * 0.1 + (hit ? (1 - k) * 6 : 0), 0);
+          sp.material.rotation = t * 3 + i;
+        });
+      }
       if (deskF.kb) deskF.kb.position.y = (deskF.kb.userData.y0 as number) + (smashing && k < 0.2 ? 0.03 : 0);
       const ep = embers.geometry.attributes.position as THREE.BufferAttribute;
       const eh = embers.userData.h as Float32Array;
@@ -1038,7 +1126,9 @@ export async function createWorld(opts: WorldOptions) {
       live = isLive;
       const now = performance.now();
       for (const id of CAST_FILES) {
-        const to = placeFor(id, next, live, scrolls);
+        // at rest, an agent keeps the idle activity it is at (4c.2); placeFor() gives its rest spot
+        const run = AT_REST.has(next.agents[id].state) ? idleRuns[id] : undefined;
+        const to = run ? run.act.spot : placeFor(id, next, live, scrolls);
         if (to) walkers[id] = sendTo(walkers[id], to, now, FIGURES[id].speed, REDUCE, WORK[id]);
       }
     },
@@ -1051,6 +1141,7 @@ export async function createWorld(opts: WorldOptions) {
     restart() {
       walkers = resting();
       scrolls.clear();
+      idleRuns = {};
     },
     /**
      * Where a figure is, between frames too: the spot it stands at (a walk that has got there stands there), where it

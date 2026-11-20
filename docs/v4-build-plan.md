@@ -19,7 +19,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.9 narrow layouts
 - [x] 4d.10 4d's docs and leftovers
 - [x] 4c.1 idle life: the schedule
-- [ ] 4c.2 idle life: in the world
+- [x] 4c.2 idle life: in the world
 - [ ] 4c.3 small talk
 - [ ] 4c.4 the furnace and the flames
 - [ ] 4c.5 needs-you and error markers
@@ -383,3 +383,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 - **4c.1, when an activity's time runs.** Choice: from the moment the agent is there, so a long walk never eats the
   Lead's 8 to 15 s pause or anyone's 45 to 90 s. Why: D9's times describe what is seen. The pose-to-clip table moved to
   `src/world/clips.ts`, pure, which the figures and the schedule both read.
+- **4c.2, how idle life runs.** Choice: `src/world/idleRun.ts`, pure, decides each resting agent's activity and who
+  moves on; the world runs it four times a second, after the figures move, with a fixed seed (so a check sees the same
+  keep each time), and sends the walkers there. A resting agent starts where it stands if that is one of its idle spots,
+  so nobody walks off as the keep loads; `update()` keeps a resting agent at its activity's spot instead of its rest
+  spot; Restart clears it all. A working agent has no idle activity, so a work event pulls it away at once, from where
+  it is, as before. Why: the walker side stays pure and tested; the world only carries it out.
+- **4c.2, the props.** Choice: the mug is our own small prop (a wooden cylinder and its foam, in the kit's toon
+  materials) in the orc's right hand, shown only while it sits at a Tavern seat with the mug activity; the yard's sparks
+  are three of the desk's spark sprites between the orc and its dummy, a short burst about every 3.5 s while it stands
+  there, none with reduced motion. Why: no new asset files, and the same sprites the desk already uses.
