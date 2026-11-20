@@ -1,6 +1,7 @@
 // The figures on the app's events (4b): the demo run played into the world (the check page's ?demo), sampled twice a
 // second from its start to 15 s after its end. A fault is a figure standing still, not held at its work spot, anywhere
-// but where placeFor() puts it; an idle or done figure standing at a work spot; a walk that runs over 60 s; or a walk
+// but where placeFor() puts it, or for one at rest (idle or done), one of its idle spots (4c's idle life, T); two at
+// rest on one spot; an idle or done figure standing at a work spot; a walk that runs over 60 s; or a walk
 // that goes over furniture: every walk's whole path, once, a ray down every 15 cm meeting anything more than 25 cm above
 // the height a figure stands at there (a door's sill and a road's flagstones, up to 20 cm, are walked over; a crate, a
 // bench or a desk is 40 cm and up). A walk out of a seated spot starts on its seat and one into it ends there, so the
@@ -86,6 +87,7 @@ try {
           held: at.held,
           state: office.agents[id].state,
           place: w.placeFor(id, office, false),
+          idleSpots: w.idleSpots[id],
           idleSpot: ['tavern', 'yard', 'court', 'garden'].includes(spots[at.spot].room),
           above: +above.toFixed(2),
           where,
@@ -94,6 +96,14 @@ try {
       return { t: performance.now(), ended: w.ended, out };
     }, SEATED);
     seen.samples++;
+    const resting = (a) => a.state === 'idle' || a.state === 'done';
+    const restingAt = new Map();
+    for (const [id, a] of Object.entries(s.out)) {
+      if (a.walking || !resting(a)) continue;
+      if (restingAt.has(a.spot))
+        faults.push(`${(s.t / 1000).toFixed(1)}s ${restingAt.get(a.spot)} and ${id} both rest at ${a.spot}`);
+      restingAt.set(a.spot, id);
+    }
     for (const [id, a] of Object.entries(s.out)) {
       const was = last[id];
       if (a.walking && !was?.walking) seen.walks++;
@@ -102,7 +112,8 @@ try {
       if (!a.walking) seen.places.add(`${id}@${a.spot}`);
       seen.step = Math.max(seen.step, a.above);
       const at = `${(s.t / 1000).toFixed(1)}s ${id}`;
-      if (!a.walking && !a.held && a.place !== null && a.spot !== a.place)
+      const idleThere = resting(a) && a.idleSpots.includes(a.spot);
+      if (!a.walking && !a.held && a.place !== null && a.spot !== a.place && !idleThere)
         faults.push(`${at} stands at ${a.spot}, its place is ${a.place} (${a.state})`);
       if (!a.walking && !a.held && (a.state === 'idle' || a.state === 'done') && !a.idleSpot)
         faults.push(`${at} is ${a.state} at ${a.spot}, a work place`);

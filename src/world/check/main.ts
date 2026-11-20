@@ -1,10 +1,12 @@
 // The render check (v4.0.0, 4a): mounts the Forge Keep full window and hands the comparison script the camera, the
 // controls and a frame count, as the town's test copy does (town/test/serve.sh); from 4b also the cast, a way to put
 // a figure on a spot, and the spots, for the cast's comparison and the seats check. With ?demo it plays the demo run into
-// the world, as the page does, for the walking check (tools/world-check/walk.mjs). Dev server only; see index.html.
+// the world, as the page does, for the walking check (tools/world-check/walk.mjs); from T also idle life's spots, the rest
+// spots and the map's route, for walk.mjs and idle-walks.mjs. Dev server only; see index.html.
 import * as THREE from 'three';
-import { ROOM, SPOTS } from '../map';
-import { placeFor } from '../places';
+import { IDLE_SPOTS } from '../idle';
+import { ROOM, SPOTS, route } from '../map';
+import { START, placeFor } from '../places';
 import { DEMO_TASK, KEEP_STEP_MS, demoRun } from '../../script/demoRun';
 import { createPlayer } from '../../script/player';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../../state/office';
@@ -27,6 +29,9 @@ declare global {
       stop: World['stop'];
       start: World['start'];
       placeFor: typeof placeFor;
+      idleSpots: typeof IDLE_SPOTS;
+      restSpots: typeof START;
+      route: typeof route;
       readonly office: OfficeState;
       readonly ended: boolean;
       THREE: typeof THREE;
@@ -91,6 +96,9 @@ window.__world = {
   stop: () => world.stop(),
   start: () => world.start(),
   placeFor,
+  idleSpots: IDLE_SPOTS,
+  restSpots: START,
+  route,
   get office() {
     return office;
   },
