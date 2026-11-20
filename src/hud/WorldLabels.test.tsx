@@ -101,6 +101,17 @@ describe("the world's labels (4d.6)", () => {
     // a figure at the window's corner: its tag held 4 px inside (Dima, 20 Nov)
     act(() => world.frame({ lead: { x: -1, y: 1, z: 0.5, walking: false } }));
     expect(label(container, 'lead').style.transform).toBe('translate(54.0px, 24.0px) translate(-50%, -100%)');
+    // a line from each tag moved more than 12 px down to its head, in its tone, hidden from screen readers
+    const leader = (id: string) => label(container, id).querySelector('.hud-leader') as HTMLElement;
+    expect(leader('backend').style.display).toBe('none');
+    expect(leader('backend')).toHaveClass('needs');
+    expect(leader('backend')).toHaveAttribute('aria-hidden', 'true');
+    expect(leader('designer').style.display).toBe('block');
+    // the Designer, now first over the Backend dev's spot, 24 px up
+    expect(leader('designer').style.height).toBe('24px');
+    expect(leader('designer').style.transform).toBe('rotate(0.0000rad)');
+    expect(leader('lead').style.display).toBe('block');
+    expect(leader('lead').style.height).toBe(`${Math.hypot(54, 24).toFixed(1)}px`);
     for (const s of spies) s.mockRestore();
   });
 

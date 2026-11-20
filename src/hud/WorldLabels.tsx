@@ -7,7 +7,7 @@ import { AgentText } from '../page/AgentText';
 import type { Message, OfficeState } from '../state/office';
 import type { World } from '../world/scene/world';
 import type { RoomId } from '../world/map';
-import { settleTags, tagText, tagTone, toScreen, type TagBox } from './labels';
+import { leaderLine, settleTags, tagText, tagTone, toScreen, type TagBox } from './labels';
 import { keepSmallTalk } from './smallTalk';
 
 type Props = {
@@ -37,7 +37,8 @@ export const HAND =
  * after the ones before it, never while its agent walks, and its time runs only while it shows, so also not while its
  * agent is off screen. Agent text is React text through AgentText. Tags never overlap: settleTags() stacks one that would
  * cover another above it, a needs-you or failed agent's keeping its spot, and holds each tag with its marker 4 px inside
- * the window (Dima, 20 Nov); a bubble rides with its tag.
+ * the window (Dima, 20 Nov); a bubble rides with its tag. A tag moved more than 12 px from its figure's head has a thin
+ * line down to it, in its border's colour (leaderLine()).
  * Where no message shows, idle agents standing together in an idle area trade our own small talk now and then
  * (smallTalk.ts, D10). Over the tag of an agent that needs you, an
  * amber raised hand (D7); of one that failed, a red "!" (D8); both bob gently, and stand still with reduced motion.
@@ -113,6 +114,15 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
         const { x, y } = settled[id] ?? at;
         el.style.visibility = at.shown ? 'visible' : 'hidden';
         el.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -100%)`;
+        const leader = el.querySelector<HTMLElement>('.hud-leader');
+        const line = at.shown ? leaderLine({ x, y }, at) : null;
+        if (leader) {
+          leader.style.display = line ? 'block' : 'none';
+          if (line) {
+            leader.style.height = `${line.length.toFixed(1)}px`;
+            leader.style.transform = `rotate(${line.angle.toFixed(4)}rad)`;
+          }
+        }
         const talk = speak(speech.current[id] ?? SILENT, now, head.walking || !at.shown);
         speech.current[id] = talk.speech;
         // a message beats small talk, as in the 2D hall
@@ -168,6 +178,7 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
               {name}
               {plus && <span className="hud-tag-plus">{plus}</span>}
             </span>
+            <span className={tone ? `hud-leader ${tone}` : 'hud-leader'} aria-hidden="true" />
           </div>
         );
       })}

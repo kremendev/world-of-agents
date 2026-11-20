@@ -2738,6 +2738,31 @@ button.tp-card:hover {
   color: var(--ui-link);
 }
 
+/* A tag moved more than 12 px from its figure's head: a 1 px line down to it, in the tag's border colour at 60% (Dima,
+   20 Nov). WorldLabels sets its length and its turn each frame; it starts at the label's bottom middle, the tag's. */
+.hud-leader {
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 0.5px);
+  display: none;
+  width: 1px;
+  background: var(--ui-text);
+  opacity: 0.6;
+  transform-origin: 50% 0;
+}
+
+.hud-leader.selected {
+  background: var(--ui-accent);
+}
+
+.hud-leader.needs {
+  background: var(--ui-flag);
+}
+
+.hud-leader.error {
+  background: var(--ui-danger);
+}
+
 .hud-dot {
   flex: none;
   width: 0.5rem;

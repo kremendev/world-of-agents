@@ -593,3 +593,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   the top edge, seen, perhaps over another (a window under about 200 px tall). A figure off the window still has no tag
   (D16): only a shown tag is held. Tests: each edge, a marker's box, the stack at the top going down, a window too short,
   and the seeded sweep now also against the edges and corners, every box inside, none overlapping.
+- **Dima, 20 Nov, a leader line.** A tag moved by `settleTags()` more than 12 px from its anchor gets a 1 px line from
+  the tag down to the head point, in the tag's border colour at 60% opacity, aria-hidden. Still no hiding.
+- **Dima's leader line, the details.** "The tag's border colour" is the colour, not the border's own alpha: the plain
+  tag's border is the text colour at 18%, and 60% of that would leave a line nobody sees; so the line is the text
+  colour at 60% for a plain tag, and the accent, the flag or the danger colour at 60% for the selected, needs-you and
+  failed ones (the tokens, so contrast.test's no-colour-of-its-own rule holds). "Moved" counts the hold inside the
+  window too (fix 5), so a tag held in from an edge gets the line when that moves it far enough; the line then runs
+  aslant, from the tag's bottom middle to the head. A pure `leaderLine()` gives its length and its turn; the line is
+  one element inside each label, shown and turned each frame with the tag. Why: the rule's own words, then the
+  smaller build.

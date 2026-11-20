@@ -87,6 +87,23 @@ export function settleTags(
   return at;
 }
 
+/** A tag moved further than this from its figure's head, in px, gets a line down to it (Dima, 20 Nov). */
+export const LEADER_FROM = 12;
+
+/**
+ * The leader line from a tag's bottom middle to its figure's head (Dima, 20 Nov): its length in px and its turn from
+ * straight down, clockwise on the screen, in radians; null while the tag is no further than LEADER_FROM from the head.
+ */
+export function leaderLine(
+  tag: { x: number; y: number },
+  head: { x: number; y: number },
+): { length: number; angle: number } | null {
+  const dx = head.x - tag.x;
+  const dy = head.y - tag.y;
+  const length = Math.hypot(dx, dy);
+  return length > LEADER_FROM ? { length, angle: Math.atan2(tag.x - head.x, dy) } : null;
+}
+
 /** A tag's border: a needs-you or failed agent's first, then the one whose card is open. */
 export function tagTone(
   office: OfficeState,

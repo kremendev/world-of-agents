@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
 import { AGENT_IDS } from '../events/schema';
-import { settleTags, TAG_EDGE, TAG_GAP, tagText, tagTone, toScreen, type TagBox } from './labels';
+import {
+  LEADER_FROM,
+  leaderLine,
+  settleTags,
+  TAG_EDGE,
+  TAG_GAP,
+  tagText,
+  tagTone,
+  toScreen,
+  type TagBox,
+} from './labels';
 
 describe("the world's labels (4d.6)", () => {
   it('puts a projected point on the box: the middle, the corners, y down', () => {
@@ -220,5 +230,29 @@ describe('tags that would overlap (Dima, 20 Nov)', () => {
     // the sweep did meet fixed tags among the others, and tags against the edges
     expect(held).toBeGreaterThan(100);
     expect(edges).toBeGreaterThan(50);
+  });
+});
+
+describe('the leader line (Dima, 20 Nov)', () => {
+  it("is there only for a tag moved more than 12 px from its figure's head", () => {
+    expect(LEADER_FROM).toBe(12);
+    expect(leaderLine({ x: 500, y: 400 }, { x: 500, y: 400 })).toBeNull();
+    expect(leaderLine({ x: 500, y: 388 }, { x: 500, y: 400 })).toBeNull();
+    expect(leaderLine({ x: 500, y: 387 }, { x: 500, y: 400 })).toEqual({ length: 13, angle: 0 });
+  });
+
+  it('runs from the tag down to the head: its length, and its turn from straight down', () => {
+    // stacked 24 px up: straight down
+    expect(leaderLine({ x: 500, y: 376 }, { x: 500, y: 400 })).toEqual({ length: 24, angle: 0 });
+    // held inside the window's left edge: down and to the left, a turn clockwise
+    const left = leaderLine({ x: 54, y: 376 }, { x: 30, y: 400 })!;
+    expect(left.length).toBeCloseTo(Math.hypot(24, 24), 9);
+    expect(left.angle).toBeCloseTo(Math.PI / 4, 9);
+    // and to the right, the other way
+    expect(leaderLine({ x: 946, y: 376 }, { x: 970, y: 400 })!.angle).toBeCloseTo(-Math.PI / 4, 9);
+    // a turn that puts the line's end on the head: (-L sin a, L cos a) from the tag
+    const line = leaderLine({ x: 300, y: 200 }, { x: 260, y: 290 })!;
+    expect(300 - line.length * Math.sin(line.angle)).toBeCloseTo(260, 9);
+    expect(200 + line.length * Math.cos(line.angle)).toBeCloseTo(290, 9);
   });
 });

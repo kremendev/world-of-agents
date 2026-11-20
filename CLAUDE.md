@@ -209,7 +209,8 @@ src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
-                  tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another, each held 4 px inside the window), useBox
+                  tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another, each held 4 px inside the window; leaderLine(): a tag moved over 12 px from its head
+                  gets a 1 px line down to it), useBox
                   (an element's size), freeArea.ts (how far the panels reach into the world), contrast.test.ts
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
