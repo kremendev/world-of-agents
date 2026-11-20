@@ -26,7 +26,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.6 the screens
 - [x] 4c.7 4c's docs
 - [x] 4f.1 the assets test
-- [ ] 4f.2 the size budget test
+- [x] 4f.2 the size budget test
 - [ ] 4f.3 the bundled hall's types
 - [ ] 4f.4 CLAUDE.md and the README text
 - [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking)
@@ -422,3 +422,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   JPEG anywhere git knows of must be one of those or the bundled hall's byte-for-byte copy of one, every row's author
   under the document's one licence, and any GLB with Tripo's label, rigged or not, its ProduceID in its row. Why: the
   plan's "any in the repo" without testing the same thing twice.
+- **4f.2, what was there.** `tests/models.test.ts` (4a, 4b) already held the budget as the plan states it: all models
+  under 16 MB of files and 9 MB gzipped, each character under 2 MB with its JPEG. Choice: kept as it is, with one
+  assertion added: the characters it measures are exactly the five agents' models, so one exported without its skin
+  can't skip the 2 MB check. The raised-hand clip (CLIP) is measured by the same test when it lands. Why: no second
+  copy of a test that already holds.

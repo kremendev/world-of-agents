@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
+import { AGENT_IDS } from '../src/events/schema';
 
 // The Forge Keep's models (docs/v4.0-plan.md, Models and Security): our own GLB files, held here to what the page's
 // policy can load and to Dima's budget (17 Nov). MB is 10^6 bytes, as in the plan.
@@ -90,6 +91,8 @@ describe('the models', () => {
     const compressed = all.reduce((sum, b) => sum + gzipSync(b).length, 0);
     expect(total).toBeLessThan(16 * MB);
     expect(compressed).toBeLessThan(9 * MB);
+    // every agent's model is measured as a character (4f.2): one exported without its skin would skip the 2 MB
+    expect(characters.map((c) => c.name).sort()).toEqual(AGENT_IDS.map((id) => `${id}.glb`).sort());
     for (const c of characters) {
       const size =
         c.bytes.length + imagesOf(c).reduce((sum, f) => sum + readFileSync(join(DIR, f)).length, 0);
