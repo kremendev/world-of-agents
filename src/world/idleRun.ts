@@ -2,8 +2,9 @@
  * Idle life on the walkers' side (v4.0.0, 4c.2): which idle activity each resting agent is at, and when one moves on.
  * Pure, so Vitest holds it; the world runs it a few times a second and sends the walkers where it says. An agent at
  * rest (idle or done) starts where it stands if that is one of its idle spots, else at its rest spot (where the place
- * map already sends it); an activity's time runs from the moment the agent is there; then it takes its next one,
- * never a spot another agent stands at or is going to. A working agent has no idle activity, so a work event pulls it
+ * map already sends it), or, when another agent stands at that or is going there, at its first free idle spot (T: the
+ * Lead came back to the pond the Designer was idling at); an activity's time runs from the moment the agent is there;
+ * then it takes its next one, never a spot another agent stands at or is going to. A working agent has no idle activity, so a work event pulls it
  * away at once, from wherever it is, through the place map.
  */
 import { AGENT_IDS, type AgentId } from '../events/schema';
@@ -40,10 +41,16 @@ export function idleTick(
     const run = runs[agent];
     if (!run) {
       const ms = idleActivity(agent, 0, { seed, reducedMotion }).ms;
-      const standing = !here.walking && IDLE_SPOTS[agent].includes(here.spot);
-      next[agent] = standing
-        ? { n: 0, act: activityAt(agent, here.spot, ms), since: now }
-        : { n: 0, act: activityAt(agent, START[agent], ms), since: null };
+      const taken = takenBy(agent);
+      if (!here.walking && IDLE_SPOTS[agent].includes(here.spot) && !taken.has(here.spot)) {
+        next[agent] = { n: 0, act: activityAt(agent, here.spot, ms), since: now };
+        continue;
+      }
+      const spot = taken.has(START[agent])
+        ? (IDLE_SPOTS[agent].find((s) => !taken.has(s)) ?? START[agent])
+        : START[agent];
+      next[agent] = { n: 0, act: activityAt(agent, spot, ms), since: null };
+      if (spot !== START[agent]) to[agent] = spot;
       continue;
     }
     const arrived = !here.walking && here.spot === run.act.spot;

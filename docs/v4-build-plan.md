@@ -495,3 +495,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   drink at tavern-1 and tavern-2, inside (D9 asks for "drinking at the Tavern", nothing more); the map stays the town's.
   Why: the smaller build that leaves no walk through furniture, and the map's route-for-route match with the town (4a)
   kept. A way into the beer garden that clears the sign and the bench needs two way-points, a map change for later.
+- **T, two at rest on one spot.** walk.mjs, taught idle life, found the Lead and the Designer both resting at the
+  Garden pond at the demo's end: the Designer had gone to idle there while the Lead worked, and the place map sent the
+  Lead back to its rest spot. Choice: an agent coming to rest goes to its rest spot as before, unless another agent
+  stands there or is going there; then to its first free idle spot (`idleRun.ts`), the walker turning there mid-path.
+  Why: the promise of 4c.2, never two agents on one spot, then the smaller build (the place map stays as it is).

@@ -89,6 +89,28 @@ describe('idle life on the walkers (4c.2)', () => {
     expect(t.to.backend).toBeUndefined();
   });
 
+  it('an agent coming to rest where another idles goes to a free idle spot of its own instead (T)', () => {
+    // the Designer idles at the pond, the Lead's rest spot; the Lead's work ends and the place map sends it there
+    const where = atRest();
+    where.designer = { spot: 'garden-pond', to: null, walking: false };
+    where.lead = { spot: 'war-table', to: 'garden-pond', walking: true };
+    const runs: IdleRuns = {
+      designer: { n: 1, act: activityAt('designer', 'garden-pond', 60_000), since: 0 },
+    };
+    const t = tick(runs, where, 1000, new Set<AgentId>(['lead', 'designer']));
+    expect(IDLE_SPOTS.lead[0]).toBe('garden-pond');
+    expect(t.runs.lead).toMatchObject({ n: 0, act: { spot: 'court-well' }, since: null });
+    expect(t.to.lead).toBe('court-well');
+    // with its rest spot free it goes there, as the place map already sends it
+    const free = tick(
+      {},
+      { ...atRest(), lead: { spot: 'war-table', to: 'garden-pond', walking: true } },
+      1000,
+    );
+    expect(free.runs.lead).toMatchObject({ act: { spot: 'garden-pond' }, since: null });
+    expect(free.to.lead).toBeUndefined();
+  });
+
   it("counts an activity's time from when the agent gets there, never on the way", () => {
     const where = atRest();
     let { runs } = tick({}, where, 0);
