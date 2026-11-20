@@ -46,8 +46,11 @@ export type WorldOptions = {
 
 export type World = Awaited<ReturnType<typeof createWorld>>;
 
-/** A figure's head on screen: x and y from -1 to 1 across the canvas (y up), z beyond 1 behind the camera. */
-export type Head = { x: number; y: number; z: number; walking: boolean };
+/**
+ * A figure's head on screen: x and y from -1 to 1 across the canvas (y up), z beyond 1 behind the camera; whether it
+ * walks, and the room it stands in (null on the way), for the small talk (4c.3).
+ */
+export type Head = { x: number; y: number; z: number; walking: boolean; room?: RoomId | null };
 export type Heads = Record<AgentKey, Head>;
 
 export async function createWorld(opts: WorldOptions) {
@@ -884,7 +887,9 @@ export async function createWorld(opts: WorldOptions) {
       // a little over the head; seated, the head is lower (about the town's seated eye line)
       headAt.y += FIGURES[a.id].H * (seatedNow[a.id] ? 0.74 : 1) + 0.25;
       headAt.project(camera);
-      heads[a.id] = { x: headAt.x, y: headAt.y, z: headAt.z, walking: !!walkingNow[a.id] };
+      const walking = !!walkingNow[a.id];
+      const room = walking ? null : SPOTS[walkers[a.id].spot].room;
+      heads[a.id] = { x: headAt.x, y: headAt.y, z: headAt.z, walking, room };
     }
     framed(heads);
   }

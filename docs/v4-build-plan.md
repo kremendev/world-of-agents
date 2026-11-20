@@ -20,7 +20,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.10 4d's docs and leftovers
 - [x] 4c.1 idle life: the schedule
 - [x] 4c.2 idle life: in the world
-- [ ] 4c.3 small talk
+- [x] 4c.3 small talk
 - [ ] 4c.4 the furnace and the flames
 - [ ] 4c.5 needs-you and error markers
 - [ ] 4c.6 the screens
@@ -393,3 +393,9 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   materials) in the orc's right hand, shown only while it sits at a Tavern seat with the mug activity; the yard's sparks
   are three of the desk's spark sprites between the orc and its dummy, a short burst about every 3.5 s while it stands
   there, none with reduced motion. Why: no new asset files, and the same sprites the desk already uses.
+- **4c.3, small talk's rhythm.** Choice: each idle area keeps a 20 s clock of its own (offset per area, so two areas
+  seldom speak at once); in about two slots of three, the speaker (taking turns among the idle agents standing there)
+  says one of our twelve lines for the slot's first 4 s. Only agents whose state is idle, standing (not walking) in an
+  idle area, as the 2D hall's rest-room rule; a message beats it, and it shows only while its figure is on the view.
+  The world's head reports carry the room each figure stands in for this. Why: D10's "at most one bubble per area every
+  20 s", and a keep that isn't chattering every slot.

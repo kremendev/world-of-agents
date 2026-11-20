@@ -6,7 +6,9 @@ import { STATE_STYLE } from '../office/states';
 import { AgentText } from '../page/AgentText';
 import type { Message, OfficeState } from '../state/office';
 import type { World } from '../world/scene/world';
+import type { RoomId } from '../world/map';
 import { tagText, tagTone, toScreen } from './labels';
+import { keepSmallTalk } from './smallTalk';
 
 type Props = {
   world: Pick<World, 'onFrame'>;
@@ -29,12 +31,15 @@ type Said = Partial<Record<AgentId, string | null>>;
  * camera. The whole layer is hidden from screen readers: the agent list says everything a tag does, and the page's
  * live region what a bubble must not miss. A bubble follows the 2D hall's rules (talk.ts): a message's first sentence,
  * after the ones before it, never while its agent walks, and its time runs only while it shows, so also not while its
- * agent is off screen. Agent text is React text through AgentText.
+ * agent is off screen. Agent text is React text through AgentText. Where no message shows, idle agents standing together
+ * in an idle area trade our own small talk now and then (smallTalk.ts, D10).
  */
 export function WorldLabels({ world, office, card, run, hushed, width, height }: Props) {
   const els = useRef<Partial<Record<AgentId, HTMLDivElement | null>>>({});
   const size = useRef({ width, height });
   size.current = { width, height };
+  const officeNow = useRef(office);
+  officeNow.current = office;
   const speech = useRef<Partial<Record<AgentId, Speech>>>({});
   // what was said before this layer came is not news, as when the 2D hall's view changes
   const [heard] = useState(() => new WeakSet<Message>(office.messages));
@@ -60,6 +65,14 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
     return world.onFrame((heads) => {
       const now = performance.now();
       const next: Said = {};
+      // the small talk (4c.3, D10): idle agents standing together in an idle area
+      const together = new Map<RoomId, AgentId[]>();
+      for (const { id } of ROSTER) {
+        const room = heads[id]?.room;
+        if (!room || heads[id]?.walking || officeNow.current.agents[id].state !== 'idle') continue;
+        together.set(room, [...(together.get(room) ?? []), id]);
+      }
+      const chat = keepSmallTalk(together, now);
       for (const { id } of ROSTER) {
         const head = heads[id];
         const el = els.current[id];
@@ -69,7 +82,8 @@ export function WorldLabels({ world, office, card, run, hushed, width, height }:
         el.style.transform = `translate(${at.x.toFixed(1)}px, ${at.y.toFixed(1)}px) translate(-50%, -100%)`;
         const talk = speak(speech.current[id] ?? SILENT, now, head.walking || !at.shown);
         speech.current[id] = talk.speech;
-        next[id] = talk.text;
+        // a message beats small talk, as in the 2D hall
+        next[id] = talk.text ?? (at.shown ? (chat[id] ?? null) : null);
       }
       // a render only when a bubble comes, goes or changes
       if (ROSTER.some(({ id }) => (next[id] ?? null) !== (shown[id] ?? null))) {

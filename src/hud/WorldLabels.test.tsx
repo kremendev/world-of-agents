@@ -4,6 +4,7 @@ import type { OfficeEvent } from '../events/schema';
 import { speechMs } from '../office/hall/talk';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../state/office';
 import { fakeWorld, type FakeWorld } from '../test/fakeWorld';
+import { KEEP_SMALL_TALK } from './smallTalk';
 import { WorldLabels } from './WorldLabels';
 
 const add = (office: OfficeState, ...events: OfficeEvent[]) => events.reduce(officeReducer, office);
@@ -115,5 +116,28 @@ describe("the world's labels (4d.6)", () => {
     rerender(labels(add(INITIAL_OFFICE, says('From the last run.', 3)), { run: 1 }));
     act(() => world.frame());
     expect(bubble(container, 'backend')).toBeNull();
+  });
+
+  it('lets idle agents standing together in an idle area trade our own small talk, now and then (4c.3)', () => {
+    const { container } = render(labels(INITIAL_OFFICE));
+    const at = (room: 'tavern' | 'yard') => ({ x: 0, y: 0, z: 0.5, walking: false, room });
+    const bubbles = () => [...container.querySelectorAll('.hud-bubble')].map((b) => b.textContent ?? '');
+    const heard: string[] = [];
+    // apart, for a minute: nothing
+    for (let t = 0; t < 60_000; t += 500) {
+      act(() => vi.advanceTimersByTime(500));
+      act(() => world.frame({ frontend: at('tavern'), backend: at('yard') }));
+      expect(bubbles()).toEqual([]);
+    }
+    // together in the Tavern, for two minutes: lines from the list, one at a time, from those two only
+    for (let t = 0; t < 120_000; t += 500) {
+      act(() => vi.advanceTimersByTime(500));
+      act(() => world.frame({ frontend: at('tavern'), backend: at('tavern') }));
+      expect(bubbles().length).toBeLessThanOrEqual(1);
+      for (const b of bubbles()) heard.push(b);
+      for (const id of ['lead', 'designer', 'reviewer']) expect(bubble(container, id)).toBeNull();
+    }
+    expect(heard.length).toBeGreaterThan(0);
+    for (const line of heard) expect(KEEP_SMALL_TALK).toContain(line);
   });
 });
