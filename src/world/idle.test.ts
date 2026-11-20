@@ -67,7 +67,7 @@ describe('idle life: the schedule (4c.1, D9)', () => {
     expect(activityAt('frontend', 'yard-1', 1)).toMatchObject({ clip: 'idle', prop: 'sparks' });
     expect(activityAt('backend', 'yard-2', 1)).toMatchObject({ clip: 'idle', prop: 'sparks' });
     expect(activityAt('frontend', 'tavern-1', 1)).toMatchObject({ clip: 'sit', prop: 'mug' });
-    expect(activityAt('backend', 'tavern-3', 1)).toMatchObject({ clip: 'sit', prop: 'mug' });
+    expect(activityAt('backend', 'tavern-2', 1)).toMatchObject({ clip: 'sit', prop: 'mug' });
     expect(activityAt('designer', 'garden-easel', 1)).toMatchObject({ clip: 'idle', prop: null });
     expect(activityAt('designer', 'garden-pond', 1)).toMatchObject({ clip: 'idle', prop: null });
     expect(activityAt('reviewer', 'court-bench', 1)).toMatchObject({ clip: 'sit', prop: null });

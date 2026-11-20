@@ -74,19 +74,17 @@ describe('idle life on the walkers (4c.2)', () => {
   });
 
   it('never sends an agent to a spot another agent is still walking to (T)', () => {
-    // the Backend dev's time at the Tavern is up; its two other spots are where the Lead and the Frontend dev are going
+    // the Backend dev's time at the Tavern is up; its other spot, the yard's, is where the Lead is going
     const where = atRest();
     where.lead = { spot: 'garden-pond', to: 'yard-2', walking: true };
-    where.frontend = { spot: 'yard-1', to: 'tavern-3', walking: true };
     where.backend = { spot: 'tavern-2', to: null, walking: false };
     const runs: IdleRuns = {
       lead: { n: 1, act: activityAt('lead', 'yard-2', 10_000), since: null },
-      frontend: { n: 1, act: activityAt('frontend', 'tavern-3', 50_000), since: null },
       backend: { n: 0, act: activityAt('backend', 'tavern-2', 45_000), since: 0 },
     };
-    expect(IDLE_SPOTS.backend).toEqual(['tavern-2', 'yard-2', 'tavern-3']);
-    const t = tick(runs, where, 100_000, new Set<AgentId>(['lead', 'frontend', 'backend']));
-    // it takes its next activity where it is: both others are taken
+    expect(IDLE_SPOTS.backend).toEqual(['tavern-2', 'yard-2']);
+    const t = tick(runs, where, 100_000, new Set<AgentId>(['lead', 'backend']));
+    // it takes its next activity where it is: its other spot is taken
     expect(t.runs.backend).toMatchObject({ n: 1, act: { spot: 'tavern-2' } });
     expect(t.to.backend).toBeUndefined();
   });

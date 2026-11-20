@@ -487,3 +487,11 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   bar grows with them (`--hud-top` is measured, so what is under it follows). Why: every tile stays readable, the
   plan's own narrow rule is a top bar that wraps, and it is one CSS line, where hiding the tiles that don't fit would
   need measuring.
+- **T, the beer garden out of idle life** (replaces part of 4c.1's mapping). walk.mjs found the Frontend dev walking
+  under the Tavern's sign board on its way to tavern-3, and idle-walks.mjs found every walk to or from that spot doing
+  the same (8 of 22): the map's way into the beer garden, from outside the Tavern's door to tavern-3's way-point, runs
+  under the board, 1.64 to 2.06 m up, through the orcs' heads, and its last leg runs along the bench it sits on. The town
+  has the same route; nobody walked it there before idle life. Choice: tavern-3 leaves the orcs' idle spots, so they
+  drink at tavern-1 and tavern-2, inside (D9 asks for "drinking at the Tavern", nothing more); the map stays the town's.
+  Why: the smaller build that leaves no walk through furniture, and the map's route-for-route match with the town (4a)
+  kept. A way into the beer garden that clears the sign and the bench needs two way-points, a map change for later.

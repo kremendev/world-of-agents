@@ -22,12 +22,15 @@ export type IdleActivity = {
   readonly ms: number;
 };
 
-/** Where each agent may idle, its rest spot first: the keep's idle spots, shared where D9's places meet. */
+/**
+ * Where each agent may idle, its rest spot first: the keep's idle spots, shared where D9's places meet. Not the beer
+ * garden's bench (tavern-3): the map's way in passes under the Tavern's sign board, at an orc's head (T, idle-walks.mjs).
+ */
 export const IDLE_SPOTS: Readonly<Record<AgentId, readonly SpotId[]>> = {
   lead: ['garden-pond', 'court-well', 'yard-2'],
   designer: ['garden-easel', 'garden-pond'],
-  frontend: ['yard-1', 'tavern-1', 'tavern-3'],
-  backend: ['tavern-2', 'yard-2', 'tavern-3'],
+  frontend: ['yard-1', 'tavern-1'],
+  backend: ['tavern-2', 'yard-2'],
   reviewer: ['court-bench', 'tavern-1'],
 };
 
