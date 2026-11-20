@@ -10,7 +10,7 @@ WebGL a full render takes minutes.
 | `render.mjs`      | Renders the views in `views.json` of the port or of the town, the same way for both                                    |
 | `compare.mjs`     | Compares two folders of renders view by view against the rule set on 17 Nov; writes a diff image each                  |
 | `policy.mjs`      | Reports what a page's Content-Security-Policy refused, and whether the world or the 2D hall came up                    |
-| `spots.mjs`       | Every standing spot, and the walk to it from its room's hub, on clear floor; the seats as its control                  |
+| `spots.mjs`       | Every standing spot, and the walk to it from its room's hub, on clear floor; every room's spots seen from its view     |
 | `walk.mjs`        | The demo run played into the world: every figure at its place (at rest, one of its idle spots), no walk over furniture |
 | `idle-walks.mjs`  | Every walk idle life can take, between each agent's idle spots and its rest spot, on clear floor                       |
 | `seats.mjs`       | Every figure on every seated spot, in the town or the port: hips and toes against the town's rule                      |
@@ -77,6 +77,13 @@ node tools/world-check/spots.mjs http://localhost:5173/src/world/check/index.htm
 
 Rays straight down in the real scene: anything more than 8 cm above the height a figure stands at blocks. A seat must
 be found under every seated spot, or the check itself is broken.
+
+Then every room's view, as the rooms rail flies there from the whole keep: a ray from the camera to each of the room's
+spots, at the head of the smallest figure that stands or sits there, must meet nothing first but a figure, something
+drawn invisible (a house's picking box) or the room's own walls the view cuts away. Its control: from each head straight
+down, a ray meets the floor or the seat. Before the Library and the Courtyard had sides of their own (OWN_SIDE in
+`src/world/camera.ts`), it found the Library's desk and shelf behind the round tower and the Courtyard's view inside
+the gate's battlements.
 
 ## The walks
 

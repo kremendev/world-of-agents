@@ -6,6 +6,12 @@
 // standing spots are checked too, and the seated ones are the control: each stands on its chair or bench, so the ray
 // at its middle must find it, or the check itself is broken.
 //
+// Then the room views (Dima, 20 Nov): each room as the rooms rail shows it, flown to from the whole keep, so from the
+// side the camera starts on. From there, a ray from the camera to each of the room's spots, at the head of the smallest
+// figure that stands or sits there (the Lead's, the smallest of all, where none does), must meet nothing first but a
+// figure, something drawn invisible (a house's picking box) or the room's own walls the view cuts away. The control:
+// from the same head straight down, a ray meets the floor or the seat.
+//
 //   node tools/world-check/spots.mjs <url of the render check page>      exit 1 when anything blocks
 import { chromium } from 'playwright-core';
 
@@ -80,6 +86,85 @@ try {
     }
     return { rows, controls, seated: Object.values(spots).filter((s) => SEATED.has(s.pose)).length };
   });
+  // the room views, one at a time: fly there as the rail does from the whole keep, let the houses open, then the rays
+  const views = [];
+  for (const id of Object.keys(await page.evaluate(() => window.__world.rooms))) {
+    const at = await page.evaluate((id) => {
+      window.__world.flyToRoom('overview');
+      window.__world.flyToRoom(id);
+      return window.__world.frames;
+    }, id);
+    await page.waitForFunction((at) => window.__world.frames >= at + 4, at, { timeout: 300000 });
+    views.push(
+      await page.evaluate((id) => {
+        const { THREE, scene, camera, spots, houses, figures, places, idleSpots, restSpots, groundY } =
+          window.__world;
+        scene.updateMatrixWorld(true);
+        const SEATED = new Set(['type', 'smash', 'readsit', 'sit', 'drink']);
+        // who stands or sits at each spot: work, scrolls, visits (the Reviewer's), the Lead's check, idle life, rest
+        const users = {};
+        const use = (spot, agent) => (users[spot] ??= new Set()).add(agent);
+        for (const [a, s] of Object.entries(places.work)) use(s, a);
+        for (const [a, s] of Object.entries(places.fetch)) use(s, a);
+        for (const s of Object.values(places.visit)) use(s, 'reviewer');
+        use(places.check, 'lead');
+        for (const [a, list] of Object.entries(idleSpots)) for (const s of list) use(s, a);
+        for (const [a, s] of Object.entries(restSpots)) use(s, a);
+        // the room's own walls the view cuts away (folded down), the only thing a ray may pass
+        const house = houses[id];
+        const cut = house
+          ? Object.values(house.sides)
+              .filter((w) => w.s < 0.5)
+              .map((w) => w.g)
+          : [];
+        const within = (o, g) => {
+          for (let q = o; q; q = q.parent) if (q === g) return true;
+          return false;
+        };
+        const skip = (o) => {
+          for (let q = o; q; q = q.parent) if (q.userData.agentId || !q.visible) return true;
+          return (
+            !o.isMesh ||
+            o.material.transparent ||
+            o.material.visible === false ||
+            cut.some((g) => within(o, g))
+          );
+        };
+        const owner = (o) => {
+          for (const [hid, h] of Object.entries(houses)) if (within(o, h.g)) return `the ${hid} house`;
+          return 'the grounds';
+        };
+        const ray = new THREE.Raycaster();
+        const eye = camera.position.clone();
+        const rows = [];
+        let control = 0;
+        for (const [sid, s] of Object.entries(spots)) {
+          if (s.room !== id) continue;
+          const seated = SEATED.has(s.pose);
+          const who = [...(users[sid] ?? ['lead'])];
+          const h = Math.min(...who.map((a) => figures[a].H)) * (seated ? 0.74 : 1);
+          const head = new THREE.Vector3(s.x, groundY(s.x, s.z) + h - 0.1, s.z);
+          const dist = eye.distanceTo(head);
+          ray.set(eye, head.clone().sub(eye).normalize());
+          ray.near = 0;
+          ray.far = dist - 0.15;
+          const hit = ray.intersectObjects(scene.children, true).find((x) => !skip(x.object));
+          // the control: from the head straight down, the floor or the seat
+          ray.set(head, new THREE.Vector3(0, -1, 0));
+          ray.far = h + 0.5;
+          if (ray.intersectObjects(scene.children, true).some((x) => !skip(x.object))) control++;
+          rows.push({
+            spot: sid,
+            head: +head.y.toFixed(2),
+            blocked: hit
+              ? `${owner(hit.object)}, ${hit.distance.toFixed(1)} m out of ${dist.toFixed(1)}, ${hit.point.y.toFixed(1)} m up`
+              : null,
+          });
+        }
+        return { id, camera: eye.toArray().map((v) => +v.toFixed(1)), cut: cut.length, rows, control };
+      }, id),
+    );
+  }
   const { rows, controls, seated } = result;
   if (controls.length) {
     failed++;
@@ -94,7 +179,24 @@ try {
           : ''),
     );
   }
-  console.log(failed ? 'the check FAILED' : `all ${rows.length} standing spots clear`);
+  console.log(failed ? 'the floor check FAILED' : `all ${rows.length} standing spots clear`);
+  let seen = 0;
+  for (const v of views) {
+    console.log(`view of ${v.id}: camera at ${v.camera.join(', ')}, ${v.cut} walls cut away`);
+    if (v.control !== v.rows.length) {
+      failed++;
+      console.log(`  CONTROL FAILED: the floor found under ${v.control} of ${v.rows.length} spots`);
+    }
+    for (const r of v.rows) {
+      if (r.blocked) failed++;
+      else seen++;
+      console.log(
+        `  ${r.blocked ? 'HIDDEN' : 'seen  '} ${r.spot.padEnd(16)} head ${r.head} m${r.blocked ? `, blocked by ${r.blocked}` : ''}`,
+      );
+    }
+  }
+  const all = views.reduce((n, v) => n + v.rows.length, 0);
+  console.log(failed ? 'the check FAILED' : `all ${all} spots seen from their room's view (${seen})`);
 } finally {
   await browser.close();
 }

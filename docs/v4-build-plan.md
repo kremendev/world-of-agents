@@ -547,3 +547,18 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   closes, as asked; the view slides by half the panel's width then (an eased slide is a suggestion for Dima, not
   built). The grade's vignette stays on the window's middle: it frames the screen, not the target. Why: the rule's own
   words, then the smaller build.
+- **Dima, 20 Nov, the Library's view.** Retuned so its interior and work spots aren't hidden behind the castle tower,
+  and `spots.mjs` checks every room: from each room's view, a ray from the camera to each of its spots at head height
+  meets nothing, the room's own cut walls excepted.
+- **Dima's views, the details.** A room's view is the one the rooms rail flies to from the whole keep, so from the side
+  the camera starts on (a room view keeps the side it was flown from, the town's rule). "Its work spots" are all the
+  room's spots in the map (each is where a figure does something; the Forge's anvil and the Library's chair and shelf
+  have no agent today, the idle areas have only idle spots), each at the head of the smallest figure that stands or
+  sits there, or the Lead's (the smallest of all) where none does, seated at the seated height the tags use. Something
+  drawn invisible (a house's picking box) doesn't block. The check found two rooms, not one: the Library's desk and
+  shelf behind its round tower, and the Courtyard's bench and well, whose view stands the camera among the south gate's
+  battlements (T's own shot of it showed that, and T's review missed it). Choice: those two rooms are framed from a side
+  of their own whatever side the camera is on (`OWN_SIDE` in `camera.ts`), the Library from the south-south-west and
+  the Courtyard from the east, each the clear side nearest the camera's starting one with a clear side either way of it
+  (a scan of 16 sides, renders looked at). Why: the rule's own words (the views must see their spots), then the
+  smaller build: the other seven rooms keep the town's framing, and no distance or height changes.

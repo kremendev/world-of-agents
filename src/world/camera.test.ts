@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { CAMERA, roomView, viewOffset, type Vec3 } from './camera';
+import { CAMERA, OWN_SIDE, roomView, viewOffset, type Vec3 } from './camera';
 import { ROOMS } from './map';
 
 /** Whether a view is one the camera's controls and clampTarget() leave as it is. */
@@ -80,6 +80,21 @@ describe('the camera', () => {
       expect(none.x).toBeCloseTo(720, 6);
       expect(none.y).toBeCloseTo(450, 6);
     });
+  });
+
+  it('frames the Library and the Courtyard from their own side, whatever side the camera is on (Dima, 20 Nov)', () => {
+    for (const id of ['library', 'court'] as const) {
+      const side = OWN_SIDE[id] as readonly [number, number];
+      for (const from of SIDES) {
+        const { target, position } = roomView(id, from);
+        const [dx, dz] = [position[0] - target[0], position[2] - target[2]];
+        expect(Math.atan2(dz, dx), `${id} from ${from.join(', ')}`).toBeCloseTo(
+          Math.atan2(side[1], side[0]),
+          9,
+        );
+      }
+    }
+    expect(Object.keys(OWN_SIDE).sort()).toEqual(['court', 'library']);
   });
 
   it('keeps the side the camera is on', () => {

@@ -196,7 +196,8 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   forge.ts (the furnace's colour and heat by working count), screens.ts (each lit screen at its
                   owner's work spot, and when it glows); all pure, read by scene/world.ts. check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
-                  camera's limits and how it frames a room, as numbers, and viewOffset(): the view's middle in the
+                  camera's limits and how it frames a room, as numbers (OWN_SIDE: the Library and the Courtyard from sides of
+                  their own), and viewOffset(): the view's middle in the
                   area the HUD's panels leave free. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, a quiet backdrop ("Raising the keep…") while it
                   loads, and the 2D hall in its place when it can't draw, fails to load or loses its context for

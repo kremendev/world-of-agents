@@ -1156,6 +1156,8 @@ export async function createWorld(opts: WorldOptions) {
     camera,
     controls,
     housePicks,
+    /** Each house's parts: its walls, roof and upper storey as they open (the checks' own use). */
+    houses: HOUSES,
     agentPhase,
     cast,
     /** The height a figure stands at, at a point: a floor, a terrace, the dais, a footbridge or grass. */

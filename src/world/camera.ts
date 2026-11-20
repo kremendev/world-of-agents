@@ -27,14 +27,27 @@ export const CAMERA = {
 } as const;
 
 /**
+ * Rooms seen from a side of their own, whatever side the camera is on (Dima, 20 Nov; x and z, as `from`): from the
+ * town's side the Library's round tower stands in front of its desk and shelves, and the Courtyard's view is the gate's
+ * battlements. Each is the clear side nearest the camera's starting one with a clear side either way of it
+ * (tools/world-check/spots.mjs sees every room's spots from its view).
+ */
+export const OWN_SIDE: Readonly<Partial<Record<RoomId, readonly [number, number]>>> = {
+  library: [-0.38, 0.92],
+  court: [1, 0],
+};
+
+/**
  * A room as the town frames it: its centre, seen from the side the camera is on (`from`, the camera's offset from the
- * point it orbits, x and z), at a distance from the room's size. From straight above, the town's own side.
+ * point it orbits, x and z), or from its own (OWN_SIDE), at a distance from the room's size. From straight above, the
+ * town's own side.
  */
 export function roomView(id: RoomId, from: readonly [number, number]): { target: Vec3; position: Vec3 } {
   const r = ROOM[id];
   const dist = r.kind === 'house' ? Math.max(r.w, r.d) * 1.15 + 8 : r.r * 1.6 + 7;
-  const len = Math.hypot(from[0], from[1]);
-  const [dx, dz] = len > 0 ? [from[0] / len, from[1] / len] : [0.45, 0.9];
+  const side = OWN_SIDE[id] ?? from;
+  const len = Math.hypot(side[0], side[1]);
+  const [dx, dz] = len > 0 ? [side[0] / len, side[1] / len] : [0.45, 0.9];
   return { target: [r.x, 1.0, r.z], position: [r.x + dx * dist, dist * 0.85, r.z + dz * dist] };
 }
 

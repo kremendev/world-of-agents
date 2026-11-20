@@ -2,14 +2,16 @@
 // controls and a frame count, as the town's test copy does (town/test/serve.sh); from 4b also the cast, a way to put
 // a figure on a spot, and the spots, for the cast's comparison and the seats check. With ?demo it plays the demo run into
 // the world, as the page does, for the walking check (tools/world-check/walk.mjs); from T also idle life's spots, the rest
-// spots and the map's route, for walk.mjs and idle-walks.mjs. Dev server only; see index.html.
+// spots and the map's route, for walk.mjs and idle-walks.mjs; and the room views, the houses, the figures' heights and
+// whose spot is whose, for spots.mjs's view check. Dev server only; see index.html.
 import * as THREE from 'three';
 import { IDLE_SPOTS } from '../idle';
 import { ROOM, SPOTS, route } from '../map';
-import { START, placeFor } from '../places';
+import { CHECK, FETCH, START, VISIT, WORK, placeFor } from '../places';
 import { DEMO_TASK, KEEP_STEP_MS, demoRun } from '../../script/demoRun';
 import { createPlayer } from '../../script/player';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../../state/office';
+import { FIGURES } from '../scene/cast';
 import { createWorld, type World } from '../scene/world';
 
 declare global {
@@ -32,6 +34,10 @@ declare global {
       idleSpots: typeof IDLE_SPOTS;
       restSpots: typeof START;
       route: typeof route;
+      flyToRoom: World['flyToRoom'];
+      houses: World['houses'];
+      figures: typeof FIGURES;
+      places: { work: typeof WORK; fetch: typeof FETCH; visit: typeof VISIT; check: typeof CHECK };
       readonly office: OfficeState;
       readonly ended: boolean;
       THREE: typeof THREE;
@@ -99,6 +105,10 @@ window.__world = {
   idleSpots: IDLE_SPOTS,
   restSpots: START,
   route,
+  flyToRoom: world.flyToRoom,
+  houses: world.houses,
+  figures: FIGURES,
+  places: { work: WORK, fetch: FETCH, visit: VISIT, check: CHECK },
   get office() {
     return office;
   },
