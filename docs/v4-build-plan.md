@@ -21,7 +21,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.1 idle life: the schedule
 - [x] 4c.2 idle life: in the world
 - [x] 4c.3 small talk
-- [ ] 4c.4 the furnace and the flames
+- [x] 4c.4 the furnace and the flames
 - [ ] 4c.5 needs-you and error markers
 - [ ] 4c.6 the screens
 - [ ] 4c.7 4c's docs
@@ -399,3 +399,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   idle area, as the 2D hall's rest-room rule; a message beats it, and it shows only while its figure is on the view.
   The world's head reports carry the room each figure stands in for this. Why: D10's "at most one bubble per area every
   20 s", and a keep that isn't chattering every slot.
+- **4c.4, the furnace at rest.** The town's furnace idles orange (`#ff7a24`); D11 gives the mouth the 2D hall's colours,
+  dark (`#5a2a10`) with nobody working. Choice: D11's, so with nobody working the Forge is darker than the town's, and
+  T's render comparison will show the Forge's mouth apart from the town's at rest: expected, not a fault. The flames,
+  the fire lights and the hearth already flickered each in its own phase, none with reduced motion (4a), so they are
+  unchanged; the core and the light follow the same heat as the mouth. Why: the furnace is the busy indicator.

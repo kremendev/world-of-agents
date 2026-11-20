@@ -19,7 +19,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { CAMERA, roomView } from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
-import type { OfficeState } from '../../state/office';
+import { workingCount, type OfficeState } from '../../state/office';
+import { forgeFlicker, forgeLook } from '../forge';
 import { idleTick, type IdleRuns, type Where } from '../idleRun';
 import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
@@ -862,8 +863,9 @@ export async function createWorld(opts: WorldOptions) {
   sizePost(W, H0);
 
   /* ---------------- loop */
-  // the furnace follows the work in 4c; until then it idles
-  const working = 0;
+  // the furnace follows the work (4c.4): how many agents work, from the office update() last gave
+  let working = 0;
+  let mouthColour = '';
   let t0 = -1;
   let last = 0;
   let frames = 0;
@@ -956,9 +958,14 @@ export async function createWorld(opts: WorldOptions) {
       }
     }
     const smashing = !!atWork.frontend && office?.agents.frontend.state === 'writing';
-    // the furnace burns as hard as the team works
-    const heat = 0.25 + working * 0.35;
-    const flick = REDUCE ? 0 : Math.sin(t * 9) * 0.08 + Math.sin(t * 23) * 0.05;
+    // the furnace burns as hard as the team works (D11): the 2D hall's mouth colours, the heat up to four working
+    const forge = forgeLook(working);
+    const heat = forge.heat;
+    const flick = forgeFlicker(t, REDUCE);
+    if (forge.mouth !== mouthColour) {
+      mouthColour = forge.mouth;
+      mouthMat.emissive.set(forge.mouth);
+    }
     mouthMat.emissiveIntensity = 0.9 + heat * 1.4 + flick;
     coreMat.emissiveIntensity = 1.2 + heat * 1.8 + flick;
     fireLight.intensity = 8 + heat * 16 + flick * 20;
@@ -1129,6 +1136,7 @@ export async function createWorld(opts: WorldOptions) {
     update(next: OfficeState, isLive: boolean) {
       office = next;
       live = isLive;
+      working = workingCount(next);
       const now = performance.now();
       for (const id of CAST_FILES) {
         // at rest, an agent keeps the idle activity it is at (4c.2); placeFor() gives its rest spot
