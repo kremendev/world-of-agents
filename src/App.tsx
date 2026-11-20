@@ -38,6 +38,8 @@ import { VERSION } from './version';
 const HOSTED_STATUS =
   'Demo · scripted run with no AI calls. To watch your own Claude Code sessions (Max or higher), see the';
 const REPO_URL = 'https://github.com/kremendev/world-of-agents';
+/** Live's generic line, the one the HUD leaves out while a run has tasks. */
+const LIVE_NOTE = 'Live · Type your task in Claude Code. The hall only watches.';
 
 /** The mode badge and what the status line says. No badge while the health check is out: a second at most. */
 function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
@@ -63,7 +65,7 @@ function modeOf(hall: LiveHall, demo: boolean, office: OfficeState) {
     ? 'Live · Hall restarted. Earlier events are gone.'
     : office.awaitingPrompt
       ? 'Lead/PM is waiting for your next message in Claude Code'
-      : 'Live · Type your task in Claude Code. The hall only watches.';
+      : LIVE_NOTE;
   return { kind: 'live', label: 'Live', status };
 }
 
@@ -585,8 +587,9 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               {waitingIds.length > 0 ? (
                 <NeedsYou waiting={waitingIds} onShowMe={showMe} />
               ) : (
-                // in Live, while a run has tasks, the top bar says it all (Dima, 20 Nov); offline and ended still say so
-                !(mode.kind === 'live' && office.tasks.length > 0) && (
+                // while a run has tasks the top bar says it all, so Live's generic line goes; the Lead waiting for your
+                // next message is your cue, and offline, ended and restarted are news: those stay (Dima, 20 Nov)
+                !(mode.status === LIVE_NOTE && office.tasks.length > 0) && (
                   <HudStatus title={status} wraps={hosted}>
                     {statusWords}
                   </HudStatus>

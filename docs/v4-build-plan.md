@@ -621,3 +621,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   room while following). Choice: choosing a room or the whole keep stops Follow first, in the page and in the world, as
   Show me already does (4d.4's rule, "while on, no room is the one in view", read the other way round). Why: the rail
   must say what the view shows; the smaller build, one place in App.
+- **Dima, 20 Nov, the status line again.** In Live only the generic line, "Type your task in Claude Code…", hides
+  while a run has tasks. "Lead/PM is waiting for your next message" shows even then: it is Dima's cue to act. Offline
+  and Ended unchanged.
+- **The status line again, the details.** "Live · Hall restarted. Earlier events are gone." isn't the generic line
+  either, so it shows over a run with tasks too: it says the run on screen may be missing its start. The test is the
+  line's own words (`LIVE_NOTE` in `App.tsx`), so a new Live line shows until someone decides otherwise. Why: the
+  request's own words, then the accessibility rule (nothing hidden that says something).

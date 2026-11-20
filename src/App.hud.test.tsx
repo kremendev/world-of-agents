@@ -536,7 +536,7 @@ describe('the status line (4d.8, D20)', () => {
       expect(line(container)).toHaveAttribute('title', 'Session ended · waiting for the next one');
     });
 
-    it('has no line while a run has tasks (Dima, 20 Nov), and says a session ended or the hall offline still', async () => {
+    it('leaves out only the generic line while a run has tasks (Dima, 20 Nov): your cue, offline and ended stay', async () => {
       const task: OfficeEvent = {
         type: 'task',
         taskId: 't1',
@@ -547,8 +547,11 @@ describe('the status line (4d.8, D20)', () => {
       };
       const { container } = await live(task);
       expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
-      // the Lead's turn ends: still the run, still no line
+      // the Lead's turn ends: the run is still there, and the line is your cue
       act(() => FakeEventSource.latest.send({ type: 'awaiting-prompt', at: 2 }));
+      expect(line(container)).toHaveTextContent('Lead/PM is waiting for your next message in Claude Code');
+      // your next message: the Lead works again, and the generic line it would go back to stays out
+      act(() => FakeEventSource.latest.send({ type: 'state', agent: 'lead', state: 'thinking', at: 3 }));
       expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
       act(() => FakeEventSource.latest.fail());
       act(() => vi.advanceTimersByTime(10_000));
@@ -557,8 +560,27 @@ describe('the status line (4d.8, D20)', () => {
       act(() => FakeEventSource.latest.send(task));
       act(() => FakeEventSource.latest.replayed());
       expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
-      act(() => FakeEventSource.latest.send({ type: 'session-end', at: 3 }));
+      act(() => FakeEventSource.latest.send({ type: 'session-end', at: 4 }));
       expect(line(container)).toHaveTextContent('Session ended · waiting for the next one');
+    });
+
+    it('says a restarted hall with a run that has tasks', async () => {
+      const { container } = await live();
+      act(() => FakeEventSource.latest.fail());
+      act(() => vi.advanceTimersByTime(10_000));
+      act(() => vi.advanceTimersByTime(RETRY_MS));
+      act(() =>
+        FakeEventSource.latest.send({
+          type: 'task',
+          taskId: 't1',
+          title: 'Build the form',
+          owner: 'frontend',
+          status: 'in-progress',
+          at: 1,
+        }),
+      );
+      act(() => FakeEventSource.latest.replayed('hall-start-id-02'));
+      expect(line(container)).toHaveTextContent('Live · Hall restarted. Earlier events are gone.');
     });
 
     it('the hall offline, then restarted', async () => {
