@@ -16,7 +16,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { CAMERA, roomView } from '../camera';
+import { CAMERA, roomView, viewOffset, type Insets } from '../camera';
 import { SPOTS, type RoomId, type SpotId } from '../map';
 import { FETCH, START, WORK, placeFor } from '../places';
 import { workingCount, type OfficeState } from '../../state/office';
@@ -856,7 +856,15 @@ export async function createWorld(opts: WorldOptions) {
     (uni(gradeU, 'texel').value as THREE.Vector2).copy(uni(lineU, 'texel').value as THREE.Vector2);
     uni(lineU, 'width').value = Math.max(1, pr * 0.85);
     camera.aspect = w / h;
-    camera.updateProjectionMatrix();
+    frameView();
+  }
+  // the area the HUD's panels leave free (Dima, 20 Nov): what the camera looks at goes to its middle, the canvas's
+  // size unchanged; the labels and the picking project through this camera, so they follow
+  let free: Insets | null = null;
+  function frameView() {
+    const o = viewOffset(W, H0, free);
+    if (o) camera.setViewOffset(W, H0, o.x, o.y, W, H0);
+    else camera.clearViewOffset();
   }
   for (const u of [lineU, gradeU]) {
     uni(u, 'near').value = camera.near;
@@ -1273,6 +1281,11 @@ export async function createWorld(opts: WorldOptions) {
     },
     setOpenHouses(on: boolean) {
       openHouses = on;
+    },
+    /** How far the HUD's panels reach into the canvas (null: none); the view's middle goes to the free area's. */
+    setFreeArea(insets: Insets | null) {
+      free = insets;
+      frameView();
     },
     setTasks(tasks: readonly TaskStatus[]) {
       houses.drawBoard(tasks);

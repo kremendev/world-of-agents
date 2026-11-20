@@ -56,6 +56,7 @@ export const fakeWorld = () => {
     flyToRoom: vi.fn(),
     flyToAgent: vi.fn(),
     setOpenHouses: vi.fn(),
+    setFreeArea: vi.fn(),
     onHandMove: vi.fn((fn: () => void) => {
       handMoved = fn;
       return () => {

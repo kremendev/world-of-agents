@@ -9,6 +9,7 @@ import { Drawer, type DrawerTab } from './hud/Drawer';
 import { HudStatus } from './hud/HudStatus';
 import { NeedsYou } from './hud/NeedsYou';
 import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
+import { freeArea } from './hud/freeArea';
 import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
@@ -130,6 +131,27 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     world?.setOpenHouses(!cutaway);
     setCutaway(!cutaway);
   };
+  // What the camera looks at goes to the middle of the world the panels leave free (Dima, 20 Nov), measured after each
+  // render, so a card or the drawer opening or closing, the banner and a resize all count. Under 70rem the drawer and
+  // the card lie over the world and the rooms are a menu: no offset there.
+  useEffect(() => {
+    const el = stage.ref.current;
+    if (!world || !el) return;
+    if (window.matchMedia('(max-width: 70rem)').matches) {
+      world.setFreeArea(null);
+      return;
+    }
+    const edges = (selector: string) =>
+      el.parentElement?.querySelector(selector)?.getBoundingClientRect() ?? null;
+    world.setFreeArea(
+      freeArea(el.getBoundingClientRect(), {
+        left: [edges('.hud-rail'), edges('.hud-card')],
+        right: [edges('.hud-drawer')],
+        top: [edges('.hud-top'), edges('.hud-under > *')],
+        bottom: [edges('.hud-agents')],
+      }),
+    );
+  });
 
   // The agent card (4d.4), open for one agent or none. A list button opens it or closes it again; a click on a figure
   // opens it. Close and Esc close it, and the focus goes back to what opened it (or to the agent's list button).

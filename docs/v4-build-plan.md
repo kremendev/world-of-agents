@@ -532,3 +532,18 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   Lead back to its rest spot. Choice: an agent coming to rest goes to its rest spot as before, unless another agent
   stands there or is going there; then to its first free idle spot (`idleRun.ts`), the walker turning there mid-path.
   Why: the promise of 4c.2, never two agents on one spot, then the smaller build (the place map stays as it is).
+- **Dima, 20 Nov, framing in the free area.** Show me, Follow, the room views and the whole keep put what they look at
+  in the middle of the world you can see: right of the rooms rail (and the card while it is open), left of the drawer
+  while it is open, under the top bar and the banner, above the agent list. `camera.setViewOffset` from the HUD's
+  measured insets, updated as the drawer or the card opens or closes and on a resize; no offset under 70rem, where the
+  drawer lies over the world. The labels and the picking project through the same camera. The inset maths are pure:
+  `freeArea()` (`src/hud/freeArea.ts`) and `viewOffset()` (`src/world/camera.ts`), tested against three's own
+  projection.
+- **Dima's framing, the details.** The status line counts as the banner does (it stands in the banner's place and
+  hides the world under it too), so "under the banner" is "under what is under the top bar". The page measures the
+  panels after each of its renders (a card, the drawer, the banner, the top bar growing, a resize all render it), not
+  only on those events, and a panel with no size (hidden) counts for nothing. Under 70rem there is no offset at all, the
+  rooms being a menu there and the card lying over the world too. The offset changes at once when a panel opens or
+  closes, as asked; the view slides by half the panel's width then (an eased slide is a suggestion for Dima, not
+  built). The grade's vignette stays on the window's middle: it frames the screen, not the target. Why: the rule's own
+  words, then the smaller build.

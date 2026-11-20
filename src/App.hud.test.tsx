@@ -359,6 +359,60 @@ describe('the drawer (4d.5)', () => {
   });
 });
 
+describe('framing in the free area (Dima, 20 Nov)', () => {
+  // jsdom lays nothing out: each HUD panel gets its box at 1440 x 900, the stage the window, a hidden one none
+  const BOXES: readonly (readonly [string, readonly [number, number, number, number]])[] = [
+    ['hud-top', [16, 16, 1424, 80]],
+    ['hud-status', [500, 96, 900, 120]],
+    ['hud-rail', [16, 96, 204, 520]],
+    ['hud-card', [220, 400, 612, 808]],
+    ['hud-drawer', [1040, 96, 1424, 884]],
+    ['hud-agents', [16, 824, 640, 884]],
+    ['stage', [0, 0, 1440, 900]],
+  ];
+  let rects: { mockRestore: () => void };
+  beforeEach(() => {
+    rects = vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+      const hit = this.closest('[hidden]') ? undefined : BOXES.find(([c]) => this.classList.contains(c));
+      const [left, top, right, bottom] = hit?.[1] ?? [0, 0, 0, 0];
+      return {
+        left,
+        top,
+        right,
+        bottom,
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+      } as DOMRect;
+    });
+  });
+  afterEach(() => rects.mockRestore());
+
+  it('tells the world the area its panels leave free, again as the card and the drawer open and close', async () => {
+    render(<App />);
+    await settle();
+    expect(world.setFreeArea).toHaveBeenLastCalledWith({ left: 204, right: 400, top: 120, bottom: 76 });
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
+    expect(world.setFreeArea).toHaveBeenLastCalledWith({ left: 612, right: 400, top: 120, bottom: 76 });
+    fireEvent.click(screen.getByRole('button', { name: 'Close the drawer' }));
+    expect(world.setFreeArea).toHaveBeenLastCalledWith({ left: 612, right: 0, top: 120, bottom: 76 });
+    fireEvent.click(screen.getByRole('button', { name: 'Close the card' }));
+    expect(world.setFreeArea).toHaveBeenLastCalledWith({ left: 204, right: 0, top: 120, bottom: 76 });
+  });
+
+  it('asks for no offset under 70rem, where the drawer and the card lie over the world', async () => {
+    undoLayout();
+    undoLayout = stubLayout(1100, 800);
+    render(<App />);
+    await settle();
+    expect(world.setFreeArea).toHaveBeenCalled();
+    expect(world.setFreeArea).toHaveBeenLastCalledWith(null);
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
+    expect(world.setFreeArea).toHaveBeenLastCalledWith(null);
+  });
+});
+
 describe('the needs-you banner and Show me, in Live (4d.7)', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();

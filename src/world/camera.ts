@@ -37,3 +37,29 @@ export function roomView(id: RoomId, from: readonly [number, number]): { target:
   const [dx, dz] = len > 0 ? [from[0] / len, from[1] / len] : [0.45, 0.9];
   return { target: [r.x, 1.0, r.z], position: [r.x + dx * dist, dist * 0.85, r.z + dz * dist] };
 }
+
+/** How far the HUD's panels reach into the canvas from each of its edges, in CSS px. */
+export type Insets = {
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+};
+
+/**
+ * The view offset (three's setViewOffset on a `width` x `height` canvas, in the same px) that puts the point the camera
+ * looks at in the middle of the area the panels leave free, not the canvas's (Dima, 20 Nov): Show me, Follow, a room
+ * and the whole keep then land where they can be seen. Null for none: no insets, or insets that leave nothing free.
+ */
+export function viewOffset(
+  width: number,
+  height: number,
+  insets: Insets | null,
+): { x: number; y: number } | null {
+  if (!insets || width <= 0 || height <= 0) return null;
+  const { left, right, top, bottom } = insets;
+  if (left + right >= width || top + bottom >= height) return null;
+  const x = (right - left) / 2;
+  const y = (bottom - top) / 2;
+  return x === 0 && y === 0 ? null : { x, y };
+}

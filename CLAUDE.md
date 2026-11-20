@@ -196,7 +196,8 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   forge.ts (the furnace's colour and heat by working count), screens.ts (each lit screen at its
                   owner's work spot, and when it glows); all pure, read by scene/world.ts. check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
-                  camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
+                  camera's limits and how it frames a room, as numbers, and viewOffset(): the view's middle in the
+                  area the HUD's panels leave free. WorldView.tsx (4a): what App shows in the stage, the world where
                   `canDrawWorld()` (support.ts) finds WebGL 2, a quiet backdrop ("Raising the keep…") while it
                   loads, and the 2D hall in its place when it can't draw, fails to load or loses its context for
                   CONTEXT_GRACE_MS; scene/ comes in by a dynamic import, its own chunk; from 4d it tells App its world
@@ -208,7 +209,7 @@ src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
                   tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another), useBox
-                  (an element's size), contrast.test.ts
+                  (an element's size), freeArea.ts (how far the panels reach into the world), contrast.test.ts
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
                   Blender's own, which has numpy, since none is on PATH) and to-glb.mjs (the GLB the page loads: every
@@ -285,7 +286,10 @@ or is hidden for it (Dima, 20 Nov): `settleTags()` stacks one that would overlap
 needs-you or failed agent's tag (with its marker) keeping its own spot; a bubble rides with its tag. The world tells the page
 of a hand move, a click on a figure, the heads each frame, and each figure's room (where it is or is going, for the
 rooms rail's counts, idle life included) when one changes (one listener each, the page's); the page tells it where
-to fly, whom to follow and whether to cut away. Esc closes the review board, the rooms menu, the card, then the
+to fly, whom to follow, whether to cut away, and the area its panels leave free (right of the rail and an open card,
+left of an open drawer, under the top bar and its line or banner, above the agent list; none under 70rem), whose
+middle the camera's view offset makes the view's, so Show me, Follow, a room and the whole keep land there (Dima, 20
+Nov). Esc closes the review board, the rooms menu, the card, then the
 drawer, the focus going back each time.
 
 **What the keep shows (4c)**, beside where the agents are (4b): resting agents live on the keep's idle spots, never a
