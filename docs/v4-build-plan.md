@@ -18,7 +18,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.8 status line
 - [x] 4d.9 narrow layouts
 - [x] 4d.10 4d's docs and leftovers
-- [ ] 4c.1 idle life: the schedule
+- [x] 4c.1 idle life: the schedule
 - [ ] 4c.2 idle life: in the world
 - [ ] 4c.3 small talk
 - [ ] 4c.4 the furnace and the flames
@@ -370,3 +370,16 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   only; the rail is the same component, hidden there unless the menu is open, over the other panels. A room chosen
   closes it, and Esc closes it before anything else, the focus back on the button. Why: one rail, no second list; Esc's
   order follows what was opened last.
+- **4c.1, D9's places on the keep's spots.** The keep has no spot by a yard anvil or by the Tavern's fire, and new spots
+  would need T's floor and seat checks first. Choice: the idle spots there are (`src/world/idle.ts`, `IDLE_SPOTS`): the
+  orcs at yard-1 and yard-2 (the idle clip) or the Tavern's three seats (sit, a mug); the Designer at the easel or the
+  pond; the Reviewer on the Courtyard bench or at tavern-1, the seat on the hearth's side; the Lead pausing at the pond,
+  the well and the yard. Each agent's rest spot comes first and is its fallback; spots are shared where D9's places
+  meet, and an activity never takes a spot another agent stands at or is going to. Why: the smaller build on spots
+  already proven by 4b's checks.
+- **4c.1, the sparks.** The yard has training dummies and no anvil (the keep's one anvil is in the Forge, which idle
+  never uses). Choice: an orc in the yard shows sparks from the dummy it faces, now and then. Why: the nearest thing D9
+  can mean there, and no new prop in the town's scene, which T's render comparison holds.
+- **4c.1, when an activity's time runs.** Choice: from the moment the agent is there, so a long walk never eats the
+  Lead's 8 to 15 s pause or anyone's 45 to 90 s. Why: D9's times describe what is seen. The pose-to-clip table moved to
+  `src/world/clips.ts`, pure, which the figures and the schedule both read.

@@ -12,7 +12,8 @@
  */
 import * as THREE from 'three';
 import { GLTFLoader, type GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FLOOR_H, ROOM, ROOMS, toLocal, type House, type Pose, type SpotId, SPOTS } from '../map';
+import { FLOOR_H, ROOM, ROOMS, toLocal, type House, type SpotId, SPOTS } from '../map';
+import { CLIP_FOR, type ClipName, type Mode } from '../clips';
 import type { Kit } from './kit';
 import type { Crossing } from './land';
 import { CAST_FILES, modelUrl, plainModel, textureUrl } from './models';
@@ -38,18 +39,8 @@ export function rigSeatY(H: number, hipY: number): number {
   return Math.max(0.5, shin + ankle - 0.02);
 }
 
-export type ClipName = 'idle' | 'walk' | 'sit' | 'play_mobile_game';
-export type Mode = Pose | 'walk';
-
-// which clip each pose plays: desk work is the seated "phone" clip (hands forward at desk height), chairs are "sit"
-const CLIP_FOR: Partial<Record<Mode, ClipName>> = {
-  walk: 'walk',
-  type: 'play_mobile_game',
-  smash: 'play_mobile_game',
-  sit: 'sit',
-  readsit: 'sit',
-  drink: 'sit',
-};
+// which clip each pose plays: ../clips.ts, which the idle schedule reads too
+export type { ClipName, Mode } from '../clips';
 /** The Reviewer's lantern light, as the town makes it: green, 2.5 at 4 m, on the root by the head. */
 const LANTERN = { intensity: 2.5, distance: 4 } as const;
 /** The poses of a seated figure; the Reviewer's lantern is out only when it stands and isn't reading. */
