@@ -132,6 +132,10 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // The top bar wraps in a narrow window; what sits under it starts where it ends (--hud-top), measured.
   const topBar = useRef<HTMLElement>(null);
   const topBox = useBox(topBar, hud);
+  // On a phone the banner (or the status line) spans the window under the top bar, and the drawer starts under it
+  // (--hud-under: its height and an edge, or nothing; Dima, 20 Nov), measured.
+  const under = useRef<HTMLDivElement>(null);
+  const underBox = useBox(under, hud);
   const toggleCutaway = () => {
     world?.setOpenHouses(!cutaway);
     setCutaway(!cutaway);
@@ -546,7 +550,12 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
         className={hud ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'}
         hidden={teamOpen}
         style={
-          hud && topBox ? ({ '--hud-top': `calc(${topBox.height}px + 2rem)` } as CSSProperties) : undefined
+          hud && topBox
+            ? ({
+                '--hud-top': `calc(${topBox.height}px + 2rem)`,
+                '--hud-under': underBox?.height ? `calc(${underBox.height}px + var(--hud-edge))` : '0px',
+              } as CSSProperties)
+            : undefined
         }
       >
         {hud ? (
@@ -583,7 +592,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 }}
               />
             </header>
-            <div className="hud-under">
+            <div ref={under} className="hud-under">
               {waitingIds.length > 0 ? (
                 <NeedsYou waiting={waitingIds} onShowMe={showMe} />
               ) : (

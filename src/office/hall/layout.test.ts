@@ -124,8 +124,8 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.hud-tiles')!.body).toMatch(/flex-wrap: wrap/);
   });
 
-  it('on a phone the top bar is three rows: the title and chips, the buttons, the run (Dima, 20 Nov)', () => {
-    // the 48rem block, by its braces
+  // the 48rem block's rules, by its braces
+  const phoneRules = () => {
     const from = css.indexOf('@media (max-width: 48rem) {');
     expect(from).toBeGreaterThan(-1);
     let depth = 0;
@@ -137,18 +137,33 @@ describe('text sizes and fonts', () => {
         break;
       }
     }
-    const phone = [...css.slice(css.indexOf('{', from) + 1, end).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
-      (m) => ({
-        selectors: m[1]!
-          .replace(/\/\*[\s\S]*?\*\//g, '')
-          .split(',')
-          .map((s) => s.trim()),
-        body: m[2]!,
-      }),
-    );
-    const rows = phone.find((r) => r.selectors.includes('.hud-top .hud-brand'));
+    return [...css.slice(css.indexOf('{', from) + 1, end).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({
+      selectors: m[1]!
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split(',')
+        .map((s) => s.trim()),
+      body: m[2]!,
+    }));
+  };
+
+  it('on a phone the top bar is three rows: the title and chips, the buttons, the run (Dima, 20 Nov)', () => {
+    const rows = phoneRules().find((r) => r.selectors.includes('.hud-top .hud-brand'));
     expect(rows?.selectors).toContain('.hud-top .hud-run');
     expect(rows?.body).toMatch(/flex: 1 0 100%/);
+  });
+
+  it('on a phone the banner spans the window under the top bar, the drawer and its handle under it (Dima, 20 Nov)', () => {
+    const phone = phoneRules();
+    const under = phone.find((r) => r.selectors.includes('.hud-under'));
+    expect(under?.body).toMatch(/right: var\(--hud-edge\);/);
+    const drawer = phone.find((r) => r.selectors.includes('.hud-handle'));
+    expect(drawer?.selectors).toContain('.hud-drawer');
+    expect(drawer?.body).toMatch(/top: calc\(var\(--hud-top\) \+ var\(--hud-under, 0px\)\);/);
+    // wider, the drawer keeps beside what is under the top bar, from the top bar's edge
+    expect(rules.find((r) => r.selector === '.hud-handle')!.body).toMatch(/top: var\(--hud-top\);/);
+    expect(rules.find((r) => r.selector === '.hud-under')!.body).toMatch(
+      /right: calc\(var\(--hud-edge\) \* 2 \+ var\(--hud-drawer-w\)\);/,
+    );
   });
 
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {

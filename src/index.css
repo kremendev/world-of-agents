@@ -2909,6 +2909,17 @@ button.tp-card:hover {
   .hud-top .hud-controls .hud-divider {
     display: none;
   }
+
+  /* the banner, or the status line, the whole width under the top bar, and the drawer, open or its handle, under that
+     (Dima, 20 Nov; App measures --hud-under: its height and an edge, or nothing) */
+  .hud-under {
+    right: var(--hud-edge);
+  }
+
+  .hud-drawer,
+  .hud-handle {
+    top: calc(var(--hud-top) + var(--hud-under, 0px));
+  }
 }
 
 /* Needs-you and error markers over a figure's tag (4c.5, D7, D8): a gentle bob, none with reduced motion. */

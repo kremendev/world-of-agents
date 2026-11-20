@@ -639,3 +639,14 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   area mid-slide starts from where the view is. Seen in Edge on the stand-in hall: the card opening moves a tag 200 px,
   fast at first and settled by 249 ms, back the same way on closing; with reduced motion it is there on the first
   frame. Why: the request's own words, then the smaller build.
+- **Dima, 20 Nov, the phone banner.** Under 48rem the needs-you banner takes the full width under the top bar, and the
+  closed drawer's handle moves below it.
+- **The phone banner, the details.** What is under the top bar holds the banner or the status line, so on a phone
+  both span the window; one rule, the smaller build. App measures it (`useBox`, as the top bar's height) into
+  `--hud-under`, its height and an edge, or nothing when it is empty (in Live while a run has tasks), and the handle
+  starts that far under the top bar's edge. The open drawer moves with it: on a phone it spans the window too, and from
+  the top bar's edge it would cover the banner, the cue the banner is there for (the accessibility rule first). Wider
+  windows keep the banner between the rail and the drawer, as the mockup has it. Seen in Edge at 400 px on the stand-in
+  hall: the banner 16 to 384 px across, the handle 16 px under it, following it to two rows and back to the top bar's
+  edge once nobody waits; the open drawer under it; no sideways scroll, no console errors. Seen, not changed: a name
+  tag can still pass under the handle or the banner (tags are held inside the window, not clear of panels).

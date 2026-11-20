@@ -476,6 +476,35 @@ describe('the needs-you banner and Show me, in Live (4d.7)', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Frontend dev' })).toHaveFocus();
   });
 
+  it('on a phone, tells the drawer and its handle how far down the banner reaches (Dima, 20 Nov)', async () => {
+    undoLayout();
+    undoLayout = stubLayout(400, 900);
+    // what is under the top bar is as tall as what it holds: nothing, or the banner
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains('hud-under') ? (this.childElementCount > 0 ? 120 : 0) : 900;
+    });
+    // in a browser its observer says when that changes
+    const remeasure = () => act(() => window.dispatchEvent(new Event('resize')));
+    const { container } = await live({
+      type: 'task',
+      taskId: 't1',
+      title: 'Build the form',
+      owner: 'backend',
+      status: 'in-progress',
+      at: 1,
+    });
+    remeasure();
+    // a run with tasks in Live: nothing under the top bar, so nothing to keep clear of
+    expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
+    expect(main(container).style.getPropertyValue('--hud-under')).toBe('0px');
+    act(() => FakeEventSource.latest.send(needs('backend', 2)));
+    remeasure();
+    expect(main(container).style.getPropertyValue('--hud-under')).toBe('calc(120px + var(--hud-edge))');
+    act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));
+    remeasure();
+    expect(main(container).style.getPropertyValue('--hud-under')).toBe('0px');
+  });
+
   it('goes back to the status line once nobody waits', async () => {
     const { container } = await live(needs('backend'));
     act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));
