@@ -572,3 +572,14 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   is gone only when nothing else is left to say. Why: the accessibility rule first (no line goes that still says
   something, the token line among them), then the request's own example; Dima can make it go whole with one line.
   The classic page, the frozen fallback, keeps its header as it was.
+- **Dima, 20 Nov, the phone top bar.** Under 48rem: no task tiles (the run line keeps "Tasks done: X of N"); the title
+  and chips on row one, the Rooms, Play demo and Team buttons on row two; about 7rem tall at most.
+- **Dima's phone top bar, the details.** The run is row three. It sat between the Rooms button and the controls in the
+  page, so moving it down with CSS alone would have a screen reader read (and the focus visit) the demo's task input
+  before the buttons drawn above it; under 48rem `TopBar` puts the run last in the page instead (a media query read
+  through `useSyncExternalStore`, as the 2D hall reads reduced motion), so the order is the order on screen. The Demo's
+  row two is Rooms and its four icon buttons (Back to live or Go live wrap when there). The line's ellipsis cut the
+  count at 400 px ("Tasks done: 0 …" after a long run text), so on a phone the count comes first, the whole line still
+  in its title. Padding 0.375rem and a row gap of 0.25rem there. Measured in Edge at 400 px: 6.78rem in Live; 8.06rem
+  in the Demo before its run has tasks, its task input being a row of button height. Why: the rule's accessibility
+  first, then the request's own numbers.

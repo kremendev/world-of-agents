@@ -124,6 +124,33 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.hud-tiles')!.body).toMatch(/flex-wrap: wrap/);
   });
 
+  it('on a phone the top bar is three rows: the title and chips, the buttons, the run (Dima, 20 Nov)', () => {
+    // the 48rem block, by its braces
+    const from = css.indexOf('@media (max-width: 48rem) {');
+    expect(from).toBeGreaterThan(-1);
+    let depth = 0;
+    let end = from;
+    for (let i = css.indexOf('{', from); i < css.length; i++) {
+      if (css[i] === '{') depth++;
+      if (css[i] === '}' && --depth === 0) {
+        end = i;
+        break;
+      }
+    }
+    const phone = [...css.slice(css.indexOf('{', from) + 1, end).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(
+      (m) => ({
+        selectors: m[1]!
+          .replace(/\/\*[\s\S]*?\*\//g, '')
+          .split(',')
+          .map((s) => s.trim()),
+        body: m[2]!,
+      }),
+    );
+    const rows = phone.find((r) => r.selectors.includes('.hud-top .hud-brand'));
+    expect(rows?.selectors).toContain('.hud-top .hud-run');
+    expect(rows?.body).toMatch(/flex: 1 0 100%/);
+  });
+
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });

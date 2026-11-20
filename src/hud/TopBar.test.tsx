@@ -1,7 +1,8 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AgentId, TaskStatus } from '../events/schema';
 import { INITIAL_OFFICE, officeReducer, type OfficeState } from '../state/office';
+import { stubLayout } from '../test/fakeWorld';
 import { TopBar, type DemoControls, type RunStatus } from './TopBar';
 
 const withTasks = (tasks: [AgentId, TaskStatus, string][]): OfficeState =>
@@ -137,6 +138,47 @@ describe("the HUD's top bar (4d.2)", () => {
     bar({ ...live, runText: null, ledger: 'This PC: 48K tokens · about $0.62 at API prices' });
     expect(screen.getByText('This PC: 48K tokens · about $0.62 at API prices')).toHaveClass('hud-run-line');
     expect(screen.queryByText(/Tasks done/)).toBeNull();
+  });
+
+  describe('on a phone (under 48rem, Dima, 20 Nov)', () => {
+    let undo: () => void = () => {};
+    afterEach(() => undo());
+    const before = (a: Node, b: Node) =>
+      expect(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const rooms = { open: false, controls: 'rail', onToggle: vi.fn() };
+
+    it('has no tiles, the run line counting the tasks first, and the run after the buttons, as on screen', () => {
+      undo = stubLayout(400, 800);
+      bar({
+        demo: null,
+        mode: { kind: 'live', label: 'Live' },
+        onPlayDemo: vi.fn(),
+        onTeam: vi.fn(),
+        rooms,
+      });
+      expect(screen.queryByRole('list', { name: 'Tasks' })).toBeNull();
+      // the count first, so the line's cut never takes it
+      const line = screen.getByText('Tasks done: 1 of 3 · Run: Create a dashboard');
+      before(screen.getByRole('heading', { level: 1 }), screen.getByRole('button', { name: 'Rooms' }));
+      before(
+        screen.getByRole('button', { name: 'Rooms' }),
+        screen.getByRole('button', { name: 'Play demo' }),
+      );
+      before(screen.getByRole('button', { name: 'Team' }), line);
+    });
+
+    it("puts the demo's task input after its controls", () => {
+      undo = stubLayout(400, 800);
+      bar({ office: INITIAL_OFFICE, rooms });
+      before(screen.getByRole('group', { name: 'Demo run' }), screen.getByRole('textbox'));
+    });
+
+    it('keeps the tiles and the run before the controls in a wider window', () => {
+      undo = stubLayout(800, 800);
+      bar({ demo: null, onPlayDemo: vi.fn(), rooms });
+      expect(screen.getByRole('list', { name: 'Tasks' })).toBeInTheDocument();
+      before(screen.getByText(/^Run: /), screen.getByRole('button', { name: 'Play demo' }));
+    });
   });
 
   it("names the demo's four icon buttons, and disables them as the page does today", () => {

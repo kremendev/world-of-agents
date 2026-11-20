@@ -205,7 +205,7 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   (`onWorld`), and when the 2D hall takes over (`onFallback`)
 src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md, the approved mockup in words). TopBar
                   (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
-                  under 70rem the Rooms menu button), HudStatus (the status line, none in Live while a run has tasks), NeedsYou (the banner, Show me),
+                  under 70rem the Rooms menu button; under 48rem three rows, the run last and no tiles), HudStatus (the status line, none in Live while a run has tasks), NeedsYou (the banner, Show me),
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name

@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useSyncExternalStore, type ReactNode, type Ref } from 'react';
 import { agentById } from '../office/roster';
 import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
@@ -44,6 +44,15 @@ type Props = {
 
 /** Today's dashboard: up to 5 tiles, or 4 and "+N" when there are more. */
 export const MAX_TILES = 5;
+
+/** A phone's width (D15's 48rem): the top bar in three rows, the run last (Dima, 20 Nov). */
+const PHONE = '(max-width: 48rem)';
+const onPhoneChange = (fn: () => void) => {
+  const query = window.matchMedia(PHONE);
+  query.addEventListener('change', fn);
+  return () => query.removeEventListener('change', fn);
+};
+const isPhone = () => window.matchMedia(PHONE).matches;
 
 /** Demo in the thinking chip's colours, Live in the done chip's, Offline and Ended muted (the class's own). */
 const MODE_CHIP: Record<string, { bg: string; text: string } | undefined> = {
@@ -112,20 +121,55 @@ function IconButton({
  * The HUD's top bar (4d.2): the title and its chips, then the run (its line and tiles, or before a demo run has its
  * tasks the task input), then the controls. The run line is one line: what it can't show it cuts, and says whole in its
  * title. It counts the tasks only once there are some, and isn't there when it has nothing to say (Dima, 20 Nov: no
- * "Tasks done: 0 of 0"). Tiles keep the order the tasks came in; each one's title is its task's.
+ * "Tasks done: 0 of 0"). Tiles keep the order the tasks came in; each one's title is its task's. On a phone (under
+ * 48rem, Dima, 20 Nov) the title and chips are row one, Rooms and the controls row two, and the run row three, with no
+ * tiles (the run line counts the tasks, the drawer's board has them); the run comes last in the page too, so what a
+ * screen reader reads, and the order the focus takes, is the order on screen.
  */
 export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam, rooms }: Props) {
   const { tasks } = office;
-  const line = [
-    runText ? `Run: ${runText}` : null,
-    tasks.length > 0 ? `Tasks done: ${doneCount(office)} of ${tasks.length}` : null,
-    ledger,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const phone = useSyncExternalStore(onPhoneChange, isPhone);
+  const said = runText ? `Run: ${runText}` : null;
+  const count = tasks.length > 0 ? `Tasks done: ${doneCount(office)} of ${tasks.length}` : null;
+  // on a phone the count comes first, so the line's cut never takes it
+  const line = (phone ? [count, said, ledger] : [said, count, ledger]).filter(Boolean).join(' · ');
   const shown = tasks.length > MAX_TILES ? tasks.slice(0, MAX_TILES - 1) : tasks;
   const more = tasks.length - shown.length;
   const chip = mode.kind ? MODE_CHIP[mode.kind] : undefined;
+
+  const run = (
+    <div className="hud-run">
+      {demo && tasks.length === 0 ? (
+        <TaskBar onSend={demo.onSend} compact />
+      ) : (
+        <>
+          {line && (
+            <p className="hud-run-line" title={line}>
+              {line}
+            </p>
+          )}
+          {tasks.length > 0 && !phone && (
+            <ul className="hud-tiles" aria-label="Tasks">
+              {shown.map((t) => {
+                const status = STATUS_CHIP[t.status];
+                return (
+                  <li
+                    key={t.id}
+                    className="hud-chip"
+                    title={t.title}
+                    style={{ background: status.bg, color: status.text }}
+                  >
+                    {agentById(t.owner).name} · {status.label}
+                  </li>
+                );
+              })}
+              {more > 0 && <li className="hud-chip hud-more">+{more}</li>}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -154,38 +198,12 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           Rooms
         </button>
       )}
-      <span className="hud-divider" aria-hidden="true" />
-      <div className="hud-run">
-        {demo && tasks.length === 0 ? (
-          <TaskBar onSend={demo.onSend} compact />
-        ) : (
-          <>
-            {line && (
-              <p className="hud-run-line" title={line}>
-                {line}
-              </p>
-            )}
-            {tasks.length > 0 && (
-              <ul className="hud-tiles" aria-label="Tasks">
-                {shown.map((t) => {
-                  const status = STATUS_CHIP[t.status];
-                  return (
-                    <li
-                      key={t.id}
-                      className="hud-chip"
-                      title={t.title}
-                      style={{ background: status.bg, color: status.text }}
-                    >
-                      {agentById(t.owner).name} · {status.label}
-                    </li>
-                  );
-                })}
-                {more > 0 && <li className="hud-chip hud-more">+{more}</li>}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
+      {!phone && (
+        <>
+          <span className="hud-divider" aria-hidden="true" />
+          {run}
+        </>
+      )}
       {demo && (
         <div className="hud-controls">
           <div className="hud-group" role="group" aria-label="Demo run">
@@ -233,6 +251,7 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           )}
         </div>
       )}
+      {phone && run}
     </>
   );
 }
