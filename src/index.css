@@ -2424,11 +2424,13 @@ button.tp-card:hover {
   text-overflow: ellipsis;
 }
 
+/* The tiles wrap onto another row where they don't fit (T: they were cut mid-word); the top bar grows with them. */
 .hud-tiles {
   margin: 0;
   padding: 0;
   list-style: none;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.375rem;
   overflow: hidden;
 }

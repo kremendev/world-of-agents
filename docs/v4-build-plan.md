@@ -482,3 +482,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   rail counts from that once the world is ready; before, from `placeFor()` as 4d.3 had it. A Live dev on its way to
   the War hall's board now counts there, which is true. Why: the rail must say where the figures are; the world is the
   only one that knows.
+- **T, the tiles in a narrow window.** T's shots at 1100 and 400 px cut the top bar's tiles mid-word ("Fronte"), the
+  last ones gone with no "+N" (D15 doesn't say what the tiles do there). Choice: they wrap onto another row, and the top
+  bar grows with them (`--hud-top` is measured, so what is under it follows). Why: every tile stays readable, the
+  plan's own narrow rule is a top bar that wraps, and it is one CSS line, where hiding the tiles that don't fit would
+  need measuring.

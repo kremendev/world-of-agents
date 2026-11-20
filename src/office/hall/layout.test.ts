@@ -120,6 +120,10 @@ describe('text sizes and fonts', () => {
     );
   });
 
+  it("the top bar's task tiles wrap where they don't fit, never cut mid-word (T)", () => {
+    expect(rules.find((r) => r.selector === '.hud-tiles')!.body).toMatch(/flex-wrap: wrap/);
+  });
+
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });
