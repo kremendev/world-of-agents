@@ -1,8 +1,8 @@
 # World of Agents
 
-A pixel-art hall where you watch five AI agents work on your code.
+A fantasy keep in 3D where you watch five AI agents work on your code.
 
-You run Claude Code in your project. A team of five does the work: Lead/PM, Designer, Frontend dev, Backend dev and Reviewer. A web page shows each of them walking to a desk, reading, writing and waiting for your approval.
+You run Claude Code in your project. A team of five does the work: Lead/PM, Designer, Frontend dev, Backend dev and Reviewer. A web page shows the Forge Keep, a walled town on a floating island that you turn, pan and zoom around, and each agent walking to its desk, reading, writing and waiting for your approval. Where the browser can't draw 3D (no WebGL 2), the page shows the earlier pixel-art hall instead.
 
 **[Try the demo](https://kremendev.github.io/world-of-agents/).** It is a scripted run in your browser. It needs no setup and calls no AI.
 
@@ -234,18 +234,19 @@ You can still run `woa` in a project that has the plugin. For that session, `woa
 
 ## What the hall shows
 
-- The Lead/PM walks to the dashboard, and each task it hands out becomes a card.
-- Each agent fetches its scroll from the Lead's room, then goes to its desk.
-- Agents read and write at their desks. The orcs smash their keyboards.
-- The furnace burns brighter the more agents are working.
-- When Claude Code asks for your approval, the agent shows "needs you" and an orange banner names it.
-- A finished agent's card moves to Done, and it walks to the rest room, where it shows the first sentence of its last message. A bubble never rides along with a walking agent: it waits until the agent stops.
-- The Reviewer reads the work, and the Lead's report shows as a message to you. Click the Reviewer for the review
+- The Forge Keep fills the window, with the page's panels over it: the run and its tasks at the top, the rooms on the left (a button flies the camera there; Cutaway opens every house), the agents at the bottom, and Activity and the task board in a drawer on the right. A click on an agent, in the world or in the list, opens its card; Follow keeps it in view.
+- The Lead/PM plans in the War hall, and each task it hands out becomes a card on the task board.
+- Each dev fetches its scroll from the War hall's board, then goes to its desk.
+- Agents read and write at their desks, their screens lit while they work.
+- The furnace in the Forge burns brighter the more agents are working.
+- When Claude Code asks for your approval, a raised hand shows over the agent and an orange banner names it; "Show me" flies the camera to it and opens its card. A failed agent shows a red "!".
+- A finished agent's card moves to Done, and it walks back to the keep's idle places: the Tavern, the Training yard, the Courtyard and the Garden, where the team rests, wanders and trades small talk. A name tag floats over each agent, and a speech bubble shows the first sentence of its last message. A bubble never rides along with a walking agent: it waits until the agent stops.
+- The Reviewer reads the work, and the Lead's report shows as a message to you. "Show in Activity" on the Reviewer's card (in the pixel-art hall, a click on the Reviewer) opens the review
   board: each review as a card, built from the five headings the Reviewer ends its report with, and the calls the hall
   saw it make on a line of their own. A report that doesn't follow the headings shows as written.
-- The activity feed lists every step with its time. Click an agent to see only that agent. A long message shows cut: "Show all" opens the whole text under it, where you can select and copy it, and a click on the row works too. Messages to you, approval waits and failures stand out with a border and a label ("To you", "Needs you", "Failed"), decided by the kind of event, never by what the text says.
+- The activity feed lists every step with its time. "Show in Activity" on an agent's card shows only that agent. A long message shows cut: "Show all" opens the whole text under it, where you can select and copy it, and a click on the row works too. Messages to you, approval waits and failures stand out with a border and a label ("To you", "Needs you", "Failed"), decided by the kind of event, never by what the text says.
 - At the top of the feed, the "For you" strip holds what is for you and not yet clicked: messages to you, approval waits and failures, three at most. "Only for me" shows only those rows. Copy, on an opened row and on each review card, copies the text as the page shows it: a link as its text, invisible characters left out.
-- In Live, the header shows the token ledger's total for this PC: "This PC: 3.6M tokens · about $17.20 at API prices", the same total the team pane shows. Its badge names the plugin version of the hall you are looking at: "Forge Hall · v3.2.0".
+- In Live, the top bar shows the token ledger's total for this PC: "This PC: 3.6M tokens · about $17.20 at API prices", the same total the team pane shows. Its version chip names the plugin version of the hall you are looking at: "v4.0.0".
 
 ## What it never does
 
@@ -354,14 +355,14 @@ Page: checks every event, draws the hall
 - **Team pane** (`plugin/hooks/mod/`): a Claude Code mod in TypeScript, typed against the engine's own types for one Claude Code version (`tools/claude-code-types/`, refreshed only with `npm run types:update`) and tested with Claude Code's own kit.
 - **Hall server** (`server/`): plain `node:http`, run with `tsx`. It also serves the page: only the files the build lists, never a path taken from the URL.
 - **Prebuilt hall** (`plugin/hall/`): the page and one bundled server file that imports only Node's built-ins, so an install needs no `npm install`. `npm run build:plugin-hall` writes it and git tracks it. `npm run check:hall` builds it again and fails if anything differs; every release runs it first (`npm run release:check`).
-- **Page** (`src/`): React and TypeScript, with the hall drawn on Canvas 2D. Agent text only ever shows as plain text, and a Content-Security-Policy stops the page loading anything but its own files. The demo plays the same events from a script.
+- **Page** (`src/`): React and TypeScript. The Forge Keep is drawn with three.js (`src/world/`), and the page's panels over it are React (`src/hud/`); the earlier hall, drawn on Canvas 2D, takes over where WebGL 2 isn't there. Agent text only ever shows as plain text, and a Content-Security-Policy stops the page loading anything but its own files. The demo plays the same events from a script.
 - **Launcher** (`bin/woa`): starts Claude Code with the plugin, the Lead and approvals on.
 
 To work on the page, run `npm run dev` (http://localhost:5173). Run `npm run check` before you commit. It needs Claude Code on PATH, because it runs the pane's tests and reads the pane with `claude plugin test` and `claude plugin validate`. The plan and the real hook payloads are in [docs/v2-brief.md](docs/v2-brief.md) and [docs/v2-hooks.md](docs/v2-hooks.md).
 
 ## Credits and license
 
-All art is original, made for this project. The only third-party assets are three fonts, all under the SIL Open Font License 1.1 and self-hosted, installed from npm, so the page makes no requests to Google Fonts: [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans), from v3.6 [Inter](https://fontsource.org/fonts/inter) on the Team page, and from v4.0 [M PLUS Rounded 1c](https://fontsource.org/fonts/m-plus-rounded-1c) on the Forge Keep's signs (its Latin letters, one weight).
+All art is original, made for this project: the pixel-art hall drawn by hand, the keep's models built by our own Blender scripts, and the five characters made in Tripo from concept images we made ourselves. The only third-party assets are three fonts, all under the SIL Open Font License 1.1 and self-hosted, installed from npm, so the page makes no requests to Google Fonts: [Pixelify Sans](https://fontsource.org/fonts/pixelify-sans), from v3.6 [Inter](https://fontsource.org/fonts/inter) on the Team page and from v4.0 everywhere you work, and from v4.0 [M PLUS Rounded 1c](https://fontsource.org/fonts/m-plus-rounded-1c) on the Forge Keep's signs and name tags (its Latin letters, one weight).
 
 The 3D models (`src/world/models/`, from v4.0.0) are Dmitriy Kremen's, all rights reserved: they are **not** under the MIT licence, which covers the code only. [docs/ASSETS.md](docs/ASSETS.md) lists them and says what that means. All rights reserved governs use, not access: GitHub's terms let anyone view and fork a public repository on GitHub, and the hosted demo hands the files to every visitor's browser.
 

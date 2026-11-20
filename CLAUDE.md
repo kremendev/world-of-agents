@@ -31,7 +31,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 
 - React 19 + TypeScript (strict, `noUncheckedIndexedAccess`) + Vite 7, Vitest 5 + Testing Library, Zod 4. Fonts self-hosted
   through Fontsource: Pixelify Sans, from v3.6 Inter, and from v4.0 M PLUS Rounded 1c 5.3.0, pinned exactly, for the
-  Forge Keep's signs only (kit.ts loads its Latin file at weight 800 through FontFace; canvas text needs it loaded first).
+  Forge Keep's signs and, from 4d, the HUD's name tags (kit.ts loads its Latin file at weight 800 through FontFace;
+  canvas text needs it loaded first, and the tags ask for 700 and get that one face).
 - Zod is imported as `import * as z from 'zod'` (Zod's own advice), never `import { z }`: with the namespace import
   esbuild drops Zod's 64 locales from the bundled hall (779 KB to 210 KB, 2d).
 - The office is drawn on **Canvas 2D**. Switch to PixiJS only if sprite handling gets painful.
@@ -349,6 +350,9 @@ bob; the furnace's colour still changes.
 Do not change the look without asking. New ideas go into a later version. Lifted for one direction only (Dima, 15 Nov):
 the modern UI for everything you work in (the Team page now, the rest of the page after v3.7) and, as its own milestone
 after v3.7, a more detailed pixel-art hall and agents (docs/v3.6-plan.md, Backlog). Still ask before each look change.
+From v4.0.0 the 2D hall below is the fallback, frozen; the Forge Keep's look is docs/v4.0-plan.md's (the town ported,
+its nine areas: War hall, Library, Design studio, Workshop, The Forge, Tavern, Training yard, Courtyard, Garden) and
+the HUD's is Dima's approved mockup in docs/v4-build-plan.md. The same rule holds for both: ask before a look change.
 
 - **Forge Hall rooms**: Lead/PM room (wall dashboard, war map, Lead's desk on a red rug), great hall in the
   middle (entrance gate with the "You" sign, red carpet, skull-topped pillars, furnace = busy indicator),

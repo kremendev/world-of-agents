@@ -28,7 +28,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4f.1 the assets test
 - [x] 4f.2 the size budget test
 - [x] 4f.3 the bundled hall's types
-- [ ] 4f.4 CLAUDE.md and the README text
+- [x] 4f.4 CLAUDE.md and the README text
 - [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking)
 - [ ] T the test phase (later, with Dima)
 - [ ] R the release prep (no tag)
@@ -432,3 +432,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   `server/install.test.ts` requires every model and texture of `src/world/models` once in the bundled hall's manifest,
   whose reader refuses a type its extension isn't served as. Choice: nothing added, as the plan says. Why: each part of
   the step already has its test.
+- **4f.4, how much of the README.** The plan asks for its description and credits; its "What the hall shows" and "How
+  it's built" also described only the pixel-art page. Choice: the opening lines, "What the hall shows" (the keep, the
+  HUD's panels, the idle places, the markers, Show me, and the clicks that became "Show in Activity"), the page's line
+  in "How it's built", and the credits (how the models were made, the fonts' new places) now describe v4; the pictures
+  wait for T (D22), and "New in v4.0" for R with the release notes. CLAUDE.md: the design section names the keep's
+  look and the HUD's mockup beside the frozen 2D hall, and the stack's font line the name tags; its cast lines already
+  had the keep's cast and heights (4b). Why: a reader of v4's README would otherwise follow clicks the HUD doesn't have.
