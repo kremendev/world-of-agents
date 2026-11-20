@@ -1,4 +1,4 @@
-import { AGENT_IDS, type AgentState } from '../events/schema';
+import { AGENT_IDS, type AgentId, type AgentState } from '../events/schema';
 import { agentById } from '../office/roster';
 import type { Message, OfficeState } from '../state/office';
 
@@ -36,9 +36,16 @@ export function finalReport(office: OfficeState): Message | null {
   return null;
 }
 
+/** The agents waiting for your approval in Claude Code, in the roster's order (the HUD's banner rows, 4d.7). */
+export function waitingAgents(office: OfficeState): AgentId[] {
+  return AGENT_IDS.filter((id) => office.agents[id].state === 'needs-you');
+}
+
+/** What the banner says for one agent waiting for your approval. */
+export const waitingWords = (id: AgentId): string =>
+  `${agentById(id).name} needs your approval in Claude Code`;
+
 /** Who is waiting for your approval in Claude Code. */
 export function whoIsWaiting(office: OfficeState): string[] {
-  return AGENT_IDS.filter((id) => office.agents[id].state === 'needs-you').map(
-    (id) => `${agentById(id).name} needs your approval in Claude Code`,
-  );
+  return waitingAgents(office).map(waitingWords);
 }

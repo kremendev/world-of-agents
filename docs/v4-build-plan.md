@@ -14,7 +14,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4d.4 agent list, agent card, Follow
 - [x] 4d.5 drawer
 - [x] 4d.6 world labels: name tags and bubbles
-- [ ] 4d.7 needs-you banner and Show me
+- [x] 4d.7 needs-you banner and Show me
 - [ ] 4d.8 status line
 - [ ] 4d.9 narrow layouts
 - [ ] 4d.10 4d's docs and leftovers
@@ -350,3 +350,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   changes. Why: the rule's own words; a bubble no one could see is a bubble missed.
 - **4d.6, where the head is.** Choice: the figure's root plus its rig height (seated, 0.74 of it) plus 0.25 m, projected
   after the camera moves each frame. Why: no bone lookup per frame, and the cast's heights are already the town's.
+- **4d.7, Show me's flight.** Choice: the camera keeps the side it looks from (never flatter than the room views) and
+  goes to 14 m from the figure, the house it is in opening, Follow ending; a cut with reduced motion (the world's own
+  `flyTo()`). Why: close enough to see the raised hand, and the same flight the rooms use.
+- **4d.7, the buttons' names.** Several "Show me" buttons can show at once. Choice: each is named "Show me <agent>"
+  (the visible words first), and the banner is a region named "Needs you". Why: a screen reader's list of buttons tells
+  them apart. `whoIsWaiting()` keeps its words, now built from `waitingAgents()` and `waitingWords()`, which the banner
+  uses too.

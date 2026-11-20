@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import type { AgentId } from './events/schema';
-import { finalReport, shortLine, whoIsWaiting, withoutMarkers } from './live/announce';
+import { finalReport, shortLine, waitingAgents, whoIsWaiting, withoutMarkers } from './live/announce';
 import { liveEnabled } from './live/hall';
 import { useLiveHall, type LiveHall } from './live/useLiveHall';
 import { AgentCard } from './hud/AgentCard';
 import { AgentList } from './hud/AgentList';
 import { Drawer, type DrawerTab } from './hud/Drawer';
+import { NeedsYou } from './hud/NeedsYou';
 import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
 import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
@@ -148,6 +149,21 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   pick.current = (id: AgentId) => openCard(id, false);
   useEffect(() => world?.onPick((id) => pick.current(id)), [world]);
   // Follow: on until a hand move or a second press; while on, no room is the one in view
+  // Show me (4d.7, D17): the camera to the agent, its card open, the focus on the card's heading
+  const focusCardHeading = useRef(false);
+  const showMe = (id: AgentId) => {
+    world?.flyToAgent(id);
+    setFollowing(null);
+    setView(null);
+    openCard(id, false);
+    if (card === id) cardHeading.current?.focus();
+    else focusCardHeading.current = true;
+  };
+  useEffect(() => {
+    if (!focusCardHeading.current || card === null) return;
+    focusCardHeading.current = false;
+    cardHeading.current?.focus();
+  }, [card]);
   const toggleFollow = (id: AgentId) => {
     const next = following === id ? null : id;
     world?.follow(next);
@@ -359,6 +375,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const mode = modeOf(hall, demo, office);
   // From the real run even during a demo: Claude Code is still waiting for you.
   const waiting = hall.status === 'no-hall' ? [] : whoIsWaiting(hall.office);
+  const waitingIds = hall.status === 'no-hall' ? [] : waitingAgents(hall.office);
   const status = waiting.length > 0 ? waiting.join(' · ') : mode.status;
   const runText = demo ? task : office.runText;
   // The demo says everything to you, as in v1. A real run only its final report: updates would talk over the work.
@@ -499,7 +516,9 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 onTeam={live && hall.status !== 'checking' ? openTeam : undefined}
               />
             </header>
-            <div className="hud-under">{statusLine}</div>
+            <div className="hud-under">
+              {waitingIds.length > 0 ? <NeedsYou waiting={waitingIds} onShowMe={showMe} /> : statusLine}
+            </div>
             <RoomsRail
               badges={roomBadges(office)}
               view={view}

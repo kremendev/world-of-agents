@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
+import type { AgentId, OfficeEvent } from './events/schema';
+import { FakeEventSource } from './test/fakeEventSource';
 import { CONTEXT_GRACE_MS } from './world/support';
 import { fakeWorld, stubLayout, type FakeWorld } from './test/fakeWorld';
 
@@ -291,5 +293,66 @@ describe('the drawer (4d.5)', () => {
     expect(drawer()).not.toBeNull();
     expect(screen.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('heading', { name: 'Activity · Designer' })).toHaveFocus();
+  });
+});
+
+describe('the needs-you banner and Show me, in Live (4d.7)', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    FakeEventSource.all = [];
+    vi.stubGlobal('EventSource', FakeEventSource);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: true, json: async () => ({ ok: true, version: '9.8.7' }) })),
+    );
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const live = async (...events: OfficeEvent[]) => {
+    const view = render(<App />);
+    await settle();
+    act(() => {
+      for (const e of events) FakeEventSource.latest.send(e);
+      FakeEventSource.latest.replayed();
+    });
+    await settle();
+    return view;
+  };
+  const needs = (agent: AgentId, at = 1): OfficeEvent => ({ type: 'state', agent, state: 'needs-you', at });
+
+  it("takes the status line's place under the top bar, a row per agent that waits", async () => {
+    const { container } = await live(needs('backend'));
+    const under = container.querySelector('.hud-under') as HTMLElement;
+    expect(within(under).getByRole('region', { name: 'Needs you' })).toHaveTextContent(
+      'Backend dev needs your approval in Claude Code',
+    );
+    expect(under.querySelector('.status-line')).toBeNull();
+    // the live region says it as it always has
+    expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent(
+      'Backend dev needs your approval in Claude Code',
+    );
+  });
+
+  it("Show me flies to the agent, opens its card and puts the focus on the card's heading (D17)", async () => {
+    await live(needs('frontend'), needs('backend', 2));
+    fireEvent.click(screen.getByRole('button', { name: 'Show me Backend dev' }));
+    expect(world.flyToAgent).toHaveBeenLastCalledWith('backend');
+    const heading = screen.getByRole('heading', { level: 2, name: 'Backend dev' });
+    expect(heading).toHaveFocus();
+    expect(screen.getByRole('button', { name: /^Backend dev/ })).toHaveAttribute('aria-pressed', 'true');
+    // again, with that card already open: the focus goes back to its heading
+    screen.getByRole('button', { name: 'Show me Frontend dev' }).focus();
+    fireEvent.click(screen.getByRole('button', { name: 'Show me Frontend dev' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Frontend dev' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Show me Frontend dev' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Frontend dev' })).toHaveFocus();
+  });
+
+  it('goes back to the status line once nobody waits', async () => {
+    const { container } = await live(needs('backend'));
+    act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));
+    await settle();
+    expect(container.querySelector('.hud-needs')).toBeNull();
+    expect(container.querySelector('.hud-under .status-line')).not.toBeNull();
   });
 });

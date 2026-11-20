@@ -1104,6 +1104,24 @@ export async function createWorld(opts: WorldOptions) {
         if (picked === fn) picked = null;
       };
     },
+    /**
+     * Show me (4d.7, D17): the camera to a figure, from the side it looks from now, 14 m away, in about a second (a cut
+     * with reduced motion); the house the figure is in opens.
+     */
+    flyToAgent(id: AgentKey) {
+      following = null;
+      const sp = SPOTS[walkers[id].spot];
+      focusRoom = HOUSES[sp.room] && !sp.out ? sp.room : null;
+      const target = cast.actors[id].root.getWorldPosition(new THREE.Vector3());
+      target.y += 0.8;
+      const dir = camera.position.clone().sub(controls.target);
+      if (dir.lengthSq() < 1e-6) dir.set(0.45, 0.85, 0.9);
+      dir.normalize();
+      // never flatter than the town's room views look
+      dir.y = Math.max(dir.y, 0.6);
+      dir.normalize();
+      flyTo(target, target.clone().addScaledVector(dir, 14));
+    },
     /** Keeps a figure in view as it walks (null: stops), until a hand move; a flight in progress ends. */
     follow(id: AgentKey | null) {
       following = id;

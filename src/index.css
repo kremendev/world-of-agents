@@ -2725,3 +2725,55 @@ button.tp-card:hover {
   border-bottom: 0;
   transform: translateX(-50%);
 }
+
+/* The needs-you banner (4d.7): across the world between the rail and the drawer, in the needs-you chip's pair. */
+.hud-needs {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 1px solid var(--ui-flag);
+  border-radius: 0.75rem;
+  background: var(--ui-needs-bg);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.38);
+  color: var(--ui-needs);
+}
+
+.hud-needs-icon {
+  flex: none;
+  margin-top: 0.5rem;
+}
+
+.hud-needs-rows {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.hud-needs-rows li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.hud-needs-text {
+  min-width: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.hud-needs-more {
+  flex: none;
+  align-self: flex-end;
+  margin: 0 0 0.625rem;
+  font-size: 0.8125rem;
+}
