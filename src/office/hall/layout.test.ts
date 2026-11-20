@@ -112,6 +112,14 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.status-line.needs-you')!.body).toMatch(/background/);
   });
 
+  it("the HUD reaches the window's edge: no scrollbar gutter kept while it shows, the Team page's kept (T)", () => {
+    // T's shots: a 15 px strip down the right edge, the world short of it
+    expect(rules.find((r) => r.selector === 'html')!.body).toMatch(/scrollbar-gutter: stable/);
+    expect(rules.find((r) => r.selector === 'html:has(.app.keep:not([hidden]))')!.body).toMatch(
+      /scrollbar-gutter: auto/,
+    );
+  });
+
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });

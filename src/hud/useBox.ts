@@ -4,7 +4,7 @@ export type Box = { width: number; height: number; stacked: false };
 
 /**
  * The size of an element in CSS px while `on`, null until measured (v4.0.0, 4d): the HUD's stage fills the window, and
- * the world takes its size from it. Its own box, not the window's: the page keeps a scrollbar's gutter at its edge.
+ * the world takes its size from it. Its own box, not the window's, whatever the window keeps at its edge.
  * A box with no width (behind the Team page) keeps the last size, as useStage does.
  */
 export function useBox(ref: RefObject<HTMLElement | null>, on: boolean): Box | null {
