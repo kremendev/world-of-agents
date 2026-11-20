@@ -1324,6 +1324,9 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     tag over another, and the card's look line from the keep's models; and T's half without him (docs/v4-build-plan.md,
     T): the world checks, 31 planted bugs, the screenshots, and seven fixes (an idle test, the rooms rail's counts after
     idle life, the world to the window's right edge, the tiles in a narrow window, the walk checks taught idle life, the
-    beer garden out of idle life, never two agents resting on one spot). Next: Dima's half of T (Narrator, the
-    three scalings, frame times in a real window, the look against the mockup), then the README's pictures (D22), then R.
+    beer garden out of idle life, never two agents resting on one spot). Then Dima's six fixes after his look at the shots
+    (20 Nov): framing in the free area (setViewOffset), the Library's and the Courtyard's views with spots.mjs's view
+    check, empty lines, the phone top bar, tags inside the window, a leader line; and a room chosen while following.
+    Next: Dima's half of T (Narrator, the three scalings, frame times in a real window, the look against the mockup),
+    then the README's pictures (D22), then R.
     The raised-hand clip goes in if it comes before T ends, else in 4.0.1.

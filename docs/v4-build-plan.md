@@ -313,6 +313,18 @@ character still under 2 MB and the totals under budget, the AIGC label and Produ
 - Left: Dima's half (Narrator over the HUD, the three Windows scalings, frame times in a real window, the look against
   the mockup), then the README's pictures (D22, from the redacted fixtures once the look is approved), then R.
 
+**T, Dima's six fixes after his look at the shots (20 Nov).** Framing in the free area, the Library's view (and the
+Courtyard's, which the new view check found, and which T's own shot of it had shown), empty lines, the phone top bar,
+tags inside the window, a leader line: a commit each, each decision in "Decisions taken during the build", each seen
+in Edge on the stand-in hall. Then one more: the new shots found a room chosen while following went back to the figure
+(4d's), fixed. `spots.mjs` now also checks every room's view: all 28 spots seen (on the views as they were, it found 4
+hidden). Planted bugs: 13, one or more per test file the fixes changed, all caught. `npm run check` (114 files, 2243
+tests) and `check:hall` clean. The changed states' shots are in `D:\Dev\scratch\t-shots-2`: loading in Live,
+the whole keep with stacked tags and a leader line, Show me, a card with Follow, the Library, the Courtyard, and 400 px
+wide with and without a card; no console errors. Seen, not changed: at 400 px with the drawer closed the needs-you
+banner is squeezed into a narrow column by the room kept for the drawer's handle (`--hud-drawer-w` 8rem), and a
+stacked tag's line can run behind the tag it was moved off. T stays unticked until Dima's half.
+
 **R The release prep** (no tag, no release): `plugin.json` to 4.0.0 and the version wherever the repo keeps it,
 `docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of
 `docs/release-notes/v3.10.0-check.md` (fresh install, Demo, Live, needs-you, Team page, the 2D fallback with WebGL off,
