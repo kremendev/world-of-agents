@@ -74,6 +74,7 @@ describe("the HUD's colours", () => {
       ['a link on a panel', token('--ui-link'), token('--ui-surface')],
       ["the card's specialists chip", token('--ui-link'), token('--ui-raised')],
       ['the task input', token('--ui-text'), token('--ui-bg')],
+      ['the line while the world loads', token('--ui-muted'), token('--ui-bg')],
       ["the task input's placeholder", token('--ui-muted'), token('--ui-bg')],
       ['a primary button', token('--ui-on-accent'), token('--ui-accent')],
       ['the needs-you banner', token('--ui-needs'), token('--ui-needs-bg')],

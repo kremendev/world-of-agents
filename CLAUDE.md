@@ -197,9 +197,10 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   owner's work spot, and when it glows); all pure, read by scene/world.ts. check/: the
                   render check's page, dev server only (/src/world/check/index.html), never built. camera.ts: the
                   camera's limits and how it frames a room, as numbers. WorldView.tsx (4a): what App shows in the stage, the world where
-                  `canDrawWorld()` (support.ts) finds WebGL 2, the 2D hall while it loads and in its place when it
-                  can't draw, fails to load or loses its context for CONTEXT_GRACE_MS; scene/ comes in by a dynamic
-                  import, its own chunk; from 4d it tells App its world (`onWorld`), which lays the HUD over it
+                  `canDrawWorld()` (support.ts) finds WebGL 2, a quiet backdrop ("Raising the keep…") while it
+                  loads, and the 2D hall in its place when it can't draw, fails to load or loses its context for
+                  CONTEXT_GRACE_MS; scene/ comes in by a dynamic import, its own chunk; from 4d it tells App its world
+                  (`onWorld`), and when the 2D hall takes over (`onFallback`)
 src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md, the approved mockup in words). TopBar
                   (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
                   under 70rem the Rooms menu button), HudStatus (the status line), NeedsYou (the banner, Show me),
@@ -268,8 +269,10 @@ aren't drawn in it (Dima, 17 Nov). jsdom has no WebGL, so every test of the page
 which mock the world (`src/test/fakeWorld.ts`: a fake world, and `stubLayout()` for sizes, an observer and width media
 queries).
 
-**The HUD (4d)** is the page while the world is on screen; while it loads and whenever the 2D hall draws, the page keeps
-the layout below. App keeps three slots in both (above the stage, the stage, below it), so a switch never mounts the
+**The HUD (4d)** is the page from its first paint wherever `canDrawWorld()` is true (Dima, 20 Nov): while the world
+loads, the top bar, agent list, card, drawer and banner work, and the rooms rail, Cutaway, Follow and the name tags wait
+for it. Only the fallback (no WebGL 2, a failed load, a lost context) brings back the layout below with the 2D hall.
+App keeps three slots in both (above the stage, the stage, below it), so a switch never mounts the
 world again, and their order is the HUD's tab order: top bar, status or banner, rooms, the world, agents, card, drawer.
 Its rules: only the `--ui-*` tokens and Inter (the name tags in the signs' rounded face, its one file), solid panels,
 sizes in rem and nothing under 13 px, focus always visible; `src/hud/contrast.test.ts` holds text to 4.5:1 and the focus

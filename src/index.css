@@ -261,7 +261,7 @@ h1 {
   image-rendering: pixelated;
 }
 
-/* v4.0.0: the Forge Keep in 3D, in the hall's place; hidden while it loads (the 2D hall shows meanwhile). */
+/* v4.0.0: the Forge Keep in 3D, in the hall's place; hidden while it loads (a backdrop shows meanwhile). */
 .world {
   display: block;
 }
@@ -2132,7 +2132,8 @@ button.tp-card:hover {
  * ---- v4.0.0's HUD over the Forge Keep (4d, docs/v4-build-plan.md: Dima's approved mockup in words) ----
  * While the world is on screen the page is a HUD: the world fills the window, and solid panels float over it, each
  * 1rem from the window's edges. Only the --ui-* tokens and Inter; sizes in rem, nothing under 13 px; focus always
- * visible. The 2D hall (while the world loads, and as the fallback) keeps the page above.
+ * visible. The HUD is there from the first paint wherever the world can draw (Dima, 20 Nov); the 2D hall, as the
+ * fallback, keeps the page above.
  */
 .app.keep {
   --hud-edge: 1rem;
@@ -2159,6 +2160,40 @@ button.tp-card:hover {
   height: 100%;
   border: 0;
   background: var(--ui-bg);
+}
+
+/* While the world loads: its dark ground, one quiet line, and an ember that turns, standing still with reduced motion. */
+.hud-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  color: var(--ui-muted);
+  font-size: 0.9375rem;
+}
+
+.hud-loading-ember {
+  box-sizing: border-box;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--ui-line-strong);
+  border-top-color: var(--ui-accent);
+  border-radius: 50%;
+  animation: hud-turn 1.2s linear infinite;
+}
+
+@keyframes hud-turn {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-loading-ember {
+    animation: none;
+  }
 }
 
 .app.keep :focus-visible {
@@ -2448,8 +2483,13 @@ button.tp-card:hover {
   cursor: pointer;
 }
 
-.hud-room:hover {
+.hud-room:hover:not(:disabled) {
   background: var(--ui-raised);
+}
+
+.hud-room:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .hud-room[aria-pressed='true'] {

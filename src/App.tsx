@@ -78,8 +78,13 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // Goes up on every restart; the hall puts everyone back at their rest spots when it changes.
   const [run, setRun] = useState(0);
   const [task, setTask] = useState(DEMO_TASK);
+  // Where the browser can draw the Forge Keep, the page is a HUD over it from its first paint (Dima, 20 Nov); the
+  // classic layout and its 2D hall come back only when the world fails to load or loses its context for good.
+  const [drawsWorld] = useState(canDrawWorld);
+  const [fellBack, setFellBack] = useState(false);
+  const hud = drawsWorld && !fellBack;
   // the demo's pace: the Forge Keep's walks are long, so where it can draw, each step lasts long enough for them
-  const [stepMs] = useState(() => (canDrawWorld() ? KEEP_STEP_MS : STEP_MS));
+  const [stepMs] = useState(() => (drawsWorld ? KEEP_STEP_MS : STEP_MS));
   // the demo's "Next step" (Dima, 18 Nov): the figures land where they are going, and the run moves on a step
   const [skips, setSkips] = useState(0);
   const [selected, setSelected] = useState<AgentId>('lead');
@@ -98,11 +103,11 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const activityHeading = useRef<HTMLHeadingElement>(null);
   const player = useRef<Player | null>(null);
   const stage = useStage();
-  // The Forge Keep once it is on screen (4d): the page is then a HUD over it, filling the window. Until it is, and
-  // whenever the 2D hall takes over, the page keeps the layout it had.
+  // The Forge Keep once it is on screen (4d). Until then the HUD works but for what needs the world: the rooms, Cutaway,
+  // Follow and the name tags.
   const [world, setWorld] = useState<World | null>(null);
-  const keep = world !== null;
-  const box = useBox(stage.ref, keep);
+  const ready = world !== null;
+  const box = useBox(stage.ref, hud);
   // The view the rooms rail shows as pressed (4d.3): the camera starts on the whole keep; a hand move clears it.
   const [view, setView] = useState<View | null>('overview');
   const [cutaway, setCutaway] = useState(false);
@@ -117,7 +122,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const railId = useId();
   // The top bar wraps in a narrow window; what sits under it starts where it ends (--hud-top), measured.
   const topBar = useRef<HTMLElement>(null);
-  const topBox = useBox(topBar, keep);
+  const topBox = useBox(topBar, hud);
   const toggleCutaway = () => {
     world?.setOpenHouses(!cutaway);
     setCutaway(!cutaway);
@@ -161,9 +166,11 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // Show me (4d.7, D17): the camera to the agent, its card open, the focus on the card's heading
   const focusCardHeading = useRef(false);
   const showMe = (id: AgentId) => {
-    world?.flyToAgent(id);
-    setFollowing(null);
-    setView(null);
+    if (world) {
+      world.flyToAgent(id);
+      setFollowing(null);
+      setView(null);
+    }
     openCard(id, false);
     if (card === id) cardHeading.current?.focus();
     else focusCardHeading.current = true;
@@ -237,7 +244,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // Esc in the HUD (D19): the review board closes first (its own handler), then the narrow window's rooms menu, then
   // the card, then the drawer.
   useEffect(() => {
-    if (!keep || teamOpen || sideOpen || (card === null && !drawerOpen && !roomsOpen)) return;
+    if (!hud || teamOpen || sideOpen || (card === null && !drawerOpen && !roomsOpen)) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       if (roomsOpen) {
@@ -256,7 +263,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [keep, teamOpen, sideOpen, card, drawerOpen, roomsOpen]);
+  }, [hud, teamOpen, sideOpen, card, drawerOpen, roomsOpen]);
 
   useEffect(() => {
     if (!demo) return;
@@ -486,7 +493,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const activity = (
     <div className="side">
       <div className="side-content" inert={sideOpen}>
-        {demo && !keep && <TaskBar onSend={send} />}
+        {demo && !hud && <TaskBar onSend={send} />}
         <ActivityFeed
           office={office}
           agent={feedAgent}
@@ -506,13 +513,13 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   return (
     <>
       <main
-        className={keep ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'}
+        className={hud ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'}
         hidden={teamOpen}
         style={
-          keep && topBox ? ({ '--hud-top': `calc(${topBox.height}px + 2rem)` } as CSSProperties) : undefined
+          hud && topBox ? ({ '--hud-top': `calc(${topBox.height}px + 2rem)` } as CSSProperties) : undefined
         }
       >
-        {keep ? (
+        {hud ? (
           <>
             <header ref={topBar} className="hud-panel hud-top">
               <TopBar
@@ -538,6 +545,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 onPlayDemo={live && hall.status !== 'checking' ? playDemo : undefined}
                 onTeam={live && hall.status !== 'checking' ? openTeam : undefined}
                 rooms={{
+                  disabled: !ready,
                   open: roomsOpen,
                   controls: railId,
                   onToggle: () => setRoomsOpen(!roomsOpen),
@@ -556,6 +564,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
             </div>
             <RoomsRail
               id={railId}
+              disabled={!ready}
               open={roomsOpen}
               badges={roomBadges(office)}
               view={view}
@@ -571,7 +580,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
           </>
         )}
 
-        <div ref={stage.ref} className={!keep && stage.fit?.stacked ? 'stage stacked' : 'stage'}>
+        <div ref={stage.ref} className={!hud && stage.fit?.stacked ? 'stage stacked' : 'stage'}>
           <section aria-label="Forge Hall office" className="scene">
             <WorldView
               office={office}
@@ -580,27 +589,28 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               onSelect={select}
               live={live}
               hushed={live && hall.hushed}
-              room={keep ? (box ?? stage.fit) : stage.fit}
+              room={hud ? box : stage.fit}
               skips={skips}
               onWorld={setWorld}
+              onFallback={() => setFellBack(true)}
             />
           </section>
-          {world ? (
-            <WorldLabels
-              world={world}
-              office={office}
-              card={card}
-              run={run}
-              hushed={live && hall.hushed}
-              width={box?.width ?? 0}
-              height={box?.height ?? 0}
-            />
-          ) : (
-            activity
-          )}
+          {!hud
+            ? activity
+            : world && (
+                <WorldLabels
+                  world={world}
+                  office={office}
+                  card={card}
+                  run={run}
+                  hushed={live && hall.hushed}
+                  width={box?.width ?? 0}
+                  height={box?.height ?? 0}
+                />
+              )}
         </div>
 
-        {keep ? (
+        {hud ? (
           <>
             <AgentList office={office} card={card} onToggle={(id) => openCard(id, true)} />
             {card && (
@@ -609,6 +619,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                 agent={card}
                 live={live}
                 following={following === card}
+                canFollow={ready}
                 onFollow={() => toggleFollow(card)}
                 onShowActivity={() => showActivity(card)}
                 onClose={closeCard}

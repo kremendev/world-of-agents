@@ -61,32 +61,37 @@ describe('WorldView', () => {
     expect(scene.create).not.toHaveBeenCalled();
   });
 
-  it('keeps the 2D hall when the scene fails to load, and says why in the console', async () => {
+  it('shows the 2D hall when the scene fails to load, says why in the console, and tells the page', async () => {
     scene.canDraw.mockReturnValue(true);
     scene.create.mockRejectedValue(new Error('a model did not load'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const { container } = render(<WorldView {...props()} />);
+    const onFallback = vi.fn();
+    const { container } = render(<WorldView {...props()} onFallback={onFallback} />);
     await settle();
     expect(scene.create).toHaveBeenCalledOnce();
     expect(hall2d(container)).not.toBeNull();
     expect(world3d(container)).toBeNull();
     expect(warn).toHaveBeenCalled();
+    expect(onFallback).toHaveBeenCalledOnce();
     warn.mockRestore();
   });
 
-  it('shows the 2D hall while the world loads, then the world: started, sized, paused when hidden, disposed', async () => {
+  it('shows a quiet backdrop while the world loads, then the world: started, sized, paused when hidden, disposed', async () => {
     scene.canDraw.mockReturnValue(true);
     const world = fakeWorld();
     let resolve: (w: Fake) => void = () => {};
     scene.create.mockReturnValue(new Promise<Fake>((r) => (resolve = r)));
     const { container, rerender, unmount } = render(<WorldView {...props()} />);
     await settle();
-    expect(hall2d(container)).not.toBeNull();
+    // never the 2D hall on the way: it shows only as the fallback (Dima, 20 Nov)
+    expect(hall2d(container)).toBeNull();
+    expect(container.querySelector('[role="status"]')).toHaveTextContent('Raising the keep…');
     expect(world3d(container)?.hidden).toBe(true);
     expect(scene.create.mock.calls[0]?.[0]).toMatchObject({ width: 800, height: 560 });
 
     await act(async () => resolve(world));
     expect(hall2d(container)).toBeNull();
+    expect(container.querySelector('[role="status"]')).toBeNull();
     expect(world3d(container)?.hidden).toBe(false);
     expect(world3d(container)?.getAttribute('role')).toBe('img');
     expect(world.start).toHaveBeenCalledOnce();
@@ -134,7 +139,8 @@ describe('WorldView', () => {
     const world = fakeWorld();
     scene.create.mockResolvedValue(world);
     vi.useFakeTimers();
-    const { container } = render(<WorldView {...props()} />);
+    const onFallback = vi.fn();
+    const { container } = render(<WorldView {...props()} onFallback={onFallback} />);
     await settle();
     const canvas = world3d(container) as HTMLCanvasElement;
 
@@ -143,12 +149,14 @@ describe('WorldView', () => {
     act(() => canvas.dispatchEvent(new Event('webglcontextrestored')));
     act(() => vi.advanceTimersByTime(1000));
     expect(world3d(container)).not.toBeNull();
+    expect(onFallback).not.toHaveBeenCalled();
 
     act(() => canvas.dispatchEvent(new Event('webglcontextlost')));
     act(() => vi.advanceTimersByTime(CONTEXT_GRACE_MS + 1));
     expect(world3d(container)).toBeNull();
     expect(hall2d(container)).not.toBeNull();
     expect(world.dispose).toHaveBeenCalledOnce();
+    expect(onFallback).toHaveBeenCalledOnce();
   });
 
   it('tells the page the world once it is on screen, and null when the 2D hall takes over or it goes (4d)', async () => {

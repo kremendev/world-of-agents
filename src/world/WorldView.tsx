@@ -4,25 +4,32 @@ import type { World } from './scene/world';
 import { CONTEXT_GRACE_MS, canDrawWorld } from './support';
 
 /**
- * HallView's props, and `skips`: how many times the demo's "Next step" was pressed (each one lands the figures), and
- * `onWorld`: the world once it is on screen, and null when the 2D hall takes over again (the page lays its HUD over the
- * world only, 4d).
+ * HallView's props, and `skips`: how many times the demo's "Next step" was pressed (each one lands the figures),
+ * `onWorld`: the world once it is on screen, and null when the 2D hall takes over again or it goes, and `onFallback`:
+ * the 2D hall took over, because the world failed to load or lost its context (the page is a HUD until then, 4d).
  */
-type Props = ComponentProps<typeof HallView> & { skips?: number; onWorld?: (world: World | null) => void };
+type Props = ComponentProps<typeof HallView> & {
+  skips?: number;
+  onWorld?: (world: World | null) => void;
+  onFallback?: () => void;
+};
 type Phase = 'loading' | 'ready' | 'fallback';
 
 /**
  * The Forge Keep in 3D (v4.0.0, 4a), where the browser can draw it; else, or if it fails, today's 2D hall (frozen as the
- * fallback, docs/v4.0-plan.md). three.js and the scene come in through a dynamic import, so nothing waits for them, and
- * the 2D hall stays on screen until the world is ready. The world pauses while the tab is hidden; a lost context that
+ * fallback, docs/v4.0-plan.md). three.js and the scene come in through a dynamic import, so nothing waits for them;
+ * until the world is ready a quiet backdrop says it is coming (Dima, 20 Nov: the page is the HUD from its first paint, and
+ * the 2D hall shows only as the fallback). The world pauses while the tab is hidden; a lost context that
  * doesn't come back within CONTEXT_GRACE_MS hands over to the 2D hall. The props are HallView's, so the page swaps one
  * for the other; the world gets the office as it changes and walks the figures there (4b).
  */
-export function WorldView({ skips = 0, onWorld, ...props }: Props) {
+export function WorldView({ skips = 0, onWorld, onFallback, ...props }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const worldRef = useRef<World | null>(null);
   const tell = useRef(onWorld);
   tell.current = onWorld;
+  const tellFallback = useRef(onFallback);
+  tellFallback.current = onFallback;
   const [supported] = useState(canDrawWorld);
   const [phase, setPhase] = useState<Phase>(supported ? 'loading' : 'fallback');
   const width = props.room?.width ?? 0;
@@ -59,6 +66,7 @@ export function WorldView({ skips = 0, onWorld, ...props }: Props) {
         if (cancelled) return;
         console.warn('The Forge Keep did not load; showing the 2D hall.', err);
         setPhase('fallback');
+        tellFallback.current?.();
       });
     return () => {
       cancelled = true;
@@ -122,6 +130,7 @@ export function WorldView({ skips = 0, onWorld, ...props }: Props) {
         world?.dispose();
         setPhase('fallback');
         tell.current?.(null);
+        tellFallback.current?.();
       }, CONTEXT_GRACE_MS);
     };
     const onRestored = () => clearTimeout(timer);
@@ -137,7 +146,12 @@ export function WorldView({ skips = 0, onWorld, ...props }: Props) {
   if (phase === 'fallback') return <HallView {...props} />;
   return (
     <>
-      {phase === 'loading' && <HallView {...props} />}
+      {phase === 'loading' && (
+        <div className="hud-loading" role="status">
+          <span className="hud-loading-ember" aria-hidden="true" />
+          Raising the keep…
+        </div>
+      )}
       <canvas
         ref={canvasRef}
         className="world"

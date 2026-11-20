@@ -32,7 +32,14 @@ type Props = {
   onPlayDemo?: () => void;
   onTeam?: () => void;
   /** In a narrow window (D15), the rooms as a menu: the disclosure button that shows and hides the rail. */
-  rooms?: { open: boolean; controls: string; onToggle: () => void; buttonRef?: Ref<HTMLButtonElement> };
+  rooms?: {
+    open: boolean;
+    controls: string;
+    onToggle: () => void;
+    buttonRef?: Ref<HTMLButtonElement>;
+    /** Until the world is ready (its rooms have no camera to send yet). */
+    disabled?: boolean;
+  };
 };
 
 /** Today's dashboard: up to 5 tiles, or 4 and "+N" when there are more. */
@@ -140,6 +147,7 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           className="hud-button hud-rooms-button"
           aria-expanded={rooms.open}
           aria-controls={rooms.controls}
+          disabled={rooms.disabled}
           onClick={rooms.onToggle}
         >
           Rooms

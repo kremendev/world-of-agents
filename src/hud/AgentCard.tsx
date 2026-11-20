@@ -8,6 +8,8 @@ type Props = {
   agent: AgentId;
   live: boolean;
   following: boolean;
+  /** Until the world is ready there is no figure to follow: Follow shows, disabled. */
+  canFollow?: boolean;
   onFollow: () => void;
   onShowActivity: () => void;
   onClose: () => void;
@@ -23,6 +25,7 @@ export function AgentCard({
   agent,
   live,
   following,
+  canFollow = true,
   onFollow,
   onShowActivity,
   onClose,
@@ -49,7 +52,13 @@ export function AgentCard({
         headingRef={headingRef}
       />
       <div className="hud-card-actions">
-        <button type="button" className="hud-button hud-primary" aria-pressed={following} onClick={onFollow}>
+        <button
+          type="button"
+          className="hud-button hud-primary"
+          aria-pressed={following}
+          disabled={!canFollow}
+          onClick={onFollow}
+        >
           {following ? 'Following' : 'Follow'}
         </button>
         <button type="button" className="hud-button" onClick={onShowActivity}>

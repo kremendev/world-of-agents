@@ -7,7 +7,8 @@ import { RETRY_MS } from './live/hall';
 import { CONTEXT_GRACE_MS } from './world/support';
 import { fakeWorld, stubLayout, type FakeWorld } from './test/fakeWorld';
 
-// The HUD over the Forge Keep (4d): the page lays it over the world only once the world is on screen.
+// The HUD over the Forge Keep (4d): from the first paint wherever the world can draw (Dima, 20 Nov), the classic page
+// with its 2D hall only when the world falls back.
 const scene = vi.hoisted(() => ({ create: vi.fn() }));
 vi.mock('./world/support', async (importOriginal) => ({
   ...(await importOriginal<typeof import('./world/support')>()),
@@ -36,20 +37,63 @@ afterEach(() => {
 const main = (container: HTMLElement) => container.querySelector('main') as HTMLElement;
 
 describe('the HUD over the world (4d.1)', () => {
-  it('keeps the page as it was while the world loads, then lays the HUD over it', async () => {
+  it('is the HUD while the world loads: a quiet backdrop, the panels at work, the rooms and tags waiting', async () => {
+    // a world that never comes
+    scene.create.mockReturnValue(new Promise<FakeWorld>(() => {}));
+    const { container } = render(<App />);
+    await settle();
+    expect(main(container)).toHaveClass('keep');
+    expect(container.querySelector('.app-header')).toBeNull();
+    expect(container.querySelector('.hall')).toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Raising the keep…');
+    // the top bar, the drawer and the agent list work at once, and so does the card
+    expect(container.querySelector('.hud-top')).not.toBeNull();
+    expect(screen.getByRole('complementary', { name: 'Activity and tasks' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Designer' })).toBeInTheDocument();
+    // what needs the world waits for it: the rooms, Cutaway, Follow and the name tags
+    const rail = screen.getByRole('navigation', { name: 'Rooms' });
+    expect(within(rail).getAllByRole('button')).not.toHaveLength(0);
+    for (const b of within(rail).getAllByRole('button')) expect(b).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Follow' })).toBeDisabled();
+    expect(container.querySelector('.hud-labels')).toBeNull();
+    // the world is built at the stage's size: the window, here 1440 x 900
+    expect(scene.create.mock.calls[0]?.[0]).toMatchObject({ width: 1440, height: 900 });
+  });
+
+  it('is the same HUD once the world is ready: nothing moves, and the rooms, Follow and the tags come in', async () => {
     let resolve: (w: FakeWorld) => void = () => {};
     scene.create.mockReturnValue(new Promise<FakeWorld>((r) => (resolve = r)));
     const { container } = render(<App />);
     await settle();
-    expect(main(container)).not.toHaveClass('keep');
-    expect(container.querySelector('.app-header')).not.toBeNull();
-    expect(container.querySelector('.hud-top')).toBeNull();
+    const top = container.querySelector('.hud-top');
+    fireEvent.click(screen.getByRole('button', { name: /^Designer/ }));
 
     await act(async () => resolve(world));
     expect(main(container)).toHaveClass('keep');
-    expect(container.querySelector('.app-header')).toBeNull();
-    // the world is the stage's size: the window, here 1440 x 900
+    // the same elements, not a second layout
+    expect(container.querySelector('.hud-top')).toBe(top);
+    expect(screen.queryByRole('status')).toBeNull();
+    for (const b of within(screen.getByRole('navigation', { name: 'Rooms' })).getAllByRole('button'))
+      expect(b).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Follow' })).toBeEnabled();
+    expect(container.querySelectorAll('.hud-labels .hud-tag')).toHaveLength(5);
     expect(world.resize).toHaveBeenLastCalledWith(1440, 900);
+  });
+
+  it('goes to the classic page with the 2D hall when the world fails to load', async () => {
+    scene.create.mockRejectedValue(new Error('a model did not load'));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { container } = render(<App />);
+    await settle();
+    expect(main(container)).not.toHaveClass('keep');
+    expect(container.querySelector('.app-header')).not.toBeNull();
+    expect(container.querySelector('.hall')).not.toBeNull();
+    expect(container.querySelector('.hud-top')).toBeNull();
+    expect(screen.queryByRole('status')).toBeNull();
+    // the classic page's task bar and agent panel are back
+    expect(screen.getAllByRole('textbox', { name: 'Task for the Lead/PM' })).toHaveLength(1);
+    warn.mockRestore();
   });
 
   it('puts the areas in their places: top bar, rooms, agents and the drawer; the card waits for an agent', async () => {

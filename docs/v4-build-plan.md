@@ -295,8 +295,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
 
 (Add each one here, in the commit that takes it: the question, the choice, one line why.)
 
-- **4d.1, when the HUD shows.** The world takes a second or two to load, and the 2D hall can take over later (a lost
-  context). Choice: the HUD only while the world is on screen (`WorldView`'s `onWorld`); while it loads, and whenever
+- **4d.1, when the HUD shows.** (Replaced by Dima's decision of 20 Nov below.) The world takes a second or two to
+  load, and the 2D hall can take over later (a lost context). Choice: the HUD only while the world is on screen (`WorldView`'s `onWorld`); while it loads, and whenever
   the 2D hall draws, the page keeps the layout it had. Why: the 2D hall is fitted to that layout ("the 2D hall fallback
   keeps today's layout"), every existing page test keeps its meaning, and it is the smaller build.
 - **4d.1, the world mounted once.** App keeps three slots (above the stage, the stage, below it) in both layouts, so a
@@ -439,3 +439,14 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   wait for T (D22), and "New in v4.0" for R with the release notes. CLAUDE.md: the design section names the keep's
   look and the HUD's mockup beside the frozen 2D hall, and the stack's font line the name tags; its cast lines already
   had the keep's cast and heights (4b). Why: a reader of v4's README would otherwise follow clicks the HUD doesn't have.
+- **Dima, 20 Nov, the HUD from the first paint** (replaces 4d.1's choice). Where `canDrawWorld()` is true the page
+  is the HUD from its first render; the world's area shows a quiet backdrop while it loads (the dark ground the scene
+  already sits on, `--ui-bg`, and "Raising the keep…" in `--ui-muted`, an ember ring that turns and stands still with
+  reduced motion), and the old layout with the 2D hall appears only on the fallback (no WebGL 2, a failed load, a lost
+  context). React tests: the HUD while loading, the same HUD once ready, the old layout on a failed load.
+- **Dima's HUD from the first paint, the details.** "The keep's dark ground": the scene's own ground, `--ui-bg`, since
+  the sky dome is drawn by the world and has no colour the page could borrow. The backdrop line is a `role="status"`,
+  so a screen reader hears it once. While loading, the rooms rail's buttons, Cutaway and the narrow window's Rooms
+  button show disabled, Follow on the card shows disabled (no figure to follow yet), the name tags aren't there, and
+  Show me opens the card without moving a camera that isn't there. Why: the rule's accessibility first (a control that
+  can't act says so), then the smaller build; nothing in the HUD moves when the world arrives.
