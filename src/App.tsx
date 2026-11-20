@@ -115,9 +115,12 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   // The view the rooms rail shows as pressed (4d.3): the camera starts on the whole keep; a hand move clears it.
   const [view, setView] = useState<View | null>('overview');
   const [cutaway, setCutaway] = useState(false);
+  // a room or the whole keep stops Follow, as Show me does: else the camera went back to the figure after the flight
   const showView = (next: View) => {
     setView(next);
     setRoomsOpen(false);
+    setFollowing(null);
+    world?.follow(null);
     world?.flyToRoom(next);
   };
   // In a narrow window (D15) the rail is a menu behind the top bar's "Rooms" button; a choice closes it.

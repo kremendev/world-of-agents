@@ -603,3 +603,9 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   aslant, from the tag's bottom middle to the head. A pure `leaderLine()` gives its length and its turn; the line is
   one element inside each label, shown and turned each frame with the tag. Why: the rule's own words, then the
   smaller build.
+- **After Dima's six fixes, a room while following.** The new screenshots asked for the Library after a card with
+  Follow, and showed the Designer's studio: a room's flight ran, then Follow, still on with its card closed, took the
+  camera back to the figure, the rail showing the Library pressed (4d's, not the six fixes'; T's shots never chose a
+  room while following). Choice: choosing a room or the whole keep stops Follow first, in the page and in the world, as
+  Show me already does (4d.4's rule, "while on, no room is the one in view", read the other way round). Why: the rail
+  must say what the view shows; the smaller build, one place in App.

@@ -176,6 +176,17 @@ describe('the HUD over the world (4d.1)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
     fireEvent.click(screen.getByRole('button', { name: 'Following' }));
     expect(world.follow).toHaveBeenLastCalledWith(null);
+    // a room stops it too, before the flight: else the camera went back to the figure once it landed
+    fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
+    world.follow.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: /^Library/ }));
+    expect(world.follow).toHaveBeenCalledWith(null);
+    expect(world.follow.mock.invocationCallOrder[0]).toBeLessThan(
+      world.flyToRoom.mock.invocationCallOrder.at(-1) as number,
+    );
+    expect(world.flyToRoom).toHaveBeenLastCalledWith('library');
+    expect(screen.getByRole('button', { name: 'Follow' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /^Library/ })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('Esc and Close close the card, and the focus goes back to what opened it (D19)', async () => {
