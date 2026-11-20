@@ -25,7 +25,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4c.5 needs-you and error markers
 - [x] 4c.6 the screens
 - [x] 4c.7 4c's docs
-- [ ] 4f.1 the assets test
+- [x] 4f.1 the assets test
 - [ ] 4f.2 the size budget test
 - [ ] 4f.3 the bundled hall's types
 - [ ] 4f.4 CLAUDE.md and the README text
@@ -417,3 +417,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   `src/world/screens.ts`, pure (`SCREENS`, each at its owner's work spot, and `screenLit()`), the world lights both
   through it, and its test also reads the scene's source, so a third `desk('screen')` without an owner fails. Why: the
   rule then holds for any screen added later, and nothing new is drawn.
+- **4f.1, what was there.** `tests/models.test.ts` (4a, 4b) already held every file in `src/world/models` to a row with
+  its author, and each rigged character to its ProduceID. Choice: `tests/assets.test.ts` adds the rest: any GLB or
+  JPEG anywhere git knows of must be one of those or the bundled hall's byte-for-byte copy of one, every row's author
+  under the document's one licence, and any GLB with Tripo's label, rigged or not, its ProduceID in its row. Why: the
+  plan's "any in the repo" without testing the same thing twice.

@@ -222,6 +222,9 @@ tests/            global-setup.ts and sweep-temp.ts: before every Vitest run, ou
                   models.test.ts (4a): every model in src/world/models is a GLB with no decoder's extension, no data:
                   buffer and no packed image, under the budget (16 MB of files, 9 MB compressed, a character 2 MB with
                   its texture) and listed in docs/ASSETS.md with its author, a Tripo character with its ProduceID.
+                  assets.test.ts (4f.1): every GLB and JPEG git knows of is a model of src/world/models listed in
+                  docs/ASSETS.md with its author, or the bundled hall's copy of one, byte for byte; a model with
+                  Tripo's label has its ProduceID in its row.
                   dev-refresh.test.ts: npm run dev:refresh on temp folders.
                   blender-runner.test.ts: tools/models/blender read as text: the runner names the models folder once
                   (HOME) and hands it to each job as WOA_HOME; no job or the kit names a folder of its own.
