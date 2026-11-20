@@ -121,7 +121,22 @@ describe("the HUD's top bar (4d.2)", () => {
   it('has no task input in Live, even before there are tasks', () => {
     bar({ demo: null, office: INITIAL_OFFICE, runText: null });
     expect(screen.queryByRole('textbox')).toBeNull();
-    expect(screen.getByText('Tasks done: 0 of 0')).toBeInTheDocument();
+  });
+
+  it('has no run line with nothing to say, and counts the tasks only once there are some (Dima, 20 Nov)', () => {
+    const live = { demo: null, office: INITIAL_OFFICE, mode: { kind: 'live', label: 'Live' } };
+    const { container, unmount } = bar({ ...live, runText: null });
+    expect(container.querySelector('.hud-run-line')).toBeNull();
+    expect(screen.queryByText(/Tasks done/)).toBeNull();
+    unmount();
+    // a run the Lead is still planning: its task, and no count yet
+    const planning = bar({ ...live, runText: 'Build a login page' });
+    expect(planning.container.querySelector('.hud-run-line')).toHaveTextContent(/^Run: Build a login page$/);
+    planning.unmount();
+    // the "This PC" line says something even before a run
+    bar({ ...live, runText: null, ledger: 'This PC: 48K tokens · about $0.62 at API prices' });
+    expect(screen.getByText('This PC: 48K tokens · about $0.62 at API prices')).toHaveClass('hud-run-line');
+    expect(screen.queryByText(/Tasks done/)).toBeNull();
   });
 
   it("names the demo's four icon buttons, and disables them as the page does today", () => {

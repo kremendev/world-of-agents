@@ -562,3 +562,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   the Courtyard from the east, each the clear side nearest the camera's starting one with a clear side either way of it
   (a scan of 16 sides, renders looked at). Why: the rule's own words (the views must see their spots), then the
   smaller build: the other seven rooms keep the town's framing, and no distance or height changes.
+- **Dima, 20 Nov, empty lines.** In Live the status line hides while a run has tasks, and the top bar's run line
+  hides when there are no tasks: no "Tasks done: 0 of 0".
+- **Dima's empty lines, the details.** "In Live" is the Live chip: with the hall offline or the session ended the line
+  still says so, run or not, since those say something went away (the chip says it too, but the line is where D20 puts
+  it). Inside Live it hides whatever it would say, "Lead/PM is waiting for your next message" included, once the run has
+  a task. The run line carries the "This PC" line in Live, which the HUD shows nowhere else, and a run's own words
+  while the Lead plans; so with no tasks the line drops its count ("Tasks done: X of N" only once there is a task) and
+  is gone only when nothing else is left to say. Why: the accessibility rule first (no line goes that still says
+  something, the token line among them), then the request's own example; Dima can make it go whole with one line.
+  The classic page, the frozen fallback, keeps its header as it was.

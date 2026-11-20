@@ -582,9 +582,12 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               {waitingIds.length > 0 ? (
                 <NeedsYou waiting={waitingIds} onShowMe={showMe} />
               ) : (
-                <HudStatus title={status} wraps={hosted}>
-                  {statusWords}
-                </HudStatus>
+                // in Live, while a run has tasks, the top bar says it all (Dima, 20 Nov); offline and ended still say so
+                !(mode.kind === 'live' && office.tasks.length > 0) && (
+                  <HudStatus title={status} wraps={hosted}>
+                    {statusWords}
+                  </HudStatus>
+                )
               )}
             </div>
             <RoomsRail

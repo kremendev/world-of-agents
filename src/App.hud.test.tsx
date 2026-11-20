@@ -525,6 +525,31 @@ describe('the status line (4d.8, D20)', () => {
       expect(line(container)).toHaveAttribute('title', 'Session ended · waiting for the next one');
     });
 
+    it('has no line while a run has tasks (Dima, 20 Nov), and says a session ended or the hall offline still', async () => {
+      const task: OfficeEvent = {
+        type: 'task',
+        taskId: 't1',
+        title: 'Build the form',
+        owner: 'frontend',
+        status: 'in-progress',
+        at: 1,
+      };
+      const { container } = await live(task);
+      expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
+      // the Lead's turn ends: still the run, still no line
+      act(() => FakeEventSource.latest.send({ type: 'awaiting-prompt', at: 2 }));
+      expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
+      act(() => FakeEventSource.latest.fail());
+      act(() => vi.advanceTimersByTime(10_000));
+      expect(line(container)).toHaveTextContent('Hall offline · reconnecting');
+      act(() => vi.advanceTimersByTime(RETRY_MS));
+      act(() => FakeEventSource.latest.send(task));
+      act(() => FakeEventSource.latest.replayed());
+      expect(container.querySelector('.hud-under')).toBeEmptyDOMElement();
+      act(() => FakeEventSource.latest.send({ type: 'session-end', at: 3 }));
+      expect(line(container)).toHaveTextContent('Session ended · waiting for the next one');
+    });
+
     it('the hall offline, then restarted', async () => {
       const { container } = await live();
       act(() => FakeEventSource.latest.fail());

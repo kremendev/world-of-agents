@@ -111,13 +111,14 @@ function IconButton({
 /**
  * The HUD's top bar (4d.2): the title and its chips, then the run (its line and tiles, or before a demo run has its
  * tasks the task input), then the controls. The run line is one line: what it can't show it cuts, and says whole in its
- * title. Tiles keep the order the tasks came in; each one's title is its task's.
+ * title. It counts the tasks only once there are some, and isn't there when it has nothing to say (Dima, 20 Nov: no
+ * "Tasks done: 0 of 0"). Tiles keep the order the tasks came in; each one's title is its task's.
  */
 export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam, rooms }: Props) {
   const { tasks } = office;
   const line = [
     runText ? `Run: ${runText}` : null,
-    `Tasks done: ${doneCount(office)} of ${tasks.length}`,
+    tasks.length > 0 ? `Tasks done: ${doneCount(office)} of ${tasks.length}` : null,
     ledger,
   ]
     .filter(Boolean)
@@ -159,9 +160,11 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           <TaskBar onSend={demo.onSend} compact />
         ) : (
           <>
-            <p className="hud-run-line" title={line}>
-              {line}
-            </p>
+            {line && (
+              <p className="hud-run-line" title={line}>
+                {line}
+              </p>
+            )}
             {tasks.length > 0 && (
               <ul className="hud-tiles" aria-label="Tasks">
                 {shown.map((t) => {
