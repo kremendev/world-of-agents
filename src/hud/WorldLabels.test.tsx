@@ -98,6 +98,9 @@ describe("the world's labels (4d.6)", () => {
     expect(y(container, 'backend')).toBe('250.0');
     expect(y(container, 'lead')).toBe('226.0');
     expect(y(container, 'reviewer')).toBe('154.0');
+    // a figure at the window's corner: its tag held 4 px inside (Dima, 20 Nov)
+    act(() => world.frame({ lead: { x: -1, y: 1, z: 0.5, walking: false } }));
+    expect(label(container, 'lead').style.transform).toBe('translate(54.0px, 24.0px) translate(-50%, -100%)');
     for (const s of spies) s.mockRestore();
   });
 

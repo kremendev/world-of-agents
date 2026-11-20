@@ -583,3 +583,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   in its title. Padding 0.375rem and a row gap of 0.25rem there. Measured in Edge at 400 px: 6.78rem in Live; 8.06rem
   in the Demo before its run has tasks, its task input being a row of button height. Why: the rule's accessibility
   first, then the request's own numbers.
+- **Dima, 20 Nov, tags inside the window.** Tags and markers stay inside the window: each box is held 4 px from the
+  window's edges.
+- **Dima's edges, the details.** The box is the tag with its marker, as for the stacking (a bubble over it may still be
+  cut by the window's edge: it is not part of the rule). The hold comes first, inside `settleTags()`, which now returns
+  where each tag lands (its middle and bottom) rather than how far up: stacking after a hold keeps tags apart, where a
+  hold after the stacking could push a tag back onto another. A stack that would rise past the top edge goes down from
+  its spot the same way instead, so both rules hold; in a window too short for the stack either way the tag stays at
+  the top edge, seen, perhaps over another (a window under about 200 px tall). A figure off the window still has no tag
+  (D16): only a shown tag is held. Tests: each edge, a marker's box, the stack at the top going down, a window too short,
+  and the seeded sweep now also against the edges and corners, every box inside, none overlapping.

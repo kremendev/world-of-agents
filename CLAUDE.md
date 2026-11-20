@@ -209,7 +209,7 @@ src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
-                  tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another), useBox
+                  tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another, each held 4 px inside the window), useBox
                   (an element's size), freeArea.ts (how far the panels reach into the world), contrast.test.ts
 tools/models/     what makes the models: blender/ (the jobs, woa_kit.py, and woa_watch.py, the runner, which from 4a runs
                   only the jobs beside it by their SHA-256), slim_chars.py, to_gltf_json.py and pack_gltf.py (Python:
@@ -284,7 +284,8 @@ the tag border aside). The labels over the canvas are `aria-hidden`: the agent l
 live region what a bubble must not miss. Bubbles follow the 2D hall's `talk.ts` rules, their time running only while
 they show (not while the agent walks or is off the view), agent text through `AgentText`. No tag ever covers another
 or is hidden for it (Dima, 20 Nov): `settleTags()` stacks one that would overlap above it by its height and 4 px, a
-needs-you or failed agent's tag (with its marker) keeping its own spot; a bubble rides with its tag. The world tells the page
+needs-you or failed agent's tag (with its marker) keeping its own spot, and holds each box 4 px inside the window (one
+that would rise past the top stacks down from its spot instead); a bubble rides with its tag. The world tells the page
 of a hand move, a click on a figure, the heads each frame, and each figure's room (where it is or is going, for the
 rooms rail's counts, idle life included) when one changes (one listener each, the page's); the page tells it where
 to fly, whom to follow, whether to cut away, and the area its panels leave free (right of the rail and an open card,

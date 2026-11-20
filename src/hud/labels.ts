@@ -36,34 +36,55 @@ export type TagBox = { id: AgentId; x: number; y: number; width: number; height:
 /** How far apart two tags stack (Dima, 20 Nov). */
 export const TAG_GAP = 4;
 
+/** How close a tag (with its marker) comes to the window's edges (Dima, 20 Nov). */
+export const TAG_EDGE = 4;
+
 /**
- * Where each tag goes so none overlaps another (Dima, 20 Nov), as how far up from its own spot, in px (0 or less).
- * The fixed tags are placed first, then the rest; each group from the bottom of the box up, so the figure nearest the
- * front keeps its spot. A tag whose box would overlap one already placed moves up by its own height plus TAG_GAP,
- * again until it is clear. No tag is ever hidden. Two fixed tags that would overlap stack the same way, so neither
- * covers the other.
+ * Where each tag goes, its middle and its bottom in px, so none overlaps another and each stays inside the window, `area`
+ * (Dima, 20 Nov). Each box is first held TAG_EDGE inside the window's edges. The fixed tags are placed
+ * first, then the rest; each group from the bottom of the window up, so the figure nearest the front keeps its spot. A
+ * tag whose box would overlap one already placed moves up by its own height plus TAG_GAP, again until it is clear;
+ * where that would take it past the top edge, it goes down from its spot the same way instead. No tag is ever hidden:
+ * in a window too short for the stack either way, it stays at the top edge. Two fixed tags that would overlap stack
+ * the same way, so neither covers the other.
  */
-export function settleTags(tags: readonly TagBox[]): Partial<Record<AgentId, number>> {
+export function settleTags(
+  tags: readonly TagBox[],
+  area: { width: number; height: number },
+): Partial<Record<AgentId, { x: number; y: number }>> {
+  const within = (v: number, lo: number, hi: number) =>
+    lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v));
+  const held = tags.map((t) => ({
+    ...t,
+    x: within(t.x, TAG_EDGE + t.width / 2, area.width - TAG_EDGE - t.width / 2),
+    y: within(t.y, TAG_EDGE + t.height, area.height - TAG_EDGE),
+  }));
   const lowestFirst = (a: TagBox, b: TagBox) => b.y - a.y;
   const order = [
-    ...tags.filter((t) => t.fixed).sort(lowestFirst),
-    ...tags.filter((t) => !t.fixed).sort(lowestFirst),
+    ...held.filter((t) => t.fixed).sort(lowestFirst),
+    ...held.filter((t) => !t.fixed).sort(lowestFirst),
   ];
   const placed: { left: number; right: number; top: number; bottom: number }[] = [];
-  const up: Partial<Record<AgentId, number>> = {};
+  const at: Partial<Record<AgentId, { x: number; y: number }>> = {};
   for (const tag of order) {
     const left = tag.x - tag.width / 2;
     const right = tag.x + tag.width / 2;
-    let bottom = tag.y;
-    const hits = () =>
+    const hits = (bottom: number) =>
       placed.some(
         (p) => left < p.right && right > p.left && bottom - tag.height < p.bottom && bottom > p.top,
       );
-    while (hits()) bottom -= tag.height + TAG_GAP;
+    const step = tag.height + TAG_GAP;
+    let bottom = tag.y;
+    while (hits(bottom)) bottom -= step;
+    if (bottom - tag.height < TAG_EDGE) {
+      let down = tag.y;
+      while (hits(down)) down += step;
+      bottom = down <= area.height - TAG_EDGE ? down : TAG_EDGE + tag.height;
+    }
     placed.push({ left, right, top: bottom - tag.height, bottom });
-    up[tag.id] = bottom - tag.y;
+    at[tag.id] = { x: tag.x, y: bottom };
   }
-  return up;
+  return at;
 }
 
 /** A tag's border: a needs-you or failed agent's first, then the one whose card is open. */
