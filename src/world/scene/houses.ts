@@ -118,6 +118,7 @@ export function createHouses(
   const {
     SPINNERS,
     skull,
+    hornedSkull,
     horns,
     torch,
     flame,
@@ -267,8 +268,8 @@ export function createHouses(
       for (const sd of [-1, 1])
         for (let i = 0; i < 4; i++)
           add('timber', [door.x + sd * (door.w / 2 + 0.1), 0.35 + i * 0.55, T / 2 + 0.09, 0.07, 0.07, 0.04]);
-      up.add(at(skull(0.26), door.x, dh + 0.42 - cutY, T / 2 + 0.17));
-      up.add(at(horns(0.6), door.x, dh + 0.48 - cutY, T / 2 + 0.15));
+      // its horns grown from its temples (Dima, 21 Nov), no longer two arcs over it
+      up.add(at(hornedSkull(0.26), door.x, dh + 0.42 - cutY, T / 2 + 0.17));
       for (const sd of [-1, 1])
         up.add(at(torch(), door.x + sd * (door.w / 2 + 0.55), FLOOR_H + 1.7 - cutY, T / 2 + 0.02));
     }

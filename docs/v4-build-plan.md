@@ -695,3 +695,23 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   reason, so it is "Tools" in both modes too; with neither left, the panel's and the card's `live` prop did nothing and
   went. The frozen 2D hall's panel is the same component, so it says the same. Why: the request's own reason, then the
   smaller build (no prop that does nothing). Dima can have "Tools in v2" back in one line.
+- **Dima, 21 Nov, the skull trophies.** The skull trophies over the house windows, a skull with two loose bone arcs
+  over it like eyebrows: find where they come from (a Blender job or hand-built decor) and rebuild each as one
+  connected piece, horns growing from the skull's temples and curving outward and up, like the gate's horned skull, or
+  remove them if that can't be made clean; the same on every house that has them. Renders before and after; the render
+  comparison changes for those houses, recorded as expected.
+- **The skull trophies, the details.** Hand-built decor, not a Blender job: `trophy()` in props.ts, a dark plaque with
+  `skull()` and `horns()` (two torus arcs beside and over the skull, touching it nowhere), hung over windows in the War
+  hall, the Library and the Tavern, two each. The four outbuildings' door ornament is the same pair, so it changes too.
+  Kept as they are: the gables' skulls, whose horns are the roof's ridge horns a metre over them, and the skull poles,
+  the Forge's weapon rack and the totems (not on a house, not asked). `hornedSkull()` (props.ts) is the skull with two
+  horns from `horn.ts`: each one tube along a curve, its root inside the cranium, out of the temple and up to a point,
+  the left one the right one's mirror; `horn.test.ts` holds the root inside the cranium, the exit at the temple, the
+  rise and the taper. Renders, before and after, in `D:\Dev\scratch\t-shots-3\trophies` (the wall trophies close up;
+  the door ornaments from 75 m with a 4 degree view, since a house opens for a camera any nearer). The render
+  comparison against the town still passes all 11 views; against T's own port render only the views with these pieces
+  in them move: the War hall 0.25% of pixels (its two trophies, the diff image shows nothing else of theirs), the
+  Tavern 0.18%, the Library 0.06%, the Workshop 0.10%; the Garden and the Yard also differ by a figure each, from T's
+  idle-spot fixes, which came after T's port render. Against the town now: the War hall 0.31% (0.15% in T), the
+  Tavern 0.32% (0.15%), the Library 0.08% (0.01%), as expected. Why: the request's own words, then the smaller build
+  (one piece, both its uses on houses, nothing else).

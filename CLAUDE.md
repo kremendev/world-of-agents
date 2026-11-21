@@ -182,7 +182,8 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   world.js (4a). scene/ (4a, three only, never React): the town's modules in its build order, which its
                   seeded random numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
-                  cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; cast.ts (4b): the five
+                  cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; horn.ts (21 Nov): a skull's
+                  horn grown from its temple, for props.ts's hornedSkull() (the houses' trophies); cast.ts (4b): the five
                   characters (fetchCast(), createCast(): sized to the town's rig heights, toon, clips, the seats with
                   two-bone IK, the Reviewer's lantern light on its root as in the town and its flame in the right hand,
                   groundAt()). places.ts (4b): where

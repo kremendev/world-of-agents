@@ -5,6 +5,7 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { CRANIUM, hornGeometry } from './horn';
 import { SIGN_FONT, type Kit } from './kit';
 import { byKitMaterial, kitNode, type KitModels } from './models';
 
@@ -121,9 +122,9 @@ export function createProps(kit: Kit) {
   }
   const SKULL = (() => {
     const g = new THREE.Group();
-    const cr = mesh(new THREE.SphereGeometry(0.5, 16, 12), M.bone);
-    cr.scale.set(1, 0.92, 1.05);
-    cr.position.y = 0.14;
+    const cr = mesh(new THREE.SphereGeometry(CRANIUM.radius, 16, 12), M.bone);
+    cr.scale.set(...CRANIUM.scale);
+    cr.position.y = CRANIUM.y;
     g.add(cr);
     g.add(at(mesh(new THREE.BoxGeometry(0.62, 0.28, 0.5), M.bone), 0, -0.24, 0.16));
     for (const sd of [-1, 1]) {
@@ -140,6 +141,19 @@ export function createProps(kit: Kit) {
     const k = SKULL.clone();
     k.scale.setScalar(s);
     return k;
+  }
+  // a skull with its horns grown from its temples, one piece (Dima, 21 Nov: the houses' trophies had two loose arcs
+  // floating over the skull); horn.ts has the horn, the left one the right one's mirror
+  const HORN = hornGeometry();
+  function hornedSkull(s = 0.3): THREE.Group {
+    const g = SKULL.clone();
+    for (const sd of [-1, 1]) {
+      const h = mesh(HORN, M.bone);
+      h.scale.x = sd;
+      g.add(h);
+    }
+    g.scale.setScalar(s);
+    return g;
   }
   function horns(s = 1, mat: THREE.Material = M.bone): THREE.Group {
     const g = new THREE.Group();
@@ -1062,8 +1076,7 @@ export function createProps(kit: Kit) {
   function trophy(): THREE.Group {
     const g = new THREE.Group();
     g.add(mesh(new THREE.BoxGeometry(0.7, 0.8, 0.08), M.woodD));
-    g.add(at(skull(0.32), 0, 0.02, 0.18));
-    g.add(at(horns(1.0), 0, 0.12, 0.16));
+    g.add(at(hornedSkull(0.32), 0, 0.02, 0.18));
     return g;
   }
   function chandelier(r = 0.7, n = 6): THREE.Group {
@@ -1498,6 +1511,7 @@ export function createProps(kit: Kit) {
     flameTex,
     flame,
     skull,
+    hornedSkull,
     horns,
     fj,
     bx,
