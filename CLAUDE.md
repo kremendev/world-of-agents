@@ -185,7 +185,7 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   seeded random numbers depend on: kit.ts (renderer, materials, canvas textures), models.ts (fetch, unpack, kit
                   materials), props.ts, land.ts, houses.ts, areas.ts, scatter.ts, and world.ts (createWorld(): camera,
                   cutaway, lights, the passes, the loop); bloom.ts puts back r160's bloom; horn.ts (21 Nov): a skull's
-                  horn grown from its temple, for props.ts's hornedSkull() (the houses' trophies); cast.ts (4b): the five
+                  horn grown from its temple, for props.ts's hornedSkull() (the houses' trophies, the skull poles); cast.ts (4b): the five
                   characters (fetchCast(), createCast(): sized to the town's rig heights, toon, clips, the seats with
                   two-bone IK, the Reviewer's lantern light on its root as in the town and its flame in the right hand,
                   groundAt()). places.ts (4b): where
@@ -1339,5 +1339,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     (tools/world-check/axe.mjs, passing in six states after its one finding); his four fixes (the phone at 320 x 480, the
     card's model line, the skull trophies as one piece, the scan); the README's pictures (D22). T is done. The raised-hand
     clip wasn't there, so it is 4.0.1's. R is done (21 Nov): v4.0.0 prepared, not tagged (plugin.json 4.0.0,
-    docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Waits for Dima: his desktop check,
-    docs/release-notes/v4.0.0-check.md, then the tag.
+    docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Then the skull poles as one piece too
+    (21 Nov). Waits for Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.

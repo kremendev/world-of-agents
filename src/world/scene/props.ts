@@ -758,8 +758,8 @@ export function createProps(kit: Kit) {
   function skullPole(h = 2.4): THREE.Group {
     const g = new THREE.Group();
     g.add(at(mesh(new THREE.CylinderGeometry(0.05, 0.08, h, 7), M.woodD), 0, h / 2, 0));
-    g.add(at(skull(0.24), 0, h + 0.12, 0));
-    g.add(at(horns(0.5), 0, h + 0.2, 0));
+    // the horned skull, one piece, as the houses' trophies and doors have it (Dima, 21 Nov: the loose pair over it)
+    g.add(at(hornedSkull(0.24), 0, h + 0.12, 0));
     for (let i = 0; i < 3; i++) {
       const c = mesh(
         new THREE.PlaneGeometry(0.12, rr(0.5, 0.9)),

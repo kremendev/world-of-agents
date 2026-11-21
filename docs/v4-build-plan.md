@@ -754,3 +754,18 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   the six states. What axe can't decide, it lists to look at by hand: the five name tags' contrast, over a canvas it
   can't see; they are `aria-hidden`, and `src/hud/contrast.test.ts` holds their colours on the tag's own ground. Why:
   the request's own words, then the smaller build.
+- **Dima, 21 Nov, the skull poles.** The same "eyebrows" as the trophies: give them the same connected horned skull as
+  the houses and the doors; renders before and after into `D:\Dev\scratch\t-shots-3\trophies\`, the comparison change
+  recorded as expected. Choice: `skullPole()` (props.ts) takes `hornedSkull(0.24)` where it had `skull(0.24)` and the
+  loose `horns(0.5)` over it, the skull at the same height and size; it calls no random number, so the seeded scatter
+  is as it was (the same 17 poles at the same places before and after). The bake merges every pole, but each one's
+  skull group stays in the scene, empty, which is how the scratch script found all 17: in the areas, beside the houses,
+  and one on the far ruin isle. Renders of all 17, before and after, in `t-shots-3\trophies\poles` (the isle's from
+  its side, from a camera the page's limits keep away from it, widened in that page alone for the shot). The render
+  comparison against the town passes all 11 views (the Forge 0.66% of pixels, the War hall 0.44%, the Yard 0.38%).
+  Against the render after the trophies: every view moves a little (the Yard 0.22%, the War hall 0.21%, the Garden
+  0.20%, the Workshop 0.17%, the Forge 0.14%, the rest under 0.08%), and every diff image was looked at: the poles'
+  heads, and otherwise the figures as idle life had placed them when each view was shot (the Garden's two, the
+  Yard's one, the Designer at its easel, and their shadows) and the Library's globe, which turns with time. Kept, not
+  asked: the gables' ridge horns, the Forge's weapon rack and the totems. Why: the request's own words, then the
+  smaller build (one call, every pole).
