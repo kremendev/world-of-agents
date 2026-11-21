@@ -25,11 +25,14 @@ type Props = {
   handle?: boolean;
 };
 
-/** What the handle shows: "Activity" and the count of "For you" items, which its name already says. */
+/**
+ * What the handle shows: "Activity" and the count of "For you" items, which its name already says. The space between
+ * them is never drawn (flex items) and keeps them two words where text is read whole (WCAG 2.5.3; Dima's axe scan).
+ */
 export function ActivityWords({ unread }: { unread: number }) {
   return (
     <>
-      Activity
+      Activity{' '}
       {unread > 0 && (
         <span className="hud-badge needs" aria-hidden="true">
           {unread}

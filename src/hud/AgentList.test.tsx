@@ -21,12 +21,13 @@ describe('the agent list (4d.4)', () => {
       'Backend dev, Idle',
       'Reviewer, Idle',
     ]);
+    // two words, a space between them, so text read whole (axe, a reader) gets the name the button has (WCAG 2.5.3)
     expect(buttons().map((b) => b.textContent)).toEqual([
-      'Lead/PMidle',
-      'Designeridle',
-      'Frontend devwriting',
-      'Backend devidle',
-      'Revieweridle',
+      'Lead/PM idle',
+      'Designer idle',
+      'Frontend dev writing',
+      'Backend dev idle',
+      'Reviewer idle',
     ]);
   });
 

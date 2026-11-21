@@ -56,6 +56,10 @@ describe('the rooms rail (4d.3)', () => {
     // no badge where nobody is
     expect(screen.getByRole('button', { name: 'The Forge' }).querySelector('.hud-badge')).toBeNull();
     expect(container.querySelectorAll('.hud-badge.needs')).toHaveLength(1);
+    // the room and its badge two words, so text read whole gets the name the button has (WCAG 2.5.3, Dima's axe
+    // scan, 21 Nov, read "Workshop1"); nothing after a room with no badge
+    expect(workshop.textContent).toBe('Workshop 1');
+    expect(screen.getByRole('button', { name: 'The Forge' }).textContent).toBe('The Forge');
   });
 
   it('presses the view in sight, and none once the camera moved by hand', () => {

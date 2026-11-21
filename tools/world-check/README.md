@@ -16,6 +16,8 @@ WebGL a full render takes minutes.
 | `seats.mjs`       | Every figure on every seated spot, in the town or the port: hips and toes against the town's rule                      |
 | `frames.mjs`      | A frame's time on this PC's GPU, at one Windows scaling                                                                |
 | `serve.ts`        | A static server on 127.0.0.1 with the hall's own policy header, or none (the control). Never port 4319                 |
+| `hall-standin.ts` | A stand-in hall for Live states: the bundled page with the hall's header, /api/health, /api/events, and POST /ctl      |
+| `axe.mjs`         | axe-core over the HUD's states in Edge: fails on any serious or critical violation                                     |
 | `models-page.mjs` | Builds the page that loads a plain GLB and one with a packed image, for `policy.mjs models`                            |
 | `town.mjs`        | Makes the town's test copy from `forge-keep`, with the camera hook `render.mjs town` needs                             |
 
@@ -99,6 +101,20 @@ spots (4c's idle life), never two on one; the demo plays only some of idle life'
 ```bash
 node tools/world-check/idle-walks.mjs http://localhost:5173/src/world/check/index.html
 ```
+
+## The accessibility scan
+
+```bash
+npm run build:plugin-hall
+npx tsx tools/world-check/hall-standin.ts plugin/hall/page 4397
+node tools/world-check/axe.mjs http://127.0.0.1:4397/
+```
+
+axe-core (a pinned dev dependency, used here only) over six states (Dima, 21 Nov, in place of a Narrator pass):
+loading, a run at work, a card open, needs-you, the drawer closed, and a phone at 320 x 480 with a card open. The stand-in
+hall replays what POST /ctl gives it ({ "reset": true }, { "events": [...] }); the page checks each event itself. axe goes
+in through the browser's own channel, so the page's policy stays on. What it can't decide (text over the canvas, whose
+ground it can't see) it lists to look at by hand: `src/hud/contrast.test.ts` holds the HUD's colours.
 
 ## A frame's time
 

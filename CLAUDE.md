@@ -56,6 +56,8 @@ The owner works on Windows in Git Bash. Give commands that work there.
 - `playwright-core` 1.65.1 and `pngjs` 7.0.0, pinned exactly, dev dependencies (Dima, 18 Nov) for tools/world-check:
   no install script and no dependencies. playwright-core drives the installed Edge (`channel: 'msedge'`), no browser
   download.
+- `axe-core` 4.14.0, pinned exactly, a dev dependency (Dima, 21 Nov) for tools/world-check/axe.mjs alone, never in the
+  page or the hall: no install script and no dependencies, MPL-2.0. 4.14.1 was five days old when it came in.
 - Vite 7 is one major behind on purpose. Upgrade as a separate task. Vitest is on 5.
 - npm blocks dependency install scripts. `esbuild` is approved in `package.json` `allowScripts`. If a new
   package asks, review it and approve by name; never `npm install-scripts approve --all`.
@@ -223,7 +225,9 @@ tools/world-check/ the world's checks in real Edge, by hand, never in npm run ch
                   models-page.mjs (what the page's policy refuses), frames.mjs (a frame's time), town.mjs (the
                   town's test copy), seats.mjs (every figure on every seat, against the town's rule), spots.mjs
                   (every standing spot and its walk on clear floor), walk.mjs (the demo run played into the world:
-                  every figure at its place, no walk over furniture), cast/ (the cast comparison's placements and views)
+                  every figure at its place, no walk over furniture), cast/ (the cast comparison's placements and views),
+                  from 21 Nov hall-standin.ts (the bundled page and a stand-in hall for Live states) and axe.mjs (axe-core
+                  over the HUD's states, failing on any serious or critical violation)
 tests/            global-setup.ts and sweep-temp.ts: before every Vitest run, our temp folders a killed run left
                   under os.tmpdir() ("woa-", "woa " and Playwright's profiles), older than an hour, never a link.
                   invisible.test.ts: no bidi controls, zero-width characters or U+FEFF in any file git tracks or would add.

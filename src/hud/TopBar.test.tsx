@@ -206,7 +206,7 @@ describe("the HUD's top bar (4d.2)", () => {
       const handle = screen.getByRole('button', { name: 'Activity, 2 for you' });
       expect(handle).toHaveAttribute('aria-expanded', 'false');
       expect(handle).toHaveAttribute('aria-controls', 'drawer');
-      expect(handle).toHaveTextContent('Activity2');
+      expect(handle.textContent).toBe('Activity 2');
       expect(handle.querySelector('.hud-badge')).toHaveAttribute('aria-hidden', 'true');
       before(screen.getByRole('button', { name: 'Rooms' }), handle);
       before(handle, screen.getByRole('group', { name: 'Demo run' }));

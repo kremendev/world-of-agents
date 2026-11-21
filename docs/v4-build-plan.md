@@ -715,3 +715,20 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   idle-spot fixes, which came after T's port render. Against the town now: the War hall 0.31% (0.15% in T), the
   Tavern 0.32% (0.15%), the Library 0.08% (0.01%), as expected. Why: the request's own words, then the smaller build
   (one piece, both its uses on houses, nothing else).
+- **Dima, 21 Nov, the accessibility scan.** Instead of the Narrator pass: an automated scan with axe-core (a dev
+  dependency, used only by tools/world-check) in Edge over each HUD state (loading, working, card, needs-you, drawer
+  closed, phone 320 with card). No serious or critical violations; fix what it finds.
+- **The scan, the details.** axe-core 4.14.0, pinned exactly: no dependencies, no install script, MPL-2.0, never in
+  the page or the hall; 4.14.1 was five days old, so the release before it. `tools/world-check/hall-standin.ts` serves
+  the bundled page with the hall's own policy header and stands in for the hall (health, events, a local `/ctl` that
+  feeds it events; 127.0.0.1, never 4319); `axe.mjs` puts axe in through the browser's own channel, so the policy stays
+  on, and fails on any serious or critical violation. Its first run found one rule in every state, serious:
+  `label-content-name-mismatch` (WCAG 2.5.3, Label in Name) on the agent list's buttons, the rooms rail's with a count
+  and both Activity buttons. The names were right ("Lead/PM, Waiting" compares as "lead pm waiting"); the text was
+  not: two spans side by side read as one word, "Lead/PMwaiting", "War hall4", "Activity1". Choice: a space between
+  them, which a flex row never draws, so nothing moves on screen and the names stay as they were. A screen reader reads each button's label, which was right all along, and Chrome puts a space between flex items when it reads their text (its accessibility tree, through the devtools protocol); the fix is for whatever reads the text whole, as axe does. Two tries came first and were dropped: names built from
+  the text with unseen commas (Chrome then names them "Lead/PM , idle", a space before every comma), and labels
+  rewritten without commas (the same failure, since the text was the cause). After the fix: no violation in any of
+  the six states. What axe can't decide, it lists to look at by hand: the five name tags' contrast, over a canvas it
+  can't see; they are `aria-hidden`, and `src/hud/contrast.test.ts` holds their colours on the tag's own ground. Why:
+  the request's own words, then the smaller build.

@@ -17,7 +17,9 @@ type Props = {
 /**
  * The rooms rail (4d.3): a button per view, "Whole keep" first and then the rooms in the map's order, the one in view
  * pressed. A room's badge says how many agents are in it, in the needs-you colours when one of them needs you; the
- * badge is for the eye, and the button's name says the same in words. Under them, the Cutaway toggle.
+ * badge is for the eye, and the button's name says the same in words. Under them, the Cutaway toggle. A space between
+ * a room and its badge, never drawn between flex items, keeps them two words where text is read whole (WCAG 2.5.3;
+ * Dima's axe scan, 21 Nov, read "War hall4").
  */
 export function RoomsRail({
   id,
@@ -56,9 +58,12 @@ export function RoomsRail({
             >
               <span>{b.name}</span>
               {b.agents > 0 && (
-                <span className={b.needsYou > 0 ? 'hud-badge needs' : 'hud-badge'} aria-hidden="true">
-                  {b.agents}
-                </span>
+                <>
+                  {' '}
+                  <span className={b.needsYou > 0 ? 'hud-badge needs' : 'hud-badge'} aria-hidden="true">
+                    {b.agents}
+                  </span>
+                </>
               )}
             </button>
           </li>

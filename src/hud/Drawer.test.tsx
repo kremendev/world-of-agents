@@ -73,7 +73,8 @@ describe('the drawer (4d.5)', () => {
     expect(screen.queryByRole('complementary')).toBeNull();
     const handle = screen.getByRole('button', { name: 'Activity, 2 for you' });
     expect(handle).toHaveAttribute('aria-expanded', 'false');
-    expect(handle).toHaveTextContent('Activity2');
+    // two words, so text read whole gets the name it has (WCAG 2.5.3, Dima's axe scan, 21 Nov)
+    expect(handle.textContent).toBe('Activity 2');
     fireEvent.click(handle);
     expect(onOpen).toHaveBeenCalledOnce();
 
