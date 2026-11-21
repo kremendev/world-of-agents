@@ -29,8 +29,8 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4f.2 the size budget test
 - [x] 4f.3 the bundled hall's types
 - [x] 4f.4 CLAUDE.md and the README text
-- [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking)
-- [ ] T the test phase (later, with Dima)
+- [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking): moved to 4.0.1, not there when T ended (21 Nov)
+- [x] T the test phase (later, with Dima)
 - [ ] R the release prep (no tag)
 
 ## How to work
@@ -332,6 +332,20 @@ squeezed banner seen above). A commit each, each decision in "Decisions taken du
 the stand-in hall. Planted bugs: 10, all caught. `npm run check` (114 files, 2250 tests) and `check:hall` clean. New
 shots in `D:\Dev\scratch\t-shots-2`: the status line with tasks (the Lead waiting, then working) and the phone's
 banner (the drawer closed and open, two waiting); no console errors.
+
+**T, Dima's half (21 Nov).** The three Windows scalings fine and the look approved; the Narrator pass replaced by an
+automated scan. His phone test at 320 x 480 and his look gave four fixes, each in "Decisions taken during the build":
+the phone (the title on one line, the version chip under 22.5rem, "Back to live" as an icon and "Live", the drawer's
+handle in the top bar, the card a bottom sheet; a commit each), the card's model line with no "in v2", the skull
+trophies as one piece, and the accessibility scan (`tools/world-check/axe.mjs`, which found one rule and passes now in
+all six states). Planted bugs: 18, all caught. Shots in `D:\Dev\scratch\t-shots-3`: the phone at 320 x 480, 360 x 640
+and 400 x 800 (working, card, needs-you, drawer, and the Demo's top bar at 320), the trophies before and after, and
+the README's pictures. Then D22: the README's two pictures at 1440 x 900 from run 3's redacted hooks, replayed through
+`allowlist()` and `mapHook()` into the stand-in hall, as the old ones were made: the whole keep when the Backend dev
+needs your approval (`docs/media/live-keep.png`), and the Library a minute later with the Reviewer at work and its card
+open (`docs/media/live-review.png`). Stills, as D22 has them: the old GIF went with the 2D hall it showed, and nothing
+here makes a GIF (no encoder, a new dependency); the Lead's messages in them say "Dima", as the run did. The raised-hand
+clip wasn't there when T ended: 4.0.1. T is done.
 
 **R The release prep** (no tag, no release): `plugin.json` to 4.0.0 and the version wherever the repo keeps it,
 `docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of

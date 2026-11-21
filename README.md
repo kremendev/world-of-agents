@@ -6,11 +6,11 @@ You run Claude Code in your project. A team of five does the work: Lead/PM, Desi
 
 **[Try the demo](https://kremendev.github.io/world-of-agents/).** It is a scripted run in your browser. It needs no setup and calls no AI.
 
-![The Forge Hall during a real run. The Backend dev is at its desk, flagged "needs you", and an orange banner says it needs your approval in Claude Code. The activity feed lists each step.](docs/media/live-hall.png)
+![The Forge Keep during a real run, seen whole from above. The Backend dev's name tag has a raised-hand marker, and an orange banner says it needs your approval in Claude Code. The rooms are listed on the left, the five agents and their states along the bottom, and the activity feed on the right lists each step.](docs/media/live-keep.png)
 
-A recorded run, played back at twice the speed:
+A minute later in the same run:
 
-![The team during a run: the Lead takes the task, the Backend dev fetches its scroll and writes, the Reviewer checks the work, and everyone goes back to the rest room.](docs/media/live-run.gif)
+![The Library from its room view, where the Reviewer reads the Backend dev's server.js at its desk. The Reviewer's card is open: Skeleton, model Opus, reading, its task and its read-only tools, with Follow and Show in Activity.](docs/media/live-review.png)
 
 ## New in v3.10
 

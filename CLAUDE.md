@@ -266,7 +266,7 @@ docs/             v3-brief.md (the v3 plan and milestones), v3-spike.md (milesto
                   v3.11-plan.md (the rest of the page on the Team page's tokens; folded into v4.0, kept as history),
                   v4.0-plan.md (the Forge Keep in 3D: waits for Dima's review), step3-brief.md (v1 step 3 brief), v2-brief.md (the v2 plan, run
                   table and security controls), v2-hooks.md (real hook payload fields and what send.mjs forwards), media/ (the README's
-                  screenshot and GIF, from a replay of run 3's redacted fixtures), release-notes/ (v3.0.0.md, v3.0.1.md: each
+                  two pictures of the keep, from a replay of run 3's redacted fixtures, D22), release-notes/ (v3.0.0.md, v3.0.1.md: each
                   GitHub release's text, written before the tag), ASSETS.md (v4's models: Dima's, all rights reserved,
                   not under the MIT licence, which covers the code only; never relicense them)
 ```
@@ -1335,6 +1335,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     check, empty lines, the phone top bar, tags inside the window, a leader line; and a room chosen while following.
     Then his three changes (20 Nov): only Live's generic status line hides while a run has tasks, the view eases to a
     new free area (250 ms, at once with reduced motion), and on a phone the banner spans the window, the drawer under it.
-    Next: Dima's half of T (Narrator, the three scalings, frame times in a real window, the look against the mockup),
-    then the README's pictures (D22), then R.
-    The raised-hand clip goes in if it comes before T ends, else in 4.0.1.
+    Then Dima's half of T (21 Nov): the scalings fine, the look approved, the Narrator pass replaced by an axe-core scan
+    (tools/world-check/axe.mjs, passing in six states after its one finding); his four fixes (the phone at 320 x 480, the
+    card's model line, the skull trophies as one piece, the scan); the README's pictures (D22). T is done. The raised-hand
+    clip wasn't there, so it is 4.0.1's. Next: R, the release prep (no tag), then Dima's desktop check.
