@@ -334,7 +334,7 @@ shots in `D:\Dev\scratch\t-shots-2`: the status line with tasks (the Lead waitin
 banner (the drawer closed and open, two waiting); no console errors.
 
 **T, Dima's half (21 Nov).** The three Windows scalings fine and the look approved; the Narrator pass replaced by an
-automated scan. His phone test at 320 x 480 and his look gave four fixes, each in "Decisions taken during the build":
+automated scan. The frame rate in a real window wasn't given: step 3 of his v4.0.0 check asks for it. His phone test at 320 x 480 and his look gave four fixes, each in "Decisions taken during the build":
 the phone (the title on one line, the version chip under 22.5rem, "Back to live" as an icon and "Live", the drawer's
 handle in the top bar, the card a bottom sheet; a commit each), the card's model line with no "in v2", the skull
 trophies as one piece, and the accessibility scan (`tools/world-check/axe.mjs`, which found one rule and passes now in
@@ -780,3 +780,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   forms, each with `--user-data-dir` in `%LOCALAPPDATA%\woa-nowebgl`, which always starts an Edge of its own. Both run
   here (on `about:blank`, never Dima's hall): each started its own Edge with the flag, closed after. Why: the
   correctness of the list Dima runs, then the smaller build (the one step, its own commit, so it can be dropped).
+- **Dima, 21 Nov, the frame rate.** He confirmed the three scalings but gave no frame rate: the checklist's "what Claude
+  ran" says the real window's frame rate is still to come, and his step 3 asks for the FPS number in a real window.
+  Choice: Edge's own counter, DevTools' Rendering tool, Frame Rendering Stats (no code pasted into a console; Edge
+  157 on this PC shows "Frame Rate" in fps at the page's top left, seen through the same overlay over an animated
+  page), with DevTools undocked so the keep keeps its size. Why: the request's own words, then the smaller build.
