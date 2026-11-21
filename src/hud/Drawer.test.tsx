@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Drawer, type DrawerTab } from './Drawer';
 
-function Harness({ open = true, unread = 0, onClose = () => {}, onOpen = () => {} }) {
+function Harness({ open = true, unread = 0, onClose = () => {}, onOpen = () => {}, handle = true }) {
   const [tab, setTab] = useState<DrawerTab>('activity');
   return (
     <Drawer
@@ -15,6 +15,8 @@ function Harness({ open = true, unread = 0, onClose = () => {}, onOpen = () => {
       unread={unread}
       activity={<p>the feed</p>}
       tasks={<p>the board</p>}
+      drawerId="the-drawer"
+      handle={handle}
     />
   );
 }
@@ -76,6 +78,13 @@ describe('the drawer (4d.5)', () => {
     expect(onOpen).toHaveBeenCalledOnce();
 
     rerender(<Harness open={false} unread={0} />);
-    expect(screen.getByRole('button', { name: 'Activity' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute('aria-controls', 'the-drawer');
+  });
+
+  it('has its own id, and no handle where the handle lives elsewhere (a phone, Dima, 21 Nov)', () => {
+    const { container, rerender } = render(<Harness handle={false} />);
+    expect(container.querySelector('aside')).toHaveAttribute('id', 'the-drawer');
+    rerender(<Harness open={false} unread={2} handle={false} />);
+    expect(screen.queryByRole('button', { name: /^Activity/ })).toBeNull();
   });
 });

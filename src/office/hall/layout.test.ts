@@ -156,9 +156,10 @@ describe('text sizes and fonts', () => {
     const phone = phoneRules();
     const under = phone.find((r) => r.selectors.includes('.hud-under'));
     expect(under?.body).toMatch(/right: var\(--hud-edge\);/);
-    const drawer = phone.find((r) => r.selectors.includes('.hud-handle'));
-    expect(drawer?.selectors).toContain('.hud-drawer');
-    expect(drawer?.body).toMatch(/top: calc\(var\(--hud-top\) \+ var\(--hud-under, 0px\)\);/);
+    const drawer = phone.filter((r) => r.selectors.includes('.hud-drawer')).map((r) => r.body);
+    expect(drawer.join('')).toMatch(/top: calc\(var\(--hud-top\) \+ var\(--hud-under, 0px\)\);/);
+    // its handle is in the top bar there (Dima, 21 Nov): nothing places a floating one
+    expect(phone.some((r) => r.selectors.includes('.hud-handle'))).toBe(false);
     // wider, the drawer keeps beside what is under the top bar, from the top bar's edge
     expect(rules.find((r) => r.selector === '.hud-handle')!.body).toMatch(/top: var\(--hud-top\);/);
     expect(rules.find((r) => r.selector === '.hud-under')!.body).toMatch(

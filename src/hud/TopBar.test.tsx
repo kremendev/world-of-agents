@@ -199,6 +199,41 @@ describe("the HUD's top bar (4d.2)", () => {
       }
     });
 
+    it("has the drawer's handle after Rooms, a disclosure saying what waits for you (Dima, 21 Nov)", () => {
+      undo = stubLayout(320, 480);
+      const onToggle = vi.fn();
+      const { rerender } = bar({ rooms, activity: { open: false, unread: 2, controls: 'drawer', onToggle } });
+      const handle = screen.getByRole('button', { name: 'Activity, 2 for you' });
+      expect(handle).toHaveAttribute('aria-expanded', 'false');
+      expect(handle).toHaveAttribute('aria-controls', 'drawer');
+      expect(handle).toHaveTextContent('Activity2');
+      expect(handle.querySelector('.hud-badge')).toHaveAttribute('aria-hidden', 'true');
+      before(screen.getByRole('button', { name: 'Rooms' }), handle);
+      before(handle, screen.getByRole('group', { name: 'Demo run' }));
+      fireEvent.click(handle);
+      expect(onToggle).toHaveBeenCalledOnce();
+      // open, it says so and stays, to close the drawer again
+      rerender(
+        <TopBar
+          version="4.0.0"
+          mode={{ kind: 'demo', label: 'Demo' }}
+          office={three}
+          runText="Create a dashboard"
+          ledger={null}
+          demo={controls()}
+          rooms={rooms}
+          activity={{ open: true, unread: 0, controls: 'drawer', onToggle }}
+        />,
+      );
+      expect(screen.getByRole('button', { name: 'Activity' })).toHaveAttribute('aria-expanded', 'true');
+    });
+
+    it("has no handle of the drawer's in a wider window, where the drawer keeps its own", () => {
+      undo = stubLayout(800, 800);
+      bar({ rooms, activity: { open: false, unread: 2, controls: 'drawer', onToggle: vi.fn() } });
+      expect(screen.queryByRole('button', { name: /^Activity/ })).toBeNull();
+    });
+
     it('keeps "Back to live" and "Go live" in words in a wider window', () => {
       undo = stubLayout(800, 800);
       bar({ demo: { ...controls(), onBackToLive: vi.fn(), onGoLive: vi.fn() }, rooms });

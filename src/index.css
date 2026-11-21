@@ -2699,6 +2699,13 @@ button.tp-card:hover {
   cursor: pointer;
 }
 
+/* On a phone the handle is a button in the top bar's row (Dima, 21 Nov). */
+.hud-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 /*
  * The world's labels (4d.6): a name tag over each figure and its bubble over the tag, at a fixed size, moved each frame.
  * Tags in the signs' rounded face (D2: its one file, weight 800, the nearest to 700), bubbles in Inter.
@@ -2932,14 +2939,13 @@ button.tp-card:hover {
     min-width: 0;
   }
 
-  /* the banner, or the status line, the whole width under the top bar, and the drawer, open or its handle, under that
-     (Dima, 20 Nov; App measures --hud-under: its height and an edge, or nothing) */
+  /* the banner, or the status line, the whole width under the top bar, and the drawer under that (Dima, 20 Nov; App
+     measures --hud-under: its height and an edge, or nothing); its handle is in the top bar here (21 Nov) */
   .hud-under {
     right: var(--hud-edge);
   }
 
-  .hud-drawer,
-  .hud-handle {
+  .hud-drawer {
     top: calc(var(--hud-top) + var(--hud-under, 0px));
   }
 }

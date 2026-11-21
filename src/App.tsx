@@ -10,6 +10,7 @@ import { HudStatus } from './hud/HudStatus';
 import { NeedsYou } from './hud/NeedsYou';
 import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
 import { freeArea } from './hud/freeArea';
+import { usePhone } from './hud/phone';
 import { roomBadges, type View } from './hud/rooms';
 import { RoomsRail } from './hud/RoomsRail';
 import { TopBar, type RunStatus } from './hud/TopBar';
@@ -129,6 +130,9 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const [roomsOpen, setRoomsOpen] = useState(false);
   const roomsButton = useRef<HTMLButtonElement>(null);
   const railId = useId();
+  // a phone's width (48rem): the drawer's handle in the top bar (Dima, 21 Nov)
+  const phone = usePhone();
+  const drawerId = useId();
   // The top bar wraps in a narrow window; what sits under it starts where it ends (--hud-top), measured.
   const topBar = useRef<HTMLElement>(null);
   const topBox = useBox(topBar, hud);
@@ -590,6 +594,13 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
                   onToggle: () => setRoomsOpen(!roomsOpen),
                   buttonRef: roomsButton,
                 }}
+                activity={{
+                  open: drawerOpen,
+                  unread,
+                  controls: drawerId,
+                  onToggle: drawerOpen ? closeDrawer : openDrawer,
+                  buttonRef: handleRef,
+                }}
               />
             </header>
             <div ref={under} className="hud-under">
@@ -679,6 +690,8 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               activity={activity}
               tasks={<TaskBoard office={office} />}
               handleRef={handleRef}
+              drawerId={drawerId}
+              handle={!phone}
             />
           </>
         ) : (

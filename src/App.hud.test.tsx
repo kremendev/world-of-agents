@@ -650,6 +650,33 @@ describe('narrow windows (4d.9, D15)', () => {
     expect(button).toHaveFocus();
   });
 
+  it("on a phone, the drawer's handle is in the top bar, and the focus goes in and back (Dima, 21 Nov)", async () => {
+    undoLayout();
+    undoLayout = stubLayout(320, 480);
+    const { container } = render(<App />);
+    await settle();
+    expect(container.querySelector('.hud-handle')).toBeNull();
+    const handle = within(container.querySelector('.hud-top') as HTMLElement).getByRole('button', {
+      name: /^Activity/,
+    });
+    expect(handle).toHaveAttribute('aria-expanded', 'false');
+    const drawerId = handle.getAttribute('aria-controls') as string;
+    fireEvent.click(handle);
+    const drawer = screen.getByRole('complementary', { name: 'Activity and tasks' });
+    expect(drawer.id).toBe(drawerId);
+    expect(handle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('tab', { name: 'Activity' })).toHaveFocus();
+    // the drawer's own Close: the focus back on the top bar's button
+    fireEvent.click(screen.getByRole('button', { name: 'Close the drawer' }));
+    expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
+    expect(handle).toHaveFocus();
+    // and the button closes it again too
+    fireEvent.click(handle);
+    fireEvent.click(handle);
+    expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
+    expect(handle).toHaveFocus();
+  });
+
   it('starts with the drawer closed, and puts what is under the top bar where the top bar ends', async () => {
     undoLayout();
     undoLayout = stubLayout(700, 900);

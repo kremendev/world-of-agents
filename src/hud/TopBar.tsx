@@ -4,6 +4,8 @@ import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
 import { TaskBar } from '../page/TaskBar';
 import { doneCount, type OfficeState } from '../state/office';
+import { activityLabel } from './activityLabel';
+import { ActivityWords } from './Drawer';
 import { usePhone } from './phone';
 
 export type RunStatus = 'playing' | 'paused' | 'ended';
@@ -40,6 +42,14 @@ type Props = {
     buttonRef?: Ref<HTMLButtonElement>;
     /** Until the world is ready (its rooms have no camera to send yet). */
     disabled?: boolean;
+  };
+  /** The drawer's handle, which on a phone lives here (Dima, 21 Nov): a disclosure, as Rooms is. */
+  activity?: {
+    open: boolean;
+    unread: number;
+    controls: string;
+    onToggle: () => void;
+    buttonRef?: Ref<HTMLButtonElement>;
   };
 };
 
@@ -140,11 +150,23 @@ function IconButton({
  * tasks the task input), then the controls. The run line is one line: what it can't show it cuts, and says whole in its
  * title. It counts the tasks only once there are some, and isn't there when it has nothing to say (Dima, 20 Nov: no
  * "Tasks done: 0 of 0"). Tiles keep the order the tasks came in; each one's title is its task's. On a phone (under
- * 48rem, Dima, 20 Nov) the title and chips are row one, Rooms and the controls row two, and the run row three, with no
- * tiles (the run line counts the tasks, the drawer's board has them); the run comes last in the page too, so what a
- * screen reader reads, and the order the focus takes, is the order on screen.
+ * 48rem, Dima, 20 Nov) the title and chips are row one, then Rooms, the drawer's Activity button (21 Nov) and the
+ * controls, wrapping as they need, and the run last, with no tiles (the run line counts the tasks, the drawer's board
+ * has them); the run comes last in the page too, so what a screen reader reads, and the order the focus takes, is the
+ * order on screen.
  */
-export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam, rooms }: Props) {
+export function TopBar({
+  version,
+  mode,
+  office,
+  runText,
+  ledger,
+  demo,
+  onPlayDemo,
+  onTeam,
+  rooms,
+  activity,
+}: Props) {
   const { tasks } = office;
   const phone = usePhone();
   const said = runText ? `Run: ${runText}` : null;
@@ -214,6 +236,19 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
           onClick={rooms.onToggle}
         >
           Rooms
+        </button>
+      )}
+      {phone && activity && (
+        <button
+          ref={activity.buttonRef}
+          type="button"
+          className="hud-button hud-activity"
+          aria-expanded={activity.open}
+          aria-controls={activity.controls}
+          aria-label={activityLabel(activity.unread)}
+          onClick={activity.onToggle}
+        >
+          <ActivityWords unread={activity.unread} />
         </button>
       )}
       {!phone && (

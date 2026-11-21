@@ -672,3 +672,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   works). And the overflow's cause was the controls' row, which never wrapped (`flex: none`): under 48rem it may shrink
   and wrap inside the top bar, so nothing reaches past it at any width, whatever the controls are. Why: the rule's own
   words (nothing past the top bar), then the smaller build.
+- **The handle in the top bar, the details.** It comes right after Rooms, so the two disclosures share a row and the
+  controls take the next one at 320 px (after the controls it would take a row of its own, a row more in the Demo).
+  It stays while the drawer is open, `aria-expanded` saying so, and closes it again, as Rooms opens and closes its menu:
+  a button that vanished from the row as the drawer opened would move the others. Opening it moves the focus to the
+  drawer's tab and closing from inside back to it, as the old handle's did; the drawer gets its id from App so the
+  button names what it controls. Wider than 48rem the floating handle stays as it was. Why: the accessibility rule
+  first (a disclosure that says its state, as Rooms is), then the smaller build.

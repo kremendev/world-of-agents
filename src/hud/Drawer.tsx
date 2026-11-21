@@ -1,4 +1,5 @@
 import { useId, useRef, type KeyboardEvent, type ReactNode, type Ref } from 'react';
+import { activityLabel } from './activityLabel';
 
 export type DrawerTab = 'activity' | 'tasks';
 
@@ -18,14 +19,45 @@ type Props = {
   activity: ReactNode;
   tasks: ReactNode;
   handleRef?: Ref<HTMLButtonElement>;
+  /** The drawer's own id, for a button elsewhere that opens it (the phone's top bar). */
+  drawerId: string;
+  /** False where the handle lives elsewhere: on a phone, in the top bar (Dima, 21 Nov). */
+  handle?: boolean;
 };
+
+/** What the handle shows: "Activity" and the count of "For you" items, which its name already says. */
+export function ActivityWords({ unread }: { unread: number }) {
+  return (
+    <>
+      Activity
+      {unread > 0 && (
+        <span className="hud-badge needs" aria-hidden="true">
+          {unread}
+        </span>
+      )}
+    </>
+  );
+}
 
 /**
  * The drawer (4d.5): the activity and the task board as two tabs (the arrow keys, Home and End move between them), and a
- * button that closes it. Closed, a handle at the window's edge opens it again and says how many "For you" items wait.
- * Both panels stay mounted while hidden, so the feed keeps its open rows, its filter and its place.
+ * button that closes it. Closed, a handle at the window's edge opens it again and says how many "For you" items wait
+ * (`handle`; on a phone the top bar has it). Both panels stay mounted while hidden, so the feed keeps its open rows, its
+ * filter and its place.
  */
-export function Drawer({ open, tab, onTab, onOpen, onClose, unread, activity, tasks, handleRef }: Props) {
+export function Drawer({
+  open,
+  tab,
+  onTab,
+  onOpen,
+  onClose,
+  unread,
+  activity,
+  tasks,
+  handleRef,
+  drawerId,
+  handle = true,
+}: Props) {
   const id = useId();
   const tabRefs = useRef<Partial<Record<DrawerTab, HTMLButtonElement | null>>>({});
 
@@ -50,12 +82,7 @@ export function Drawer({ open, tab, onTab, onOpen, onClose, unread, activity, ta
 
   return (
     <>
-      <aside
-        id={`${id}-drawer`}
-        className="hud-panel hud-drawer"
-        aria-label="Activity and tasks"
-        hidden={!open}
-      >
+      <aside id={drawerId} className="hud-panel hud-drawer" aria-label="Activity and tasks" hidden={!open}>
         <div className="hud-drawer-head">
           <div className="hud-tabs" role="tablist" aria-label="Drawer" onKeyDown={onKeyDown}>
             {TABS.map((t) => (
@@ -108,22 +135,17 @@ export function Drawer({ open, tab, onTab, onOpen, onClose, unread, activity, ta
           </div>
         ))}
       </aside>
-      {!open && (
+      {handle && !open && (
         <button
           ref={handleRef}
           type="button"
           className="hud-panel hud-handle"
           aria-expanded={false}
-          aria-controls={`${id}-drawer`}
-          aria-label={unread > 0 ? `Activity, ${unread} for you` : 'Activity'}
+          aria-controls={drawerId}
+          aria-label={activityLabel(unread)}
           onClick={onOpen}
         >
-          Activity
-          {unread > 0 && (
-            <span className="hud-badge needs" aria-hidden="true">
-              {unread}
-            </span>
-          )}
+          <ActivityWords unread={unread} />
         </button>
       )}
     </>
