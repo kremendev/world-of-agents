@@ -773,3 +773,10 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   `docs/release-notes/v4.0.0-check.md` as `npm.cmd run …`, with Git Bash as the other way, step 1's `dev:refresh`
   above all. Choice: one line at the top of his part says it once, step 1 names both forms, and the first item of
   what Claude ran names the scripts the same way. Why: the request's own words.
+- **Step 7's Edge command, Claude's own fix.** Found with the npm change: `msedge --disable-3d-apis …`, as R wrote it,
+  runs in neither of Dima's shells (`msedge` isn't on PATH; Windows finds it only through its App Paths entry, which
+  `Start-Process` and cmd's `start` read), and "close Edge's other windows first" isn't enough, since Startup boost
+  keeps Edge running with none open and a new launch hands over its address without the flag. Choice: both shells'
+  forms, each with `--user-data-dir` in `%LOCALAPPDATA%\woa-nowebgl`, which always starts an Edge of its own. Both run
+  here (on `about:blank`, never Dima's hall): each started its own Edge with the flag, closed after. Why: the
+  correctness of the list Dima runs, then the smaller build (the one step, its own commit, so it can be dropped).
