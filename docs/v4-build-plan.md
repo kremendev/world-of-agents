@@ -689,3 +689,9 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   closes the drawer, which would lie over the card; "Show in Activity" opens the drawer over it, the card still open
   under it. Why: the accessibility rule first (the focus never left on something hidden or covered), then the request's
   own words.
+- **Dima, 21 Nov, the card's model line.** It said "model in v2: Sonnet" in the Demo, wording from v2: "model: Sonnet" in
+  both modes.
+- **The model line, the details.** The details' "Tools in v2" two lines under it is the same wording for the same
+  reason, so it is "Tools" in both modes too; with neither left, the panel's and the card's `live` prop did nothing and
+  went. The frozen 2D hall's panel is the same component, so it says the same. Why: the request's own reason, then the
+  smaller build (no prop that does nothing). Dima can have "Tools in v2" back in one line.

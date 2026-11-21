@@ -27,8 +27,8 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
 }
 
 /**
- * Everything about the selected agent: who it is and what it is doing.
- * `live`: a real run, so the model and tools are the real ones.
+ * Everything about the selected agent: who it is and what it is doing. The model and tools are the ones the plugin
+ * gives it, in the Demo too, so they say "model" and "Tools" with no "in v2" (Dima, 21 Nov).
  * The HUD's card (4d.4) shows it without the 2D sprite (`portrait`, D14), with a guild lead's specialists at work
  * (`specialists`, D13), with the look of the Forge Keep's model instead of the sprite's (`keepLook`, Dima, 20 Nov), and
  * under a heading of its own (`labelledBy`, the heading's id: the card keeps it in view while the rest scrolls, Dima,
@@ -37,7 +37,6 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
 export function AgentPanel({
   office,
   agent: id,
-  live = false,
   portrait = true,
   specialists = false,
   keepLook = false,
@@ -45,7 +44,6 @@ export function AgentPanel({
 }: {
   office: OfficeState;
   agent: AgentId;
-  live?: boolean;
   portrait?: boolean;
   specialists?: boolean;
   keepLook?: boolean;
@@ -69,7 +67,7 @@ export function AgentPanel({
         <div className="agent-intro">
           {!labelledBy && <h2 id={ownId}>{agent.name}</h2>}
           <p className="muted">
-            {agent.race} · {live ? 'model' : 'model in v2'}: {agent.model}
+            {agent.race} · model: {agent.model}
           </p>
           <p>{keepLook ? agent.keepLook : agent.look}</p>
           <div className="agent-chips">
@@ -89,7 +87,7 @@ export function AgentPanel({
         <dd>{task?.title ?? 'None'}</dd>
         <dt>Task status</dt>
         <dd>{task ? STATUS_CHIP[task.status].label : 'None'}</dd>
-        <dt>{live ? 'Tools' : 'Tools in v2'}</dt>
+        <dt>Tools</dt>
         <dd>{agent.tools}</dd>
       </dl>
 

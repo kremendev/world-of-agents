@@ -7,7 +7,6 @@ import type { OfficeState } from '../state/office';
 type Props = {
   office: OfficeState;
   agent: AgentId;
-  live: boolean;
   following: boolean;
   /** Until the world is ready there is no figure to follow: Follow shows, disabled. */
   canFollow?: boolean;
@@ -26,7 +25,6 @@ type Props = {
 export function AgentCard({
   office,
   agent,
-  live,
   following,
   canFollow = true,
   onFollow,
@@ -54,7 +52,6 @@ export function AgentCard({
         <AgentPanel
           office={office}
           agent={agent}
-          live={live}
           portrait={false}
           specialists
           keepLook

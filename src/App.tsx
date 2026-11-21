@@ -679,7 +679,6 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
               <AgentCard
                 office={office}
                 agent={card}
-                live={live}
                 following={following === card}
                 canFollow={ready}
                 onFollow={() => toggleFollow(card)}
@@ -705,7 +704,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
         ) : (
           <div className="lower">
             <TaskBoard office={office} />
-            <AgentPanel office={office} agent={selected} live={live} />
+            <AgentPanel office={office} agent={selected} />
           </div>
         )}
       </main>

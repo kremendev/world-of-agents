@@ -25,7 +25,7 @@ describe('the agent card (4d.4)', () => {
       at: 2,
     });
     const { container } = render(
-      <AgentCard office={office} agent="frontend" live following={false} {...handlers()} />,
+      <AgentCard office={office} agent="frontend" following={false} {...handlers()} />,
     );
     const agent = agentById('frontend');
     expect(screen.getByRole('heading', { level: 2, name: 'Frontend dev' })).toBeInTheDocument();
@@ -48,13 +48,13 @@ describe('the agent card (4d.4)', () => {
       working: true,
       at: 1,
     });
-    render(<AgentCard office={office} agent="frontend" live following={false} {...handlers()} />);
+    render(<AgentCard office={office} agent="frontend" following={false} {...handlers()} />);
     expect(screen.getByText('+ React dev')).toBeInTheDocument();
   });
 
   it('closes, follows and shows the agent in Activity on its buttons', () => {
     const h = handlers();
-    render(<AgentCard office={INITIAL_OFFICE} agent="designer" live={false} following={false} {...h} />);
+    render(<AgentCard office={INITIAL_OFFICE} agent="designer" following={false} {...h} />);
     fireEvent.click(screen.getByRole('button', { name: 'Close the card' }));
     fireEvent.click(screen.getByRole('button', { name: 'Follow' }));
     fireEvent.click(screen.getByRole('button', { name: 'Show in Activity' }));
@@ -66,24 +66,17 @@ describe('the agent card (4d.4)', () => {
   it('Follow is a toggle: pressed and "Following" while on', () => {
     const h = handlers();
     const { rerender } = render(
-      <AgentCard office={INITIAL_OFFICE} agent="designer" live={false} following={false} {...h} />,
+      <AgentCard office={INITIAL_OFFICE} agent="designer" following={false} {...h} />,
     );
     expect(screen.getByRole('button', { name: 'Follow' })).toHaveAttribute('aria-pressed', 'false');
-    rerender(<AgentCard office={INITIAL_OFFICE} agent="designer" live={false} following {...h} />);
+    rerender(<AgentCard office={INITIAL_OFFICE} agent="designer" following {...h} />);
     expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('gives its heading to a ref, focusable, for Show me to move the focus to', () => {
     const ref = createRef<HTMLHeadingElement>();
     render(
-      <AgentCard
-        office={INITIAL_OFFICE}
-        agent="lead"
-        live={false}
-        following={false}
-        headingRef={ref}
-        {...handlers()}
-      />,
+      <AgentCard office={INITIAL_OFFICE} agent="lead" following={false} headingRef={ref} {...handlers()} />,
     );
     expect(ref.current).toHaveTextContent('Lead/PM');
     expect(ref.current?.tabIndex).toBe(-1);
@@ -91,7 +84,7 @@ describe('the agent card (4d.4)', () => {
 
   it('keeps its heading and close button out of what scrolls, the panel named by that heading (Dima, 21 Nov)', () => {
     const { container } = render(
-      <AgentCard office={INITIAL_OFFICE} agent="backend" live={false} following={false} {...handlers()} />,
+      <AgentCard office={INITIAL_OFFICE} agent="backend" following={false} {...handlers()} />,
     );
     const body = container.querySelector('.hud-card-body') as HTMLElement;
     const heading = screen.getByRole('heading', { level: 2, name: 'Backend dev' });
