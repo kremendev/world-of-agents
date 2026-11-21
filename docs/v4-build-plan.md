@@ -362,6 +362,9 @@ the Demo, Live, needs-you, the Team page, the fallback, reduced motion and the s
 
 ## Later, after v4.0.0 (not in this push)
 
+**4.0.1** (Dima, 21 Nov): the raised-hand clip (CLIP, once Dima's files are there); a shorter Demo top bar on phones
+(10.81rem now); README picture 2's small Reviewer.
+
 The apprentice figures (B); more clips (read, the keyboard smash, spar, drink, hammer, paint) through 4e's checks; the
 crease-lines render for Dima; the scrying orb's flat look; frame-time tuning from T's numbers.
 
