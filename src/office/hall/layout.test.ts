@@ -166,6 +166,13 @@ describe('text sizes and fonts', () => {
     );
   });
 
+  it('on a phone nothing reaches past the top bar: its controls wrap inside it (Dima, 21 Nov)', () => {
+    const controls = phoneRules().find((r) => r.selectors.includes('.hud-top .hud-controls'));
+    expect(controls?.body).toMatch(/flex: 0 1 auto;/);
+    expect(controls?.body).toMatch(/flex-wrap: wrap;/);
+    expect(controls?.body).toMatch(/min-width: 0;/);
+  });
+
   it('the title stays on one line at every width; under 22.5rem the version chip goes (Dima, 21 Nov)', () => {
     const title = rules.find((r) => r.selector === '.hud-top h1')!.body;
     expect(title).toMatch(/white-space: nowrap;/);

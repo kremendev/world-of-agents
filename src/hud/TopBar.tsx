@@ -1,9 +1,10 @@
-import { useSyncExternalStore, type ReactNode, type Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { agentById } from '../office/roster';
 import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
 import { TaskBar } from '../page/TaskBar';
 import { doneCount, type OfficeState } from '../state/office';
+import { usePhone } from './phone';
 
 export type RunStatus = 'playing' | 'paused' | 'ended';
 
@@ -45,15 +46,6 @@ type Props = {
 /** Today's dashboard: up to 5 tiles, or 4 and "+N" when there are more. */
 export const MAX_TILES = 5;
 
-/** A phone's width (D15's 48rem): the top bar in three rows, the run last (Dima, 20 Nov). */
-const PHONE = '(max-width: 48rem)';
-const onPhoneChange = (fn: () => void) => {
-  const query = window.matchMedia(PHONE);
-  query.addEventListener('change', fn);
-  return () => query.removeEventListener('change', fn);
-};
-const isPhone = () => window.matchMedia(PHONE).matches;
-
 /** Demo in the thinking chip's colours, Live in the done chip's, Offline and Ended muted (the class's own). */
 const MODE_CHIP: Record<string, { bg: string; text: string } | undefined> = {
   demo: STATE_STYLE.thinking,
@@ -90,7 +82,33 @@ const ICONS = {
       strokeLinejoin="round"
     />
   ),
+  live: (
+    <>
+      <circle cx="8" cy="8" r="2" fill="currentColor" />
+      <path
+        d="M5 5a4.2 4.2 0 0 0 0 6M11 5a4.2 4.2 0 0 1 0 6M2.8 2.8a7.3 7.3 0 0 0 0 10.4M13.2 2.8a7.3 7.3 0 0 1 0 10.4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </>
+  ),
 };
+
+/** "Back to live" and "Go live": on a phone an icon and "Live", still named in full (Dima, 21 Nov). */
+function LiveButton({ label, phone, onClick }: { label: string; phone: boolean; onClick: () => void }) {
+  return phone ? (
+    <button type="button" className="hud-button hud-short" aria-label={label} title={label} onClick={onClick}>
+      <Icon>{ICONS.live}</Icon>
+      Live
+    </button>
+  ) : (
+    <button type="button" className="hud-button" onClick={onClick}>
+      {label}
+    </button>
+  );
+}
 
 function IconButton({
   label,
@@ -128,7 +146,7 @@ function IconButton({
  */
 export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDemo, onTeam, rooms }: Props) {
   const { tasks } = office;
-  const phone = useSyncExternalStore(onPhoneChange, isPhone);
+  const phone = usePhone();
   const said = runText ? `Run: ${runText}` : null;
   const count = tasks.length > 0 ? `Tasks done: ${doneCount(office)} of ${tasks.length}` : null;
   // on a phone the count comes first, so the line's cut never takes it
@@ -222,16 +240,8 @@ export function TopBar({ version, mode, office, runText, ledger, demo, onPlayDem
             />
             <IconButton label="Restart" icon="restart" onClick={demo.onRestart} />
           </div>
-          {demo.onBackToLive && (
-            <button type="button" className="hud-button" onClick={demo.onBackToLive}>
-              Back to live
-            </button>
-          )}
-          {demo.onGoLive && (
-            <button type="button" className="hud-button" onClick={demo.onGoLive}>
-              Go live
-            </button>
-          )}
+          {demo.onBackToLive && <LiveButton label="Back to live" phone={phone} onClick={demo.onBackToLive} />}
+          {demo.onGoLive && <LiveButton label="Go live" phone={phone} onClick={demo.onGoLive} />}
         </div>
       )}
       {(onPlayDemo || onTeam) && (

@@ -658,3 +658,17 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   hall: the banner 16 to 384 px across, the handle 16 px under it, following it to two rows and back to the top bar's
   edge once nobody waits; the open drawer under it; no sideways scroll, no console errors. Seen, not changed: a name
   tag can still pass under the handle or the banner (tags are held inside the window, not clear of panels).
+- **Dima, 21 Nov, the phone at 320 x 480 (his half of T).** The title wraps to two lines; "Back to live" overflows
+  the top bar's panel; the Activity handle covers the card's close button; the card is squeezed mid-screen. Fixes: the
+  title on one line at every width, the version chip hidden under 22.5rem; under 48rem the drawer's handle in the top
+  bar's button row; "Back to live" under 48rem an icon with a short "Live" (aria-label "Back to live"), nothing past
+  the top bar at 320 px; under 48rem the card a bottom sheet, full width in the agent list's place while open, at most
+  55vh, scrolling inside, its heading and close button always in view. Shots at 320 x 480, 360 x 640 and 400 x 800.
+- **The title, the details.** The title doesn't shrink or wrap (`flex: none`, `nowrap`), and the row it shares with
+  its chips wraps, so a long mode chip ("Hall offline, reconnecting") goes under it rather than squeezing it; the version
+  chip hides under 22.5rem (360 px), as asked. Why: the request's own words.
+- **"Back to live", the details.** "Go live" is the same kind of button in the same place, so it takes the same short
+  form, aria-label "Go live" (its visible "Live" inside its name, as with "Back to live", so speaking what is seen
+  works). And the overflow's cause was the controls' row, which never wrapped (`flex: none`): under 48rem it may shrink
+  and wrap inside the top bar, so nothing reaches past it at any width, whatever the controls are. Why: the rule's own
+  words (nothing past the top bar), then the smaller build.

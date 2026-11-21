@@ -2373,6 +2373,14 @@ button.tp-card:hover {
   justify-content: center;
 }
 
+/* "Back to live" and "Go live" on a phone: an icon and "Live" (Dima, 21 Nov). */
+.hud-short {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0 0.625rem;
+}
+
 .hud-chip {
   box-sizing: border-box;
   display: inline-flex;
@@ -2915,6 +2923,13 @@ button.tp-card:hover {
 
   .hud-top .hud-controls .hud-divider {
     display: none;
+  }
+
+  /* nothing reaches past the top bar (Dima, 21 Nov): the controls wrap inside it where a row can't hold them */
+  .hud-top .hud-controls {
+    flex: 0 1 auto;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 
   /* the banner, or the status line, the whole width under the top bar, and the drawer, open or its handle, under that

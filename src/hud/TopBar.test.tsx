@@ -179,6 +179,32 @@ describe("the HUD's top bar (4d.2)", () => {
       expect(screen.getByRole('list', { name: 'Tasks' })).toBeInTheDocument();
       before(screen.getByText(/^Run: /), screen.getByRole('button', { name: 'Play demo' }));
     });
+
+    it('shows "Back to live" and "Go live" as an icon and "Live", still named in full (Dima, 21 Nov)', () => {
+      undo = stubLayout(320, 480);
+      const onBackToLive = vi.fn();
+      const onGoLive = vi.fn();
+      bar({ demo: { ...controls(), onBackToLive, onGoLive }, rooms });
+      for (const [name, run] of [
+        ['Back to live', onBackToLive],
+        ['Go live', onGoLive],
+      ] as const) {
+        const button = screen.getByRole('button', { name });
+        // the words on it are part of its name, so speaking what is seen works
+        expect(button).toHaveTextContent(/^Live$/);
+        expect(button).toHaveAttribute('title', name);
+        expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+        fireEvent.click(button);
+        expect(run).toHaveBeenCalledOnce();
+      }
+    });
+
+    it('keeps "Back to live" and "Go live" in words in a wider window', () => {
+      undo = stubLayout(800, 800);
+      bar({ demo: { ...controls(), onBackToLive: vi.fn(), onGoLive: vi.fn() }, rooms });
+      expect(screen.getByRole('button', { name: 'Back to live' })).toHaveTextContent(/^Back to live$/);
+      expect(screen.getByRole('button', { name: 'Go live' })).toHaveTextContent(/^Go live$/);
+    });
   });
 
   it("names the demo's four icon buttons, and disables them as the page does today", () => {
