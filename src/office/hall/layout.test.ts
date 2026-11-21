@@ -167,6 +167,35 @@ describe('text sizes and fonts', () => {
     );
   });
 
+  it("the card scrolls under its heading; on a phone it is a bottom sheet in the list's place (Dima, 21 Nov)", () => {
+    const card = rules
+      .filter((r) => r.selector === '.hud-card')
+      .map((r) => r.body)
+      .join('');
+    expect(card).toMatch(/display: flex;/);
+    expect(card).toMatch(/flex-direction: column;/);
+    expect(card).toMatch(/overflow: hidden;/);
+    const body = rules.find((r) => r.selector === '.hud-card-body')!.body;
+    expect(body).toMatch(/overflow-y: auto;/);
+    expect(body).toMatch(/min-height: 0;/);
+    expect(rules.find((r) => r.selector === '.hud-card h2')!.body).toMatch(/flex: none;/);
+    const phone = phoneRules();
+    const sheet = phone
+      .filter((r) => r.selectors.includes('.hud-card'))
+      .map((r) => r.body)
+      .join('');
+    expect(sheet).toMatch(/right: var\(--hud-edge\);/);
+    expect(sheet).toMatch(/bottom: var\(--hud-edge\);/);
+    expect(sheet).toMatch(/width: auto;/);
+    expect(sheet).toMatch(
+      /max-height: min\(55vh, calc\(100% - var\(--hud-top\) - var\(--hud-under, 0px\) - var\(--hud-edge\)\)\);/,
+    );
+    const list = phone.find((r) => r.selectors.includes('.app.keep.card-open .hud-agents'));
+    expect(list?.body).toMatch(/display: none;/);
+    // only there (the one rule found above): wider, the list stays under the card
+    expect(rules.filter((r) => r.selector.includes('card-open'))).toHaveLength(1);
+  });
+
   it('on a phone nothing reaches past the top bar: its controls wrap inside it (Dima, 21 Nov)', () => {
     const controls = phoneRules().find((r) => r.selectors.includes('.hud-top .hud-controls'));
     expect(controls?.body).toMatch(/flex: 0 1 auto;/);

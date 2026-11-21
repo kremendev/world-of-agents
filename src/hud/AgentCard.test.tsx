@@ -1,5 +1,5 @@
 import { createRef } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { agentById } from '../office/roster';
 import { INITIAL_OFFICE, officeReducer } from '../state/office';
@@ -87,5 +87,21 @@ describe('the agent card (4d.4)', () => {
     );
     expect(ref.current).toHaveTextContent('Lead/PM');
     expect(ref.current?.tabIndex).toBe(-1);
+  });
+
+  it('keeps its heading and close button out of what scrolls, the panel named by that heading (Dima, 21 Nov)', () => {
+    const { container } = render(
+      <AgentCard office={INITIAL_OFFICE} agent="backend" live={false} following={false} {...handlers()} />,
+    );
+    const body = container.querySelector('.hud-card-body') as HTMLElement;
+    const heading = screen.getByRole('heading', { level: 2, name: 'Backend dev' });
+    expect(body).not.toContainElement(heading);
+    expect(body).not.toContainElement(screen.getByRole('button', { name: 'Close the card' }));
+    // one heading, which the panel under it is named by
+    expect(screen.getAllByRole('heading')).toHaveLength(1);
+    expect(within(body).getByRole('region', { name: 'Backend dev' })).toBeInTheDocument();
+    // the rest scrolls with it
+    expect(body).toContainElement(screen.getByRole('button', { name: 'Follow' }));
+    expect(body).toContainElement(screen.getByText(agentById('backend').tools));
   });
 });

@@ -1,5 +1,6 @@
-import type { Ref } from 'react';
+import { useId, type Ref } from 'react';
 import type { AgentId } from '../events/schema';
+import { agentById } from '../office/roster';
 import { AgentPanel } from '../page/AgentPanel';
 import type { OfficeState } from '../state/office';
 
@@ -19,7 +20,8 @@ type Props = {
 /**
  * The agent card (4d.4): today's agent panel without its 2D portrait (D14), with the guild lead's specialists at work
  * (D13) and the look of the keep's model (Dima, 20 Nov), a close button, Follow (a toggle, "Following" while on) and
- * "Show in Activity".
+ * "Show in Activity". Its heading (which the focus can be moved to, D17) and its close button stay where they are
+ * while the rest scrolls (Dima, 21 Nov: on a phone the card is a bottom sheet of at most 55vh).
  */
 export function AgentCard({
   office,
@@ -32,8 +34,12 @@ export function AgentCard({
   onClose,
   headingRef,
 }: Props) {
+  const headingId = useId();
   return (
     <div className="hud-panel hud-card">
+      <h2 id={headingId} ref={headingRef} tabIndex={-1}>
+        {agentById(agent).name}
+      </h2>
       <button
         type="button"
         className="hud-button hud-icon hud-close"
@@ -44,28 +50,30 @@ export function AgentCard({
           <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
         </svg>
       </button>
-      <AgentPanel
-        office={office}
-        agent={agent}
-        live={live}
-        portrait={false}
-        specialists
-        keepLook
-        headingRef={headingRef}
-      />
-      <div className="hud-card-actions">
-        <button
-          type="button"
-          className="hud-button hud-primary"
-          aria-pressed={following}
-          disabled={!canFollow}
-          onClick={onFollow}
-        >
-          {following ? 'Following' : 'Follow'}
-        </button>
-        <button type="button" className="hud-button" onClick={onShowActivity}>
-          Show in Activity
-        </button>
+      <div className="hud-card-body">
+        <AgentPanel
+          office={office}
+          agent={agent}
+          live={live}
+          portrait={false}
+          specialists
+          keepLook
+          labelledBy={headingId}
+        />
+        <div className="hud-card-actions">
+          <button
+            type="button"
+            className="hud-button hud-primary"
+            aria-pressed={following}
+            disabled={!canFollow}
+            onClick={onFollow}
+          >
+            {following ? 'Following' : 'Follow'}
+          </button>
+          <button type="button" className="hud-button" onClick={onShowActivity}>
+            Show in Activity
+          </button>
+        </div>
       </div>
     </div>
   );

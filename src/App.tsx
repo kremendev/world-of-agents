@@ -173,6 +173,7 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   const cardOpener = useRef<HTMLElement | null>(null);
   const cardFocusBack = useRef<AgentId | null>(null);
   const cardHeading = useRef<HTMLHeadingElement>(null);
+  const focusCardHeading = useRef(false);
   const openCard = (id: AgentId, toggle: boolean) => {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement && active.closest('.hud-card'))) {
@@ -181,6 +182,8 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
     // the 2D hall shows the same agent, should it take over
     setSelected(id);
     setCard((was) => (toggle && was === id ? null : id));
+    // on a phone the card takes the list's place (Dima, 21 Nov): the focus goes to its heading, not away with the list
+    if (phone && card !== id) focusCardHeading.current = true;
   };
   const closeCard = () => {
     cardFocusBack.current = card;
@@ -201,14 +204,15 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   pick.current = (id: AgentId) => openCard(id, false);
   useEffect(() => world?.onPick((id) => pick.current(id)), [world]);
   // Follow: on until a hand move or a second press; while on, no room is the one in view
-  // Show me (4d.7, D17): the camera to the agent, its card open, the focus on the card's heading
-  const focusCardHeading = useRef(false);
+  // Show me (4d.7, D17): the camera to the agent, its card open, the focus on the card's heading. On a phone the drawer
+  // would lie over the card, so it closes (not the viewer's choice, so not kept).
   const showMe = (id: AgentId) => {
     if (world) {
       world.flyToAgent(id);
       setFollowing(null);
       setView(null);
     }
+    if (phone) setDrawerOpen(false);
     openCard(id, false);
     if (card === id) cardHeading.current?.focus();
     else focusCardHeading.current = true;
@@ -551,7 +555,11 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
   return (
     <>
       <main
-        className={hud ? (drawerOpen ? 'app keep' : 'app keep drawer-closed') : 'app'}
+        className={
+          hud
+            ? ['app keep', !drawerOpen && 'drawer-closed', card && 'card-open'].filter(Boolean).join(' ')
+            : 'app'
+        }
         hidden={teamOpen}
         style={
           hud && topBox

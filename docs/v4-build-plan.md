@@ -679,3 +679,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   drawer's tab and closing from inside back to it, as the old handle's did; the drawer gets its id from App so the
   button names what it controls. Wider than 48rem the floating handle stays as it was. Why: the accessibility rule
   first (a disclosure that says its state, as Rooms is), then the smaller build.
+- **The bottom sheet, the details.** The card's heading and close button stay in view while the rest scrolls at every
+  width, not only on a phone: the card now holds its heading itself (AgentPanel takes the heading's id, `labelledBy`,
+  and draws none of its own there), and only its body scrolls, kept 0.25rem inside the card's padding so a focus ring
+  isn't cut; it looks as before until it scrolls. On a phone the sheet is at most 55vh and never over the top bar or
+  the banner under it (`min()` with what is left of the window), and App marks the page `card-open` so the list hides
+  under it. The list button that opened it goes with the list, so on a phone opening the card moves the focus to its
+  heading (as Show me always has), and closing brings it back to that button, shown again. Show me on a phone also
+  closes the drawer, which would lie over the card; "Show in Activity" opens the drawer over it, the card still open
+  under it. Why: the accessibility rule first (the focus never left on something hidden or covered), then the request's
+  own words.

@@ -1,4 +1,4 @@
-import { useId, useMemo, type Ref } from 'react';
+import { useId, useMemo } from 'react';
 import type { AgentId } from '../events/schema';
 import { spriteSize, toRuns, type PixelSprite } from '../pixel/sprite';
 import type { OfficeState } from '../state/office';
@@ -30,8 +30,9 @@ function SpritePreview({ sprite, scale }: { sprite: PixelSprite; scale: number }
  * Everything about the selected agent: who it is and what it is doing.
  * `live`: a real run, so the model and tools are the real ones.
  * The HUD's card (4d.4) shows it without the 2D sprite (`portrait`, D14), with a guild lead's specialists at work
- * (`specialists`, D13), with a heading the focus can be moved to (`headingRef`, D17), and with the look of the
- * Forge Keep's model instead of the sprite's (`keepLook`, Dima, 20 Nov).
+ * (`specialists`, D13), with the look of the Forge Keep's model instead of the sprite's (`keepLook`, Dima, 20 Nov), and
+ * under a heading of its own (`labelledBy`, the heading's id: the card keeps it in view while the rest scrolls, Dima,
+ * 21 Nov), so no heading here.
  */
 export function AgentPanel({
   office,
@@ -40,7 +41,7 @@ export function AgentPanel({
   portrait = true,
   specialists = false,
   keepLook = false,
-  headingRef,
+  labelledBy,
 }: {
   office: OfficeState;
   agent: AgentId;
@@ -48,17 +49,17 @@ export function AgentPanel({
   portrait?: boolean;
   specialists?: boolean;
   keepLook?: boolean;
-  headingRef?: Ref<HTMLHeadingElement>;
+  labelledBy?: string;
 }) {
   const agent = agentById(id);
   const { state, taskId, copies } = office.agents[id];
   const helping = specialists && id !== 'lead' ? office.specialists[id] : [];
   const task = office.tasks.find((t) => t.id === taskId);
   const chip = STATE_STYLE[state];
-  const headingId = useId();
+  const ownId = useId();
 
   return (
-    <section className="panel agent-panel" aria-labelledby={headingId}>
+    <section className="panel agent-panel" aria-labelledby={labelledBy ?? ownId}>
       <div className="agent-card">
         {portrait && (
           <div className="sprite-tile">
@@ -66,9 +67,7 @@ export function AgentPanel({
           </div>
         )}
         <div className="agent-intro">
-          <h2 id={headingId} ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
-            {agent.name}
-          </h2>
+          {!labelledBy && <h2 id={ownId}>{agent.name}</h2>}
           <p className="muted">
             {agent.race} · {live ? 'model' : 'model in v2'}: {agent.model}
           </p>

@@ -135,8 +135,12 @@ describe('the HUD over the world (4d.1)', () => {
     await settle();
     const agents = screen.getByRole('group', { name: 'Agents' });
     const backend = within(agents).getByRole('button', { name: /^Backend dev/ });
+    backend.focus();
     fireEvent.click(backend);
     expect(backend).toHaveAttribute('aria-pressed', 'true');
+    // wider than a phone the list stays beside the card, and so does the focus
+    expect(backend).toHaveFocus();
+    expect(main(container)).toHaveClass('card-open');
     expect(within(agents).getByRole('button', { name: /^Lead\/PM/ })).toHaveAttribute(
       'aria-pressed',
       'false',
@@ -505,6 +509,19 @@ describe('the needs-you banner and Show me, in Live (4d.7)', () => {
     expect(main(container).style.getPropertyValue('--hud-under')).toBe('0px');
   });
 
+  it('on a phone, Show me closes the drawer, which would lie over the card (Dima, 21 Nov)', async () => {
+    undoLayout();
+    undoLayout = stubLayout(320, 480);
+    const { container } = await live(needs('backend'));
+    fireEvent.click(
+      within(container.querySelector('.hud-top') as HTMLElement).getByRole('button', { name: /^Activity/ }),
+    );
+    expect(screen.getByRole('complementary', { name: 'Activity and tasks' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show me Backend dev' }));
+    expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
+    expect(screen.getByRole('heading', { level: 2, name: 'Backend dev' })).toHaveFocus();
+  });
+
   it('goes back to the status line once nobody waits', async () => {
     const { container } = await live(needs('backend'));
     act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));
@@ -675,6 +692,22 @@ describe('narrow windows (4d.9, D15)', () => {
     fireEvent.click(handle);
     expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
     expect(handle).toHaveFocus();
+  });
+
+  it("on a phone, the card takes the agent list's place, the focus on its heading and back (Dima, 21 Nov)", async () => {
+    undoLayout();
+    undoLayout = stubLayout(320, 480);
+    const { container } = render(<App />);
+    await settle();
+    const opener = screen.getByRole('button', { name: /^Designer/ });
+    opener.focus();
+    fireEvent.click(opener);
+    expect(main(container)).toHaveClass('card-open');
+    // the list is hidden under it, so the focus goes into the card
+    expect(screen.getByRole('heading', { level: 2, name: 'Designer' })).toHaveFocus();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(main(container)).not.toHaveClass('card-open');
+    expect(opener).toHaveFocus();
   });
 
   it('starts with the drawer closed, and puts what is under the top bar where the top bar ends', async () => {
