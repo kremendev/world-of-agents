@@ -769,3 +769,7 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   Yard's one, the Designer at its easel, and their shadows) and the Library's globe, which turns with time. Kept, not
   asked: the gables' ridge horns, the Forge's weapon rack and the totems. Why: the request's own words, then the
   smaller build (one call, every pole).
+- **Dima, 21 Nov, npm in the checklist.** His PowerShell blocks npm's `npm.ps1` wrapper: every npm command in
+  `docs/release-notes/v4.0.0-check.md` as `npm.cmd run …`, with Git Bash as the other way, step 1's `dev:refresh`
+  above all. Choice: one line at the top of his part says it once, step 1 names both forms, and the first item of
+  what Claude ran names the scripts the same way. Why: the request's own words.
