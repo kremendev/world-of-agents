@@ -124,9 +124,9 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.hud-tiles')!.body).toMatch(/flex-wrap: wrap/);
   });
 
-  // the 48rem block's rules, by its braces
-  const phoneRules = () => {
-    const from = css.indexOf('@media (max-width: 48rem) {');
+  // a media block's rules, by its braces: the 48rem one's by default
+  const phoneRules = (query = '(max-width: 48rem)') => {
+    const from = css.indexOf(`@media ${query} {`);
     expect(from).toBeGreaterThan(-1);
     let depth = 0;
     let end = from;
@@ -164,6 +164,16 @@ describe('text sizes and fonts', () => {
     expect(rules.find((r) => r.selector === '.hud-under')!.body).toMatch(
       /right: calc\(var\(--hud-edge\) \* 2 \+ var\(--hud-drawer-w\)\);/,
     );
+  });
+
+  it('the title stays on one line at every width; under 22.5rem the version chip goes (Dima, 21 Nov)', () => {
+    const title = rules.find((r) => r.selector === '.hud-top h1')!.body;
+    expect(title).toMatch(/white-space: nowrap;/);
+    expect(title).toMatch(/flex: none;/);
+    // its chips go under it instead
+    expect(rules.find((r) => r.selector === '.hud-brand')!.body).toMatch(/flex-wrap: wrap;/);
+    const version = phoneRules('(max-width: 22.5rem)').find((r) => r.selectors.includes('.hud-version'));
+    expect(version?.body).toMatch(/display: none;/);
   });
 
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {

@@ -2248,10 +2248,17 @@ button.tp-card:hover {
   gap: 0.5rem 1rem;
 }
 
+/* The title stays on one line at every width (Dima, 21 Nov); its chips go under it where they don't fit beside it. */
 .hud-top h1 {
+  flex: none;
   font-family: inherit;
   font-size: 1.125rem;
   font-weight: 700;
+  white-space: nowrap;
+}
+
+.hud-brand {
+  flex-wrap: wrap;
 }
 
 /* Under the top bar, between the rooms and the drawer: the status line, or the needs-you banner in its place. */
@@ -2919,6 +2926,13 @@ button.tp-card:hover {
   .hud-drawer,
   .hud-handle {
     top: calc(var(--hud-top) + var(--hud-under, 0px));
+  }
+}
+
+/* The narrowest phones (Dima, 21 Nov): no version chip, so the title and the mode chip share a row. */
+@media (max-width: 22.5rem) {
+  .hud-version {
+    display: none;
   }
 }
 
