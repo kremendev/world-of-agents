@@ -213,6 +213,17 @@ describe('text sizes and fonts', () => {
     expect(version?.body).toMatch(/display: none;/);
   });
 
+  it("the banner's Show me stays on one line at every width; its text wraps instead (Dima, 21 Nov)", () => {
+    const button = rules.find((r) => r.selector === '.hud-needs-rows button')!.body;
+    expect(button).toMatch(/flex-shrink: 0;/);
+    expect(button).toMatch(/white-space: nowrap;/);
+    // the text is what gives way
+    expect(rules.find((r) => r.selector === '.hud-needs-text')!.body).toMatch(/min-width: 0;/);
+    // and no narrower window takes either back
+    for (const query of ['(max-width: 70rem)', '(max-width: 48rem)', '(max-width: 22.5rem)'])
+      expect(phoneRules(query).some((r) => r.selectors.some((s) => s.startsWith('.hud-needs')))).toBe(false);
+  });
+
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });

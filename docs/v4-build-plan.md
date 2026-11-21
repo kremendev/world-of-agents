@@ -788,3 +788,11 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   Choice: Edge's own counter, DevTools' Rendering tool, Frame Rendering Stats (no code pasted into a console; Edge
   157 on this PC shows "Frame Rate" in fps at the page's top left, seen through the same overlay over an animated
   page), with DevTools undocked so the keep keeps its size. Why: the request's own words, then the smaller build.
+- **Dima, 21 Nov, Show me on one line.** On the phone's banner (360 x 640, needs-you) "Show me" wrapped to two lines:
+  the button on one line at every width (`white-space: nowrap`, `flex-shrink: 0`), the banner's text wrapping instead;
+  shots at 320 and 360 into `D:\Dev\scratch\t-shots-3\`. Choice: one rule on `.hud-needs-rows button`, no media query
+  taking it back (`layout.test.ts`; three planted bugs caught). Measured in Edge from the bundled page, one waiting and
+  two: the button one line, 92 x 40, inside the banner at 320, 360, 400 and 1440, the text 4 lines at 320, 3 at 360, 2
+  at 400 and 1 at 1440 (`showme-*.png`). Found, not changed (a look change, Dima's call): at 320 x 480 with three
+  waiting the banner runs 56 px under the agent list, which covers the third row's Show me; with the old rule it ran 11
+  px under it, its own padding and border. At 360 x 640 three rows leave 149 px. Why: the request's own words.

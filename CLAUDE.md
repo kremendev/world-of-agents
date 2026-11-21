@@ -1340,4 +1340,4 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     card's model line, the skull trophies as one piece, the scan); the README's pictures (D22). T is done. The raised-hand
     clip wasn't there, so it is 4.0.1's. R is done (21 Nov): v4.0.0 prepared, not tagged (plugin.json 4.0.0,
     docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Then the skull poles as one piece too
-    (21 Nov). Waits for Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.
+    (21 Nov), and the banner's Show me on one line at every width (21 Nov). Waits for Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.

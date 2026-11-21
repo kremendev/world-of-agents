@@ -2878,6 +2878,12 @@ button.tp-card:hover {
   font-weight: 600;
 }
 
+/* "Show me" on one line at every width; the text beside it wraps instead (Dima, 21 Nov: two lines at 360) */
+.hud-needs-rows button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .hud-needs-more {
   flex: none;
   align-self: flex-end;
