@@ -12,6 +12,22 @@ A minute later in the same run:
 
 ![The Library from its room view, where the Reviewer reads the Backend dev's server.js at its desk. The Reviewer's card is open: Skeleton, model Opus, reading, its task and its read-only tools, with Follow and Show in Activity.](docs/media/live-review.png)
 
+## New in v4.0
+
+**The Forge Keep in 3D.** The hall's page is now a walled town on a floating island, nine areas joined by paths, where
+the five agents walk to where their work is: a goblin Lead/PM, an elf Designer, two orc devs and a reaper Reviewer.
+Turn it, pan it and zoom in; zoomed in, a house opens so you can see inside. Resting agents wander the keep's idle
+places and talk, the furnace glows with the work, and an agent that needs you raises a hand over its name tag.
+
+**A HUD you work in.** The run and its tasks along the top, the rooms on the left, the agents along the bottom with a
+card for each (Follow, Show in Activity), the activity feed and the task board in a drawer on the right, and a banner
+with **Show me** when an agent needs your approval. It works while the keep loads, on a phone, by keyboard, and with
+reduced motion.
+
+Where the browser can't draw WebGL 2, the page shows the pixel-art hall of v3. The keep's 3D models are Dmitriy
+Kremen's, all rights reserved, not under the MIT licence (see [Credits and license](#credits-and-license)). Nothing changes in the
+plugin, so updating needs no new setup. The details are in the [release notes](docs/release-notes/v4.0.0.md).
+
 ## New in v3.10
 
 **A team per project, one skill library.** Each project now has a team of its own: its own specialists and its own
@@ -130,6 +146,7 @@ The guard now denies Claude Code's built-in agents, which v2 never checked. That
 
 - **Claude Code 2.1.312 or later**, the CLI or the Claude desktop app's Code tab, logged in with your Claude plan. Older versions refuse the team pane or weren't tested with it. Works on Pro. Max recommended for guild runs, because they use the plan faster. [Install it](https://code.claude.com/docs/en/quickstart) if you don't have it. Runs count against your plan's limits, and claude.ai shares those limits.
 - **Requires Node.js 20.19 or later on PATH.** Tested on 24.22.0. The plugin's hooks run on it, and the guard fails closed: without Node, every agent start and every Bash or PowerShell command in a project with the plugin is blocked with `hook error: [node ${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs]: failed; blocking because onFailure is "block" Error occurred while executing hook command: Executable not found in $PATH: "node"`. Install Node, or turn the plugin off for that project: `claude plugin disable world-of-agents@world-of-agents --scope local` in the project folder.
+- **A browser that draws WebGL 2** for the Forge Keep: any recent Edge, Chrome, Firefox or Safari. Without it the page shows the pixel-art hall instead.
 - **On Windows:** Git Bash (it comes with Git for Windows), for `woa`, which is a bash script, and for the setup skills: Claude Code runs their fixed command through Git Bash, and nobody has tried them without it. The voice uses Windows' own speech synthesizer, so it speaks on Windows only. Claude Code has no sandbox on native Windows (see Known limits).
 
 Tested on Windows 11. Claude Code 2.1.312 and 2.1.319 load the plugin and pass the pane's own tests (`claude plugin validate` and `claude plugin test`), and the desktop app was checked with its engine at 2.1.321. v3.0.0 also ran on 2.1.299, but from v3.0.1 the pane reads one setting with a call nobody has tried on versions before 2.1.312; 2.1.295 and 2.1.296 refuse the pane.
@@ -187,13 +204,13 @@ Press Ctrl+C in terminal 1 to stop the hall.
 **1. Add the marketplace.** You do this once on each PC, and it turns nothing on. In a Claude Code session:
 
 ```text
-/plugin marketplace add kremendev/world-of-agents#v3.10.0
+/plugin marketplace add kremendev/world-of-agents#v4.0.0
 ```
 
 Or in a terminal:
 
 ```bash
-claude plugin marketplace add kremendev/world-of-agents#v3.10.0
+claude plugin marketplace add kremendev/world-of-agents#v4.0.0
 ```
 
 **2. Install it for one project only, from a terminal.** In the project folder:

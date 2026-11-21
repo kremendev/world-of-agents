@@ -31,7 +31,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4f.4 CLAUDE.md and the README text
 - [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking): moved to 4.0.1, not there when T ended (21 Nov)
 - [x] T the test phase (later, with Dima)
-- [ ] R the release prep (no tag)
+- [x] R the release prep (no tag)
 
 ## How to work
 
@@ -351,6 +351,14 @@ clip wasn't there when T ended: 4.0.1. T is done.
 `docs/release-notes/v4.0.0.md`, and a check list for Dima's desktop check in the shape of
 `docs/release-notes/v3.10.0-check.md` (fresh install, Demo, Live, needs-you, Team page, the 2D fallback with WebGL off,
 reduced motion). Then stop: Dima checks, then says tag.
+
+**R, done (21 Nov).** The version first, so the README's pictures show it: 4.0.0 in `plugin.json`, `package.json` and
+its lock, and the pane's `PLUGIN_VERSION`, the bundled hall rebuilt (68303e4). Then `docs/release-notes/v4.0.0.md` (the
+keep, the HUD, accessibility, security, the models' licence, updating from v3.10.0), the README's "New in v4.0" above
+v3.10's, its install pins and `plugin/README.md`'s on `#v4.0.0`, WebGL 2 under its requirements, and
+`docs/release-notes/v4.0.0-check.md` in the shape of v3.10.0's: what Claude ran (the 2D fallback with WebGL off among
+it, in real Edge, run for this list), and Dima's nine steps (the dev install's version first, then a fresh install,
+the Demo, Live, needs-you, the Team page, the fallback, reduced motion and the shots). No tag, no release.
 
 ## Later, after v4.0.0 (not in this push)
 

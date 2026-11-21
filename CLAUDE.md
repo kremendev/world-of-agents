@@ -1338,4 +1338,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     Then Dima's half of T (21 Nov): the scalings fine, the look approved, the Narrator pass replaced by an axe-core scan
     (tools/world-check/axe.mjs, passing in six states after its one finding); his four fixes (the phone at 320 x 480, the
     card's model line, the skull trophies as one piece, the scan); the README's pictures (D22). T is done. The raised-hand
-    clip wasn't there, so it is 4.0.1's. Next: R, the release prep (no tag), then Dima's desktop check.
+    clip wasn't there, so it is 4.0.1's. R is done (21 Nov): v4.0.0 prepared, not tagged (plugin.json 4.0.0,
+    docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Waits for Dima: his desktop check,
+    docs/release-notes/v4.0.0-check.md, then the tag.
