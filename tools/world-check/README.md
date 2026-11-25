@@ -110,8 +110,9 @@ npx tsx tools/world-check/hall-standin.ts plugin/hall/page 4397
 node tools/world-check/axe.mjs http://127.0.0.1:4397/
 ```
 
-axe-core (a pinned dev dependency, used here only) over six states (Dima, 21 Nov, in place of a Narrator pass):
-loading, a run at work, a card open, needs-you, the drawer closed, and a phone at 320 x 480 with a card open. The stand-in
+axe-core (a pinned dev dependency, used here only) over eight states (Dima, 21 Nov, in place of a Narrator pass):
+loading, a run at work, a card open, needs-you, the drawer closed, a phone at 320 x 480 with a card open, and (25 Nov,
+which T never opened) the review board open in the drawer at 1440 x 900 and on a phone at 360 x 640. The stand-in
 hall replays what POST /ctl gives it ({ "reset": true }, { "events": [...] }); the page checks each event itself. axe goes
 in through the browser's own channel, so the page's policy stays on. What it can't decide (text over the canvas, whose
 ground it can't see) it lists to look at by hand: `src/hud/contrast.test.ts` holds the HUD's colours.

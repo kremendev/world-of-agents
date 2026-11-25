@@ -823,3 +823,16 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   two of the strip's three items whole, the third a scroll away (each item three lines at that width; all three would
   need about 380 px). Nine planted bugs caught. Shots: `t-shots-3\release\phone-*-three-waiting*.png`. Why: the
   request's own words, then the accessibility rule (a drawer that shows only its heading hides what it was opened for).
+- **Dima's desktop pass, 25 Nov, the review board in the drawer.** "Show in Activity" on the Reviewer opened the review
+  board over the drawer's feed with no ground: the headings overlapped and the feed showed through the findings. The
+  cause was not `--panel` (defined on `:root`): `.hud-panel .panel { border: 0; background: transparent; }`, the HUD's
+  "no second box" rule, took the board's ground with every panel's. `.team-panel` shares the board's base rule but no
+  component renders it any more (the Team page replaced it in v3.6), so it is untouched. Choice: one rule after that
+  one, `.hud-panel .review-board`: `--ui-surface`, 1rem padding as the feed has, the drawer's corners at the bottom; the
+  board was already a column with its heading and Close above `.review-scroll`, and App already makes the feed inert.
+  `layout.test.ts` would have caught it: the board's rule after the stripping one, its ground from the tokens, its
+  scroll (five planted bugs caught). axe.mjs scans two new states, the board in the drawer at 1440 x 900 and on a phone
+  at 360 x 640: no violation; what axe left to look at by hand (text whose ground it couldn't see over the feed) was
+  checked against the ground behind it: every text in the board, the banner and the card at 7.36:1 or more. Measured in
+  Edge: the ground opaque, the board inside the drawer, heading and Close in view before and after its list scrolls,
+  the feed inert, the focus on its heading. Shots: `t-shots-3\release\board-after-*.png`. Why: the request's own words.

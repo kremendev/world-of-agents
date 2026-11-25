@@ -2223,6 +2223,15 @@ button.tp-card:hover {
   background: transparent;
 }
 
+/* But the review board lies over the feed (Dima's desktop pass, 25 Nov: the rule above took its ground, and the feed
+   showed through): a solid ground of its own, the drawer's padding and its corners at the bottom; its heading and Close
+   stay at the top while .review-scroll scrolls; the feed under it is inert, as App makes it. */
+.hud-panel .review-board {
+  padding: 1rem;
+  border-radius: 0 0 0.75rem 0.75rem;
+  background: var(--ui-surface);
+}
+
 .hud-button {
   min-height: 2.5rem;
   padding: 0 0.875rem;

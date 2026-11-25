@@ -1344,5 +1344,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     (21 Nov), and the banner's Show me on one line at every width (21 Nov). On 25 Nov the traces showed his list hadn't
     run on 4.0.0 (the dev install still 3.10.0), so Claude ran it on throwaway copies; it found Show me missing a walking
     agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends); on a phone
-    the banner shows two rows, then "and N more" opens Activity (his decision 2). Waits for
+    the banner shows two rows, then "and N more" opens Activity (his decision 2); and his desktop pass found the review
+    board transparent in the drawer, now on a ground of its own. Waits for
     Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.

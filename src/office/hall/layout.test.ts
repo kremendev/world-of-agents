@@ -245,6 +245,33 @@ describe('text sizes and fonts', () => {
     expect(button).toMatch(/color: inherit;/);
   });
 
+  it("the review board in the HUD's drawer has a ground of its own over the feed (Dima's desktop pass, 25 Nov)", () => {
+    // a HUD panel takes the box off every panel in it, the board's ground with it: the feed showed through
+    const strip = rules.findIndex((r) => r.selector === '.hud-panel .panel');
+    expect(rules[strip]!.body).toMatch(/background: transparent;/);
+    // the board's own rule is as specific and comes after it, so it wins: an opaque ground from the HUD's tokens
+    const board = rules.findIndex((r) => r.selector === '.hud-panel .review-board');
+    expect(board).toBeGreaterThan(strip);
+    const body = rules[board]!.body;
+    expect(body).toMatch(/background: var\(--ui-surface\);/);
+    expect(css).toMatch(/--ui-surface: #[0-9a-f]{6};/);
+    expect(body).toMatch(/padding: 1rem;/);
+    expect(body).toMatch(/border-radius: 0 0 0\.75rem 0\.75rem;/);
+    // over the feed, a column whose list scrolls under its heading and Close
+    const base = rules.find((r) =>
+      r.selector
+        .split(',')
+        .map((s) => s.trim())
+        .includes('.review-board'),
+    )!.body;
+    expect(base).toMatch(/position: absolute;/);
+    expect(base).toMatch(/inset: 0;/);
+    expect(base).toMatch(/flex-direction: column;/);
+    const list = rules.find((r) => r.selector === '.review-scroll')!.body;
+    expect(list).toMatch(/overflow-y: auto;/);
+    expect(list).toMatch(/min-height: 0;/);
+  });
+
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
     expect(rules.find((r) => r.selector === '.hall')!.body).toMatch(/overflow: clip/);
   });

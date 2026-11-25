@@ -1,6 +1,7 @@
 // The accessibility scan (T, Dima, 21 Nov, in place of a Narrator pass): axe-core over each state of the HUD in the
 // installed Edge, on the bundled hall's page from the stand-in hall (hall-standin.ts), its policy on. States: loading,
-// a run at work, a card open, needs-you, the drawer closed, and a phone at 320 x 480 with a card open. Prints every
+// a run at work, a card open, needs-you, the drawer closed, a phone at 320 x 480 with a card open, and (Dima's desktop
+// pass, 25 Nov) the review board open in the drawer, at 1440 x 900 and on a phone at 360 x 640. Prints every
 // violation by state; exits 1 on any serious or critical one. axe runs through the browser's own channel, not as a page
 // script, so the page's policy stays as it is.
 //
@@ -38,6 +39,45 @@ const RUN = () => [
   state('frontend', 'writing', 't2'),
   state('backend', 'writing', 't3'),
 ];
+// two of the Reviewer's reports in its format, so the review board has a review and an earlier one
+const report = (verdict) =>
+  [
+    'I reviewed the sign-up form and its API.',
+    '',
+    '## Verdict',
+    '',
+    verdict,
+    '',
+    '## Files checked',
+    '',
+    '- server/routes/signup.ts',
+    '',
+    '## Findings',
+    '',
+    verdict === 'Approved'
+      ? '- None'
+      : '- server/routes/signup.ts:12: the email is never checked for its length',
+    '',
+    '## Checks run',
+    '',
+    '- Read server/routes/signup.ts',
+    '',
+    '## Left for the Lead',
+    '',
+    '- Run the tests',
+  ].join('\n');
+const REVIEWS = () => [
+  ev({ type: 'message', from: 'reviewer', to: 'lead', text: report('Changes needed') }),
+  ev({ type: 'message', from: 'reviewer', to: 'lead', text: report('Approved') }),
+];
+// the Reviewer's card, then its "Show in Activity": the review board over the drawer's feed
+async function openBoard(page) {
+  await page.locator('.hud-agent[data-agent="reviewer"]').click();
+  await wait(500);
+  await page.getByRole('button', { name: /^Show in Activity/ }).click();
+  await page.waitForSelector('.review-board');
+  await wait(500);
+}
 
 const results = [];
 const errors = [];
@@ -118,6 +158,18 @@ try {
     await page.locator('.hud-agent[data-agent="designer"]').click();
     await wait(500);
     await scan(page, 'phone 320 with a card');
+    await context.close();
+  }
+  await ctl({ events: REVIEWS() });
+  for (const [width, height, name] of [
+    [1440, 900, 'review board in the drawer'],
+    [360, 640, 'phone 360 with the review board'],
+  ]) {
+    const { context, page } = await open(width, height);
+    await ready(page);
+    await wait(2000);
+    await openBoard(page);
+    await scan(page, name);
     await context.close();
   }
 } finally {
