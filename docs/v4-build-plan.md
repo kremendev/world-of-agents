@@ -796,3 +796,16 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   at 400 and 1 at 1440 (`showme-*.png`). Found, not changed (a look change, Dima's call): at 320 x 480 with three
   waiting the banner runs 56 px under the agent list, which covers the third row's Show me; with the old rule it ran 11
   px under it, its own padding and border. At 360 x 640 three rows leave 149 px. Why: the request's own words.
+- **Dima, 25 Nov, Show me on a walking agent.** Claude's run of the v4.0.0 list on throwaway copies found Show me
+  landing where a walking figure was when pressed: the flight takes 1.1 s, and a dev that has just started work
+  hurries to its desk, which is when its first approval request comes; the Backend dev was under the drawer 3 s after
+  the press and off the window at 6 s. Decision A, with one change for reduced motion: the flight aims at the figure as
+  it moves; if it still walks when the flight lands, the camera keeps it in view until it stands, then stops on its
+  own; a hand move (and a click, which stops any flight) stops it at once; Follow stays off. Reduced motion: no
+  tracking, which is camera motion: a cut to where its walk ends (a held figure's next place), the card opened there.
+  Choice: `showMeAim()` in walkers.ts, pure, beside `landed()`, with tests for walking, standing and held, and reduced
+  motion (five planted bugs caught); world.ts's `showing` moves the flight's end with the figure, then eases the view
+  after it as Follow does, ending when the figure no longer walks; the house it walks to opens. Measured in Edge on
+  the bundled page (run 4's hooks through send.mjs): walking, the tag inside the free area at every sample through the
+  whole 42 s walk, then still once the dev sat; standing, at the free area's middle (826, 394) as before; reduced
+  motion, at the middle within 100 ms and never moving after. Why: the request's own words.

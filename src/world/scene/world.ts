@@ -33,7 +33,7 @@ import { forgeFlicker, forgeLook } from '../forge';
 import { figureMode } from '../clips';
 import { screenLit } from '../screens';
 import { idleTick, type IdleRuns, type Where } from '../idleRun';
-import { isHeld, landed, sendTo, standingAt, step, whereIs, type Walker } from '../walkers';
+import { isHeld, landed, sendTo, showMeAim, standingAt, step, whereIs, type Walker } from '../walkers';
 import { createAreas } from './areas';
 import { applyTownBloom } from './bloom';
 import { FIGURES, SEATED, createCast, fetchCast, groundAt, type AgentKey, type Mode } from './cast';
@@ -264,6 +264,10 @@ export async function createWorld(opts: WorldOptions) {
     tt: THREE.Vector3;
     tp: THREE.Vector3;
   } | null = null;
+  // Show me on a walking figure (Dima, 25 Nov): its flight aims at it as it moves, then the camera keeps it in view
+  // until it stands and stops on its own; whatever stops a flight stops this too. Follow stays off. Never with reduced
+  // motion, whose Show me cuts to where the walk ends.
+  let showing: AgentKey | null = null;
   let focusRoom: string | null = null;
   let openHouses = false;
   function flyTo(target: THREE.Vector3, pos: THREE.Vector3) {
@@ -284,6 +288,7 @@ export async function createWorld(opts: WorldOptions) {
   }
   /** The camera to the overview, or to a room the way the town frames one (and that house opens). */
   function flyToRoom(id: RoomId | 'overview') {
+    showing = null;
     if (id === 'overview') {
       focusRoom = null;
       flyTo(HOME.t.clone(), HOME.p.clone());
@@ -323,12 +328,14 @@ export async function createWorld(opts: WorldOptions) {
   }
   const handMove = () => {
     fly = null;
+    showing = null;
     following = null;
     handMoved?.();
   };
   let hoverAt = 0;
   const onPointerDown = (e: PointerEvent) => {
     fly = null;
+    showing = null;
     down = { x: e.clientX, y: e.clientY, moved: false };
   };
   const onPointerMove = (e: PointerEvent) => {
@@ -899,6 +906,7 @@ export async function createWorld(opts: WorldOptions) {
   let frames = 0;
   let paused = false;
   const followAt = new THREE.Vector3();
+  const showAt = new THREE.Vector3();
   // the page's labels (4d.6): where each figure's head is on screen, after the camera has moved, every frame
   const walkingNow: Partial<Record<AgentKey, boolean>> = {};
   // idle life (4c.2): each resting agent's activity, run a few times a second; a fixed seed, so a check sees one keep
@@ -1140,12 +1148,29 @@ export async function createWorld(opts: WorldOptions) {
         airship.rotation.y = Math.atan2(-Math.cos(u.a), -Math.sin(u.a));
       }
     }
+    // Show me's figure, while it walks: the flight's end moves with it, the camera's offset from it kept
+    if (showing) {
+      cast.actors[showing].root.getWorldPosition(showAt);
+      showAt.y += 0.8;
+    }
     if (fly) {
+      if (showing) {
+        fly.tp.add(showAt).sub(fly.tt);
+        fly.tt.copy(showAt);
+      }
       const k = Math.min(1, (performance.now() - fly.t0) / fly.dur);
       const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
       controls.target.lerpVectors(fly.ft, fly.tt, e);
       camera.position.lerpVectors(fly.fp, fly.tp, e);
       if (k >= 1) fly = null;
+    } else if (showing) {
+      // landed with the figure still walking: kept in view as Follow keeps one, until it stands
+      if (!walkingNow[showing]) showing = null;
+      else {
+        const delta = showAt.sub(controls.target).multiplyScalar(Math.min(1, dt * 4));
+        controls.target.add(delta);
+        camera.position.add(delta);
+      }
     } else if (following) {
       // the town's follow: the point the camera orbits eases to the figure, and the camera moves with it
       cast.actors[following].root.getWorldPosition(followAt);
@@ -1279,14 +1304,23 @@ export async function createWorld(opts: WorldOptions) {
       };
     },
     /**
-     * Show me (4d.7, D17): the camera to a figure, from the side it looks from now, 14 m away, in about a second (a cut
-     * with reduced motion); the house the figure is in opens.
+     * Show me (4d.7, D17): the camera to a figure, from the side it looks from now, 14 m away, in about a second; the
+     * house the figure is in, or walks to, opens. A walking figure is kept in view until it stands (Dima, 25 Nov). With
+     * reduced motion a cut, to where its walk ends (showMeAim()).
      */
     flyToAgent(id: AgentKey) {
       following = null;
-      const sp = SPOTS[walkers[id].spot];
+      const now = performance.now();
+      const w = step(walkers[id], now, FIGURES[id].speed, REDUCE);
+      const aim = showMeAim(w, now, REDUCE);
+      const sp = SPOTS[aim.spot];
       focusRoom = HOUSES[sp.room] && !sp.out ? sp.room : null;
-      const target = cast.actors[id].root.getWorldPosition(new THREE.Vector3());
+      showing = aim.track ? id : null;
+      // the figure itself, unless reduced motion's cut goes where it is yet to be (held, its next place)
+      const there = !REDUCE || (!w.walk && !isHeld(w, now));
+      const target = there
+        ? cast.actors[id].root.getWorldPosition(new THREE.Vector3())
+        : new THREE.Vector3(aim.x, groundY(aim.x, aim.z), aim.z);
       target.y += 0.8;
       const dir = camera.position.clone().sub(controls.target);
       if (dir.lengthSq() < 1e-6) dir.set(0.45, 0.85, 0.9);
@@ -1299,6 +1333,7 @@ export async function createWorld(opts: WorldOptions) {
     /** Keeps a figure in view as it walks (null: stops), until a hand move; a flight in progress ends. */
     follow(id: AgentKey | null) {
       following = id;
+      showing = null;
       if (id) {
         fly = null;
         focusRoom = null;

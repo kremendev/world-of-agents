@@ -159,6 +159,26 @@ export function landed(w: Walker, now: number): Walker {
   return w;
 }
 
+/**
+ * Where Show me aims (Dima, 25 Nov), and whether the camera keeps the figure in view after it gets there. Walking: where
+ * the figure is now, `track` on, so the flight follows it as it moves and the camera keeps it in view until it stands.
+ * Standing, or held at its work spot: where it stands. With reduced motion nothing tracks, which would be camera motion:
+ * the camera cuts to where its walk ends, a held figure's next place, as landed() has it. `spot`: the spot aimed at, or
+ * the one the walk goes to (its house opens).
+ */
+export function showMeAim(
+  w: Walker,
+  now: number,
+  reducedMotion: boolean,
+): { x: number; z: number; spot: SpotId; track: boolean } {
+  if (reducedMotion) {
+    const end = landed(w, now).spot;
+    return { ...at(end), spot: end, track: false };
+  }
+  const here = whereIs(w, now);
+  return { x: here.x, z: here.z, spot: w.walk ? w.walk.to : w.spot, track: here.walking };
+}
+
 /** Held at its work spot now: its work has ended, but it hasn't left. */
 export const isHeld = (w: Walker, now: number) => w.holdUntil !== null && now < w.holdUntil;
 

@@ -192,8 +192,9 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   the agents are, pure: START and IDLE_AREAS (never a work room or the Forge for idle), WORK, FETCH,
                   VISIT, CHECK, and placeFor(), the 2D hall's destinationFor() on the keep's spots with Dima's answers
                   (map.ts has 4b's seven spots after the town's 21). walkers.ts (4b): the 2D hall's walkers with the
-                  town's turn mid-path at the 2.5x hurry, the 3 s desk hold and reduced motion's jump; world.ts's
-                  update(office, live) and restart(), fed by WorldView. 4c: idle.ts (D9's idle activities on the
+                  town's turn mid-path at the 2.5x hurry, the 3 s desk hold and reduced motion's jump, and
+                  showMeAim() (25 Nov: Show me keeps a walking figure in view until it stands; reduced motion cuts to
+                  where its walk ends); world.ts's update(office, live) and restart(), fed by WorldView. 4c: idle.ts (D9's idle activities on the
                   keep's idle spots, pure and seeded), idleRun.ts (the walkers' side: who moves on, never two on one
                   spot), clips.ts (the pose-to-clip table, SEATED, figureMode(): a needs-you figure's raised hand),
                   forge.ts (the furnace's colour and heat by working count), screens.ts (each lit screen at its
@@ -1340,4 +1341,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     card's model line, the skull trophies as one piece, the scan); the README's pictures (D22). T is done. The raised-hand
     clip wasn't there, so it is 4.0.1's. R is done (21 Nov): v4.0.0 prepared, not tagged (plugin.json 4.0.0,
     docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Then the skull poles as one piece too
-    (21 Nov), and the banner's Show me on one line at every width (21 Nov). Waits for Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.
+    (21 Nov), and the banner's Show me on one line at every width (21 Nov). On 25 Nov the traces showed his list hadn't
+    run on 4.0.0 (the dev install still 3.10.0), so Claude ran it on throwaway copies; it found Show me missing a walking
+    agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends). Waits for
+    Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.

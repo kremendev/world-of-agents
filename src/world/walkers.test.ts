@@ -6,6 +6,7 @@ import {
   isHeld,
   landed,
   sendTo,
+  showMeAim,
   standingAt,
   step,
   whereIs,
@@ -174,5 +175,67 @@ describe('the walkers', () => {
     expect(landed(held, T0 + 100)).toEqual(standingAt('court-bench', T0 + 100));
     const still = standingAt('yard-1', 5);
     expect(landed(still, T0)).toBe(still);
+  });
+
+  describe('where Show me aims (Dima, 25 Nov)', () => {
+    const walking = sendTo(standingAt('court-bench', 0), 'desk-frontend', T0, SPEED, false);
+    const mid = (T0 + endOf(walking)) / 2;
+
+    it('a walking figure: where it is now, and the camera keeps it in view until it stands', () => {
+      const aim = showMeAim(walking, mid, false);
+      const here = whereIs(walking, mid);
+      expect(here.walking).toBe(true);
+      expect(aim).toEqual({ x: here.x, z: here.z, spot: 'desk-frontend', track: true });
+      // not where it set out from, nor where it is going: the press's own moment
+      expect(near(aim, pos('court-bench'), 0.5)).toBe(false);
+      expect(near(aim, pos('desk-frontend'), 0.5)).toBe(false);
+      // a walk that has got there tracks no more, at its end
+      expect(showMeAim(walking, endOf(walking) + 1, false)).toEqual({
+        ...pos('desk-frontend'),
+        spot: 'desk-frontend',
+        track: false,
+      });
+    });
+
+    it('a standing figure, or one held at its work spot: where it stands, nothing tracked', () => {
+      expect(showMeAim(standingAt('yard-1', 5), T0, false)).toEqual({
+        ...pos('yard-1'),
+        spot: 'yard-1',
+        track: false,
+      });
+      const held: Walker = {
+        ...standingAt('desk-backend', T0),
+        holdUntil: T0 + MIN_DESK_MS,
+        next: 'court-bench',
+      };
+      expect(showMeAim(held, T0 + 100, false)).toEqual({
+        ...pos('desk-backend'),
+        spot: 'desk-backend',
+        track: false,
+      });
+    });
+
+    it('with reduced motion: where its walk ends, a held figure its next place, and never tracked', () => {
+      expect(showMeAim(walking, mid, true)).toEqual({
+        ...pos('desk-frontend'),
+        spot: 'desk-frontend',
+        track: false,
+      });
+      const held: Walker = {
+        ...standingAt('desk-backend', T0),
+        holdUntil: T0 + MIN_DESK_MS,
+        next: 'court-bench',
+      };
+      expect(showMeAim(held, T0 + 100, true)).toEqual({
+        ...pos('court-bench'),
+        spot: 'court-bench',
+        track: false,
+      });
+      expect(showMeAim(standingAt('yard-1', 5), T0, true)).toEqual({
+        ...pos('yard-1'),
+        spot: 'yard-1',
+        track: false,
+      });
+    });
   });
 });
