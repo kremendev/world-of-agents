@@ -2891,6 +2891,21 @@ button.tp-card:hover {
   font-size: 0.8125rem;
 }
 
+/* on a phone "and N more" is a button to everyone waiting, in Activity (Dima, 25 Nov): the banner's words, underlined */
+button.hud-needs-more {
+  min-height: 2rem;
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /*
  * Narrow windows (4d.9, D15). Under 70rem the rooms are a menu behind the top bar's "Rooms" button, and what sat right of
  * the rail moves to the edge; under 48rem (a phone) the drawer and the card take the whole width. The top bar wraps as
@@ -2973,8 +2988,23 @@ button.tp-card:hover {
     right: var(--hud-edge);
   }
 
+  /* unless that leaves it under 18rem (a short phone with the banner's two rows): then it starts higher, over the
+     banner's lower part, never over the top bar, so "and N more" shows its For you strip (Claude's call, 25 Nov) */
   .hud-drawer {
-    top: calc(var(--hud-top) + var(--hud-under, 0px));
+    top: max(var(--hud-top), min(calc(var(--hud-top) + var(--hud-under, 0px)), calc(100% - 18rem)));
+  }
+
+  /* two rows at most there, then "and N more" on a line of its own under them, at the right (Dima, 25 Nov) */
+  .hud-needs {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: 0.25rem;
+  }
+
+  .hud-needs-more {
+    grid-column: 2;
+    justify-self: end;
+    margin: 0;
   }
 }
 

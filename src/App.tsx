@@ -7,7 +7,7 @@ import { AgentCard } from './hud/AgentCard';
 import { AgentList } from './hud/AgentList';
 import { Drawer, type DrawerTab } from './hud/Drawer';
 import { HudStatus } from './hud/HudStatus';
-import { NeedsYou } from './hud/NeedsYou';
+import { BANNER_ROWS, NeedsYou, PHONE_ROWS } from './hud/NeedsYou';
 import { drawerStartsOpen, saveDrawer } from './hud/drawerChoice';
 import { freeArea } from './hud/freeArea';
 import { usePhone } from './hud/phone';
@@ -247,6 +247,14 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
       openBoard(null);
       return;
     }
+    setBoard(null);
+    focusActivity.current = true;
+  };
+  // A phone's banner shows two agents, then "and N more" (Dima, 25 Nov): the drawer on Activity, the review board off
+  // it, so its "For you" strip, which lists everyone waiting, is in view; the focus on Activity's heading.
+  const showWaiting = () => {
+    setDrawer(true);
+    setTab('activity');
     setBoard(null);
     focusActivity.current = true;
   };
@@ -613,7 +621,12 @@ export default function App({ teamSession = null }: { teamSession?: Promise<Exch
             </header>
             <div ref={under} className="hud-under">
               {waitingIds.length > 0 ? (
-                <NeedsYou waiting={waitingIds} onShowMe={showMe} />
+                <NeedsYou
+                  waiting={waitingIds}
+                  onShowMe={showMe}
+                  rows={phone ? PHONE_ROWS : BANNER_ROWS}
+                  onMore={phone ? showWaiting : undefined}
+                />
               ) : (
                 // while a run has tasks the top bar says it all, so Live's generic line goes; the Lead waiting for your
                 // next message is your cue, and offline, ended and restarted are news: those stay (Dima, 20 Nov)

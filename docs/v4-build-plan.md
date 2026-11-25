@@ -809,3 +809,17 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   the bundled page (run 4's hooks through send.mjs): walking, the tag inside the free area at every sample through the
   whole 42 s walk, then still once the dev sat; standing, at the free area's middle (826, 394) as before; reduced
   motion, at the middle within 100 ms and never moving after. Why: the request's own words.
+- **Dima, 25 Nov, the phone banner (decision 2).** At 320 x 480 three waiting agents ran the banner 56 px under the
+  agent list, over the third Show me (found 21 Nov). Now under 48rem the banner shows two rows, then "and N more", a
+  button whose name starts with its words ("and 1 more: everyone waiting, in Activity"), which opens the drawer on
+  Activity, the review board off it, the focus on Activity's heading; its For you strip lists everyone waiting. Wider,
+  three rows and "and N more" as words, as before. Choice: `rows` and `onMore` on NeedsYou, App giving them on a phone;
+  the phone banner a grid (icon | rows, the button under the rows at the right); the 21 Nov test narrowed to what it
+  protects (nothing narrower touches the rows, their buttons or their text). Claude's call, found by the shots: on a
+  phone the drawer opens under the banner (Dima, 20 Nov), which at 320 x 480 under two rows left it 70 px, its heading
+  alone; so it starts under the banner unless that leaves it under 18rem, then higher, over the banner's lower part,
+  never over the top bar (taller phones unchanged; 360 x 640 now covers the "and N more" line). Measured at 320 x 480:
+  the banner ends 4 px above the agent list; after "and 1 more" the drawer (192 to 464) shows the tabs, the heading and
+  two of the strip's three items whole, the third a scroll away (each item three lines at that width; all three would
+  need about 380 px). Nine planted bugs caught. Shots: `t-shots-3\release\phone-*-three-waiting*.png`. Why: the
+  request's own words, then the accessibility rule (a drawer that shows only its heading hides what it was opened for).

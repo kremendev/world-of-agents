@@ -522,6 +522,36 @@ describe('the needs-you banner and Show me, in Live (4d.7)', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Backend dev' })).toHaveFocus();
   });
 
+  it('on a phone, two rows, then "and N more" opens Activity, its For you strip listing everyone waiting (Dima, 25 Nov)', async () => {
+    undoLayout();
+    undoLayout = stubLayout(320, 480);
+    await live(needs('designer'), needs('frontend', 2), needs('backend', 3));
+    expect(screen.getAllByRole('button', { name: /^Show me/ })).toHaveLength(2);
+    expect(screen.queryByRole('complementary', { name: 'Activity and tasks' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /^and 1 more/ }));
+    const drawer = screen.getByRole('complementary', { name: 'Activity and tasks' });
+    expect(within(drawer).getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true');
+    const strip = within(drawer).getByRole('region', { name: 'For you' });
+    expect(
+      within(strip)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual([
+      expect.stringMatching(/^Needs youBackend dev/),
+      expect.stringMatching(/^Needs youFrontend dev/),
+      expect.stringMatching(/^Needs youDesigner/),
+    ]);
+    expect(screen.getByRole('heading', { name: 'Activity' })).toHaveFocus();
+  });
+
+  it('wider than a phone, three rows and "and N more" as words (D18)', async () => {
+    await live(needs('lead'), needs('designer', 2), needs('frontend', 3), needs('backend', 4));
+    const banner = screen.getByRole('region', { name: 'Needs you' });
+    expect(within(banner).getAllByRole('button', { name: /^Show me/ })).toHaveLength(3);
+    expect(within(banner).getByText('and 1 more')).toBeInTheDocument();
+    expect(within(banner).queryByRole('button', { name: /^and 1 more/ })).toBeNull();
+  });
+
   it('goes back to the status line once nobody waits', async () => {
     const { container } = await live(needs('backend'));
     act(() => FakeEventSource.latest.send({ type: 'state', agent: 'backend', state: 'writing', at: 3 }));

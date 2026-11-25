@@ -209,7 +209,7 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   (`onWorld`), and when the 2D hall takes over (`onFallback`)
 src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md, the approved mockup in words). TopBar
                   (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
-                  under 70rem the Rooms menu button; under 48rem three rows, the run last and no tiles), HudStatus (the status line, but not Live's generic one while a run has tasks), NeedsYou (the banner, Show me; under 48rem the whole width, the drawer and its handle under it, App measuring
+                  under 70rem the Rooms menu button; under 48rem three rows, the run last and no tiles), HudStatus (the status line, but not Live's generic one while a run has tasks), NeedsYou (the banner, Show me; under 48rem the whole width, two rows, then an "and N more" button to Activity's For you strip (25 Nov), the drawer and its handle under it (over its lower part when under would leave the drawer under 18rem), App measuring
                   --hud-under),
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
@@ -1343,5 +1343,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     docs/release-notes/v4.0.0.md, README's "New in v4.0" and pins on #v4.0.0). Then the skull poles as one piece too
     (21 Nov), and the banner's Show me on one line at every width (21 Nov). On 25 Nov the traces showed his list hadn't
     run on 4.0.0 (the dev install still 3.10.0), so Claude ran it on throwaway copies; it found Show me missing a walking
-    agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends). Waits for
+    agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends); on a phone
+    the banner shows two rows, then "and N more" opens Activity (his decision 2). Waits for
     Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.

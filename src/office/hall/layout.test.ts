@@ -157,7 +157,10 @@ describe('text sizes and fonts', () => {
     const under = phone.find((r) => r.selectors.includes('.hud-under'));
     expect(under?.body).toMatch(/right: var\(--hud-edge\);/);
     const drawer = phone.filter((r) => r.selectors.includes('.hud-drawer')).map((r) => r.body);
-    expect(drawer.join('')).toMatch(/top: calc\(var\(--hud-top\) \+ var\(--hud-under, 0px\)\);/);
+    // under it, unless that leaves it under 18rem: then over the banner's lower part, never over the top bar (25 Nov)
+    expect(drawer.join('')).toMatch(
+      /top: max\(var\(--hud-top\), min\(calc\(var\(--hud-top\) \+ var\(--hud-under, 0px\)\), calc\(100% - 18rem\)\)\);/,
+    );
     // its handle is in the top bar there (Dima, 21 Nov): nothing places a floating one
     expect(phone.some((r) => r.selectors.includes('.hud-handle'))).toBe(false);
     // wider, the drawer keeps beside what is under the top bar, from the top bar's edge
@@ -219,9 +222,27 @@ describe('text sizes and fonts', () => {
     expect(button).toMatch(/white-space: nowrap;/);
     // the text is what gives way
     expect(rules.find((r) => r.selector === '.hud-needs-text')!.body).toMatch(/min-width: 0;/);
-    // and no narrower window takes either back
+    // and no narrower window takes either back: nothing there touches the rows, their buttons or their text
     for (const query of ['(max-width: 70rem)', '(max-width: 48rem)', '(max-width: 22.5rem)'])
-      expect(phoneRules(query).some((r) => r.selectors.some((s) => s.startsWith('.hud-needs')))).toBe(false);
+      expect(
+        phoneRules(query).some((r) =>
+          r.selectors.some((s) => s.startsWith('.hud-needs-rows') || s.startsWith('.hud-needs-text')),
+        ),
+      ).toBe(false);
+  });
+
+  it('on a phone the banner\'s "and N more" goes on a line of its own under the rows, at the right (Dima, 25 Nov)', () => {
+    const phone = phoneRules();
+    const banner = phone.find((r) => r.selectors.includes('.hud-needs'));
+    expect(banner?.body).toMatch(/display: grid;/);
+    expect(banner?.body).toMatch(/grid-template-columns: auto minmax\(0, 1fr\);/);
+    const more = phone.find((r) => r.selectors.includes('.hud-needs-more'));
+    expect(more?.body).toMatch(/grid-column: 2;/);
+    expect(more?.body).toMatch(/justify-self: end;/);
+    // there it is a button: a target of 2rem at least, in the banner's own colour
+    const button = rules.find((r) => r.selector === 'button.hud-needs-more')!.body;
+    expect(button).toMatch(/min-height: 2rem;/);
+    expect(button).toMatch(/color: inherit;/);
   });
 
   it('the hall clips: a hidden label past its edge must not make the page scroll sideways', () => {
