@@ -1346,5 +1346,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends); on a phone
     the banner shows two rows, then "and N more" opens Activity (his decision 2); and his desktop pass found the review
     board transparent in the drawer, now on a ground of its own. Claude's run of the nine steps, again from nothing on
-    that build, is in docs/release-notes/v4.0.0-check.md; the dev install is refreshed. Waits for Dima: Show me and the
-    review board in the app (that file's "What needs you"), then the tag.
+    that build, is in docs/release-notes/v4.0.0-check.md; the dev install is refreshed. Dima's desktop pass passed (26
+    Nov, woa-m2-test): the pane and the badge at 4.0.0, the voice, the banner, Show me on the Backend dev, the review
+    board on a solid panel. Then the tag.
