@@ -73,6 +73,20 @@ describe('the agent card (4d.4)', () => {
     expect(screen.getByRole('button', { name: 'Following' })).toHaveAttribute('aria-pressed', 'true');
   });
 
+  it('Follow looks like an ordinary button while off, in the primary colours only while on (4.0.1)', () => {
+    const h = handlers();
+    const { rerender } = render(
+      <AgentCard office={INITIAL_OFFICE} agent="designer" following={false} {...h} />,
+    );
+    const off = screen.getByRole('button', { name: 'Follow' });
+    expect(off).toHaveClass('hud-button');
+    expect(off).not.toHaveClass('hud-primary');
+    // as plain as "Show in Activity" beside it
+    expect(off.className).toBe(screen.getByRole('button', { name: 'Show in Activity' }).className);
+    rerender(<AgentCard office={INITIAL_OFFICE} agent="designer" following {...h} />);
+    expect(screen.getByRole('button', { name: 'Following' })).toHaveClass('hud-button', 'hud-primary');
+  });
+
   it('gives its heading to a ref, focusable, for Show me to move the focus to', () => {
     const ref = createRef<HTMLHeadingElement>();
     render(

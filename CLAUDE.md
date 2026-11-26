@@ -212,7 +212,7 @@ src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md
                   under 70rem the Rooms menu button; under 48rem, from 4.0.1, the title row with "Live" at its end, then one row of 2.5rem icon buttons (Rooms, Activity, Play and Pause as one, Next step, Restart, and in the Demo before its tasks "New task", which opens the input in place of that row), the run last and no tiles), HudStatus (the status line, but not Live's generic one while a run has tasks), NeedsYou (the banner, Show me; under 48rem the whole width, two rows, then an "and N more" button to Activity's For you strip (25 Nov), the drawer and its handle under it (over its lower part when under would leave the drawer under 18rem), App measuring
                   --hud-under),
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
-                  AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
+                  AgentCard (AgentPanel without its portrait, the keep model's look, Follow (from 4.0.1 an ordinary button while off, "Following" in the primary colours while on), Show in Activity), Drawer (+ drawerChoice.ts: the
                   viewer's last choice in localStorage, every access in a try/catch), WorldLabels (+ labels.ts: the name
                   tags and bubbles over the canvas, moved each frame; settleTags(): no tag over another, each held 4 px inside the window; leaderLine(): a tag moved over 12 px from its head
                   gets a 1 px line down to it), useBox
@@ -1352,4 +1352,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     fast-forwarded to it, the GitHub release from docs/release-notes/v4.0.0.md; an install from the README's pinned
     `#v4.0.0` line in a throwaway config reports 4.0.0 and its cache is `plugin/` as tagged, and the Pages demo shows
     v4.0.0. His projects woa-test and woa-v3-test moved to it (26 Nov). 4.0.1 (his brief, 26 Nov, in the plan's log):
-    item 1 done, the phone's Demo top bar in one row of controls under the title, 7.34rem.
+    item 1 done, the phone's Demo top bar in one row of controls under the title, 7.34rem; item 2 done, Follow an
+    ordinary button while off.

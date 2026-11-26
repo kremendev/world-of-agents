@@ -855,3 +855,8 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   no violation (two new states in axe.mjs). Twelve planted bugs caught. Shots: `D:\Dev\scratch\t-shots-401`,
   `before-*` and `after-*`. Why: the request's own words, then the smaller build (one toggle, icons, a button that
   opens the input, rather than a menu that hides controls).
+- **4.0.1, item 2 (Dima's brief, 26 Nov): Follow's two looks.** Off it was orange (`hud-primary` whatever its state);
+  now off it is an ordinary button, "Follow", as plain as "Show in Activity" beside it, and on it is "Following" in the
+  primary colours, `aria-pressed` as before. A React test for both states (two planted bugs caught: always primary,
+  and the looks swapped). Measured in Edge: off the raised ground and the text colour, on the accent and its text.
+  Shots: `D:\Dev\scratch\t-shots-401\follow-*.png`. Why: the request's own words.

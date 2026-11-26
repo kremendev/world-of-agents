@@ -60,7 +60,8 @@ export function AgentCard({
         <div className="hud-card-actions">
           <button
             type="button"
-            className="hud-button hud-primary"
+            // an ordinary button while off, the primary colours only while on (4.0.1)
+            className={following ? 'hud-button hud-primary' : 'hud-button'}
             aria-pressed={following}
             disabled={!canFollow}
             onClick={onFollow}
