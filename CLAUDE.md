@@ -1353,4 +1353,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     `#v4.0.0` line in a throwaway config reports 4.0.0 and its cache is `plugin/` as tagged, and the Pages demo shows
     v4.0.0. His projects woa-test and woa-v3-test moved to it (26 Nov). 4.0.1 (his brief, 26 Nov, in the plan's log):
     item 1 done, the phone's Demo top bar in one row of controls under the title, 7.34rem; item 2 done, Follow an
-    ordinary button while off; item 3 done, README picture 2 close in on the Reviewer at its Library desk.
+    ordinary button while off; item 3 done, README picture 2 close in on the Reviewer at its Library desk; the
+    raised-hand clip's files weren't there, so it moves to 4.0.2. v4.0.1 is prepared, not tagged (plugin.json 4.0.1,
+    docs/release-notes/v4.0.1.md, its checklist v4.0.1-check.md, README pins on #v4.0.1). Waits for Dima: his check,
+    then the tag.

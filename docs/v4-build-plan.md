@@ -29,7 +29,7 @@ answers are Dima's decisions (he asked for the best choice to be taken for each)
 - [x] 4f.2 the size budget test
 - [x] 4f.3 the bundled hall's types
 - [x] 4f.4 CLAUDE.md and the README text
-- [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking): moved to 4.0.1, not there when T ended (21 Nov)
+- [ ] CLIP the raised-hand clip (whenever Dima's files are there; not blocking): moved to 4.0.1, not there when T ended (21 Nov); moved to 4.0.2, not there when 4.0.1's items 1 to 3 were done (26 Nov)
 - [x] T the test phase (later, with Dima)
 - [x] R the release prep (no tag)
 
@@ -363,7 +363,9 @@ the Demo, Live, needs-you, the Team page, the fallback, reduced motion and the s
 ## Later, after v4.0.0 (not in this push)
 
 **4.0.1** (Dima, 21 Nov): the raised-hand clip (CLIP, once Dima's files are there); a shorter Demo top bar on phones
-(10.81rem now); README picture 2's small Reviewer.
+(10.81rem now); README picture 2's small Reviewer. Built 26 Nov (items 1 to 3 below, in the log); the clip wasn't there.
+
+**4.0.2**: the raised-hand clip (CLIP), once Dima's files are in `D:\Dev\assets\world-of-agents\tripo\raise-hand\`.
 
 The apprentice figures (B); more clips (read, the keyboard smash, spar, drink, hammer, paint) through 4e's checks; the
 crease-lines render for Dima; the scrying orb's flat look; frame-time tuning from T's numbers.
@@ -870,3 +872,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   alone on a dark floor) and the other sides (walls between). Looked at before adding: the feed says only what the
   redacted run said ("Dima", as the run did, and `<path>` where paths were redacted), no personal path. The README's
   alt text says what it shows now. Shots: `D:\Dev\scratch\t-shots-401\readme-2-*`. Why: the request's own words.
+- **4.0.1, items 4 and 5 (Dima's brief, 26 Nov): the clip, then the release prep.** The clip's folder,
+  `D:\Dev\assets\world-of-agents\tripo\raise-hand\`, didn't exist once items 1 to 3 were done (the `tripo` folder holds
+  only the 17 Nov exports), so 4.0.1 ships without the clip and CLIP moves to 4.0.2; the release notes say so. The prep, as 4.0.0's: 4.0.1 in plugin.json,
+  package.json and its lock (its own two lines; escape-string-regexp's 4.0.0 is that package's) and the pane's
+  PLUGIN_VERSION, the bundled hall rebuilt; the README's and plugin/README.md's pins on `#v4.0.1`; README picture 2
+  retaken with item 3's framing on the 4.0.1 build, so it shows the version it is of; docs/release-notes/v4.0.1.md
+  (the changes, the clip's move, updating from v4.0.0 or v3.10.0) and v4.0.1-check.md for Dima. Found while moving his
+  projects to v4.0.0: `claude plugin marketplace remove` says it deletes the plugin's data; the pane's store
+  (`~/.claude/plugins/store/world-of-agents_world-of-agents-*.json`, last written 20 Nov) was still there after it, so
+  the "This PC" count and mute stay, which the notes say. No tag.
