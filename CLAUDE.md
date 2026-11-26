@@ -1345,5 +1345,6 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     run on 4.0.0 (the dev install still 3.10.0), so Claude ran it on throwaway copies; it found Show me missing a walking
     agent, now kept in view until it stands (Dima's decision A; reduced motion cuts to where the walk ends); on a phone
     the banner shows two rows, then "and N more" opens Activity (his decision 2); and his desktop pass found the review
-    board transparent in the drawer, now on a ground of its own. Waits for
-    Dima: his desktop check, docs/release-notes/v4.0.0-check.md, then the tag.
+    board transparent in the drawer, now on a ground of its own. Claude's run of the nine steps, again from nothing on
+    that build, is in docs/release-notes/v4.0.0-check.md; the dev install is refreshed. Waits for Dima: Show me and the
+    review board in the app (that file's "What needs you"), then the tag.
