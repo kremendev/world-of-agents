@@ -10,7 +10,7 @@ You run Claude Code in your project. A team of five does the work: Lead/PM, Desi
 
 A minute later in the same run:
 
-![The Library from its room view, where the Reviewer reads the Backend dev's server.js at its desk. The Reviewer's card is open: Skeleton, model Opus, reading, its task and its read-only tools, with Follow and Show in Activity.](docs/media/live-review.png)
+![Close in on the Library, where the Reviewer, a hooded skeleton, reads the Backend dev's server.js at its desk by a candle, the bookshelves behind it. The Reviewer's card is open: Skeleton, model Opus, reading, its task and its read-only tools, with Follow and Show in Activity.](docs/media/live-review.png)
 
 ## New in v4.0
 

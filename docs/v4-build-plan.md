@@ -860,3 +860,13 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   primary colours, `aria-pressed` as before. A React test for both states (two planted bugs caught: always primary,
   and the looks swapped). Measured in Edge: off the raised ground and the text colour, on the accent and its text.
   Shots: `D:\Dev\scratch\t-shots-401\follow-*.png`. Why: the request's own words.
+- **4.0.1, item 3 (Dima's brief, 26 Nov): README picture 2 again.** The D22 picture showed the whole Library from its
+  room view, the Reviewer small behind its tag. Retaken as D22 made it: run 3's redacted hooks replayed into the
+  stand-in hall (tools/world-check/hall-standin.ts), 1440 x 900 in Edge on the GPU, to the moment the Reviewer reads
+  server.js at its Library desk. Choice: the Library's room view (the side the Library is seen from), the Reviewer's
+  card and Follow to put it in the middle, eight notches of the wheel in towards it (a hand move, so Follow ends and the
+  card shows a plain "Follow", item 2), and the camera lowered from there by 80 px of drag: the reaper large at its
+  desk by the candle, its skull, hood and robe against the bookshelves. Tried and dropped: steeper views (the dark hood
+  alone on a dark floor) and the other sides (walls between). Looked at before adding: the feed says only what the
+  redacted run said ("Dima", as the run did, and `<path>` where paths were redacted), no personal path. The README's
+  alt text says what it shows now. Shots: `D:\Dev\scratch\t-shots-401\readme-2-*`. Why: the request's own words.
