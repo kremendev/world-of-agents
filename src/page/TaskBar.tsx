@@ -1,14 +1,29 @@
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { MAX_TASK_CHARS, cleanTask } from './task';
 
 /**
  * The task bar at the top of the right-hand column, in the demo only: a real run's task is typed in Claude Code, and
  * the page never sends anything to an agent. Sending hands the cleaned text up and clears the field; empty sends do nothing.
- * `compact` (the HUD's top bar, 4d.2): one row, its label and note there for screen readers only.
+ * `compact` (the HUD's top bar, 4d.2): one row, its label and note there for screen readers only. `autoFocus` and
+ * `onCancel` (a phone's top bar, 4.0.1): the field takes the focus as it opens, and Esc in it closes it, nothing else.
  */
-export function TaskBar({ onSend, compact = false }: { onSend: (task: string) => void; compact?: boolean }) {
+export function TaskBar({
+  onSend,
+  compact = false,
+  autoFocus = false,
+  onCancel,
+}: {
+  onSend: (task: string) => void;
+  compact?: boolean;
+  autoFocus?: boolean;
+  onCancel?: () => void;
+}) {
   const [draft, setDraft] = useState('');
   const id = useId();
+  const field = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (autoFocus) field.current?.focus();
+  }, [autoFocus]);
 
   const send = (event: FormEvent) => {
     event.preventDefault();
@@ -25,8 +40,15 @@ export function TaskBar({ onSend, compact = false }: { onSend: (task: string) =>
       </label>
       <div className="task-row">
         <input
+          ref={field}
           id={`${id}-input`}
           type="text"
+          onKeyDown={(e) => {
+            if (e.key !== 'Escape' || !onCancel) return;
+            e.preventDefault();
+            e.stopPropagation();
+            onCancel();
+          }}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           maxLength={MAX_TASK_CHARS}

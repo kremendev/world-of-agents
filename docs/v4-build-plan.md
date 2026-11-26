@@ -836,3 +836,22 @@ crease-lines render for Dima; the scrying orb's flat look; frame-time tuning fro
   checked against the ground behind it: every text in the board, the banner and the card at 7.36:1 or more. Measured in
   Edge: the ground opaque, the board inside the drawer, heading and Close in view before and after its list scrolls,
   the feed inert, the focus on its heading. Shots: `t-shots-3\release\board-after-*.png`. Why: the request's own words.
+- **4.0.1, item 1 (Dima's brief, 26 Nov): a shorter Demo top bar on phones.** It was 10.81rem at 320, 360 and 400 px
+  (four rows: the title, Rooms and Activity, the five demo controls, the task input) and 9.53rem with tasks. Target:
+  7.5rem or less at all three in the Demo, with and without tasks; no control lost; the focus order the order on
+  screen; buttons at least 2.5rem. Measured first: at 320 px the bar's content is 262 px wide and its title alone 142,
+  so 7.5rem holds the title row and one row of 2.5rem buttons (plus the run line), never two. Choice, Claude's
+  arrangement for Dima's review: the title row ends in "Live" ("Back to live" or "Go live", the word alone, its full
+  name kept; the icon and the word were 72 px, where the row has 51 at 320 and 67 at 400); one row under it of six
+  2.5rem icon buttons 0.25rem apart: Rooms (a floor plan, named "Rooms"), Activity (a list, its unread count a badge on
+  the corner, named as before), Play and Pause as one button (the one that works now, disabled once the run has
+  ended), Next step, Restart, and, while the run has no tasks, "New task" (a plus), which opens the task input in
+  place of that row (the field, Send, and a close button; the focus into the field; Esc, the close button or sending
+  closes it and puts the focus back on "New task"); then the run line. The bar's padding 0.25rem on a phone. Wider than
+  a phone nothing changes. Rooms and Activity are icons in Live on a phone too, the same buttons, so Live's phone bar
+  (Rooms, Activity, Play demo, Team) is one row there as well. Measured in Edge on the bundled page: the Demo 7.34rem at
+  320, 360 and 400, with tasks and without; New task open 5.88rem; Live 5.31rem; every control 2.5rem, inside the bar,
+  the focus order the order on screen at every width; axe over the phone's Demo bar, with New task open and without:
+  no violation (two new states in axe.mjs). Twelve planted bugs caught. Shots: `D:\Dev\scratch\t-shots-401`,
+  `before-*` and `after-*`. Why: the request's own words, then the smaller build (one toggle, icons, a button that
+  opens the input, rather than a menu that hides controls).

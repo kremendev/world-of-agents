@@ -199,6 +199,34 @@ describe('text sizes and fonts', () => {
     expect(rules.filter((r) => r.selector.includes('card-open'))).toHaveLength(1);
   });
 
+  it("on a phone the Demo's controls fit one row under the title, the bar 7.5rem at most (4.0.1)", () => {
+    const phone = phoneRules();
+    const bar = phone
+      .filter((r) => r.selectors.includes('.hud-top'))
+      .map((r) => r.body)
+      .join('');
+    // six 2.5rem buttons 0.25rem apart fit the 16.5rem a 320 px window leaves them; 0.25rem of padding keeps the bar's
+    // title row (as tall as its "Live"), the controls and the run line under 7.5rem
+    expect(bar).toMatch(/padding: 0\.25rem 0\.75rem;/);
+    expect(bar).toMatch(/gap: 0\.25rem;/);
+    expect(phone.find((r) => r.selectors.includes('.hud-top .hud-group'))?.body).toMatch(/gap: 0\.25rem;/);
+    expect(phone.find((r) => r.selectors.includes('.hud-top .hud-controls'))?.body).toMatch(/gap: 0\.25rem;/);
+    expect(phone.find((r) => r.selectors.includes('.hud-brand .hud-live'))?.body).toMatch(
+      /margin-left: auto;/,
+    );
+    // the task input in place of the controls: in a row, the field giving way, never its close button
+    expect(phone.find((r) => r.selectors.includes('.hud-top .hud-writing'))?.body).toMatch(
+      /flex-direction: row;/,
+    );
+    expect(phone.find((r) => r.selectors.includes('.hud-writing .task-bar'))?.body).toMatch(/min-width: 0;/);
+    expect(phone.find((r) => r.selectors.includes('.hud-writing > .hud-icon'))?.body).toMatch(/flex: none;/);
+    // the Activity icon's count on its corner, so the button keeps its 2.5rem
+    expect(rules.find((r) => r.selector === '.hud-icon.hud-activity .hud-badge')!.body).toMatch(
+      /position: absolute;/,
+    );
+    expect(rules.find((r) => r.selector === '.hud-live')!.body).toMatch(/min-width: 2\.5rem;/);
+  });
+
   it('on a phone nothing reaches past the top bar: its controls wrap inside it (Dima, 21 Nov)', () => {
     const controls = phoneRules().find((r) => r.selectors.includes('.hud-top .hud-controls'));
     expect(controls?.body).toMatch(/flex: 0 1 auto;/);

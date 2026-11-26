@@ -2385,12 +2385,21 @@ button.tp-card:hover {
   justify-content: center;
 }
 
-/* "Back to live" and "Go live" on a phone: an icon and "Live" (Dima, 21 Nov). */
-.hud-short {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0 0.625rem;
+/* "Back to live" and "Go live" on a phone: "Live" alone, in the title's row (Dima, 21 Nov; 4.0.1 without the icon) */
+.hud-live {
+  min-width: 2.5rem;
+  padding: 0 0.5rem;
+}
+
+/* the phone's Activity icon: its unread count a badge on the corner, so the button keeps its 2.5rem */
+.hud-icon.hud-activity {
+  position: relative;
+}
+
+.hud-icon.hud-activity .hud-badge {
+  position: absolute;
+  top: -0.375rem;
+  right: -0.375rem;
 }
 
 .hud-chip {
@@ -2970,9 +2979,38 @@ button.hud-needs-more {
 
   /* the top bar in three rows (Dima, 20 Nov): the title and chips, Rooms and the controls, then the run (TopBar puts it
      last in the page there too) */
+  /* the controls in one row under the title (4.0.1, Dima's brief: 7.5rem at most): six 2.5rem buttons 4 px apart,
+     the title's row as tall as its "Live", the run line under them, inside 0.25rem of padding */
   .hud-top {
-    padding: 0.375rem 0.75rem;
-    gap: 0.25rem 0.5rem;
+    padding: 0.25rem 0.75rem;
+    gap: 0.25rem;
+  }
+
+  .hud-top .hud-group {
+    gap: 0.25rem;
+  }
+
+  /* "Live" at the title row's end */
+  .hud-brand .hud-live {
+    margin-left: auto;
+  }
+
+  /* the task input open in place of the controls: the field, Send, and its close button */
+  .hud-top .hud-writing {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .hud-writing .task-bar {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  /* the field gives way, never the 2.5rem close button */
+  .hud-writing > .hud-icon {
+    flex: none;
   }
 
   .hud-top .hud-brand,
@@ -2989,6 +3027,7 @@ button.hud-needs-more {
     flex: 0 1 auto;
     flex-wrap: wrap;
     min-width: 0;
+    gap: 0.25rem;
   }
 
   /* the banner, or the status line, the whole width under the top bar, and the drawer under that (Dima, 20 Nov; App

@@ -209,7 +209,7 @@ src/world/        v4.0.0, the Forge Keep in 3D (docs/v4.0-plan.md), ported from 
                   (`onWorld`), and when the 2D hall takes over (`onFallback`)
 src/hud/          v4.0.0, 4d: the HUD over the Forge Keep (docs/v4-build-plan.md, the approved mockup in words). TopBar
                   (title, chips, the run line and tiles or the demo's task input, the icon buttons, Play demo, Team, and
-                  under 70rem the Rooms menu button; under 48rem three rows, the run last and no tiles), HudStatus (the status line, but not Live's generic one while a run has tasks), NeedsYou (the banner, Show me; under 48rem the whole width, two rows, then an "and N more" button to Activity's For you strip (25 Nov), the drawer and its handle under it (over its lower part when under would leave the drawer under 18rem), App measuring
+                  under 70rem the Rooms menu button; under 48rem, from 4.0.1, the title row with "Live" at its end, then one row of 2.5rem icon buttons (Rooms, Activity, Play and Pause as one, Next step, Restart, and in the Demo before its tasks "New task", which opens the input in place of that row), the run last and no tiles), HudStatus (the status line, but not Live's generic one while a run has tasks), NeedsYou (the banner, Show me; under 48rem the whole width, two rows, then an "and N more" button to Activity's For you strip (25 Nov), the drawer and its handle under it (over its lower part when under would leave the drawer under 18rem), App measuring
                   --hud-under),
                   RoomsRail (+ rooms.ts: who is in which room, pure), AgentList (+ agents.ts: an agent in words),
                   AgentCard (AgentPanel without its portrait, the keep model's look, Follow, Show in Activity), Drawer (+ drawerChoice.ts: the
@@ -1351,4 +1351,5 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     board on a solid panel. v4.0.0 is released (26 Nov): `release:check` passed, tag `v4.0.0` on `88be4a6`, main
     fast-forwarded to it, the GitHub release from docs/release-notes/v4.0.0.md; an install from the README's pinned
     `#v4.0.0` line in a throwaway config reports 4.0.0 and its cache is `plugin/` as tagged, and the Pages demo shows
-    v4.0.0. Next: Dima's projects move with the notes' "Updating from v3.10.0"; 4.0.1 is docs/v4-build-plan.md's Later.
+    v4.0.0. His projects woa-test and woa-v3-test moved to it (26 Nov). 4.0.1 (his brief, 26 Nov, in the plan's log):
+    item 1 done, the phone's Demo top bar in one row of controls under the title, 7.34rem.

@@ -167,10 +167,89 @@ describe("the HUD's top bar (4d.2)", () => {
       before(screen.getByRole('button', { name: 'Team' }), line);
     });
 
-    it("puts the demo's task input after its controls", () => {
+    it('has the task input behind "New task", which opens it in place of the controls (4.0.1)', () => {
       undo = stubLayout(400, 800);
+      const demo = controls();
+      bar({ office: INITIAL_OFFICE, demo, rooms });
+      expect(screen.queryByRole('textbox')).toBeNull();
+      const group = screen.getByRole('group', { name: 'Demo run' });
+      const newTask = within(group).getByRole('button', { name: 'New task' });
+      // the last of the controls, after Restart
+      before(within(group).getByRole('button', { name: 'Restart' }), newTask);
+      fireEvent.click(newTask);
+      // the controls make room: the field, Send and its close button, the focus in the field
+      const input = screen.getByRole('textbox', { name: 'Task for the Lead/PM' });
+      expect(input).toHaveFocus();
+      expect(screen.queryByRole('group', { name: 'Demo run' })).toBeNull();
+      expect(screen.queryByRole('button', { name: 'Rooms' })).toBeNull();
+      before(input, screen.getByRole('button', { name: 'Send' }));
+      before(
+        screen.getByRole('button', { name: 'Send' }),
+        screen.getByRole('button', { name: 'Close the task input' }),
+      );
+      // Esc closes it, and the focus goes back to "New task"
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(screen.getByRole('button', { name: 'New task' })).toHaveFocus();
+      // and so does its close button
+      fireEvent.click(screen.getByRole('button', { name: 'New task' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Close the task input' }));
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(screen.getByRole('button', { name: 'New task' })).toHaveFocus();
+      // sending sends it and closes the field
+      fireEvent.click(screen.getByRole('button', { name: 'New task' }));
+      fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Build a login page' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+      expect(demo.onSend).toHaveBeenCalledWith('Build a login page');
+      expect(screen.queryByRole('textbox')).toBeNull();
+      expect(screen.getByRole('button', { name: 'New task' })).toHaveFocus();
+    });
+
+    it('has no "New task" once the run has its tasks, nor in a wider window, where the input shows as before', () => {
+      undo = stubLayout(400, 800);
+      const { unmount } = bar({ rooms });
+      expect(screen.queryByRole('button', { name: 'New task' })).toBeNull();
+      unmount();
+      undo();
+      undo = stubLayout(800, 800);
       bar({ office: INITIAL_OFFICE, rooms });
-      before(screen.getByRole('group', { name: 'Demo run' }), screen.getByRole('textbox'));
+      expect(screen.queryByRole('button', { name: 'New task' })).toBeNull();
+      expect(screen.getByRole('textbox', { name: 'Task for the Lead/PM' })).toBeInTheDocument();
+    });
+
+    it('has Play and Pause as one button, the one that works now (4.0.1)', () => {
+      undo = stubLayout(320, 480);
+      const playing = controls('playing');
+      const { unmount } = bar({ demo: playing, rooms });
+      expect(screen.queryByRole('button', { name: 'Play' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+      expect(playing.onPause).toHaveBeenCalledOnce();
+      unmount();
+      const paused = controls('paused');
+      const second = bar({ demo: paused, rooms });
+      expect(screen.queryByRole('button', { name: 'Pause' })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+      expect(paused.onPlay).toHaveBeenCalledOnce();
+      second.unmount();
+      // a run that has ended can't play on: Restart starts it again
+      bar({ demo: controls('ended'), rooms });
+      expect(screen.getByRole('button', { name: 'Play' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Restart' })).toBeEnabled();
+    });
+
+    it('has Rooms as an icon there, named, and in words in a wider window (4.0.1)', () => {
+      undo = stubLayout(320, 480);
+      const { unmount } = bar({ rooms });
+      const icon = screen.getByRole('button', { name: 'Rooms' });
+      expect(icon).toHaveTextContent(/^$/);
+      expect(icon).toHaveAttribute('title', 'Rooms');
+      expect(icon).toHaveAttribute('aria-expanded', 'false');
+      expect(icon.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+      unmount();
+      undo();
+      undo = stubLayout(800, 800);
+      bar({ rooms });
+      expect(screen.getByRole('button', { name: 'Rooms' })).toHaveTextContent(/^Rooms$/);
     });
 
     it('keeps the tiles and the run before the controls in a wider window', () => {
@@ -180,7 +259,7 @@ describe("the HUD's top bar (4d.2)", () => {
       before(screen.getByText(/^Run: /), screen.getByRole('button', { name: 'Play demo' }));
     });
 
-    it('shows "Back to live" and "Go live" as an icon and "Live", still named in full (Dima, 21 Nov)', () => {
+    it('shows "Back to live" and "Go live" as "Live" in the title\'s row, still named in full (Dima, 21 Nov; 4.0.1)', () => {
       undo = stubLayout(320, 480);
       const onBackToLive = vi.fn();
       const onGoLive = vi.fn();
@@ -193,7 +272,11 @@ describe("the HUD's top bar (4d.2)", () => {
         // the words on it are part of its name, so speaking what is seen works
         expect(button).toHaveTextContent(/^Live$/);
         expect(button).toHaveAttribute('title', name);
-        expect(button.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+        // the word alone: the icon left the title's row no room
+        expect(button.querySelector('svg')).toBeNull();
+        // in the title's row, so before Rooms on screen and for the focus
+        before(screen.getByRole('heading', { level: 1 }), button);
+        before(button, screen.getByRole('button', { name: 'Rooms' }));
         fireEvent.click(button);
         expect(run).toHaveBeenCalledOnce();
       }
@@ -206,8 +289,11 @@ describe("the HUD's top bar (4d.2)", () => {
       const handle = screen.getByRole('button', { name: 'Activity, 2 for you' });
       expect(handle).toHaveAttribute('aria-expanded', 'false');
       expect(handle).toHaveAttribute('aria-controls', 'drawer');
-      expect(handle.textContent).toBe('Activity 2');
+      // an icon and its count (4.0.1), the count a badge its name already says
+      expect(handle.textContent).toBe('2');
+      expect(handle.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
       expect(handle.querySelector('.hud-badge')).toHaveAttribute('aria-hidden', 'true');
+      expect(handle).toHaveAttribute('title', 'Activity, 2 for you');
       before(screen.getByRole('button', { name: 'Rooms' }), handle);
       before(handle, screen.getByRole('group', { name: 'Demo run' }));
       fireEvent.click(handle);

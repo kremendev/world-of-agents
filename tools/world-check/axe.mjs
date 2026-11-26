@@ -1,7 +1,8 @@
 // The accessibility scan (T, Dima, 21 Nov, in place of a Narrator pass): axe-core over each state of the HUD in the
 // installed Edge, on the bundled hall's page from the stand-in hall (hall-standin.ts), its policy on. States: loading,
 // a run at work, a card open, needs-you, the drawer closed, a phone at 320 x 480 with a card open, and (Dima's desktop
-// pass, 25 Nov) the review board open in the drawer, at 1440 x 900 and on a phone at 360 x 640. Prints every
+// pass, 25 Nov) the review board open in the drawer, at 1440 x 900 and on a phone at 360 x 640, and (4.0.1) the phone's
+// Demo top bar at 360, with New task open and without. Prints every
 // violation by state; exits 1 on any serious or critical one. axe runs through the browser's own channel, not as a page
 // script, so the page's policy stays as it is.
 //
@@ -170,6 +171,20 @@ try {
     await wait(2000);
     await openBoard(page);
     await scan(page, name);
+    await context.close();
+  }
+  // the phone's Demo top bar (4.0.1): its icon buttons, and the task input open in place of them
+  {
+    const { context, page } = await open(360, 640);
+    await ready(page);
+    await wait(1500);
+    await page.getByRole('button', { name: 'Play demo' }).click();
+    await page.waitForSelector('.hud-top .hud-group');
+    await wait(500);
+    await scan(page, 'phone 360 in the Demo');
+    await page.getByRole('button', { name: 'New task' }).click();
+    await page.waitForSelector('.hud-writing');
+    await scan(page, 'phone 360 with New task open');
     await context.close();
   }
 } finally {

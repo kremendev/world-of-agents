@@ -1,11 +1,10 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type Ref } from 'react';
 import { agentById } from '../office/roster';
 import { STATE_STYLE } from '../office/states';
 import { STATUS_CHIP } from '../office/tasks';
 import { TaskBar } from '../page/TaskBar';
 import { doneCount, type OfficeState } from '../state/office';
 import { activityLabel } from './activityLabel';
-import { ActivityWords } from './Drawer';
 import { usePhone } from './phone';
 
 export type RunStatus = 'playing' | 'paused' | 'ended';
@@ -92,25 +91,51 @@ const ICONS = {
       strokeLinejoin="round"
     />
   ),
-  live: (
+  // a phone's own (4.0.1): the rooms as a floor plan, the activity as a list, a new task, and closing its input
+  rooms: (
+    <path
+      d="M2.5 2.5h11v11h-11zM2.5 8h5M7.5 2.5v8M10.5 8v5.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+  ),
+  activity: (
     <>
-      <circle cx="8" cy="8" r="2" fill="currentColor" />
       <path
-        d="M5 5a4.2 4.2 0 0 0 0 6M11 5a4.2 4.2 0 0 1 0 6M2.8 2.8a7.3 7.3 0 0 0 0 10.4M13.2 2.8a7.3 7.3 0 0 1 0 10.4"
+        d="M6 4h7.5M6 8h7.5M6 12h7.5"
         fill="none"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.6"
         strokeLinecap="round"
       />
+      <circle cx="2.8" cy="4" r="1.1" fill="currentColor" />
+      <circle cx="2.8" cy="8" r="1.1" fill="currentColor" />
+      <circle cx="2.8" cy="12" r="1.1" fill="currentColor" />
     </>
+  ),
+  add: (
+    <path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+  ),
+  close: (
+    <path
+      d="M3.5 3.5l9 9M12.5 3.5l-9 9"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+    />
   ),
 };
 
-/** "Back to live" and "Go live": on a phone an icon and "Live", still named in full (Dima, 21 Nov). */
+/**
+ * "Back to live" and "Go live": on a phone the word "Live" alone, in the title's row, still named in full (Dima, 21 Nov:
+ * the word and the full name; 4.0.1: no icon, which left the title's row no room at 320 and 400 px).
+ */
 function LiveButton({ label, phone, onClick }: { label: string; phone: boolean; onClick: () => void }) {
   return phone ? (
-    <button type="button" className="hud-button hud-short" aria-label={label} title={label} onClick={onClick}>
-      <Icon>{ICONS.live}</Icon>
+    <button type="button" className="hud-button hud-live" aria-label={label} title={label} onClick={onClick}>
       Live
     </button>
   ) : (
@@ -125,14 +150,17 @@ function IconButton({
   icon,
   onClick,
   disabled,
+  buttonRef,
 }: {
   label: string;
   icon: keyof typeof ICONS;
   onClick: () => void;
   disabled?: boolean;
+  buttonRef?: Ref<HTMLButtonElement>;
 }) {
   return (
     <button
+      ref={buttonRef}
       type="button"
       className="hud-button hud-icon"
       aria-label={label}
@@ -176,10 +204,27 @@ export function TopBar({
   const shown = tasks.length > MAX_TILES ? tasks.slice(0, MAX_TILES - 1) : tasks;
   const more = tasks.length - shown.length;
   const chip = mode.kind ? MODE_CHIP[mode.kind] : undefined;
+  const playing = demo?.status === 'playing';
+  // On a phone the demo's task input waits behind "New task" and opens in place of the controls (4.0.1, Dima's brief:
+  // the bar at 7.5rem or less); closing it, by its button, Esc or sending, puts the focus back on "New task".
+  const asking = phone && demo !== null && tasks.length === 0;
+  const [writing, setWriting] = useState(false);
+  const open = writing && asking;
+  const newTask = useRef<HTMLButtonElement>(null);
+  const refocus = useRef(false);
+  const closeWriting = () => {
+    setWriting(false);
+    refocus.current = true;
+  };
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    newTask.current?.focus();
+  });
 
   const run = (
     <div className="hud-run">
-      {demo && tasks.length === 0 ? (
+      {demo && tasks.length === 0 && !phone ? (
         <TaskBar onSend={demo.onSend} compact />
       ) : (
         <>
@@ -224,31 +269,43 @@ export function TopBar({
             {mode.label}
           </span>
         )}
+        {/* on a phone, at the title row's end */}
+        {phone && demo?.onBackToLive && <LiveButton label="Back to live" phone onClick={demo.onBackToLive} />}
+        {phone && demo?.onGoLive && <LiveButton label="Go live" phone onClick={demo.onGoLive} />}
       </div>
-      {rooms && (
+      {rooms && !open && (
         <button
           ref={rooms.buttonRef}
           type="button"
-          className="hud-button hud-rooms-button"
+          className={phone ? 'hud-button hud-icon hud-rooms-button' : 'hud-button hud-rooms-button'}
           aria-expanded={rooms.open}
           aria-controls={rooms.controls}
+          aria-label={phone ? 'Rooms' : undefined}
+          title={phone ? 'Rooms' : undefined}
           disabled={rooms.disabled}
           onClick={rooms.onToggle}
         >
-          Rooms
+          {phone ? <Icon>{ICONS.rooms}</Icon> : 'Rooms'}
         </button>
       )}
-      {phone && activity && (
+      {phone && activity && !open && (
+        // an icon, its unread count a badge on its corner (4.0.1)
         <button
           ref={activity.buttonRef}
           type="button"
-          className="hud-button hud-activity"
+          className="hud-button hud-icon hud-activity"
           aria-expanded={activity.open}
           aria-controls={activity.controls}
           aria-label={activityLabel(activity.unread)}
+          title={activityLabel(activity.unread)}
           onClick={activity.onToggle}
         >
-          <ActivityWords unread={activity.unread} />
+          <Icon>{ICONS.activity}</Icon>
+          {activity.unread > 0 && (
+            <span className="hud-badge needs" aria-hidden="true">
+              {activity.unread}
+            </span>
+          )}
         </button>
       )}
       {!phone && (
@@ -257,16 +314,33 @@ export function TopBar({
           {run}
         </>
       )}
-      {demo && (
+      {demo && !open && (
         <div className="hud-controls">
           <div className="hud-group" role="group" aria-label="Demo run">
-            <IconButton label="Play" icon="play" onClick={demo.onPlay} disabled={demo.status !== 'paused'} />
-            <IconButton
-              label="Pause"
-              icon="pause"
-              onClick={demo.onPause}
-              disabled={demo.status !== 'playing'}
-            />
+            {phone ? (
+              // Play and Pause as one button on a phone (4.0.1): the one of the two that works now
+              <IconButton
+                label={playing ? 'Pause' : 'Play'}
+                icon={playing ? 'pause' : 'play'}
+                onClick={playing ? demo.onPause : demo.onPlay}
+                disabled={demo.status === 'ended'}
+              />
+            ) : (
+              <>
+                <IconButton
+                  label="Play"
+                  icon="play"
+                  onClick={demo.onPlay}
+                  disabled={demo.status !== 'paused'}
+                />
+                <IconButton
+                  label="Pause"
+                  icon="pause"
+                  onClick={demo.onPause}
+                  disabled={demo.status !== 'playing'}
+                />
+              </>
+            )}
             <IconButton
               label="Next step"
               icon="next"
@@ -274,9 +348,28 @@ export function TopBar({
               disabled={demo.status !== 'playing'}
             />
             <IconButton label="Restart" icon="restart" onClick={demo.onRestart} />
+            {asking && (
+              <IconButton label="New task" icon="add" onClick={() => setWriting(true)} buttonRef={newTask} />
+            )}
           </div>
-          {demo.onBackToLive && <LiveButton label="Back to live" phone={phone} onClick={demo.onBackToLive} />}
-          {demo.onGoLive && <LiveButton label="Go live" phone={phone} onClick={demo.onGoLive} />}
+          {!phone && demo.onBackToLive && (
+            <LiveButton label="Back to live" phone={false} onClick={demo.onBackToLive} />
+          )}
+          {!phone && demo.onGoLive && <LiveButton label="Go live" phone={false} onClick={demo.onGoLive} />}
+        </div>
+      )}
+      {open && demo && (
+        <div className="hud-run hud-writing">
+          <TaskBar
+            onSend={(task) => {
+              demo.onSend(task);
+              closeWriting();
+            }}
+            compact
+            autoFocus
+            onCancel={closeWriting}
+          />
+          <IconButton label="Close the task input" icon="close" onClick={closeWriting} />
         </div>
       )}
       {(onPlayDemo || onTeam) && (
@@ -296,7 +389,7 @@ export function TopBar({
           )}
         </div>
       )}
-      {phone && run}
+      {phone && !open && run}
     </>
   );
 }
