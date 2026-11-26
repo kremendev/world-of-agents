@@ -1348,4 +1348,7 @@ mode, and the minimum Claude Code version is 2.1.312, the oldest measured with t
     board transparent in the drawer, now on a ground of its own. Claude's run of the nine steps, again from nothing on
     that build, is in docs/release-notes/v4.0.0-check.md; the dev install is refreshed. Dima's desktop pass passed (26
     Nov, woa-m2-test): the pane and the badge at 4.0.0, the voice, the banner, Show me on the Backend dev, the review
-    board on a solid panel. Then the tag.
+    board on a solid panel. v4.0.0 is released (26 Nov): `release:check` passed, tag `v4.0.0` on `88be4a6`, main
+    fast-forwarded to it, the GitHub release from docs/release-notes/v4.0.0.md; an install from the README's pinned
+    `#v4.0.0` line in a throwaway config reports 4.0.0 and its cache is `plugin/` as tagged, and the Pages demo shows
+    v4.0.0. Next: Dima's projects move with the notes' "Updating from v3.10.0"; 4.0.1 is docs/v4-build-plan.md's Later.
